@@ -1,0 +1,56 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - name: Install dependencies and tools
+        run: |
+          npm ci --prefix ui
+          go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.8.0
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+      - name: Run release quality gates
+        run: |
+          make check-go
+          make check-ui
+          make check-embedded-ui
+          npm audit --omit=dev --audit-level=high --registry=https://registry.npmjs.org --prefix ui
+      - name: Package Linux amd64 release
+        run: ./scripts/package-release.sh "${GITHUB_REF_NAME}" release
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: bin/boxui
+          format: spdx-json
+          output-file: release/boxui_${{ github.ref_name }}_linux_amd64.spdx.json
+          artifact-name: boxui-${{ github.ref_name }}-sbom
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            release/boxui_${{ github.ref_name }}_linux_amd64.tar.gz
+            release/boxui_${{ github.ref_name }}_linux_amd64.tar.gz.sha256
+            release/boxui_${{ github.ref_name }}_linux_amd64.spdx.json

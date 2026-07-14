@@ -1,0 +1,11 @@
+.git
+.github
+bin/
+ui/dist/
+cmd/boxui/ui/
+docs/
+*.md
+!README.md
+.env*
+Dockerfile*
+.dockerignore
