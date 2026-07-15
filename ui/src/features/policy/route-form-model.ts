@@ -198,7 +198,9 @@ function transitionFields(object: JsonObject, known: readonly PolicyFieldSpec[],
 }
 
 const knownRuleFields = uniqueFields(Object.values(ruleTypeFields))
+const routeMatchPaths = new Set<string>(routeMatchFields.map((field) => field.path))
 const knownActionFields = uniqueFields(Object.values(routeActionFields))
+  .filter((field) => !routeMatchPaths.has(field.path))
 const knownRuleSetFields = uniqueFields(Object.values(ruleSetFields))
 
 export function routeRules(object: JsonObject): JsonObject[] {

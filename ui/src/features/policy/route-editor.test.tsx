@@ -164,7 +164,7 @@ describe("route rule dialog", () => {
     await userEvent.click(screen.getByRole("tab", { name: "执行动作" }))
     expect(screen.getByRole("button", { name: "保存" })).toBeDisabled()
     await userEvent.click(screen.getByRole("tab", { name: "基础与网络" }))
-    fireEvent.change(screen.getByLabelText("子规则 JSON"), { target: { value: "[]" } })
+    fireEvent.change(screen.getByLabelText("子规则 JSON"), { target: { value: "[{}]" } })
     expect(screen.getByRole("button", { name: "保存" })).toBeEnabled()
   })
 

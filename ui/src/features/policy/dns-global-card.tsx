@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Switch } from "@/components/ui/switch"
 import { PolicyFormFields } from "@/features/policy/policy-form-fields"
-import { dnsGlobalFields, legacyFakeIPFields } from "@/features/policy/dns-form-model"
+import { dnsGlobalFields, legacyFakeIPFields, transformDNSField } from "@/features/policy/dns-form-model"
 import { getPolicyPath, setPolicyPath } from "@/features/policy/policy-form-model"
 import type { PolicyVisualEditorProps } from "@/features/policy/policy-page"
 
@@ -14,7 +14,8 @@ export function DNSGlobalCard(props: PolicyVisualEditorProps) {
   return <Card><CardHeader><CardTitle>{t("policy.dns.globalTitle")}</CardTitle>
     <CardDescription>{t("policy.dns.globalDescription")}</CardDescription></CardHeader>
     <CardContent><PolicyFormFields fields={dnsGlobalFields} object={props.object} namespace="policy.dns"
-      revision={props.revision} onChange={props.onChange} onFieldValidityChange={props.onFieldValidityChange} /></CardContent>
+      revision={props.revision} onChange={props.onChange} onFieldValidityChange={props.onFieldValidityChange}
+      transformField={transformDNSField} /></CardContent>
     <CardFooter><p className="text-muted-foreground">{t("policy.dns.globalFooter")}</p></CardFooter>
   </Card>
 }

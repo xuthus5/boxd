@@ -17,7 +17,12 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useConfigQuery, useSaveConfigMutation } from "@/features/config/config-hooks"
 import { JsonEditor } from "@/features/config/json-editor"
-import { isJsonObject, type JsonObject } from "@/features/policy/policy-form-model"
+import {
+  isJsonObject,
+  isPolicySectionStructureValid,
+  type JsonObject,
+  type PolicySection,
+} from "@/features/policy/policy-form-model"
 import type { APIEnvelope, JsonValue } from "@/lib/api/types"
 
 export interface PolicyVisualEditorProps {
@@ -28,7 +33,7 @@ export interface PolicyVisualEditorProps {
 }
 
 interface PolicyPageProps {
-  section: "route" | "dns"
+  section: PolicySection
   title: string
   installLabel: string
   install: () => Promise<APIEnvelope<JsonValue>>
@@ -36,6 +41,7 @@ interface PolicyPageProps {
 }
 
 interface PolicyEditorProps {
+  section: PolicySection
   initialSection: JsonValue
   title: string
   installLabel: string
@@ -45,6 +51,7 @@ interface PolicyEditorProps {
 }
 
 interface PolicyEditorTabsProps {
+  section: PolicySection
   object: JsonObject | null
   revision: number
   value: string
@@ -86,6 +93,7 @@ function usePolicyEditorState(initialSection: JsonValue) {
 }
 
 function PolicyEditorTabs({
+  section,
   object,
   revision,
   value,
@@ -95,6 +103,7 @@ function PolicyEditorTabs({
   renderVisual,
 }: PolicyEditorTabsProps) {
   const { t } = useTranslation()
+  const structureValid = Boolean(object && isPolicySectionStructureValid(section, object))
   return (
     <Tabs defaultValue="visual" className="min-w-0">
       <TabsList activateOnFocus className="max-w-full overflow-x-auto">
@@ -102,7 +111,12 @@ function PolicyEditorTabs({
         <TabsTrigger value="json">{t("policy.advancedTab")}</TabsTrigger>
       </TabsList>
       <TabsContent value="visual">
-        {object ? renderVisual({ object, revision, onChange, onFieldValidityChange }) : null}
+        {object && structureValid
+          ? renderVisual({ object, revision, onChange, onFieldValidityChange })
+          : object ? <Alert variant="destructive">
+            <AlertTitle>{t("policy.invalidStructureTitle")}</AlertTitle>
+            <AlertDescription>{t("policy.invalidStructureDescription")}</AlertDescription>
+          </Alert> : null}
       </TabsContent>
       <TabsContent value="json">
         <FieldGroup>
@@ -117,6 +131,7 @@ function PolicyEditorTabs({
 }
 
 function PolicyEditor({
+  section,
   initialSection,
   title,
   installLabel,
@@ -126,6 +141,7 @@ function PolicyEditor({
 }: PolicyEditorProps) {
   const { t } = useTranslation()
   const editor = usePolicyEditorState(initialSection)
+  const structureValid = Boolean(editor.object && isPolicySectionStructureValid(section, editor.object))
   const savePolicy = () => {
     if (editor.object) onSave(editor.object)
   }
@@ -138,6 +154,7 @@ function PolicyEditor({
       </CardHeader>
       <CardContent>
         <PolicyEditorTabs
+          section={section}
           object={editor.object}
           revision={editor.revision}
           value={editor.value}
@@ -149,7 +166,7 @@ function PolicyEditor({
       </CardContent>
       <CardFooter className="flex-wrap justify-between gap-2">
         <Button variant="outline" onClick={onInstall}>{installLabel}</Button>
-        <Button disabled={!editor.object || editor.invalidFields.size > 0} onClick={savePolicy}>
+        <Button disabled={!editor.object || !structureValid || editor.invalidFields.size > 0} onClick={savePolicy}>
           {t("policy.save")}
         </Button>
       </CardFooter>
@@ -193,6 +210,7 @@ export function PolicyPage({
 
   return (
     <PolicyEditor
+      section={section}
       key={JSON.stringify(initialSection)}
       initialSection={initialSection}
       title={title}

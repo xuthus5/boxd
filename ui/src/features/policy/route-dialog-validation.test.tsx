@@ -47,7 +47,7 @@ function expectEveryFieldGrouped() {
 }
 
 describe("route dialog required values", () => {
-  it("requires a logical rules array after changing from default", async () => {
+  it("requires at least one object logical child after changing from default", async () => {
     renderApp(<RouteRuleDialog open title="编辑规则" item={{ action: "reject" }}
       onOpenChange={vi.fn()} onSave={vi.fn()} />)
 
@@ -56,6 +56,10 @@ describe("route dialog required values", () => {
     expect(screen.getByRole("button", { name: "保存" })).toBeDisabled()
 
     fireEvent.change(screen.getByLabelText("子规则 JSON"), { target: { value: "[]" } })
+    expect(screen.getByRole("button", { name: "保存" })).toBeDisabled()
+    fireEvent.change(screen.getByLabelText("子规则 JSON"), { target: { value: "[1]" } })
+    expect(screen.getByRole("button", { name: "保存" })).toBeDisabled()
+    fireEvent.change(screen.getByLabelText("子规则 JSON"), { target: { value: "[{}]" } })
     expect(screen.getByRole("button", { name: "保存" })).toBeEnabled()
   })
 

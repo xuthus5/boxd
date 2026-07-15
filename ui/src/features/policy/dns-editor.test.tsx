@@ -220,8 +220,8 @@ describe("DNS rule dialog and cards", () => {
     await choose("目标 DNS 服务器", "remote")
     await userEvent.click(screen.getByRole("button", { name: "保存" }))
     expect(onSave).toHaveBeenCalledWith({ action: "route", query_type: ["A", 28], server: "remote" })
-
     await choose("执行动作", "predefined")
+    expect(screen.getByRole("button", { name: "保存" })).toBeEnabled()
     fireEvent.change(screen.getByLabelText("响应码"), { target: { value: "4096" } })
     expect(screen.getByRole("button", { name: "保存" })).toBeDisabled()
     fireEvent.change(screen.getByLabelText("响应码"), { target: { value: "REFUSED" } })

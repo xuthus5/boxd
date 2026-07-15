@@ -7,6 +7,10 @@ import {
   type PolicyFieldTransform,
 } from "@/features/policy/policy-form-model"
 import {
+  createPolicyNumberTransform,
+  type PolicyNumberConstraints,
+} from "@/features/policy/policy-number-transform"
+import {
   dnsActionCleanupFields,
   dnsRuleCleanupFields,
   dnsServerCleanupFields,
@@ -142,30 +146,23 @@ function transformRCode(object: JsonObject, raw: string): JsonObject | null {
   return rcodeNames.has(name) ? setPolicyPath(object, "rcode", name) : null
 }
 
-function prefixedMark(raw: string): boolean {
-  const normalized = /^0[0-7]+$/.test(raw) ? `0o${raw.slice(1)}` : raw
-  if (!/^0(?:[xX][\da-fA-F]+|[bB][01]+|[oO][0-7]+)$/.test(normalized)) return false
-  try {
-    return BigInt(normalized) <= 0xFFFFFFFFn
-  } catch (error) {
-    void error
-    return false
-  }
+const dnsNumberConstraints: PolicyNumberConstraints = {
+  ip_version: { kind: "integer", maximum: 6, allowed: [4, 6] },
+  source_port: { kind: "integer-list", maximum: 0xFFFF },
+  port: { kind: "integer-list", maximum: 0xFFFF },
+  user_id: { kind: "integer-list", maximum: 0x7FFFFFFF },
+  server_port: { kind: "integer", maximum: 0xFFFF },
+  cache_capacity: { kind: "integer", maximum: 0xFFFFFFFF },
+  rewrite_ttl: { kind: "integer", maximum: 0xFFFFFFFF },
+  "domain_resolver.rewrite_ttl": { kind: "integer", maximum: 0xFFFFFFFF },
+  routing_mark: { kind: "mark", maximum: 0xFFFFFFFF },
 }
-
-function transformRoutingMark(object: JsonObject, raw: string): JsonObject | null {
-  const token = raw.trim()
-  if (!token) return setPolicyPath(object, "routing_mark", undefined)
-  if (prefixedMark(token)) return setPolicyPath(object, "routing_mark", token)
-  const numeric = decimalInteger(token, 0xFFFFFFFF)
-  return numeric === null ? null : setPolicyPath(object, "routing_mark", numeric)
-}
+const transformDNSNumber = createPolicyNumberTransform(dnsNumberConstraints)
 
 export const transformDNSField: PolicyFieldTransform = (object, field, raw) => {
   if (field.path === "query_type") return transformQueryType(object, raw)
   if (field.path === "rcode") return transformRCode(object, raw)
-  if (field.path === "routing_mark") return transformRoutingMark(object, raw)
-  return undefined
+  return transformDNSNumber(object, field, raw)
 }
 
 export function dnsServers(object: JsonObject): JsonObject[] {

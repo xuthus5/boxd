@@ -146,6 +146,19 @@ describe("route action transitions", () => {
       domain_resolver: { server: "dns-local", strategy: "prefer_ipv4", custom: "keep" },
     }, "reject")).toEqual({ action: "reject", domain_resolver: { custom: "keep" } })
   })
+
+  it("preserves matcher fields that overlap direct action options", () => {
+    const direct = {
+      action: "direct", network_type: ["wifi"], bind_interface: "eth0", routing_mark: 100,
+    }
+
+    expect(changeRouteAction(direct, "reject")).toEqual({
+      action: "reject", network_type: ["wifi"],
+    })
+    expect(changeRouteAction(direct, "route")).toEqual({
+      action: "route", network_type: ["wifi"],
+    })
+  })
 })
 
 describe("route rule-set transitions", () => {

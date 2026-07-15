@@ -11,7 +11,12 @@ import { JsonEditor } from "@/features/config/json-editor"
 import { optionsWithCurrent, useDNSDialogState } from "@/features/policy/dns-dialog-state"
 import { PolicyFormFields } from "@/features/policy/policy-form-fields"
 import { changeDNSAction, changeDNSRuleType, dnsActionFields, dnsActions, dnsRuleMatchFields } from "@/features/policy/dns-form-model"
-import { setPolicyPath, type JsonObject, type PolicyFieldSpec } from "@/features/policy/policy-form-model"
+import {
+  isNonEmptyJsonObjectArray,
+  setPolicyPath,
+  type JsonObject,
+  type PolicyFieldSpec,
+} from "@/features/policy/policy-form-model"
 
 export interface DNSRuleDialogProps {
   open: boolean
@@ -33,13 +38,12 @@ const logicalFields = [
 
 function requiredRuleValues(object: JsonObject): boolean {
   if (object.type !== "logical") return true
-  return typeof object.mode === "string" && Boolean(object.mode) && Array.isArray(object.rules)
+  return typeof object.mode === "string" && Boolean(object.mode) && isNonEmptyJsonObjectArray(object.rules)
 }
 
 function requiredActionValue(object: JsonObject): boolean {
   const action = String(object.action ?? "route")
   if (action === "route") return typeof object.server === "string" && Boolean(object.server.trim())
-  if (action === "predefined") return typeof object.rcode === "string" || typeof object.rcode === "number"
   return true
 }
 

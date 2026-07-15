@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -8,10 +8,10 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { JsonEditor } from "@/features/config/json-editor"
+import { usePolicyDialogState } from "@/features/policy/policy-dialog-state"
 import { PolicyFormFields } from "@/features/policy/policy-form-fields"
-import { isJsonObject, type JsonObject, type PolicyFieldSpec } from "@/features/policy/policy-form-model"
+import { type JsonObject, type PolicyFieldSpec } from "@/features/policy/policy-form-model"
 import { changeRuleSetType, ruleSetTypes } from "@/features/policy/route-form-model"
-import type { JsonValue } from "@/lib/api/types"
 
 interface RouteRuleSetDialogProps {
   open: boolean
@@ -29,16 +29,6 @@ const remoteFields = [
   { path: "download_detour", label: "downloadDetour" },
   { path: "update_interval", label: "updateInterval" },
 ] as const satisfies readonly PolicyFieldSpec[]
-
-function parseObject(value: string): JsonObject | null {
-  try {
-    const parsed = JSON.parse(value) as JsonValue
-    return isJsonObject(parsed) ? parsed : null
-  } catch (error) {
-    void error
-    return null
-  }
-}
 
 function optionsWithCurrent(current: string) {
   return current && !ruleSetTypes.includes(current as typeof ruleSetTypes[number])
@@ -81,36 +71,34 @@ function RuleSetFields({ object, revision, onChange }: {
   </div>
 }
 
-function AdvancedJSONField({ value, title, onChange }: {
-  value: string; title: string; onChange: (value: string) => void
+function AdvancedJSONField({ value, title, revision, onChange }: {
+  value: string; title: string; revision: number; onChange: (value: string) => void
 }) {
   const { t } = useTranslation()
   return <FieldGroup><Field><FieldLabel className="sr-only">{t("policy.route.advancedJSON")}</FieldLabel>
-    <JsonEditor value={value} onChange={onChange} ariaLabel={t("policy.route.advancedJSONLabel", { title })} />
+    <JsonEditor key={revision} value={value} onChange={onChange} ariaLabel={t("policy.route.advancedJSONLabel", { title })} />
   </Field></FieldGroup>
 }
 
 export function RouteRuleSetDialog({ open, item, title, onOpenChange, onSave }: RouteRuleSetDialogProps) {
   const { t } = useTranslation()
-  const [value, setValue] = useState(() => JSON.stringify(item, null, 2))
-  const [revision, setRevision] = useState(0)
-  const object = parseObject(value)
-  const update = (next: JsonObject) => setValue(JSON.stringify(next, null, 2))
-  const updateJSON = (next: string) => { setValue(next); setRevision((current) => current + 1) }
-  const requiredValid = Boolean(object && requiredFieldsPresent(object))
+  const state = usePolicyDialogState(item)
+  const requiredValid = requiredFieldsPresent(state.object)
+  const canSave = state.jsonValid && requiredValid && state.invalidFields.size === 0
   return <Dialog open={open} onOpenChange={onOpenChange}>
     <DialogContent className="max-h-[calc(100dvh-2rem)] min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-3xl">
       <DialogHeader><DialogTitle>{title}</DialogTitle><DialogDescription>{t("policy.route.ruleSetDialogDescription")}</DialogDescription></DialogHeader>
       <div className="min-h-0 min-w-0 overflow-y-auto pr-1"><div className="flex min-w-0 flex-col gap-4">
-        {object && !requiredValid ? <Alert variant="destructive"><AlertTitle>{t("policy.route.requiredTitle")}</AlertTitle>
+        {!requiredValid ? <Alert variant="destructive"><AlertTitle>{t("policy.route.requiredTitle")}</AlertTitle>
           <AlertDescription>{t("policy.route.ruleSetRequiredDescription")}</AlertDescription></Alert> : null}
-        {object ? <Tabs defaultValue="basic" className="min-w-0"><TabsList activateOnFocus className="max-w-full overflow-x-auto"><TabsTrigger value="basic">{t("policy.route.ruleSetBasicTab")}</TabsTrigger><TabsTrigger value="advanced">{t("policy.route.advancedJSON")}</TabsTrigger></TabsList>
-          <TabsContent value="basic" className="pt-4" keepMounted><RuleSetFields object={object} revision={revision} onChange={update} /></TabsContent>
-          <TabsContent value="advanced" className="pt-4"><AdvancedJSONField value={value} title={title} onChange={updateJSON} /></TabsContent>
-        </Tabs> : <AdvancedJSONField value={value} title={title} onChange={updateJSON} />}
+        <Tabs defaultValue="basic" className="min-w-0"><TabsList activateOnFocus className="max-w-full overflow-x-auto"><TabsTrigger value="basic">{t("policy.route.ruleSetBasicTab")}</TabsTrigger><TabsTrigger value="advanced">{t("policy.route.advancedJSON")}</TabsTrigger></TabsList>
+          <TabsContent value="basic" className="pt-4" keepMounted><RuleSetFields object={state.object} revision={state.revision} onChange={state.update} /></TabsContent>
+          <TabsContent value="advanced" className="pt-4" keepMounted><AdvancedJSONField value={state.value} title={title}
+            revision={state.editorRevision} onChange={state.updateJSON} /></TabsContent>
+        </Tabs>
       </div></div>
       <DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)}>{t("policy.route.cancel")}</Button>
-        <Button disabled={!requiredValid} onClick={() => { if (object) onSave(object) }}>{t("policy.route.save")}</Button></DialogFooter>
+        <Button disabled={!canSave} onClick={() => { if (state.jsonValid) onSave(state.object) }}>{t("policy.route.save")}</Button></DialogFooter>
     </DialogContent>
   </Dialog>
 }

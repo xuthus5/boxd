@@ -1,6 +1,7 @@
 import type { JsonValue } from "@/lib/api/types"
 
 export type JsonObject = Record<string, JsonValue>
+export type PolicySection = "route" | "dns"
 export type PolicyFieldKind = "text" | "textarea" | "number" | "boolean" | "list" | "number-list" | "select" | "json-object" | "json-array"
 
 export interface PolicyFieldSpec {
@@ -15,6 +16,22 @@ export type PolicyFieldTransform = (object: JsonObject, field: PolicyFieldSpec, 
 
 export function isJsonObject(value: JsonValue | undefined): value is JsonObject {
   return value !== null && typeof value === "object" && !Array.isArray(value)
+}
+
+export function isNonEmptyJsonObjectArray(value: JsonValue | undefined): value is JsonObject[] {
+  return Array.isArray(value) && value.length > 0 && value.every(isJsonObject)
+}
+
+const sectionArrayPaths: Record<PolicySection, readonly string[]> = {
+  route: ["rules", "rule_set"],
+  dns: ["servers", "rules"],
+}
+
+export function isPolicySectionStructureValid(section: PolicySection, object: JsonObject): boolean {
+  return sectionArrayPaths[section].every((path) => {
+    const value = object[path]
+    return value === undefined || Array.isArray(value) && value.every(isJsonObject)
+  })
 }
 
 export function getPolicyPath(object: JsonObject, path: string): JsonValue | undefined {
