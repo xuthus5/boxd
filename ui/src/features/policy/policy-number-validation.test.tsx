@@ -27,7 +27,8 @@ function GlobalHarness({ kind }: { kind: "route" | "dns" }) {
     }),
   }
   return <>{kind === "route" ? <RouteGlobalCard {...props} /> : <DNSGlobalCard {...props} />}
-    <button disabled={invalid.size > 0}>保存测试</button></>
+    <button disabled={invalid.size > 0}>保存测试</button>
+    <output aria-label={`${kind} global state`}>{JSON.stringify(object)}</output></>
 }
 
 async function expectInvalidThenValid(label: string, invalid: string, valid: string, saveName = "保存") {
@@ -74,5 +75,41 @@ describe("dialog numeric validation", () => {
     await expectInvalidThenValid("IP 版本", "5", "4")
     await userEvent.click(screen.getByRole("tab", { name: "端口与环境" }))
     await expectInvalidThenValid("用户 ID", "-1", "1000")
+  })
+})
+
+describe("legacy octal routing marks", () => {
+  it("preserves Route default_mark as a string and keeps Save enabled", () => {
+    renderApp(<GlobalHarness kind="route" />)
+    const input = screen.getByLabelText("默认标记")
+    fireEvent.change(input, { target: { value: "0173" } })
+
+    expect(input).toHaveAttribute("aria-invalid", "false")
+    expect(screen.getByRole("button", { name: "保存测试" })).toBeEnabled()
+    expect(screen.getByLabelText("route global state")).toHaveTextContent('"default_mark":"0173"')
+  })
+
+  it("preserves Route routing_mark through the rule Dialog", async () => {
+    const onSave = vi.fn()
+    renderApp(<RouteRuleDialog open title="编辑规则" item={{ action: "direct" }}
+      onOpenChange={vi.fn()} onSave={onSave} />)
+    await userEvent.click(screen.getByRole("tab", { name: "执行动作" }))
+    fireEvent.change(screen.getByLabelText("路由标记"), { target: { value: "0173" } })
+    await userEvent.click(screen.getByRole("button", { name: "保存" }))
+
+    expect(onSave).toHaveBeenCalledWith({ action: "direct", routing_mark: "0173" })
+  })
+
+  it("preserves DNS routing_mark through the server Dialog", async () => {
+    const onSave = vi.fn()
+    renderApp(<DNSServerDialog open title="编辑 DNS 服务器"
+      item={{ type: "udp", tag: "dns", server: "dns.example" }} onOpenChange={vi.fn()} onSave={onSave} />)
+    await userEvent.click(screen.getByRole("tab", { name: "拨号与解析" }))
+    fireEvent.change(screen.getByLabelText("路由标记"), { target: { value: "0173" } })
+    await userEvent.click(screen.getByRole("button", { name: "保存" }))
+
+    expect(onSave).toHaveBeenCalledWith({
+      type: "udp", tag: "dns", server: "dns.example", routing_mark: "0173",
+    })
   })
 })

@@ -37,12 +37,13 @@ describe("generic policy number transforms", () => {
     }
   })
 
-  it("writes decimal marks as numbers and preserves prefixed uint32 strings", () => {
+  it("writes decimal marks as numbers and preserves base-prefixed strings", () => {
+    expect(apply(transform, "mark", "0", "text")).toEqual({ mark: 0 })
     expect(apply(transform, "mark", "123", "text")).toEqual({ mark: 123 })
-    for (const raw of ["0x7b", "0o173", "0b1111011"]) {
+    for (const raw of ["0173", "0x7b", "0o173", "0b1111011"]) {
       expect(apply(transform, "mark", raw, "text")).toEqual({ mark: raw })
     }
-    for (const raw of ["-1", "1.5", "0x100000000", "0o40000000000", "0b2"]) {
+    for (const raw of ["-1", "1.5", "040000000000", "0x100000000", "0o40000000000", "0b2"]) {
       expect(apply(transform, "mark", raw, "text")).toBeNull()
     }
   })
@@ -68,7 +69,9 @@ describe("Route numeric constraints", () => {
     expect(apply(transformRouteField, "override_port", "65535")).toEqual({ override_port: 65535 })
     expect(apply(transformRouteField, "fallback_delay", "10")).toEqual({ fallback_delay: 10 })
     expect(apply(transformRouteField, "fallback_delay", "10", "text")).toBeUndefined()
+    expect(apply(transformRouteField, "default_mark", "0173", "text")).toEqual({ default_mark: "0173" })
     expect(apply(transformRouteField, "default_mark", "0x10", "text")).toEqual({ default_mark: "0x10" })
+    expect(apply(transformRouteField, "routing_mark", "0173", "text")).toEqual({ routing_mark: "0173" })
     expect(apply(transformRouteField, "routing_mark", "16", "text")).toEqual({ routing_mark: 16 })
     expect(apply(transformRouteField, "ip_version", "4")).toEqual({ ip_version: 4 })
     expect(apply(transformRouteField, "ip_version", "6")).toEqual({ ip_version: 6 })
@@ -86,6 +89,7 @@ describe("DNS numeric constraints", () => {
     expect(apply(transformDNSField, "server_port", "65536")).toBeNull()
     expect(apply(transformDNSField, "port", "53,443", "number-list")).toEqual({ port: [53, 443] })
     expect(apply(transformDNSField, "user_id", "-1", "number-list")).toBeNull()
+    expect(apply(transformDNSField, "routing_mark", "0173", "text")).toEqual({ routing_mark: "0173" })
     expect(apply(transformDNSField, "routing_mark", "0o20", "text")).toEqual({ routing_mark: "0o20" })
     expect(apply(transformDNSField, "ip_version", "7")).toBeNull()
   })

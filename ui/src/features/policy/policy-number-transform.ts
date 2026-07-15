@@ -27,10 +27,11 @@ function integerList(raw: string, constraint: PolicyNumberConstraint): number[] 
   return values.some((value) => value === null) ? null : values as number[]
 }
 
-function prefixedMark(raw: string, maximum: number): boolean {
-  if (!/^0(?:[xX][\da-fA-F]+|[bB][01]+|[oO][0-7]+)$/.test(raw)) return false
+function stringMark(raw: string, maximum: number): boolean {
+  const normalized = /^0[0-7]+$/.test(raw) ? `0o${raw.slice(1)}` : raw
+  if (!/^0(?:[xX][\da-fA-F]+|[bB][01]+|[oO][0-7]+)$/.test(normalized)) return false
   try {
-    return BigInt(raw) <= BigInt(maximum)
+    return BigInt(normalized) <= BigInt(maximum)
   } catch (error) {
     void error
     return false
@@ -43,7 +44,7 @@ export function createPolicyNumberTransform(constraints: PolicyNumberConstraints
     if (!constraint || constraint.fieldKind && constraint.fieldKind !== field.kind) return undefined
     const token = raw.trim()
     if (!token) return setPolicyPath(object, field.path, undefined)
-    if (constraint.kind === "mark" && prefixedMark(token, constraint.maximum)) {
+    if (constraint.kind === "mark" && stringMark(token, constraint.maximum)) {
       return setPolicyPath(object, field.path, token)
     }
     if (constraint.kind === "integer-list") {

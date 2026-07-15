@@ -89,3 +89,14 @@
 - No known functional blockers or remaining Critical/Important findings.
 - Go gates and local deployment were intentionally not run because the parent task explicitly reserved them for the main integration thread.
 - Playwright emitted the existing `NO_COLOR`/`FORCE_COLOR` warning; all tests passed and it did not affect behavior.
+
+## Final Re-review: Legacy Octal FwMark
+
+- sing-box parses string FwMark values with `strconv.ParseUint(value, 0, 32)`, so `0173` is legacy octal and represents decimal 123.
+- RED: generic transform, Route `default_mark`, Route `routing_mark`, and DNS `routing_mark` tests all showed `0173` being stored as decimal number `173`; 6 assertions failed across 2 files.
+- GREEN: the shared mark string branch now recognizes `^0[0-7]+$`, normalizes only for `BigInt` range checking, and preserves the original string in JSON.
+- Ordinary `0` and decimal `123` still write numbers. `0x`、`0o`、`0b` strings remain unchanged. Legacy octal above uint32, including `040000000000`, is invalid.
+- Targeted numeric/UI tests: 2 files / 13 tests passed.
+- Full Policy regression: 20 files / 223 tests passed.
+- TypeScript、ESLint 与 `git diff --check`: passed.
+- Full coverage and E2E were not repeated because this was an isolated helper branch fix, as allowed by the final review instruction.
