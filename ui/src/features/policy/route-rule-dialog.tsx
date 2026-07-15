@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Field, FieldLabel } from "@/components/ui/field"
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { JsonEditor } from "@/features/config/json-editor"
@@ -51,16 +51,21 @@ function requiredActionValue(object: JsonObject): boolean {
   return true
 }
 
+function requiredRuleValue(object: JsonObject): boolean {
+  if (object.type !== "logical") return true
+  return typeof object.mode === "string" && object.mode.length > 0 && Array.isArray(object.rules)
+}
+
 function RuleTypeSelect({ object, onChange }: { object: JsonObject; onChange: (item: JsonObject) => void }) {
   const current = String(object.type ?? "default")
   const options = useMemo(() => optionsWithCurrent(["default", "logical"], current), [current])
   const items = useMemo(() => options.map((value) => ({ value, label: value })), [options])
-  return <Field><FieldLabel htmlFor="route-rule-type">规则类型</FieldLabel>
+  return <FieldGroup><Field><FieldLabel htmlFor="route-rule-type">规则类型</FieldLabel>
     <Select items={items} value={current} onValueChange={(value) => onChange(changeRouteRuleType(object, String(value)))}>
       <SelectTrigger id="route-rule-type" aria-label="规则类型" className="w-full"><SelectValue /></SelectTrigger>
       <SelectContent><SelectGroup>{options.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectGroup></SelectContent>
     </Select>
-  </Field>
+  </Field></FieldGroup>
 }
 
 function ActionFields({ object, revision, onChange, onValidity }: {
@@ -70,16 +75,16 @@ function ActionFields({ object, revision, onChange, onValidity }: {
   const current = String(object.action ?? "route")
   const options = useMemo(() => optionsWithCurrent(routeActions, current), [current])
   const items = useMemo(() => options.map((value) => ({ value, label: value })), [options])
-  return <div className="flex flex-col gap-4">
-    <Field><FieldLabel htmlFor="route-rule-action">执行动作</FieldLabel>
+  return <>
+    <FieldGroup><Field><FieldLabel htmlFor="route-rule-action">执行动作</FieldLabel>
       <Select items={items} value={current} onValueChange={(value) => onChange(changeRouteAction(object, String(value)))}>
         <SelectTrigger id="route-rule-action" aria-label="执行动作" className="w-full"><SelectValue /></SelectTrigger>
         <SelectContent><SelectGroup>{options.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectGroup></SelectContent>
       </Select>
-    </Field>
+    </Field></FieldGroup>
     <PolicyFormFields fields={routeActionFields[current] ?? []} object={object} namespace="policy.route"
       revision={revision} onChange={onChange} onFieldValidityChange={onValidity} />
-  </div>
+  </>
 }
 
 interface RuleTabsProps {
@@ -100,6 +105,14 @@ function StructuredFields({ object, fields, revision, onChange, onValidity }: {
     onChange={onChange} onFieldValidityChange={onValidity} />
 }
 
+function AdvancedJSONField({ value, title, onChange }: {
+  value: string; title: string; onChange: (value: string) => void
+}) {
+  return <FieldGroup><Field><FieldLabel className="sr-only">高级 JSON</FieldLabel>
+    <JsonEditor value={value} onChange={onChange} ariaLabel={`${title} JSON`} />
+  </Field></FieldGroup>
+}
+
 function RuleTabs(props: RuleTabsProps) {
   const { object, value, title, revision, onChange, onJSONChange, onValidity } = props
   const logical = object.type === "logical"
@@ -110,15 +123,15 @@ function RuleTabs(props: RuleTabsProps) {
       <TabsTrigger value="action">执行动作</TabsTrigger><TabsTrigger value="advanced">高级 JSON</TabsTrigger>
     </TabsList>
     <TabsContent value="basic" className="pt-4" keepMounted>
-      <div className="flex flex-col gap-4"><RuleTypeSelect object={object} onChange={onChange} />
+      <><RuleTypeSelect object={object} onChange={onChange} />
         <StructuredFields object={object} fields={logical ? logicalFields : basicFields.slice(1)} revision={revision} onChange={onChange} onValidity={onValidity} />
-      </div>
+      </>
     </TabsContent>
     <TabsContent value="domain" className="pt-4" keepMounted><StructuredFields object={object} fields={logical ? [] : domainFields} revision={revision} onChange={onChange} onValidity={onValidity} /></TabsContent>
     <TabsContent value="process" className="pt-4" keepMounted><StructuredFields object={object} fields={logical ? [] : processFields} revision={revision} onChange={onChange} onValidity={onValidity} /></TabsContent>
     <TabsContent value="environment" className="pt-4" keepMounted><StructuredFields object={object} fields={logical ? [] : environmentFields} revision={revision} onChange={onChange} onValidity={onValidity} /></TabsContent>
     <TabsContent value="action" className="pt-4" keepMounted><ActionFields object={object} revision={revision} onChange={onChange} onValidity={onValidity} /></TabsContent>
-    <TabsContent value="advanced" className="pt-4"><Field><FieldLabel className="sr-only">高级 JSON</FieldLabel><JsonEditor value={value} onChange={onJSONChange} ariaLabel={`${title} JSON`} /></Field></TabsContent>
+    <TabsContent value="advanced" className="pt-4"><AdvancedJSONField value={value} title={title} onChange={onJSONChange} /></TabsContent>
   </Tabs>
 }
 
@@ -134,13 +147,13 @@ export function RouteRuleDialog({ open, item, title, onOpenChange, onSave }: Rou
     if (valid) next.delete(path); else next.add(path)
     return next
   }), [])
-  const canSave = Boolean(object && requiredActionValue(object) && invalidFields.size === 0)
+  const canSave = Boolean(object && requiredRuleValue(object) && requiredActionValue(object) && invalidFields.size === 0)
   return <Dialog open={open} onOpenChange={onOpenChange}>
     <DialogContent className="max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-5xl">
       <DialogHeader><DialogTitle>{title}</DialogTitle><DialogDescription>常用匹配与动作可视化编辑，未知字段保留在高级 JSON 中。</DialogDescription></DialogHeader>
       <div className="min-h-0 overflow-y-auto pr-1">
         {object ? <RuleTabs object={object} value={value} title={title} revision={revision} onChange={update} onJSONChange={updateJSON} onValidity={updateValidity} />
-          : <JsonEditor value={value} onChange={updateJSON} ariaLabel={`${title} JSON`} />}
+          : <AdvancedJSONField value={value} title={title} onChange={updateJSON} />}
       </div>
       <DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)}>取消</Button>
         <Button disabled={!canSave} onClick={() => { if (object) onSave(object) }}>保存</Button></DialogFooter>

@@ -47,59 +47,71 @@ const actionCases: readonly [string, JsonObject, string | null][] = [
   ["resolve", { action: "resolve", server: "dns-remote" }, "解析服务器"],
 ]
 
+const routeFixture = {
+  final: "proxy", find_process: false, auto_detect_interface: false,
+  override_android_vpn: false, default_interface: "eth0", default_mark: 100,
+  default_domain_resolver: {
+    server: "dns-old", strategy: "prefer_ipv4", disable_cache: false,
+    rewrite_ttl: 60, client_subnet: "192.0.2.0/24", custom: "nested",
+  },
+  default_network_strategy: "default", default_network_type: ["wifi"],
+  default_fallback_network_type: ["cellular"], default_fallback_delay: "300ms",
+  rules: [{ action: "reject" }], rule_set: [{ type: "inline", tag: "inline", rules: [] }],
+  custom: { retained: true },
+}
+
+const configFixture = { route: routeFixture, dns: { final: "dns" }, log: { level: "info" } }
+
+function expectedSavedConfig() {
+  return {
+    ...configFixture,
+    route: {
+      ...routeFixture,
+      final: "direct", find_process: true, auto_detect_interface: true,
+      override_android_vpn: true, default_network_strategy: "hybrid",
+      default_network_type: ["wifi", "ethernet"],
+      default_fallback_network_type: ["cellular", "wifi"], default_fallback_delay: "350ms",
+      default_domain_resolver: {
+        ...routeFixture.default_domain_resolver,
+        server: "dns-new", strategy: "prefer_ipv6", disable_cache: true,
+      },
+    },
+  }
+}
+
+function stubRouteConfig() {
+  const fetchMock = vi.fn((_input: string | URL | Request, init?: RequestInit) => Promise.resolve(
+    new Response(JSON.stringify(init?.method === "PUT"
+      ? { status: "ok", data: null, error: null, meta: {} }
+      : configFixture)),
+  ))
+  vi.stubGlobal("fetch", fetchMock)
+  return fetchMock
+}
+
+async function changeRouteGlobals() {
+  const user = userEvent.setup()
+  fireEvent.change(await screen.findByLabelText("最终出站"), { target: { value: "direct" } })
+  for (const name of ["查找进程", "自动检测接口", "覆盖 Android VPN", "禁用默认解析缓存"]) {
+    await user.click(screen.getByRole("switch", { name }))
+  }
+  fireEvent.change(screen.getByLabelText("默认域名解析服务器"), { target: { value: "dns-new" } })
+  await choose("默认域名解析策略", "prefer_ipv6")
+  await choose("默认网络策略", "hybrid")
+  fireEvent.change(screen.getByLabelText("默认网络类型"), { target: { value: "wifi\nethernet" } })
+  fireEvent.change(screen.getByLabelText("默认回退网络类型"), { target: { value: "cellular\nwifi" } })
+  fireEvent.change(screen.getByLabelText("默认回退延迟"), { target: { value: "350ms" } })
+  await user.click(screen.getByRole("button", { name: "保存配置" }))
+}
+
 describe("route global editor", () => {
   it("saves changed globals while preserving the complete config", async () => {
-    const route = {
-      final: "proxy", find_process: false, auto_detect_interface: false,
-      override_android_vpn: false, default_interface: "eth0", default_mark: 100,
-      default_domain_resolver: {
-        server: "dns-old", strategy: "prefer_ipv4", disable_cache: false,
-        rewrite_ttl: 60, client_subnet: "192.0.2.0/24", custom: "nested",
-      },
-      default_network_strategy: "default", default_network_type: ["wifi"],
-      default_fallback_network_type: ["cellular"], default_fallback_delay: "300ms",
-      rules: [{ action: "reject" }], rule_set: [{ type: "inline", tag: "inline", rules: [] }],
-      custom: { retained: true },
-    }
-    const config = { route, dns: { final: "dns" }, log: { level: "info" } }
     sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
-    const fetchMock = vi.fn((_input: string | URL | Request, init?: RequestInit) => Promise.resolve(
-      new Response(JSON.stringify(init?.method === "PUT"
-        ? { status: "ok", data: null, error: null, meta: {} }
-        : config)),
-    ))
-    vi.stubGlobal("fetch", fetchMock)
-    const user = userEvent.setup()
+    const fetchMock = stubRouteConfig()
     renderApp(<App />, "/policy/route")
-
-    fireEvent.change(await screen.findByLabelText("最终出站"), { target: { value: "direct" } })
-    for (const name of ["查找进程", "自动检测接口", "覆盖 Android VPN", "禁用默认解析缓存"]) {
-      await user.click(screen.getByRole("switch", { name }))
-    }
-    fireEvent.change(screen.getByLabelText("默认域名解析服务器"), { target: { value: "dns-new" } })
-    await choose("默认域名解析策略", "prefer_ipv6")
-    await choose("默认网络策略", "hybrid")
-    fireEvent.change(screen.getByLabelText("默认网络类型"), { target: { value: "wifi\nethernet" } })
-    fireEvent.change(screen.getByLabelText("默认回退网络类型"), { target: { value: "cellular\nwifi" } })
-    fireEvent.change(screen.getByLabelText("默认回退延迟"), { target: { value: "350ms" } })
-    await user.click(screen.getByRole("button", { name: "保存配置" }))
-
+    await changeRouteGlobals()
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/config/", expect.objectContaining({
-      method: "PUT",
-      body: JSON.stringify({
-        ...config,
-        route: {
-          ...route,
-          final: "direct", find_process: true, auto_detect_interface: true,
-          override_android_vpn: true, default_network_strategy: "hybrid",
-          default_network_type: ["wifi", "ethernet"],
-          default_fallback_network_type: ["cellular", "wifi"], default_fallback_delay: "350ms",
-          default_domain_resolver: {
-            ...route.default_domain_resolver,
-            server: "dns-new", strategy: "prefer_ipv6", disable_cache: true,
-          },
-        },
-      }),
+      method: "PUT", body: JSON.stringify(expectedSavedConfig()),
     })))
   })
 })

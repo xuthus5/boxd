@@ -3,7 +3,7 @@ import { useMemo, useState } from "react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Field, FieldLabel } from "@/components/ui/field"
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { JsonEditor } from "@/features/config/json-editor"
@@ -56,12 +56,12 @@ function TypeSelect({ object, onChange }: { object: JsonObject; onChange: (item:
   const current = String(object.type ?? "inline")
   const options = useMemo(() => optionsWithCurrent(current), [current])
   const items = useMemo(() => options.map((value) => ({ value, label: value })), [options])
-  return <Field><FieldLabel htmlFor="route-rule-set-type">规则集类型</FieldLabel>
+  return <FieldGroup><Field><FieldLabel htmlFor="route-rule-set-type">规则集类型</FieldLabel>
     <Select items={items} value={current} onValueChange={(value) => onChange(changeRuleSetType(object, String(value)))}>
       <SelectTrigger id="route-rule-set-type" aria-label="规则集类型" className="w-full"><SelectValue /></SelectTrigger>
       <SelectContent><SelectGroup>{options.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectGroup></SelectContent>
     </Select>
-  </Field>
+  </Field></FieldGroup>
 }
 
 function RuleSetFields({ object, revision, onChange }: {
@@ -69,13 +69,21 @@ function RuleSetFields({ object, revision, onChange }: {
 }) {
   const type = String(object.type ?? "inline")
   const fields = type === "remote" ? remoteFields : type === "local" ? localFields : []
-  return <div className="flex flex-col gap-4">
+  return <>
     <PolicyFormFields fields={tagFields} object={object} namespace="policy.route" revision={revision} onChange={onChange} />
     <TypeSelect object={object} onChange={onChange} />
     <PolicyFormFields fields={formatFields} object={object} namespace="policy.route" revision={revision} onChange={onChange} />
     <PolicyFormFields fields={fields} object={object} namespace="policy.route" revision={revision} onChange={onChange} />
     {type === "inline" ? <Alert><AlertTitle>Inline 规则集</AlertTitle><AlertDescription>复杂 inline 规则内容请在高级 JSON 中维护。</AlertDescription></Alert> : null}
-  </div>
+  </>
+}
+
+function AdvancedJSONField({ value, title, onChange }: {
+  value: string; title: string; onChange: (value: string) => void
+}) {
+  return <FieldGroup><Field><FieldLabel className="sr-only">高级 JSON</FieldLabel>
+    <JsonEditor value={value} onChange={onChange} ariaLabel={`${title} JSON`} />
+  </Field></FieldGroup>
 }
 
 export function RouteRuleSetDialog({ open, item, title, onOpenChange, onSave }: RouteRuleSetDialogProps) {
@@ -90,8 +98,8 @@ export function RouteRuleSetDialog({ open, item, title, onOpenChange, onSave }: 
       <div className="min-h-0 overflow-y-auto pr-1">
         {object ? <Tabs defaultValue="basic"><TabsList><TabsTrigger value="basic">基础</TabsTrigger><TabsTrigger value="advanced">高级 JSON</TabsTrigger></TabsList>
           <TabsContent value="basic" className="pt-4" keepMounted><RuleSetFields object={object} revision={revision} onChange={update} /></TabsContent>
-          <TabsContent value="advanced" className="pt-4"><Field><FieldLabel className="sr-only">高级 JSON</FieldLabel><JsonEditor value={value} onChange={updateJSON} ariaLabel={`${title} JSON`} /></Field></TabsContent>
-        </Tabs> : <JsonEditor value={value} onChange={updateJSON} ariaLabel={`${title} JSON`} />}
+          <TabsContent value="advanced" className="pt-4"><AdvancedJSONField value={value} title={title} onChange={updateJSON} /></TabsContent>
+        </Tabs> : <AdvancedJSONField value={value} title={title} onChange={updateJSON} />}
       </div>
       <DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)}>取消</Button>
         <Button disabled={!object || !requiredFieldsPresent(object)} onClick={() => { if (object) onSave(object) }}>保存</Button></DialogFooter>
