@@ -161,18 +161,40 @@ function matchesField(value: unknown, field: PolicyFieldSpec): boolean {
   if (value === undefined) return true
   if (field.kind === "boolean") return typeof value === "boolean"
   if (field.kind === "number") return typeof value === "number" && Number.isFinite(value)
+  if (field.kind === "list") return typeof value === "string" || Array.isArray(value) && value.every((item) => typeof item === "string")
+  if (field.kind === "number-list") return typeof value === "number" && Number.isFinite(value)
+    || Array.isArray(value) && value.every((item) => typeof item === "number" && Number.isFinite(item))
+  if (field.kind === "json-object") return value !== null && typeof value === "object" && !Array.isArray(value)
+  if (field.kind === "json-array") return Array.isArray(value)
   return typeof value === "string"
 }
 
-function compatibleFields(source: readonly PolicyFieldSpec[], target: readonly PolicyFieldSpec[]): Set<string> {
-  return new Set(source.filter((field) => target.some((candidate) => candidate.path === field.path && candidate.kind === field.kind)).map((field) => field.path))
+interface FieldTransition {
+  source: readonly PolicyFieldSpec[]
+  target: readonly PolicyFieldSpec[]
+  sourceKnown: boolean
 }
 
-function transitionFields(object: JsonObject, known: readonly PolicyFieldSpec[], source: readonly PolicyFieldSpec[], target: readonly PolicyFieldSpec[]): JsonObject {
-  const compatible = compatibleFields(source, target)
-  return known.reduce((next, field) => compatible.has(field.path) && matchesField(getPolicyPath(next, field.path), field)
+function fieldTransition(fields: Record<string, readonly PolicyFieldSpec[]>, source: string, target: string): FieldTransition {
+  const sourceKnown = Object.hasOwn(fields, source)
+  return { source: sourceKnown ? fields[source] : [], target: fields[target] ?? [], sourceKnown }
+}
+
+function compatibleFields(transition: FieldTransition): Map<string, PolicyFieldSpec> {
+  const fields = transition.sourceKnown
+    ? transition.target.filter((field) => transition.source.some((source) => source.path === field.path && source.kind === field.kind))
+    : transition.target
+  return new Map(fields.map((field) => [field.path, field]))
+}
+
+function transitionFields(object: JsonObject, known: readonly PolicyFieldSpec[], transition: FieldTransition): JsonObject {
+  const compatible = compatibleFields(transition)
+  return known.reduce((next, field) => {
+    const target = compatible.get(field.path)
+    return target && matchesField(getPolicyPath(next, field.path), target)
     ? next
-    : setPolicyPath(next, field.path, undefined), object)
+    : setPolicyPath(next, field.path, undefined)
+  }, object)
 }
 
 const knownRuleFields = uniqueFields(Object.values(ruleTypeFields))
@@ -198,7 +220,7 @@ export function setRouteRuleSets(object: JsonObject, ruleSets: readonly JsonObje
 export function changeRouteRuleType(rule: JsonObject, type: string): JsonObject {
   const current = String(rule.type ?? "default")
   if (current === type) return rule
-  const next = transitionFields(rule, knownRuleFields, ruleTypeFields[current] ?? [], ruleTypeFields[type] ?? [])
+  const next = transitionFields(rule, knownRuleFields, fieldTransition(ruleTypeFields, current, type))
   return setPolicyPath(next, "type", type === "default" ? undefined : type)
 }
 
@@ -206,21 +228,22 @@ export function changeRouteAction(rule: JsonObject, action: string): JsonObject 
   const explicit = String(rule.action ?? "")
   if (explicit === action && explicit !== "") return rule
   const current = explicit || "route"
-  const next = transitionFields(rule, knownActionFields, routeActionFields[current] ?? [], routeActionFields[action] ?? [])
+  const next = transitionFields(rule, knownActionFields, fieldTransition(routeActionFields, current, action))
   return setPolicyPath(next, "action", action || undefined)
 }
 
 export function changeRuleSetType(ruleSet: JsonObject, type: string): JsonObject {
   const current = String(ruleSet.type ?? "inline")
   if (current === type) return ruleSet
-  const next = transitionFields(ruleSet, knownRuleSetFields, ruleSetFields[current] ?? [], ruleSetFields[type] ?? [])
+  const next = transitionFields(ruleSet, knownRuleSetFields, fieldTransition(ruleSetFields, current, type))
   return setPolicyPath(next, "type", type)
 }
 
 const summaryPaths = [
   "domain", "domain_suffix", "domain_keyword", "domain_regex", "source_ip_cidr", "source_ip_is_private",
   "ip_cidr", "ip_is_private", "source_port", "source_port_range", "port", "port_range", "process_name",
-  "process_path", "process_path_regex", "package_name", "user", "user_id", "rule_set", "inbound", "ip_version",
+  "process_path", "process_path_regex", "package_name", "user", "user_id", "rule_set",
+  "rule_set_ip_cidr_match_source", "inbound", "ip_version",
   "network", "auth_user", "protocol", "client", "clash_mode", "network_type", "network_is_expensive",
   "network_is_constrained", "wifi_ssid", "wifi_bssid", "invert",
 ]

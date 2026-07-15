@@ -93,8 +93,9 @@ describe("route type transitions", () => {
   })
 
   it("cleans known subtype paths when entering or leaving an unknown type", () => {
-    expect(changeRouteRuleType({ type: "custom", domain: ["example.com"], payload: "keep" }, "default"))
-      .toEqual({ payload: "keep" })
+    expect(changeRouteRuleType({
+      type: "custom", domain: ["example.com"], mode: "and", custom: "keep",
+    }, "default")).toEqual({ domain: ["example.com"], custom: "keep" })
     expect(changeRouteRuleType({ domain: ["example.com"], custom: "keep" }, "custom"))
       .toEqual({ type: "custom", custom: "keep" })
   })
@@ -133,10 +134,17 @@ describe("route action transitions", () => {
   })
 
   it("cleans known action paths when entering or leaving an unknown action", () => {
-    expect(changeRouteAction({ action: "custom", outbound: "old", payload: "keep" }, "reject"))
-      .toEqual({ action: "reject", payload: "keep" })
+    expect(changeRouteAction({ action: "custom", method: "drop", outbound: "old", payload: "keep" }, "reject"))
+      .toEqual({ action: "reject", method: "drop", payload: "keep" })
     expect(changeRouteAction({ action: "route", outbound: "proxy", custom: "keep" }, "custom"))
       .toEqual({ action: "custom", custom: "keep" })
+  })
+
+  it("removes known nested direct fields without deleting unknown siblings", () => {
+    expect(changeRouteAction({
+      action: "direct",
+      domain_resolver: { server: "dns-local", strategy: "prefer_ipv4", custom: "keep" },
+    }, "reject")).toEqual({ action: "reject", domain_resolver: { custom: "keep" } })
   })
 })
 
@@ -162,8 +170,8 @@ describe("route rule-set transitions", () => {
   })
 
   it("cleans known rule-set paths when entering or leaving an unknown type", () => {
-    expect(changeRuleSetType({ type: "custom", path: "/old", payload: "keep" }, "local"))
-      .toEqual({ type: "local", payload: "keep" })
+    expect(changeRuleSetType({ type: "custom", path: "/keep.srs", url: "old", payload: "keep" }, "local"))
+      .toEqual({ type: "local", path: "/keep.srs", payload: "keep" })
     expect(changeRuleSetType({ type: "remote", tag: "geo", url: "https://example/r.srs" }, "custom"))
       .toEqual({ type: "custom", tag: "geo" })
   })
@@ -196,6 +204,8 @@ describe("route arrays and summaries", () => {
     expect(summarizeRouteRule({ source_ip_is_private: true, port: [80, 443], action: "reject" }))
       .toEqual({ matches: ["source_ip_is_private", "80", "443"], action: "reject" })
     expect(summarizeRouteRule({ port: [80, null, false], action: "reject" }).matches).toEqual(["80"])
+    expect(summarizeRouteRule({ rule_set_ip_cidr_match_source: true, action: "reject" }).matches)
+      .toEqual(["rule_set_ip_cidr_match_source"])
     expect(summarizeRouteRule({ action: "route", outbound: "proxy" }).action).toBe("proxy")
     expect(summarizeRouteRule({ action: "custom" }).action).toBe("custom")
   })
