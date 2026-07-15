@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react"
+import { fireEvent, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
@@ -18,9 +18,8 @@ describe("outbound editor", () => {
     const user = userEvent.setup()
     renderApp(<App />, "/proxy/outbounds")
     await user.click(await screen.findByRole("button", { name: "编辑" }))
-    expect(screen.getByLabelText("地址")).toHaveValue("old.example.com")
-    await user.clear(screen.getByLabelText("地址"))
-    await user.type(screen.getByLabelText("地址"), "new.example.com")
+    expect(screen.getByLabelText("服务器地址")).toHaveValue("old.example.com")
+    fireEvent.change(screen.getByLabelText("服务器地址"), { target: { value: "new.example.com" } })
     await user.click(screen.getByRole("button", { name: "保存" }))
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/config/", expect.objectContaining({
       method: "PUT",

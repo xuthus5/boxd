@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { cleanup, fireEvent, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
@@ -6,6 +7,7 @@ import { InboundFormFields } from "@/features/proxy/inbound-form-fields"
 import {
   changeInboundType, changeTransportType, getPath, protocolFields, setPath, transportTypeFields, type FieldSpec, type JsonObject,
 } from "@/features/proxy/inbound-form-model"
+import { ProxyFormFields } from "@/features/proxy/proxy-form-fields"
 import { renderApp } from "@/test/render"
 
 describe("inbound form model", () => {
@@ -49,6 +51,25 @@ function renderFields(fields: FieldSpec[], object: JsonObject, type = "mixed") {
   const onChange = vi.fn()
   renderApp(<InboundFormFields fields={fields} object={object} type={type} onChange={onChange} />)
   return onChange
+}
+
+function JSONFieldHarness() {
+  const [object, setObject] = useState<JsonObject>({ transport: { headers: { X: "old" } } })
+  return <>
+    <button onClick={() => setObject({ transport: { headers: { X: "new" } } })}>External update</button>
+    <InboundFormFields fields={[{ path: "transport.headers", label: "transportHeaders", kind: "json-object" }]} object={object} type="vless" onChange={setObject} />
+  </>
+}
+
+function JSONFieldRevisionHarness() {
+  const [object, setObject] = useState<JsonObject>({ transport: { headers: { X: "old" } } })
+  const [revision, setRevision] = useState(0)
+  const [valid, setValid] = useState(true)
+  return <>
+    <button onClick={() => { setObject((current) => ({ ...current, tag: "changed" })); setRevision((current) => current + 1) }}>JSON update</button>
+    <span>{valid ? "valid" : "invalid"}</span>
+    <ProxyFormFields fields={[{ path: "transport.headers", label: "transportHeaders", kind: "json-object" }]} object={object} namespace="proxy.inbound" onChange={setObject} onFieldValidityChange={(_path, next) => setValid(next)} revision={revision} />
+  </>
 }
 
 describe("inbound form field conversions", () => {
@@ -122,5 +143,23 @@ describe("inbound form field conversions", () => {
     expect(onChange).toHaveBeenLastCalledWith({})
     view.unmount()
     expect(onValidity).toHaveBeenLastCalledWith("transport.headers", true)
+  })
+
+  it("synchronizes structured JSON fields after an external object update", async () => {
+    const user = userEvent.setup()
+    renderApp(<JSONFieldHarness />)
+    expect(screen.getByLabelText("传输 Headers")).toHaveValue(JSON.stringify({ X: "old" }, null, 2))
+    await user.click(screen.getByRole("button", { name: "External update" }))
+    expect(screen.getByLabelText("传输 Headers")).toHaveValue(JSON.stringify({ X: "new" }, null, 2))
+  })
+
+  it("resets an invalid structured JSON draft when the form revision changes", async () => {
+    const user = userEvent.setup()
+    renderApp(<JSONFieldRevisionHarness />)
+    fireEvent.change(screen.getByLabelText("传输 Headers"), { target: { value: "invalid" } })
+    expect(screen.getByText("invalid")).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "JSON update" }))
+    expect(screen.getByLabelText("传输 Headers")).toHaveValue(JSON.stringify({ X: "old" }, null, 2))
+    expect(screen.getByText("valid")).toBeInTheDocument()
   })
 })

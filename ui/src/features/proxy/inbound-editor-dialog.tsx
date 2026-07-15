@@ -48,12 +48,13 @@ interface FormTabsProps {
   object: JsonObject
   value: string
   title: string
+  revision: number
   onChange: (object: JsonObject) => void
   onJSONChange: (value: string) => void
   onFieldValidityChange: (path: string, valid: boolean) => void
 }
 
-function FormTabs({ object, value, title, onChange, onJSONChange, onFieldValidityChange }: FormTabsProps) {
+function FormTabs({ object, value, title, revision, onChange, onJSONChange, onFieldValidityChange }: FormTabsProps) {
   const { t } = useTranslation()
   const type = String(object.type ?? "")
   const transportType = String(getPath(object, "transport.type") ?? "")
@@ -70,9 +71,9 @@ function FormTabs({ object, value, title, onChange, onJSONChange, onFieldValidit
     </TabsList>
     <TabsContent value="basic" className="pt-4"><BaseFields object={object} onChange={onChange} /></TabsContent>
     <TabsContent value="listen" className="pt-4"><InboundFormFields fields={type === "tun" ? tunFields.slice(4) : listenFields.slice(2)} object={object} type={type} onChange={onChange} /></TabsContent>
-    <TabsContent value="protocol" className="pt-4" keepMounted><InboundFormFields fields={protocolFields(type)} object={object} type={type} onChange={onChange} onFieldValidityChange={onFieldValidityChange} /></TabsContent>
+    <TabsContent value="protocol" className="pt-4" keepMounted><InboundFormFields fields={protocolFields(type)} object={object} type={type} revision={revision} onChange={onChange} onFieldValidityChange={onFieldValidityChange} /></TabsContent>
     {hasTLS ? <TabsContent value="tls" className="pt-4"><InboundFormFields fields={tlsFields} object={object} type={type} onChange={onChange} /></TabsContent> : null}
-    {hasTransport ? <TabsContent value="transport" className="pt-4" keepMounted><InboundFormFields fields={[...(transportTypes.has(type) ? transportTypeFields(transportType) : []), ...(multiplexTypes.has(type) ? multiplexFields : [])]} object={object} type={type} onChange={onChange} onFieldValidityChange={onFieldValidityChange} /></TabsContent> : null}
+    {hasTransport ? <TabsContent value="transport" className="pt-4" keepMounted><InboundFormFields fields={[...(transportTypes.has(type) ? transportTypeFields(transportType) : []), ...(multiplexTypes.has(type) ? multiplexFields : [])]} object={object} type={type} revision={revision} onChange={onChange} onFieldValidityChange={onFieldValidityChange} /></TabsContent> : null}
     <TabsContent value="advanced" className="pt-4"><Field><FieldLabel className="sr-only">{t("proxy.advancedJSON")}</FieldLabel><JsonEditor value={value} onChange={onJSONChange} ariaLabel={`${title} JSON`} /></Field></TabsContent>
   </Tabs>
 }
@@ -80,15 +81,17 @@ function FormTabs({ object, value, title, onChange, onJSONChange, onFieldValidit
 export function InboundEditorDialog({ title, item, onClose, onSave }: InboundEditorDialogProps) {
   const { t } = useTranslation()
   const [value, setValue] = useState(() => JSON.stringify(item, null, 2))
+  const [revision, setRevision] = useState(0)
   const [invalidFields, setInvalidFields] = useState<Set<string>>(() => new Set())
   const object = parseObject(value)
   const update = (next: JsonObject) => setValue(JSON.stringify(next, null, 2))
+  const updateJSON = (next: string) => { setValue(next); setRevision((current) => current + 1) }
   const updateValidity = useCallback((path: string, valid: boolean) => setInvalidFields((current) => { const next = new Set(current); if (valid) next.delete(path); else next.add(path); return next }), [])
   return <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
     <DialogContent className="max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-5xl">
       <DialogHeader><DialogTitle>{title}</DialogTitle><DialogDescription>{t("proxy.inbound.editorDescription")}</DialogDescription></DialogHeader>
       <div className="min-h-0 overflow-y-auto pr-1">
-        {object ? <FormTabs object={object} value={value} title={title} onChange={update} onJSONChange={setValue} onFieldValidityChange={updateValidity} /> : <JsonEditor value={value} onChange={setValue} ariaLabel={`${title} JSON`} />}
+        {object ? <FormTabs object={object} value={value} title={title} revision={revision} onChange={update} onJSONChange={updateJSON} onFieldValidityChange={updateValidity} /> : <JsonEditor value={value} onChange={updateJSON} ariaLabel={`${title} JSON`} />}
       </div>
       <DialogFooter><Button variant="outline" onClick={onClose}>{t("common.cancel")}</Button><Button disabled={!object || typeof object.type !== "string" || !object.type || invalidFields.size > 0} onClick={() => { if (object) onSave(object) }}>{t("common.save")}</Button></DialogFooter>
     </DialogContent>
