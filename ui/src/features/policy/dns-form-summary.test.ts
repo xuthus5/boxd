@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import { summarizeDNSRule, summarizeDNSServer } from "@/features/policy/dns-form-model"
 
-describe("DNS summary completeness", () => {
+describe("DNS server summary completeness", () => {
   it("summarizes legacy and modern endpoints with stable routing details", () => {
     expect(summarizeDNSServer({
       tag: "legacy", address: "https://dns.example/dns-query", detour: "direct", strategy: "prefer_ipv4",
@@ -27,6 +27,9 @@ describe("DNS summary completeness", () => {
       .toEqual({ type: "fakeip", detail: "tag fake" })
   })
 
+})
+
+describe("DNS rule summary completeness", () => {
   it("summarizes logical mode without expanding child rules", () => {
     expect(summarizeDNSRule({ type: "logical", mode: "and", rules: [{ domain: "example.com" }], action: "reject" }))
       .toEqual({ matches: ["mode:and"], action: "reject" })

@@ -177,7 +177,7 @@ describe("route rule-set transitions", () => {
   })
 })
 
-describe("route arrays and summaries", () => {
+describe("route arrays", () => {
   it("reads only object entries from route arrays", () => {
     expect(routeRules({ rules: [{ outbound: "proxy" }, null, "invalid"] })).toEqual([{ outbound: "proxy" }])
     expect(routeRuleSets({ rule_set: [{ type: "local", tag: "geo" }, 1] })).toEqual([{ type: "local", tag: "geo" }])
@@ -198,6 +198,9 @@ describe("route arrays and summaries", () => {
     expect(withRuleSets.rule_set).not.toBe(ruleSets)
   })
 
+})
+
+describe("route summaries", () => {
   it("summarizes match values and legacy or explicit actions", () => {
     expect(summarizeRouteRule({ domain_suffix: ["example.com"], network: "tcp", outbound: "proxy" }))
       .toEqual({ matches: ["example.com", "tcp"], action: "proxy" })
