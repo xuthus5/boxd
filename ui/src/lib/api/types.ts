@@ -77,9 +77,24 @@ export interface Subscription {
   name: string
   url: string
   interval_min: number
+  urltest?: URLTestOverrides
   last_updated: string
   error?: string
   outbounds?: Outbound[]
+}
+
+export interface URLTestDefaults {
+  enabled: boolean
+  url: string
+  interval: string
+  tolerance: number
+}
+
+export interface URLTestOverrides {
+  enabled?: boolean
+  url?: string
+  interval?: string
+  tolerance?: number
 }
 
 export interface ImportResult {

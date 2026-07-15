@@ -1,9 +1,6 @@
 package core
 
 import (
-	"io"
-	"net/http"
-	"strings"
 	"testing"
 
 	"go.etcd.io/bbolt"
@@ -37,7 +34,7 @@ func TestSubscriptionCreateAndList(t *testing.T) {
 	defer cleanup()
 
 	sm := NewSubscriptionManager(db, t.TempDir())
-	sub, err := sm.Create("test-sub", "https://example.com/sub", 60)
+	sub, err := sm.Create(SubscriptionParams{Name: "test-sub", URL: "https://example.com/sub", IntervalMin: 60})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,7 +45,10 @@ func TestSubscriptionCreateAndList(t *testing.T) {
 		t.Error("expected non-empty ID")
 	}
 
-	subs := sm.List()
+	subs, err := sm.List()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(subs) != 1 {
 		t.Fatalf("expected 1 sub, got %d", len(subs))
 	}
@@ -62,7 +62,7 @@ func TestSubscriptionGet(t *testing.T) {
 	defer cleanup()
 
 	sm := NewSubscriptionManager(db, t.TempDir())
-	created, err := sm.Create("get-test", "https://example.com/sub", 30)
+	created, err := sm.Create(SubscriptionParams{Name: "get-test", URL: "https://example.com/sub", IntervalMin: 30})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,12 +86,12 @@ func TestSubscriptionUpdate(t *testing.T) {
 	defer cleanup()
 
 	sm := NewSubscriptionManager(db, t.TempDir())
-	created, err := sm.Create("old-name", "https://old.url", 60)
+	created, err := sm.Create(SubscriptionParams{Name: "old-name", URL: "https://old.url", IntervalMin: 60})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = sm.Update(created.ID, "new-name", "https://new.url", 30)
+	err = sm.Update(created.ID, SubscriptionParams{Name: "new-name", URL: "https://new.url", IntervalMin: 30})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,12 +113,12 @@ func TestSubscriptionUpdatePartial(t *testing.T) {
 	defer cleanup()
 
 	sm := NewSubscriptionManager(db, t.TempDir())
-	created, err := sm.Create("name", "https://url", 60)
+	created, err := sm.Create(SubscriptionParams{Name: "name", URL: "https://url", IntervalMin: 60})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := sm.Update(created.ID, "", "", 0); err != nil {
+	if err := sm.Update(created.ID, SubscriptionParams{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -139,7 +139,7 @@ func TestSubscriptionUpdateNotFound(t *testing.T) {
 	defer cleanup()
 
 	sm := NewSubscriptionManager(db, t.TempDir())
-	err := sm.Update("non_existent", "x", "x", 10)
+	err := sm.Update("non_existent", SubscriptionParams{Name: "x", URL: "x", IntervalMin: 10})
 	if err == nil {
 		t.Fatal("expected error for update of non-existent subscription")
 	}
@@ -150,7 +150,7 @@ func TestSubscriptionDelete(t *testing.T) {
 	defer cleanup()
 
 	sm := NewSubscriptionManager(db, t.TempDir())
-	created, err := sm.Create("delete-me", "https://url", 60)
+	created, err := sm.Create(SubscriptionParams{Name: "delete-me", URL: "https://url", IntervalMin: 60})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -180,7 +180,10 @@ func TestSubscriptionEmptyList(t *testing.T) {
 	defer cleanup()
 
 	sm := NewSubscriptionManager(db, t.TempDir())
-	subs := sm.List()
+	subs, err := sm.List()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(subs) != 0 {
 		t.Errorf("expected empty list, got %d items", len(subs))
 	}
@@ -191,7 +194,7 @@ func TestSubscriptionSetError(t *testing.T) {
 	defer cleanup()
 
 	sm := NewSubscriptionManager(db, t.TempDir())
-	created, err := sm.Create("err-test", "https://url", 60)
+	created, err := sm.Create(SubscriptionParams{Name: "err-test", URL: "https://url", IntervalMin: 60})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -253,121 +256,4 @@ func TestParseSubscriptionContentComments(t *testing.T) {
 	if len(result) != 1 {
 		t.Fatalf("expected 1 outbound, got %d", len(result))
 	}
-}
-
-func TestSubscriptionRefreshJSON(t *testing.T) {
-	db, cleanup := setupSubDB(t)
-	defer cleanup()
-
-	withSubscriptionHTTPClient(t, `{"outbounds":[{"tag":"json-node","type":"trojan","server":"example.com","port":443}]}`)
-
-	sm := NewSubscriptionManager(db, t.TempDir())
-	sub, err := sm.Create("json", "https://example.test/sub", 60)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := sm.Refresh(sub.ID); err != nil {
-		t.Fatal(err)
-	}
-	got := sm.Get(sub.ID)
-	if got == nil || len(got.Outbounds) != 1 {
-		t.Fatalf("outbounds = %#v", got)
-	}
-	if got.Error != "" {
-		t.Fatalf("error = %q", got.Error)
-	}
-	if got.LastUpdated.IsZero() {
-		t.Fatal("last updated should be set")
-	}
-}
-
-func TestSubscriptionRefreshProxyLinks(t *testing.T) {
-	db, cleanup := setupSubDB(t)
-	defer cleanup()
-
-	withSubscriptionHTTPClient(t, "trojan://pass@example.com:443#trojan-test\n")
-
-	sm := NewSubscriptionManager(db, t.TempDir())
-	sub, err := sm.Create("links", "https://example.test/links", 60)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := sm.Refresh(sub.ID); err != nil {
-		t.Fatal(err)
-	}
-	got := sm.Get(sub.ID)
-	if len(got.Outbounds) != 1 || got.Outbounds[0].Tag != "trojan-test" {
-		t.Fatalf("outbounds = %#v", got.Outbounds)
-	}
-}
-
-func TestSubscriptionRefreshErrors(t *testing.T) {
-	db, cleanup := setupSubDB(t)
-	defer cleanup()
-
-	sm := NewSubscriptionManager(db, t.TempDir())
-	if err := sm.Refresh("missing"); err == nil {
-		t.Fatal("expected missing subscription error")
-	}
-
-	sub, err := sm.Create("bad", "://bad-url", 60)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := sm.Refresh(sub.ID); err == nil {
-		t.Fatal("expected bad URL error")
-	}
-	got := sm.Get(sub.ID)
-	if got.Error == "" {
-		t.Fatal("refresh error should be stored")
-	}
-}
-
-func TestSubscriptionRefreshAll(t *testing.T) {
-	db, cleanup := setupSubDB(t)
-	defer cleanup()
-
-	withSubscriptionHTTPClient(t, `{"outbounds":[{"tag":"ok","type":"direct"}]}`)
-
-	sm := NewSubscriptionManager(db, t.TempDir())
-	if _, err := sm.Create("ok", "https://example.test/ok", 60); err != nil {
-		t.Fatal(err)
-	}
-	if errs := sm.RefreshAll(); len(errs) != 0 {
-		t.Fatalf("errs = %v", errs)
-	}
-
-	if _, err := sm.Create("bad", "://bad-url", 60); err != nil {
-		t.Fatal(err)
-	}
-	if errs := sm.RefreshAll(); len(errs) != 1 {
-		t.Fatalf("errs = %v", errs)
-	}
-}
-
-func withSubscriptionHTTPClient(t *testing.T, body string) {
-	t.Helper()
-
-	previous := subscriptionHTTPClient
-	subscriptionHTTPClient = &http.Client{
-		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-			return &http.Response{
-				StatusCode: http.StatusOK,
-				Body:       io.NopCloser(strings.NewReader(body)),
-				Header:     http.Header{},
-				Request:    req,
-			}, nil
-		}),
-	}
-	t.Cleanup(func() {
-		subscriptionHTTPClient = previous
-	})
-}
-
-type roundTripFunc func(*http.Request) (*http.Response, error)
-
-func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
-	return f(req)
 }

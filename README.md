@@ -39,10 +39,10 @@ make dev
 - **仪表盘**：服务启停/重启、实时流量、内存 GC、DNS/FakeIP 维护、最近日志
 - **代理配置**：入站、出站与默认出站
 - **流量策略**：路由规则、规则集默认安装、DNS 服务器与 DNS 规则
-- **节点与订阅**：响应式节点卡片、按来源分组、节点级与分组批量 TCP/HTTP/ICMP 测速，订阅与手动节点管理自动同步配置
+- **节点与订阅**：响应式节点卡片、按来源分组、节点级与分组批量 TCP/HTTP/ICMP 测速，订阅 URLTest 字段级覆盖与自动配置同步
 - **运行观测**：内核日志、应用日志、活跃连接管理
 - **sing-box 高级配置**：Endpoints、Experimental、完整 JSON 配置编辑
-- **应用设置**：浅色/深色主题、中英文切换、密码轮换、JWT 密钥轮换、测速地址、内核自启
+- **应用设置**：浅色/深色主题、中英文切换、密码与 JWT 密钥轮换、系统测速地址、订阅 URLTest 全局默认值、内核自启
 
 ## 预置规则
 
@@ -100,7 +100,8 @@ npm run e2e
 
 # Lint
 golangci-lint run ./...
-goimports-reviser -rm-unused -set-alias -local github.com/xuthus5/boxui -project-path ./internal ./cmd
+goimports-reviser -rm-unused -set-alias -project-name github.com/xuthus5/boxui -recursive ./internal
+goimports-reviser -rm-unused -set-alias -project-name github.com/xuthus5/boxui -recursive ./cmd
 ```
 
 完整质量门禁：

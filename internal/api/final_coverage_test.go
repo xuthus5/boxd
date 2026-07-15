@@ -144,7 +144,7 @@ func TestSubscriptionRefreshWithMockServer(t *testing.T) {
 	writeConfigFile(t, configPath, map[string]any{"outbounds": []any{}})
 
 	handler := NewSubscriptionHandler(subMgr, nodeMgr, configPath)
-	sub, err := subMgr.Create("test-refresh", server.URL, 60)
+	sub, err := subMgr.Create(core.SubscriptionParams{Name: "test-refresh", URL: server.URL, IntervalMin: 60})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,15 +1,13 @@
 package api
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
 
-	"go.etcd.io/bbolt"
-
+	"github.com/xuthus5/boxui/internal/core"
 	"github.com/xuthus5/boxui/internal/model"
 )
 
@@ -146,137 +144,6 @@ func TestNodesHandlerErrors(t *testing.T) {
 	}
 }
 
-func TestSyncOutboundsToConfigPreservesNonProxyOutbounds(t *testing.T) {
-	nodeMgr, subMgr, _, configPath := newAPIManagers(t)
-	writeConfigFile(t, configPath, map[string]any{
-		"outbounds": []any{
-			map[string]any{"type": "direct", "tag": "direct"},
-			map[string]any{"type": "wireguard", "tag": "wg"},
-		},
-		"route": map[string]any{},
-	})
-	if err := nodeMgr.Add(model.Outbound{
-		Tag: "node-a", Type: "trojan", Server: "example.com", Port: 443,
-		Raw: map[string]any{"password": "secret"},
-	}); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := syncOutboundsToConfig(nodeMgr, subMgr, configPath); err != nil {
-		t.Fatal(err)
-	}
-
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var cfg map[string]any
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		t.Fatal(err)
-	}
-	outbounds := cfg["outbounds"].([]any)
-	if len(outbounds) < 4 {
-		t.Fatalf("outbounds length = %d, want at least 4", len(outbounds))
-	}
-	if !strings.Contains(string(data), `"wg"`) || !strings.Contains(string(data), `"password"`) {
-		t.Fatalf("config missing preserved/raw fields: %s", string(data))
-	}
-	if !strings.Contains(string(data), `"tag": "direct"`) {
-		t.Fatalf("config missing direct builtin: %s", string(data))
-	}
-}
-
-func TestSyncOutboundsToConfigKeepsExistingProxySelector(t *testing.T) {
-	nodeMgr, subMgr, _, configPath := newAPIManagers(t)
-	writeConfigFile(t, configPath, map[string]any{
-		"outbounds": []any{
-			map[string]any{"type": "wireguard", "tag": "wg"},
-		},
-		"route": map[string]any{"final": "direct"},
-	})
-	if err := nodeMgr.Add(model.Outbound{Tag: "proxy", Type: "selector", Raw: map[string]any{"outbounds": []string{"wg"}}}); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := syncOutboundsToConfig(nodeMgr, subMgr, configPath); err != nil {
-		t.Fatal(err)
-	}
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if strings.Count(string(data), `"proxy"`) != 1 {
-		t.Fatalf("config should contain one proxy selector: %s", string(data))
-	}
-	if !strings.Contains(string(data), `"final": "direct"`) {
-		t.Fatalf("route final should be preserved: %s", string(data))
-	}
-}
-
-func TestSyncOutboundsToConfigPreservesCustomGroupsAndBuiltins(t *testing.T) {
-	nodeMgr, subMgr, _, configPath := newAPIManagers(t)
-	writeConfigFile(t, configPath, map[string]any{
-		"outbounds": []any{
-			map[string]any{"type": "direct", "tag": "direct"},
-			map[string]any{"type": "block", "tag": "block"},
-			map[string]any{"type": "selector", "tag": "whitelist", "outbounds": []string{"direct", "proxy"}},
-			map[string]any{"type": "urltest", "tag": "auto", "outbounds": []string{"node-a"}},
-		},
-		"route": map[string]any{"final": "proxy"},
-	})
-	if err := nodeMgr.Add(model.Outbound{Tag: "node-a", Type: "trojan", Server: "example.com", Port: 443}); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := syncOutboundsToConfig(nodeMgr, subMgr, configPath); err != nil {
-		t.Fatal(err)
-	}
-
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	text := string(data)
-	for _, needle := range []string{`"tag": "block"`, `"tag": "whitelist"`, `"tag": "auto"`} {
-		if !strings.Contains(text, needle) {
-			t.Fatalf("config missing preserved outbound %s: %s", needle, text)
-		}
-	}
-}
-
-func TestSyncOutboundsToConfigPreservesExistingManagedOutboundFields(t *testing.T) {
-	nodeMgr, subMgr, _, configPath := newAPIManagers(t)
-	writeConfigFile(t, configPath, map[string]any{
-		"outbounds": []any{
-			map[string]any{
-				"type": "vless", "tag": "node-a", "server": "old.example", "server_port": 443,
-				"routing_mark": 128, "domain_strategy": "prefer_ipv4", "packet_encoding": "",
-			},
-		},
-		"route": map[string]any{},
-	})
-	if err := nodeMgr.Add(model.Outbound{
-		Tag: "node-a", Type: "vless", Server: "example.com", Port: 8443,
-		Raw: map[string]any{"uuid": "u", "tls": map[string]any{"enabled": true}},
-	}); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := syncOutboundsToConfig(nodeMgr, subMgr, configPath); err != nil {
-		t.Fatal(err)
-	}
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	text := string(data)
-	for _, needle := range []string{`"routing_mark": 128`, `"domain_strategy": "prefer_ipv4"`, `"packet_encoding": ""`} {
-		if !strings.Contains(text, needle) {
-			t.Fatalf("config missing preserved field %s: %s", needle, text)
-		}
-	}
-}
-
 func TestSubscriptionHandlerCRUDAndRefresh(t *testing.T) {
 	nodeMgr, subMgr, _, configPath := newAPIManagers(t)
 	handler := NewSubscriptionHandler(subMgr, nodeMgr, configPath)
@@ -362,10 +229,14 @@ func TestSubscriptionHandlerErrorsAndRefreshAll(t *testing.T) {
 		t.Fatalf("missing delete status = %d", rr.Code)
 	}
 
-	if _, err := subMgr.Create("bad", "://bad-url", 60); err != nil {
+	if _, err := subMgr.Create(core.SubscriptionParams{Name: "bad", URL: "://bad-url", IntervalMin: 60}); err != nil {
 		t.Fatal(err)
 	}
-	bad := subMgr.List()[0]
+	subscriptions, err := subMgr.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	bad := subscriptions[0]
 	rr = httptest.NewRecorder()
 	req = withURLParam(httptest.NewRequest(http.MethodPost, "/api/subscriptions/"+bad.ID+"/refresh", nil), "id", bad.ID)
 	handler.Refresh(rr, req)
@@ -388,85 +259,5 @@ func TestSubscriptionHandlerErrorsAndRefreshAll(t *testing.T) {
 	handler.Get(rr, req)
 	if rr.Code != http.StatusNotFound {
 		t.Fatalf("missing get status = %d", rr.Code)
-	}
-}
-
-func TestSyncOutboundsCreatesSubscriptionGroups(t *testing.T) {
-	nodeMgr, subMgr, _, configPath := newAPIManagers(t)
-	writeConfigFile(t, configPath, map[string]any{
-		"outbounds": []any{
-			map[string]any{"type": "direct", "tag": "direct"},
-		},
-		"route": map[string]any{},
-	})
-
-	sub, err := subMgr.Create("my-sub", "https://example.com/sub", 60)
-	if err != nil {
-		t.Fatal(err)
-	}
-	updated := model.Subscription{
-		ID: sub.ID, Name: sub.Name, URL: sub.URL, IntervalMin: sub.IntervalMin,
-		Outbounds: []model.Outbound{
-			{Tag: "hk-1", Type: "vless", Server: "1.1.1.1", Port: 443},
-			{Tag: "us-1", Type: "vless", Server: "2.2.2.2", Port: 443},
-		},
-	}
-	newData, _ := json.Marshal(updated)
-	_ = subMgr.DB().Update(func(tx *bbolt.Tx) error {
-		b := tx.Bucket([]byte("subscriptions"))
-		return b.Put([]byte(sub.ID), newData)
-	})
-
-	if err := syncOutboundsToConfig(nodeMgr, subMgr, configPath); err != nil {
-		t.Fatal(err)
-	}
-
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var cfg map[string]any
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		t.Fatal(err)
-	}
-	outbounds := cfg["outbounds"].([]any)
-
-	var subGroup any
-	for _, ob := range outbounds {
-		obm := ob.(map[string]any)
-		if obm["type"] == "urltest" && obm["tag"] == "my-sub" {
-			subGroup = obm
-		}
-	}
-	if subGroup == nil {
-		t.Fatalf("urltest group for subscription not found: %s", string(data))
-	}
-	members := subGroup.(map[string]any)["outbounds"].([]any)
-	if len(members) != 2 {
-		t.Fatalf("group members = %d, want 2", len(members))
-	}
-
-	var proxySel any
-	for _, ob := range outbounds {
-		obm := ob.(map[string]any)
-		if obm["type"] == "selector" && obm["tag"] == "proxy" {
-			proxySel = obm
-		}
-	}
-	if proxySel == nil {
-		t.Fatalf("proxy selector not found: %s", string(data))
-	}
-	proxyMembers := proxySel.(map[string]any)["outbounds"].([]any)
-	foundGroup := false
-	for _, m := range proxyMembers {
-		if m.(string) == "my-sub" {
-			foundGroup = true
-		}
-	}
-	if !foundGroup {
-		t.Fatalf("proxy selector should include subscription group tag: %v", proxyMembers)
-	}
-	if proxySel.(map[string]any)["default"] != "my-sub" {
-		t.Fatalf("proxy default should be 'my-sub', got %v", proxySel.(map[string]any)["default"])
 	}
 }

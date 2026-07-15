@@ -12,6 +12,8 @@ import type {
   Subscription,
   TestResult,
   TrafficHistoryPoint,
+  URLTestDefaults,
+  URLTestOverrides,
   VersionInfo,
 } from "@/lib/api/types"
 
@@ -23,7 +25,12 @@ const segment = (value: string) => encodeURIComponent(value)
 
 export interface LoginInput { username: string; password: string }
 export interface NodeInput { tag: string; type: string; server: string; port: number; config: JsonValue }
-export interface SubscriptionInput { name: string; url: string; interval_min: number }
+export interface SubscriptionInput {
+  name: string
+  url: string
+  interval_min: number
+  urltest?: URLTestOverrides | null
+}
 export interface TestInput { tag: string; test_type: "tcp" | "http" | "icmp"; server: string; port: number }
 
 export const api = {
@@ -106,6 +113,11 @@ export const api = {
   settings: {
     testURL: () => apiRequest<{ url: string }>("/api/settings/url-test"),
     setTestURL: (url: string) => apiRequest<{ url: string }>("/api/settings/url-test", json("PUT", { url })),
+    urlTestDefaults: () => apiRequest<URLTestDefaults>("/api/settings/urltest-defaults"),
+    setURLTestDefaults: (input: URLTestDefaults) => apiRequest<URLTestDefaults>(
+      "/api/settings/urltest-defaults",
+      json("PUT", input),
+    ),
     autostart: () => apiRequest<{ enabled: boolean }>("/api/settings/kernel-autostart"),
     setAutostart: (enabled: boolean) => apiRequest<{ enabled: boolean }>(
       "/api/settings/kernel-autostart",

@@ -50,4 +50,45 @@ describe("settings interactions", () => {
     expect(screen.getByRole("alertdialog")).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "确认轮换" }))
   })
+
+  it("saves subscription URLTest defaults and synchronizes configuration", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    const fetchMock = installMockAPI()
+    const user = userEvent.setup()
+    renderApp(<App />, "/settings")
+    await screen.findByText("订阅 URLTest 默认值")
+
+    await user.clear(screen.getByLabelText("URLTest 测试地址"))
+    await user.type(screen.getByLabelText("URLTest 测试地址"), "https://example.com/generate_204")
+    await user.clear(screen.getByLabelText("URLTest 测试间隔"))
+    await user.type(screen.getByLabelText("URLTest 测试间隔"), "5m")
+    await user.clear(screen.getByLabelText("URLTest 切换容差（毫秒）"))
+    await user.type(screen.getByLabelText("URLTest 切换容差（毫秒）"), "100")
+    await user.click(screen.getByRole("button", { name: "保存 URLTest 默认值" }))
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/settings/urltest-defaults", expect.objectContaining({
+      method: "PUT",
+      body: JSON.stringify({
+        enabled: true,
+        url: "https://example.com/generate_204",
+        interval: "5m",
+        tolerance: 100,
+      }),
+    }))
+    expect(fetchMock).toHaveBeenCalledWith("/api/nodes/sync-config", expect.objectContaining({ method: "POST" }))
+  })
+
+  it("rejects an invalid URLTest interval before saving", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    installMockAPI()
+    const user = userEvent.setup()
+    renderApp(<App />, "/settings")
+    await screen.findByText("订阅 URLTest 默认值")
+
+    await user.clear(screen.getByLabelText("URLTest 测试间隔"))
+    await user.type(screen.getByLabelText("URLTest 测试间隔"), "0s")
+
+    expect(screen.getByText("请输入大于 0 的时长，例如 3m 或 30s。")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "保存 URLTest 默认值" })).toBeDisabled()
+  })
 })

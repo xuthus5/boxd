@@ -119,6 +119,8 @@ func NewRouter(
 		r.Use(AuthMiddleware(secrets))
 		r.Get("/url-test", settingsHandler.GetTestURL)
 		r.Put("/url-test", settingsHandler.SetTestURL)
+		r.Get("/urltest-defaults", settingsHandler.GetURLTestDefaults)
+		r.Put("/urltest-defaults", settingsHandler.SetURLTestDefaults)
 		r.Get("/kernel-autostart", settingsHandler.GetKernelAutostart)
 		r.Put("/kernel-autostart", settingsHandler.SetKernelAutostart)
 		r.Get("/jwt-secret", settingsHandler.GetJWTSecret)

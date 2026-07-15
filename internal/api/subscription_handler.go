@@ -16,6 +16,22 @@ type SubscriptionHandler struct {
 	configPath string
 }
 
+type subscriptionRequest struct {
+	Name        string                  `json:"name"`
+	URL         string                  `json:"url"`
+	IntervalMin int                     `json:"interval_min"`
+	URLTest     *model.URLTestOverrides `json:"urltest"`
+}
+
+func (r subscriptionRequest) params() core.SubscriptionParams {
+	return core.SubscriptionParams{
+		Name:        r.Name,
+		URL:         r.URL,
+		IntervalMin: r.IntervalMin,
+		URLTest:     r.URLTest,
+	}
+}
+
 func NewSubscriptionHandler(manager *core.SubscriptionManager, nodeMgr *core.NodeManager, configPath string) *SubscriptionHandler {
 	return &SubscriptionHandler{manager: manager, nodeMgr: nodeMgr, configPath: configPath}
 }
@@ -25,16 +41,16 @@ func (h *SubscriptionHandler) syncConfig() {
 }
 
 func (h *SubscriptionHandler) List(w http.ResponseWriter, r *http.Request) {
-	subs := h.manager.List()
+	subs, err := h.manager.List()
+	if err != nil {
+		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorInternal, "failed to load subscriptions")
+		return
+	}
 	writeJSON(w, http.StatusOK, subs)
 }
 
 func (h *SubscriptionHandler) Create(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Name        string `json:"name"`
-		URL         string `json:"url"`
-		IntervalMin int    `json:"interval_min"`
-	}
+	var req subscriptionRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, "invalid request body")
@@ -49,8 +65,12 @@ func (h *SubscriptionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if req.IntervalMin <= 0 {
 		req.IntervalMin = 60
 	}
+	if err := core.ValidateURLTestOverrides(req.URLTest); err != nil {
+		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, err.Error())
+		return
+	}
 
-	sub, err := h.manager.Create(req.Name, req.URL, req.IntervalMin)
+	sub, err := h.manager.Create(req.params())
 	if err != nil {
 		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorInternal, err.Error())
 		return
@@ -73,18 +93,19 @@ func (h *SubscriptionHandler) Get(w http.ResponseWriter, r *http.Request) {
 func (h *SubscriptionHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
-	var req struct {
-		Name        string `json:"name"`
-		URL         string `json:"url"`
-		IntervalMin int    `json:"interval_min"`
-	}
+	var req subscriptionRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, "invalid request body")
 		return
 	}
 
-	if err := h.manager.Update(id, req.Name, req.URL, req.IntervalMin); err != nil {
+	if err := core.ValidateURLTestOverrides(req.URLTest); err != nil {
+		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, err.Error())
+		return
+	}
+
+	if err := h.manager.Update(id, req.params()); err != nil {
 		writeJSONErrorCode(w, http.StatusNotFound, model.ErrorSubscriptionNotFound, err.Error())
 		return
 	}

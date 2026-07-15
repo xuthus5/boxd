@@ -68,7 +68,7 @@ describe("subscription synchronization workflows", () => {
     await user.click(screen.getByRole("button", { name: "确认删除" }))
     await user.click(screen.getByRole("button", { name: "新增订阅" }))
     await user.type(screen.getByLabelText("名称"), "备用")
-    await user.type(screen.getByLabelText("URL"), "https://example.com/backup")
+    await user.type(screen.getByLabelText("订阅 URL"), "https://example.com/backup")
     await user.click(screen.getByRole("button", { name: "保存" }))
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/nodes/sync-config", expect.objectContaining({ method: "POST" })))
   })

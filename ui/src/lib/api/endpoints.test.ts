@@ -44,7 +44,7 @@ describe("api endpoints", () => {
   })
 
   it("adds optional runtime delay query parameters", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response("{}"))
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response("{}")))
     vi.stubGlobal("fetch", fetchMock)
 
     await api.nodes.delay("node/one", { url: "https://example.com/ping", timeout: 2500 })
@@ -53,6 +53,40 @@ describe("api endpoints", () => {
       "/api/nodes/node%2Fone/delay?url=https%3A%2F%2Fexample.com%2Fping&timeout=2500",
       expect.any(Object),
     )
+  })
+
+  it("sends URLTest defaults and subscription overrides", async () => {
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response("{}")))
+    vi.stubGlobal("fetch", fetchMock)
+    const defaults = {
+      enabled: true,
+      url: "https://example.com/generate_204",
+      interval: "3m",
+      tolerance: 50,
+    }
+
+    await api.settings.urlTestDefaults()
+    await api.settings.setURLTestDefaults(defaults)
+    await api.subscriptions.create({
+      name: "sub",
+      url: "https://example.com/sub",
+      interval_min: 60,
+      urltest: { enabled: false, tolerance: 0 },
+    })
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/settings/urltest-defaults", expect.any(Object))
+    expect(fetchMock).toHaveBeenCalledWith("/api/settings/urltest-defaults", expect.objectContaining({
+      method: "PUT",
+      body: JSON.stringify(defaults),
+    }))
+    expect(fetchMock).toHaveBeenCalledWith("/api/subscriptions/", expect.objectContaining({
+      body: JSON.stringify({
+        name: "sub",
+        url: "https://example.com/sub",
+        interval_min: 60,
+        urltest: { enabled: false, tolerance: 0 },
+      }),
+    }))
   })
 })
 

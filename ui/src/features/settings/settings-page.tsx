@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { useAuth } from "@/features/auth/auth-context"
 import { usePreferences } from "@/features/preferences/preferences-provider"
+import { URLTestDefaultsCard } from "@/features/settings/urltest-defaults-card"
 import { api } from "@/lib/api/endpoints"
 import type { Language, Theme } from "@/lib/storage"
 
@@ -56,14 +57,16 @@ function RuntimeSettingsCard({ url, enabled }: { url: string; enabled: boolean }
 
 export function SettingsPage() {
   const { t } = useTranslation()
-  const [password, jwt, testURL, autostart] = useQueries({ queries: [
+  const [password, jwt, testURL, autostart, urlTestDefaults] = useQueries({ queries: [
     { queryKey: ["settings", "password"], queryFn: api.settings.password },
     { queryKey: ["settings", "jwt"], queryFn: api.settings.jwt },
     { queryKey: ["settings", "url"], queryFn: api.settings.testURL },
     { queryKey: ["settings", "autostart"], queryFn: api.settings.autostart },
+    { queryKey: ["settings", "urltest-defaults"], queryFn: api.settings.urlTestDefaults },
   ] })
-  if ([password, jwt, testURL, autostart].some((query) => query.isLoading)) return <Skeleton className="h-64 w-full" />
-  const error = [password, jwt, testURL, autostart].find((query) => query.error)?.error
+  const queries = [password, jwt, testURL, autostart, urlTestDefaults]
+  if (queries.some((query) => query.isLoading)) return <Skeleton className="h-64 w-full" />
+  const error = queries.find((query) => query.error)?.error
   if (error) return <Alert variant="destructive"><AlertTitle>{t("common.loadFailed")}</AlertTitle><AlertDescription>{error.message}</AlertDescription></Alert>
-  return <div className="flex flex-col gap-4"><h1 className="text-2xl font-semibold">{t("settings.title")}</h1><div className="grid gap-4 lg:grid-cols-2"><AppearanceCard /><AccountCard defaultPassword={password.data!.defaultPassword} jwt={jwt.data!} /><RuntimeSettingsCard url={testURL.data!.url} enabled={autostart.data!.enabled} /></div></div>
+  return <div className="flex flex-col gap-4"><h1 className="text-2xl font-semibold">{t("settings.title")}</h1><div className="grid gap-4 lg:grid-cols-2"><AppearanceCard /><AccountCard defaultPassword={password.data!.defaultPassword} jwt={jwt.data!} /><RuntimeSettingsCard url={testURL.data!.url} enabled={autostart.data!.enabled} /><URLTestDefaultsCard defaults={urlTestDefaults.data!} /></div></div>
 }

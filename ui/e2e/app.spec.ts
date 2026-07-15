@@ -22,6 +22,9 @@ const apiBodies: Record<string, unknown> = {
     id: "sub-1", name: "主订阅", url: "https://example.com/sub", interval_min: 60,
     last_updated: "2026-01-01T00:00:00Z", outbounds: nodes.filter((node) => node.source === "subscription"),
   }],
+  "/api/settings/urltest-defaults": {
+    enabled: true, url: "https://www.gstatic.com/generate_204", interval: "3m", tolerance: 50,
+  },
   "/api/nodes/test": { tag: "hk-01", test_type: "tcp", success: true, latency_ms: 18 },
   "/api/nodes/test-batch": { results: [] },
 }
@@ -90,5 +93,23 @@ test("mobile node and subscription cards stay within the viewport", async ({ pag
   await expect(page.getByRole("button", { name: "导入节点" })).toBeVisible()
   await expect(page.getByRole("article", { name: "主订阅" })).toBeVisible()
   await expect(page.locator("[data-slot=card] [data-slot=card]")).toHaveCount(0)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0)
+})
+
+test("subscription URLTest policy fits a 320px viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 })
+  await page.addInitScript(() => {
+    localStorage.setItem("boxui.preferences.v1", JSON.stringify({ theme: "system", language: "en" }))
+  })
+  await page.route("http://127.0.0.1:4173/api/**", fulfillAPI)
+  await login(page)
+
+  await page.goto("/subscriptions")
+  await page.getByRole("button", { name: "Add subscription" }).click()
+  const dialog = page.getByRole("dialog")
+  await expect(dialog.getByRole("button", { name: "Inherit global" })).toBeVisible()
+  await expect(dialog.getByRole("button", { name: "Enable" })).toBeVisible()
+  await expect(dialog.getByRole("button", { name: "Disable" })).toBeVisible()
+  expect(await dialog.evaluate((element) => element.scrollWidth - element.clientWidth)).toBe(0)
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0)
 })

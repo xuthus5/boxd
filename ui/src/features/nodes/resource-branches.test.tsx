@@ -27,10 +27,16 @@ describe("node resource states", () => {
 describe("subscription resource states", () => {
   it("shows subscription refresh errors", async () => {
     sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify([{
-      id: "sub", name: "失败订阅", url: "https://example.com", interval_min: 60,
-      last_updated: "2026-01-01T00:00:00Z", error: "refresh failed",
-    }]))))
+    vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
+      const path = typeof input === "string" ? input : input.toString()
+      const data = path.endsWith("/urltest-defaults")
+        ? { enabled: true, url: "https://www.gstatic.com/generate_204", interval: "3m", tolerance: 50 }
+        : path.endsWith("/nodes/") ? [] : [{
+          id: "sub", name: "失败订阅", url: "https://example.com", interval_min: 60,
+          last_updated: "2026-01-01T00:00:00Z", error: "refresh failed",
+        }]
+      return Promise.resolve(new Response(JSON.stringify(data)))
+    }))
     renderApp(<App />, "/subscriptions")
     expect(await screen.findByText("refresh failed")).toBeInTheDocument()
   })

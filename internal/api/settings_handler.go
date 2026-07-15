@@ -17,6 +17,25 @@ type SettingsHandler struct {
 	username string
 }
 
+type urlTestDefaultsRequest struct {
+	Enabled   *bool   `json:"enabled"`
+	URL       *string `json:"url"`
+	Interval  *string `json:"interval"`
+	Tolerance *uint16 `json:"tolerance"`
+}
+
+func (r urlTestDefaultsRequest) defaults() (model.URLTestDefaults, error) {
+	if r.Enabled == nil || r.URL == nil || r.Interval == nil || r.Tolerance == nil {
+		return model.URLTestDefaults{}, errors.New("enabled, url, interval and tolerance are required")
+	}
+	return model.URLTestDefaults{
+		Enabled:   *r.Enabled,
+		URL:       *r.URL,
+		Interval:  *r.Interval,
+		Tolerance: *r.Tolerance,
+	}, nil
+}
+
 func NewSettingsHandler(settings *core.SettingsManager, usernames ...string) *SettingsHandler {
 	username := "admin"
 	if len(usernames) > 0 && usernames[0] != "" {
@@ -78,6 +97,37 @@ func (h *SettingsHandler) SetTestURL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"url": req.URL})
+}
+
+func (h *SettingsHandler) GetURLTestDefaults(w http.ResponseWriter, r *http.Request) {
+	config, err := h.settings.URLTestDefaults()
+	if err != nil {
+		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorInternal, "failed to load urltest defaults")
+		return
+	}
+	writeJSON(w, http.StatusOK, config)
+}
+
+func (h *SettingsHandler) SetURLTestDefaults(w http.ResponseWriter, r *http.Request) {
+	var req urlTestDefaultsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, "invalid request")
+		return
+	}
+	config, err := req.defaults()
+	if err != nil {
+		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, err.Error())
+		return
+	}
+	if err := core.ValidateURLTestDefaults(config); err != nil {
+		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, err.Error())
+		return
+	}
+	if err := h.settings.SetURLTestDefaults(config); err != nil {
+		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorInternal, "failed to save urltest defaults")
+		return
+	}
+	writeJSON(w, http.StatusOK, config)
 }
 
 const kernelAutostartKey = "kernel_autostart"

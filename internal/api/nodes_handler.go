@@ -36,7 +36,12 @@ func (h *NodesHandler) List(w http.ResponseWriter, r *http.Request) {
 		nodes = append(nodes, nodeEntry{Tag: n.Tag, Type: n.Type, Server: n.Server, Port: n.Port, Source: "import"})
 	}
 
-	for _, sub := range h.subManager.List() {
+	subscriptions, err := h.subManager.List()
+	if err != nil {
+		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorInternal, "failed to load subscriptions")
+		return
+	}
+	for _, sub := range subscriptions {
 		for _, ob := range sub.Outbounds {
 			nodes = append(nodes, nodeEntry{Tag: ob.Tag, Type: ob.Type, Server: ob.Server, Port: ob.Port, Source: "subscription", SourceName: sub.Name})
 		}

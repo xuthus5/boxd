@@ -47,13 +47,28 @@ type Connection struct {
 }
 
 type Subscription struct {
-	ID          string     `json:"id"`
-	Name        string     `json:"name"`
-	URL         string     `json:"url"`
-	IntervalMin int        `json:"interval_min"`
-	LastUpdated time.Time  `json:"last_updated"`
-	Error       string     `json:"error,omitempty"`
-	Outbounds   []Outbound `json:"outbounds,omitempty"`
+	ID          string            `json:"id"`
+	Name        string            `json:"name"`
+	URL         string            `json:"url"`
+	IntervalMin int               `json:"interval_min"`
+	URLTest     *URLTestOverrides `json:"urltest,omitempty"`
+	LastUpdated time.Time         `json:"last_updated"`
+	Error       string            `json:"error,omitempty"`
+	Outbounds   []Outbound        `json:"outbounds,omitempty"`
+}
+
+type URLTestDefaults struct {
+	Enabled   bool   `json:"enabled"`
+	URL       string `json:"url"`
+	Interval  string `json:"interval"`
+	Tolerance uint16 `json:"tolerance"`
+}
+
+type URLTestOverrides struct {
+	Enabled   *bool   `json:"enabled,omitempty"`
+	URL       *string `json:"url,omitempty"`
+	Interval  *string `json:"interval,omitempty"`
+	Tolerance *uint16 `json:"tolerance,omitempty"`
 }
 
 type Outbound struct {
