@@ -83,7 +83,7 @@ describe("node test result states", () => {
     renderApp(<App />, "/nodes")
     const all = await screen.findByRole("region", { name: "所有节点" })
     await user.click(within(all).getByRole("button", { name: "测速" }))
-    await user.click(within(all).getByRole("button", { name: "HTTP" }))
+    await user.click(await screen.findByRole("menuitem", { name: "HTTP" }))
     expect(await screen.findAllByText("timeout")).toHaveLength(2)
   })
 })

@@ -69,8 +69,10 @@ describe("NodesPage single tests", () => {
 
     const all = await screen.findByRole("region", { name: "所有节点" })
     const card = within(all).getByRole("article", { name: "hk-01" })
-    await user.click(within(card).getByRole("button", { name: "测速" }))
-    await user.click(within(card).getByRole("button", { name: "TCP" }))
+    const trigger = within(card).getByRole("button", { name: "测速" })
+    expect(trigger.closest("[data-slot=card-header]")).not.toBeNull()
+    await user.click(trigger)
+    await user.click(await screen.findByRole("menuitem", { name: "TCP" }))
 
     expect(fetchMock).toHaveBeenCalledWith("/api/nodes/test", expect.objectContaining({
       method: "POST",
@@ -96,11 +98,10 @@ describe("NodesPage single tests", () => {
 
     const all = await screen.findByRole("region", { name: "所有节点" })
     const card = within(all).getByRole("article", { name: "hk-01" })
-    await user.click(within(card).getByRole("button", { name: "测速" }))
-    await user.click(within(card).getByRole("button", { name: "TCP" }))
-    for (const name of ["测速", "全部", "TCP", "HTTP", "ICMP"]) {
-      expect(within(card).getByRole("button", { name })).toBeDisabled()
-    }
+    const trigger = within(card).getByRole("button", { name: "测速" })
+    await user.click(trigger)
+    await user.click(await screen.findByRole("menuitem", { name: "TCP" }))
+    expect(trigger).toBeDisabled()
 
     finishTest(new Response(JSON.stringify({ tag: "hk-01", test_type: "tcp", success: true, latency_ms: 18 })))
     await waitFor(() => expect(within(card).getByRole("button", { name: "测速" })).toBeEnabled())
@@ -150,9 +151,9 @@ describe("NodesPage batch tests", () => {
     const card = within(all).getByRole("article", { name: "hk-1" })
     await user.click(within(card).getByRole("button", { name: "测速" }))
     for (const name of ["全部", "TCP", "HTTP", "ICMP"]) {
-      expect(within(card).getByRole("button", { name })).toBeInTheDocument()
+      expect(await screen.findByRole("menuitem", { name })).toBeInTheDocument()
     }
-    await user.click(within(card).getByRole("button", { name: "全部" }))
+    await user.click(screen.getByRole("menuitem", { name: "全部" }))
     expect(fetchMock).toHaveBeenCalledWith("/api/nodes/test-batch", expect.objectContaining({
       method: "POST",
       body: JSON.stringify({ items: [
@@ -160,6 +161,37 @@ describe("NodesPage batch tests", () => {
         { tag: "hk-1", test_type: "http", server: "hk.example", port: 443 },
         { tag: "hk-1", test_type: "icmp", server: "hk.example", port: 443 },
       ], concurrency: 3 }),
+    }))
+  })
+})
+
+describe("NodesPage group batch tests", () => {
+  it("runs every valid node in one card group", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    const fetchMock = vi.fn((input: string | URL | Request) => {
+      const path = typeof input === "string" ? input : input.toString()
+      const body = path === "/api/nodes/" ? [
+        { tag: "hk-1", type: "vless", server: "hk.example", port: 443, source: "subscription", source_name: "主订阅" },
+        { tag: "us-1", type: "trojan", server: "us.example", port: 8443, source: "subscription", source_name: "主订阅" },
+        { tag: "invalid", type: "direct", source: "import" },
+      ] : path === "/api/nodes/test-batch" ? { results: [] } : path === "/api/nodes/groups" ? { groups: [] } : {}
+      return Promise.resolve(new Response(JSON.stringify(body)))
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    renderApp(<App />, "/nodes")
+
+    const all = await screen.findByRole("region", { name: "所有节点" })
+    await userEvent.setup().click(within(all).getByRole("button", { name: "批量测速" }))
+    expect(fetchMock).toHaveBeenCalledWith("/api/nodes/test-batch", expect.objectContaining({
+      method: "POST",
+      body: JSON.stringify({ items: [
+        { tag: "hk-1", test_type: "tcp", server: "hk.example", port: 443 },
+        { tag: "hk-1", test_type: "http", server: "hk.example", port: 443 },
+        { tag: "hk-1", test_type: "icmp", server: "hk.example", port: 443 },
+        { tag: "us-1", test_type: "tcp", server: "us.example", port: 8443 },
+        { tag: "us-1", test_type: "http", server: "us.example", port: 8443 },
+        { tag: "us-1", test_type: "icmp", server: "us.example", port: 8443 },
+      ], concurrency: 8 }),
     }))
   })
 })

@@ -106,6 +106,7 @@ describe("node fallback and runtime branches", () => {
     renderApp(<App />, "/nodes")
     const all = await screen.findByRole("region", { name: "所有节点" })
     const card = within(all).getByRole("article", { name: "partial" })
+    expect(within(all).getByRole("button", { name: "批量测速" })).toBeDisabled()
     expect(within(card).getByRole("button", { name: "测速" })).toBeDisabled()
     expect(within(card).getByText("测速失败")).toBeInTheDocument()
     expect(within(card).getByText("正常")).toBeInTheDocument()

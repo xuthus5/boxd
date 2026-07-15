@@ -66,7 +66,7 @@ describe("node management workflows", () => {
     expect(await screen.findAllByText("18 ms")).toHaveLength(2)
     const all = screen.getByRole("region", { name: "所有节点" })
     await user.click(within(all).getByRole("button", { name: "测速" }))
-    await user.click(within(all).getByRole("button", { name: "TCP" }))
+    await user.click(await screen.findByRole("menuitem", { name: "TCP" }))
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
       "/api/nodes/test",
