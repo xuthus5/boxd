@@ -99,7 +99,7 @@ export function RouteRuleSetDialog({ open, item, title, onOpenChange, onSave }: 
   const updateJSON = (next: string) => { setValue(next); setRevision((current) => current + 1) }
   const requiredValid = Boolean(object && requiredFieldsPresent(object))
   return <Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent className="max-h-[calc(100dvh-2rem)] min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-x-hidden sm:max-w-3xl">
+    <DialogContent className="max-h-[calc(100dvh-2rem)] min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-3xl">
       <DialogHeader><DialogTitle>{title}</DialogTitle><DialogDescription>{t("policy.route.ruleSetDialogDescription")}</DialogDescription></DialogHeader>
       <div className="min-h-0 min-w-0 overflow-y-auto pr-1"><div className="flex min-w-0 flex-col gap-4">
         {object && !requiredValid ? <Alert variant="destructive"><AlertTitle>{t("policy.route.requiredTitle")}</AlertTitle>

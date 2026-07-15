@@ -25,7 +25,7 @@ export function DNSServerCard({ item, onEdit, onCopy, onDelete }: DNSServerCardP
     path: (value) => t("policy.dns.summaryPath", { value }), predefined: (count) => t("policy.dns.summaryPredefined", { count }),
     ipv4: (value) => t("policy.dns.summaryIPv4", { value }), ipv6: (value) => t("policy.dns.summaryIPv6", { value }),
     tag: (value) => t("policy.dns.summaryTag", { value }), detour: (value) => t("policy.dns.summaryDetour", { value }),
-    strategy: (value) => t("policy.dns.summaryStrategy", { value }), logicalMode: (value) => t("policy.dns.summaryLogicalMode", { value }),
+    strategy: (value) => t("policy.dns.summaryStrategy", { value }),
   })
   const confirmDelete = () => { setDeleting(false); onDelete() }
   return <><Card size="sm"><CardHeader className="min-w-0"><CardTitle>{tag}</CardTitle>

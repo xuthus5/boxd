@@ -248,14 +248,23 @@ const summaryPaths = [
   "network_is_constrained", "wifi_ssid", "wifi_bssid", "invert",
 ]
 
-function summarizeValue(path: string, value: unknown): string[] {
-  if (Array.isArray(value)) return value.flatMap((item) => typeof item === "string" || typeof item === "number" ? [String(item)] : [])
-  if (typeof value === "string" || typeof value === "number") return [String(value)]
-  return value === true ? [path] : []
+export interface RouteRuleSummaryLabels {
+  matchLabel: (path: string) => string
 }
 
-export function summarizeRouteRule(rule: JsonObject): { matches: string[]; action: string } {
-  const matches = summaryPaths.flatMap((path) => summarizeValue(path, rule[path]))
+const defaultRouteRuleSummaryLabels: RouteRuleSummaryLabels = { matchLabel: (path) => path }
+
+function summarizeValue(path: string, value: unknown, labels: RouteRuleSummaryLabels): string[] {
+  if (Array.isArray(value)) return value.flatMap((item) => typeof item === "string" || typeof item === "number" ? [String(item)] : [])
+  if (typeof value === "string" || typeof value === "number") return [String(value)]
+  return value === true ? [labels.matchLabel(path)] : []
+}
+
+export function summarizeRouteRule(
+  rule: JsonObject,
+  labels = defaultRouteRuleSummaryLabels,
+): { matches: string[]; action: string } {
+  const matches = summaryPaths.flatMap((path) => summarizeValue(path, rule[path], labels))
   const action = String(rule.action ?? "route")
   return { matches, action: action === "route" && typeof rule.outbound === "string" ? rule.outbound : action }
 }

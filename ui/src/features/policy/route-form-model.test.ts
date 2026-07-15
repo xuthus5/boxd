@@ -210,6 +210,22 @@ describe("route arrays and summaries", () => {
     expect(summarizeRouteRule({ action: "custom" }).action).toBe("custom")
   })
 
+  it("localizes only enabled boolean match labels", () => {
+    const visited: string[] = []
+    const summary = summarizeRouteRule({
+      source_ip_is_private: true,
+      rule_set_ip_cidr_match_source: true,
+      network_is_expensive: false,
+      domain_suffix: ["example.com"],
+      action: "reject",
+    }, { matchLabel: (path) => { visited.push(path); return `label:${path}` } })
+
+    expect(summary.matches).toEqual([
+      "example.com", "label:source_ip_is_private", "label:rule_set_ip_cidr_match_source",
+    ])
+    expect(visited).toEqual(["source_ip_is_private", "rule_set_ip_cidr_match_source"])
+  })
+
   it("summarizes rule-set format and preferred location", () => {
     expect(summarizeRuleSet({
       type: "remote", tag: "geoip-cn", format: "binary", url: "https://example/geoip-cn.srs",

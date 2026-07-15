@@ -117,7 +117,7 @@ export function DNSServerDialog({ open, item, title, onOpenChange, onSave }: DNS
   const state = useDNSDialogState(item)
   const requiredValid = requiredServerValues(state.object)
   const canSave = Boolean(state.jsonValid && requiredValid && state.invalidFields.size === 0)
-  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="max-h-[calc(100dvh-2rem)] min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-x-hidden sm:max-w-5xl">
+  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="max-h-[calc(100dvh-2rem)] min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-5xl">
     <DialogHeader><DialogTitle>{title}</DialogTitle><DialogDescription>{t("policy.dns.serverDialogDescription")}</DialogDescription></DialogHeader>
     <div className="min-h-0 min-w-0 overflow-y-auto pr-1"><div className="flex min-w-0 flex-col gap-4">
       {!requiredValid ? <Alert variant="destructive"><AlertTitle>{t("policy.dns.requiredTitle")}</AlertTitle>

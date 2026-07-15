@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import type { JsonObject } from "@/features/policy/policy-form-model"
-import { summarizeRouteRule } from "@/features/policy/route-form-model"
+import { routeMatchFields, summarizeRouteRule } from "@/features/policy/route-form-model"
 
 interface RouteRuleCardProps {
   index: number
@@ -52,7 +52,10 @@ export function RouteRuleCard(props: RouteRuleCardProps) {
   const { index, item, first, last, onEdit, onCopy, onMoveUp, onMoveDown, onDelete } = props
   const [deleting, setDeleting] = useState(false)
   const number = index + 1
-  const summary = summarizeRouteRule(item)
+  const matchLabels = new Map<string, string>(
+    routeMatchFields.map((field) => [field.path, t(`policy.route.${field.label}`)]),
+  )
+  const summary = summarizeRouteRule(item, { matchLabel: (path) => matchLabels.get(path) ?? path })
   const type = String(item.type ?? "default")
   const confirmDelete = () => { setDeleting(false); onDelete() }
   return <>

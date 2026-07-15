@@ -115,10 +115,14 @@ async function expectKeyboardTabs(page: Page, dialog: Locator, first: string, ne
 }
 
 async function expectDialogFitsViewport(dialog: Locator) {
+  const viewport = dialog.page().viewportSize()
   const box = await dialog.boundingBox()
+  expect(viewport).not.toBeNull()
   expect(box).not.toBeNull()
   expect(box!.x).toBeGreaterThanOrEqual(0)
-  expect(box!.x + box!.width).toBeLessThanOrEqual(320)
+  expect(box!.y).toBeGreaterThanOrEqual(0)
+  expect(box!.x + box!.width).toBeLessThanOrEqual(viewport!.width)
+  expect(box!.y + box!.height).toBeLessThanOrEqual(viewport!.height)
   expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
 }
 

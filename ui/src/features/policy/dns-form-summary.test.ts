@@ -32,6 +32,22 @@ describe("DNS summary completeness", () => {
       .toEqual({ matches: ["mode:and"], action: "reject" })
   })
 
+  it("localizes logical and enabled boolean match labels", () => {
+    const visited: string[] = []
+    const summary = summarizeDNSRule({
+      type: "logical", mode: "and", rules: [], source_ip_is_private: true,
+      rule_set_ip_cidr_match_source: true, network_is_expensive: false, action: "reject",
+    }, {
+      logicalMode: (value) => `logical:${value}`,
+      matchLabel: (path) => { visited.push(path); return `label:${path}` },
+    })
+
+    expect(summary.matches).toEqual([
+      "logical:and", "label:source_ip_is_private", "label:rule_set_ip_cidr_match_source",
+    ])
+    expect(visited).toEqual(["source_ip_is_private", "rule_set_ip_cidr_match_source"])
+  })
+
   it("keeps the real route action while appending its target", () => {
     expect(summarizeDNSRule({ server: "dns-local" }).action).toBe("route · dns-local")
     expect(summarizeDNSRule({ action: "route", server: "dns-remote" }).action).toBe("route · dns-remote")

@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { summarizeDNSRule } from "@/features/policy/dns-form-model"
+import { dnsRuleMatchFields, summarizeDNSRule } from "@/features/policy/dns-form-model"
 import type { JsonObject } from "@/features/policy/policy-form-model"
 
 interface DNSRuleCardProps {
@@ -53,11 +53,12 @@ export function DNSRuleCard(props: DNSRuleCardProps) {
   const { index, item, first, last, onEdit, onCopy, onMoveUp, onMoveDown, onDelete } = props
   const [deleting, setDeleting] = useState(false)
   const number = index + 1
+  const matchLabels = new Map<string, string>(
+    dnsRuleMatchFields.map((field) => [field.path, t(`policy.dns.${field.label}`)]),
+  )
   const summary = summarizeDNSRule(item, {
-    path: (value) => t("policy.dns.summaryPath", { value }), predefined: (count) => t("policy.dns.summaryPredefined", { count }),
-    ipv4: (value) => t("policy.dns.summaryIPv4", { value }), ipv6: (value) => t("policy.dns.summaryIPv6", { value }),
-    tag: (value) => t("policy.dns.summaryTag", { value }), detour: (value) => t("policy.dns.summaryDetour", { value }),
-    strategy: (value) => t("policy.dns.summaryStrategy", { value }), logicalMode: (value) => t("policy.dns.summaryLogicalMode", { value }),
+    logicalMode: (value) => t("policy.dns.summaryLogicalMode", { value }),
+    matchLabel: (path) => matchLabels.get(path) ?? path,
   })
   const confirmDelete = () => { setDeleting(false); onDelete() }
   return <><Card size="sm"><CardHeader className="min-w-0"><CardTitle>{t("policy.dns.ruleCardTitle", { index: number })}</CardTitle>
