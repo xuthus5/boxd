@@ -28,14 +28,14 @@ function EditorHarness({ initial, initialMetadata = [] }: { initial: JsonObject;
     onFieldValidityChange: vi.fn(),
   }
   const rules = Array.isArray(object.rules) ? object.rules : []
-  return <><RouteVisualEditor {...props} metadata={metadata} onMetadataChange={setMetadata} /><output aria-label="route state">{JSON.stringify(object)}</output>
+  return <><RouteVisualEditor {...props} outbounds={[{ type: "direct", tag: "direct" }, { type: "selector", tag: "proxy" }]} metadata={metadata} onMetadataChange={setMetadata} /><output aria-label="route state">{JSON.stringify(object)}</output>
     <output aria-label="route metadata state">{JSON.stringify(metadata)}</output>
     <output aria-label="rule identity">{String(rules.length > 1 && rules[0] === rules[1])}</output></>
 }
 
 async function choose(label: string, option: string) {
   const user = userEvent.setup()
-  await user.click(screen.getByRole("combobox", { name: label }))
+  await user.click(await screen.findByRole("combobox", { name: label }))
   await user.click(await screen.findByRole("option", { name: option }))
 }
 
@@ -63,7 +63,7 @@ const routeFixture = {
   custom: { retained: true },
 }
 
-const configFixture = { route: routeFixture, dns: { final: "dns" }, log: { level: "info" } }
+const configFixture = { route: routeFixture, outbounds: [{ type: "direct", tag: "direct" }, { type: "selector", tag: "proxy" }], dns: { final: "dns" }, log: { level: "info" } }
 
 function expectedSavedConfig() {
   return {
@@ -94,7 +94,7 @@ function stubRouteConfig() {
 
 async function changeRouteGlobals() {
   const user = userEvent.setup()
-  fireEvent.change(await screen.findByLabelText("最终出站"), { target: { value: "direct" } })
+  await choose("最终出站", "direct")
   for (const name of ["查找进程", "自动检测接口", "覆盖 Android VPN", "禁用默认解析缓存"]) {
     await user.click(screen.getByRole("switch", { name }))
   }

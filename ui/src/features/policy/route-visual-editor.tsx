@@ -15,7 +15,7 @@ import { RouteRuleDialog } from "@/features/policy/route-rule-dialog"
 import { RouteRuleSetCard } from "@/features/policy/route-rule-set-card"
 import { RouteRuleSetDialog } from "@/features/policy/route-rule-set-dialog"
 import { routeRuleSets, routeRules, setRouteRuleSets, setRouteRules } from "@/features/policy/route-form-model"
-import type { RouteRuleMetadata } from "@/lib/api/types"
+import type { JsonValue, RouteRuleMetadata } from "@/lib/api/types"
 
 interface EditorSelection {
   kind: "rule" | "rule-set"
@@ -25,6 +25,7 @@ interface EditorSelection {
 }
 
 interface RouteVisualEditorProps extends PolicyVisualEditorProps {
+  outbounds?: JsonValue
   metadata?: RouteRuleMetadata[]
   metadataLoading?: boolean
   metadataError?: string
@@ -126,7 +127,7 @@ export function RouteVisualEditor(props: RouteVisualEditorProps): React.ReactNod
     setSelection(null)
   }
   return <div className="flex min-w-0 flex-col gap-4">
-    <RouteGlobalCard {...props} />
+    <RouteGlobalCard {...props} outbounds={props.outbounds} />
     <RuleSection object={object} metadata={metadata} metadataLoading={props.metadataLoading} metadataError={props.metadataError}
       onChange={onChange} onMetadataChange={onMetadataChange} onEdit={editRule} />
     <RuleSetSection object={object} onChange={onChange} onEdit={editRuleSet} />

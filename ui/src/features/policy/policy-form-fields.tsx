@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
@@ -33,6 +33,7 @@ export interface PolicyFormFieldsProps {
   onChange: (object: JsonObject) => void
   onFieldValidityChange?: (path: string, valid: boolean) => void
   transformField?: PolicyFieldTransform
+  leading?: ReactNode
 }
 
 type ValidityCallback = PolicyFormFieldsProps["onFieldValidityChange"]
@@ -266,10 +267,10 @@ function PolicyField(props: Omit<PolicyFormFieldsProps, "fields"> & { field: Pol
   return <TextField field={field} label={label} value={textValue(value)} onChange={update} />
 }
 
-export function PolicyFormFields({ fields, ...props }: PolicyFormFieldsProps) {
+export function PolicyFormFields({ fields, leading, ...props }: PolicyFormFieldsProps) {
   return (
     <FieldGroup className="grid gap-4 sm:grid-cols-2">
-      {fields.map((field) => <PolicyField key={field.path} field={field} {...props} />)}
+      {leading}{fields.map((field) => <PolicyField key={field.path} field={field} {...props} />)}
     </FieldGroup>
   )
 }
