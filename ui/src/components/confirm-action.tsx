@@ -13,13 +13,14 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { Spinner } from "@/components/ui/spinner"
 
 interface ConfirmActionProps {
   trigger: ReactElement
   title: string
   description: string
   confirmLabel: string
-  onConfirm: () => void
+  onConfirm: () => void | Promise<void>
   confirmVariant?: ComponentProps<typeof Button>["variant"]
 }
 
@@ -33,9 +34,15 @@ export function ConfirmAction({
 }: ConfirmActionProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
-  const confirm = () => {
-    setOpen(false)
-    onConfirm()
+  const [pending, setPending] = useState(false)
+  const confirm = async () => {
+    setPending(true)
+    try {
+      await onConfirm()
+      setOpen(false)
+    } finally {
+      setPending(false)
+    }
   }
 
   return (
@@ -47,8 +54,9 @@ export function ConfirmAction({
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
-          <AlertDialogAction variant={confirmVariant} onClick={confirm}>
+          <AlertDialogCancel disabled={pending}>{t("common.cancel")}</AlertDialogCancel>
+          <AlertDialogAction variant={confirmVariant} onClick={() => { void confirm() }} disabled={pending}>
+            {pending ? <Spinner aria-hidden="true" data-icon="inline-start" /> : null}
             {confirmLabel}
           </AlertDialogAction>
         </AlertDialogFooter>

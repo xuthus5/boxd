@@ -1,9 +1,11 @@
 import { LogOutIcon, PanelLeftIcon } from "lucide-react"
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { NavLink, Outlet, useLocation } from "react-router-dom"
 import { toast } from "sonner"
 
 import { Separator } from "@/components/ui/separator"
+import { Spinner } from "@/components/ui/spinner"
 import {
   Sidebar,
   SidebarContent,
@@ -42,6 +44,17 @@ function NavItems({ items }: { items: NavigationItem[] }) {
 function AppSidebar() {
   const { t } = useTranslation()
   const auth = useAuth()
+  const [loggingOut, setLoggingOut] = useState(false)
+  const logout = async () => {
+    setLoggingOut(true)
+    try {
+      await auth.logout()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error))
+    } finally {
+      setLoggingOut(false)
+    }
+  }
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader><NavItems items={primaryItems} /></SidebarHeader>
@@ -57,8 +70,8 @@ function AppSidebar() {
         <NavItems items={footerItems} />
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton onClick={() => { void auth.logout().catch((error: Error) => toast.error(error.message)) }}>
-              <LogOutIcon />
+            <SidebarMenuButton disabled={loggingOut} onClick={() => { void logout() }}>
+              {loggingOut ? <Spinner aria-hidden="true" /> : <LogOutIcon />}
               <span>{t("nav.logout")}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>

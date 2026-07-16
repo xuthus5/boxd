@@ -53,7 +53,7 @@ export function LoginPage() {
           </CardContent>
           <CardFooter>
             <Button className="w-full" type="submit" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? <Spinner data-icon="inline-start" /> : null}
+              {form.formState.isSubmitting ? <Spinner aria-hidden="true" data-icon="inline-start" /> : null}
               {t("auth.submit")}
             </Button>
           </CardFooter>

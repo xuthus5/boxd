@@ -20,7 +20,7 @@ function ActionButton({ action, pending, onAction }: Omit<ServiceCardProps, "sta
   const icons = { start: PlayIcon, stop: PauseIcon, restart: RotateCcwIcon }
   const Icon = icons[action]
   const button = <Button variant={action === "stop" ? "destructive" : "outline"} size="sm" disabled={Boolean(pending)} onClick={action === "start" ? () => onAction(action) : undefined}>
-      {pending === action ? <Spinner data-icon="inline-start" /> : <Icon data-icon="inline-start" />}
+      {pending === action ? <Spinner aria-hidden="true" data-icon="inline-start" /> : <Icon data-icon="inline-start" />}
       {labels[action]}
     </Button>
   if (action === "start") return button

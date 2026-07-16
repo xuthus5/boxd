@@ -20,9 +20,13 @@ const ExperimentalPage = lazy(() => import("@/features/advanced/experimental-pag
 const RawConfigPage = lazy(() => import("@/features/advanced/raw-config-page").then((module) => ({ default: module.RawConfigPage })))
 const SettingsPage = lazy(() => import("@/features/settings/settings-page").then((module) => ({ default: module.SettingsPage })))
 
+function RouteLoading() {
+  return <main className="flex flex-1 flex-col gap-4 p-4" role="status" aria-live="polite" aria-label="Loading page"><Skeleton className="h-8 w-48" /><Skeleton className="h-64 w-full" /></main>
+}
+
 export function AppRoutes() {
   return (
-    <Suspense fallback={<Skeleton className="h-64 w-full" />}><Routes>
+    <Suspense fallback={<RouteLoading />}><Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
