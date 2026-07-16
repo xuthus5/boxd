@@ -30,6 +30,7 @@ interface RouteVisualEditorProps extends PolicyVisualEditorProps {
   metadataLoading?: boolean
   metadataError?: string
   onMetadataChange?: (metadata: RouteRuleMetadata[]) => void
+  onRulesChange?: (object: JsonObject, metadata: RouteRuleMetadata[]) => void
 }
 
 const emptyMetadata = (): RouteRuleMetadata => ({ name: "", description: "" })
@@ -60,21 +61,24 @@ function insertCopy(items: readonly JsonObject[], index: number) {
   return [...items.slice(0, index + 1), cloneJsonObject(items[index]), ...items.slice(index + 1)]
 }
 
-function RuleSection({ object, metadata, metadataLoading, metadataError, onChange, onMetadataChange, onEdit }: {
+function RuleSection({ object, metadata, metadataLoading, metadataError, onChange, onMetadataChange, onRulesChange, onEdit, onInstall }: {
   object: JsonObject; metadata: RouteRuleMetadata[]; onChange: (object: JsonObject) => void
+  onRulesChange?: (object: JsonObject, metadata: RouteRuleMetadata[]) => void
   metadataLoading?: boolean; metadataError?: string
   onMetadataChange: (metadata: RouteRuleMetadata[]) => void; onEdit: (index: number | null) => void
+  onInstall?: () => void
 }) {
   const { t } = useTranslation()
   const rules = routeRules(object)
   const update = (next: readonly JsonObject[]) => onChange(setRouteRules(object, next))
   const updateBoth = (nextRules: readonly JsonObject[], nextMetadata: RouteRuleMetadata[]) => {
-    update(nextRules); onMetadataChange(nextMetadata)
+    const nextObject = setRouteRules(object, nextRules)
+    update(nextRules); onMetadataChange(nextMetadata); onRulesChange?.(nextObject, nextMetadata)
   }
   return <Card><CardHeader className="min-w-0 grid-cols-1 has-data-[slot=card-action]:grid-cols-1 sm:has-data-[slot=card-action]:grid-cols-[1fr_auto]">
     <CardTitle>{t("policy.route.rulesTitle")}</CardTitle><CardDescription>{t("policy.route.rulesDescription")}</CardDescription>
     <CardAction className="col-start-1 row-start-auto w-full justify-self-start sm:col-start-2 sm:row-start-1 sm:w-auto sm:justify-self-end">
-      <Button className="w-full sm:w-auto" onClick={() => onEdit(null)}><ListPlusIcon data-icon="inline-start" />{t("policy.route.addRule")}</Button>
+      <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row"><Button variant="outline" className="w-full sm:w-auto" onClick={onInstall}>{t("policy.installRoute")}</Button><Button className="w-full sm:w-auto" onClick={() => onEdit(null)}><ListPlusIcon data-icon="inline-start" />{t("policy.route.addRule")}</Button></div>
     </CardAction></CardHeader>
     <CardContent>{metadataLoading ? <Skeleton className="h-24 w-full" /> : metadataError
       ? <Alert variant="destructive"><AlertTitle>{t("common.loadFailed")}</AlertTitle><AlertDescription>{metadataError}</AlertDescription></Alert>
@@ -90,12 +94,13 @@ function RuleSection({ object, metadata, metadataLoading, metadataError, onChang
     </CardContent><CardFooter><p className="text-muted-foreground">{t("policy.route.rulesCount", { count: rules.length })}</p></CardFooter></Card>
 }
 
-function RuleSetSection({ object, onChange, onEdit }: {
+function RuleSetSection({ object, onChange, onRulesChange, onEdit }: {
   object: JsonObject; onChange: (object: JsonObject) => void; onEdit: (index: number | null) => void
+  onRulesChange?: (object: JsonObject, metadata: RouteRuleMetadata[]) => void
 }) {
   const { t } = useTranslation()
   const ruleSets = routeRuleSets(object)
-  const update = (next: readonly JsonObject[]) => onChange(setRouteRuleSets(object, next))
+  const update = (next: readonly JsonObject[]) => { const nextObject = setRouteRuleSets(object, next); onChange(nextObject); onRulesChange?.(nextObject, []) }
   return <Card><CardHeader className="min-w-0 grid-cols-1 has-data-[slot=card-action]:grid-cols-1 sm:has-data-[slot=card-action]:grid-cols-[1fr_auto]">
     <CardTitle>{t("policy.route.ruleSetsTitle")}</CardTitle><CardDescription>{t("policy.route.ruleSetsDescription")}</CardDescription>
     <CardAction className="col-start-1 row-start-auto w-full justify-self-start sm:col-start-2 sm:row-start-1 sm:w-auto sm:justify-self-end">
@@ -112,7 +117,7 @@ function RuleSetSection({ object, onChange, onEdit }: {
 
 export function RouteVisualEditor(props: RouteVisualEditorProps): React.ReactNode {
   const { t } = useTranslation()
-  const { object, onChange, onMetadataChange = () => undefined } = props
+  const { object, onChange, onMetadataChange = () => undefined, onRulesChange } = props
   const metadata = alignedMetadata(routeRules(object), props.metadata ?? [])
   const [selection, setSelection] = useState<EditorSelection | null>(null)
   const editRule = (index: number | null) => setSelection({ kind: "rule", index, item: index === null ? { action: "route" } : routeRules(object)[index], metadata: index === null ? emptyMetadata() : metadata[index] })
@@ -124,13 +129,14 @@ export function RouteVisualEditor(props: RouteVisualEditorProps): React.ReactNod
       : setRouteRuleSets(object, replaceOrAppend(routeRuleSets(object), selection.index, item))
     if (selection.kind === "rule") onMetadataChange(replaceOrAppend(metadata, selection.index, nextMetadata ?? emptyMetadata()))
     onChange(next)
+    onRulesChange?.(next, selection.kind === "rule" ? replaceOrAppend(metadata, selection.index, nextMetadata ?? emptyMetadata()) : metadata)
     setSelection(null)
   }
   return <div className="flex min-w-0 flex-col gap-4">
     <RouteGlobalCard {...props} outbounds={props.outbounds} />
     <RuleSection object={object} metadata={metadata} metadataLoading={props.metadataLoading} metadataError={props.metadataError}
-      onChange={onChange} onMetadataChange={onMetadataChange} onEdit={editRule} />
-    <RuleSetSection object={object} onChange={onChange} onEdit={editRuleSet} />
+      onChange={onChange} onMetadataChange={onMetadataChange} onRulesChange={onRulesChange} onEdit={editRule} onInstall={props.onInstall} />
+    <RuleSetSection object={object} onChange={onChange} onRulesChange={onRulesChange} onEdit={editRuleSet} />
     {selection?.kind === "rule" ? <RouteRuleDialog key={`${selection.index}:${JSON.stringify(selection.item)}`} open item={selection.item} metadata={selection.metadata}
       title={selection.index === null ? t("policy.route.addRuleTitle") : t("policy.route.editRuleTitle", { index: selection.index + 1 })}
       onOpenChange={(open) => { if (!open) setSelection(null) }} onSave={saveSelection} /> : null}

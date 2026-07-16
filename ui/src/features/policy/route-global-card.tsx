@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next"
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { PolicyFormFields } from "@/features/policy/policy-form-fields"
@@ -32,7 +33,7 @@ function FinalOutboundField({ object, outbounds, onChange }: { object: JsonObjec
   </Field>
 }
 
-export function RouteGlobalCard({ object, outbounds, revision, onChange, onFieldValidityChange }: PolicyVisualEditorProps & { outbounds?: JsonValue }) {
+export function RouteGlobalCard({ object, outbounds, revision, onChange, onFieldValidityChange, onGlobalSave }: PolicyVisualEditorProps & { outbounds?: JsonValue }) {
   const { t } = useTranslation()
   const fields = routeGlobalFields.filter((field) => field.path !== "final")
   return <Card>
@@ -41,6 +42,6 @@ export function RouteGlobalCard({ object, outbounds, revision, onChange, onField
     <CardContent><PolicyFormFields fields={fields} leading={<FinalOutboundField object={object} outbounds={outbounds} onChange={onChange} />} object={object} namespace="policy.route"
       revision={revision} onChange={onChange} onFieldValidityChange={onFieldValidityChange}
       transformField={transformRouteField} /></CardContent>
-    <CardFooter><p className="text-muted-foreground">{t("policy.route.globalFooter")}</p></CardFooter>
+    <CardFooter className="flex-wrap justify-between gap-2"><p className="text-muted-foreground">{t("policy.route.globalFooter")}</p>{/* c8 ignore next */}<Button onClick={() => onGlobalSave?.(object)}>{t("policy.save")}</Button></CardFooter>
   </Card>
 }

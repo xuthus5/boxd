@@ -29,7 +29,7 @@ export function RoutePage() {
   return <PolicyPage section="route" title={t("pages.route")} installLabel={t("policy.installRoute")}
     renderVisual={(props) => <RouteVisualEditor {...props} outbounds={config.data?.outbounds} metadata={metadata} metadataLoading={query.isLoading}
       metadataError={query.error?.message} onMetadataChange={updateMetadata} />}
-    afterSave={saveMetadata} afterInstall={refreshMetadata} install={async () => {
+    afterSave={saveMetadata} afterInstall={refreshMetadata} installInVisual install={async () => {
     const rules = await api.config.installRuleSets()
     return rules.status === "rolled_back" ? rules : api.config.installRoute()
   }} />

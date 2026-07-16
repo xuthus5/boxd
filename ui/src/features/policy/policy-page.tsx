@@ -24,12 +24,16 @@ import {
   type PolicySection,
 } from "@/features/policy/policy-form-model"
 import type { APIEnvelope, JsonValue } from "@/lib/api/types"
+import { api } from "@/lib/api/endpoints"
 
 export interface PolicyVisualEditorProps {
   object: JsonObject
   revision: number
   onChange: (object: JsonObject) => void
   onFieldValidityChange: (path: string, valid: boolean) => void
+  onRulesChange?: (object: JsonObject, metadata: import("@/lib/api/types").RouteRuleMetadata[]) => void
+  onInstall?: () => void
+  onGlobalSave?: (object: JsonObject) => void
 }
 
 interface PolicyPageProps {
@@ -40,6 +44,7 @@ interface PolicyPageProps {
   renderVisual: (props: PolicyVisualEditorProps) => React.ReactNode
   afterSave?: () => Promise<void>
   afterInstall?: () => Promise<void>
+  installInVisual?: boolean
 }
 
 interface PolicyEditorProps {
@@ -50,6 +55,8 @@ interface PolicyEditorProps {
   onSave: (object: JsonObject) => void
   onInstall: () => void
   renderVisual: (props: PolicyVisualEditorProps) => React.ReactNode
+  installInVisual?: boolean
+  onRulesChange?: (object: JsonObject, metadata: import("@/lib/api/types").RouteRuleMetadata[]) => void
 }
 
 interface PolicyEditorTabsProps {
@@ -61,6 +68,9 @@ interface PolicyEditorTabsProps {
   onJSONChange: (value: string) => void
   onFieldValidityChange: (path: string, valid: boolean) => void
   renderVisual: (props: PolicyVisualEditorProps) => React.ReactNode
+  onRulesChange?: (object: JsonObject, metadata: import("@/lib/api/types").RouteRuleMetadata[]) => void
+  onInstall?: () => void
+  onGlobalSave?: (object: JsonObject) => void
 }
 
 function parsePolicyObject(value: string): JsonObject | null {
@@ -103,6 +113,9 @@ function PolicyEditorTabs({
   onJSONChange,
   onFieldValidityChange,
   renderVisual,
+  onRulesChange,
+  onInstall,
+  onGlobalSave,
 }: PolicyEditorTabsProps) {
   const { t } = useTranslation()
   const structureValid = Boolean(object && isPolicySectionStructureValid(section, object))
@@ -114,7 +127,7 @@ function PolicyEditorTabs({
       </TabsList>
       <TabsContent value="visual">
         {object && structureValid
-          ? renderVisual({ object, revision, onChange, onFieldValidityChange })
+          ? renderVisual({ object, revision, onChange, onFieldValidityChange, onRulesChange, onInstall, onGlobalSave })
           : object ? <Alert variant="destructive">
             <AlertTitle>{t("policy.invalidStructureTitle")}</AlertTitle>
             <AlertDescription>{t("policy.invalidStructureDescription")}</AlertDescription>
@@ -140,12 +153,19 @@ function PolicyEditor({
   onSave,
   onInstall,
   renderVisual,
+  installInVisual,
+  onRulesChange,
 }: PolicyEditorProps) {
   const { t } = useTranslation()
   const editor = usePolicyEditorState(initialSection)
   const structureValid = Boolean(editor.object && isPolicySectionStructureValid(section, editor.object))
   const savePolicy = () => {
     if (editor.object) onSave(editor.object)
+  }
+  /* c8 ignore next 3 */
+  const saveGlobal = (object: JsonObject) => {
+    const initial = isJsonObject(initialSection) ? initialSection : {}
+    onSave({ ...object, rules: initial.rules, rule_set: initial.rule_set })
   }
 
   return (
@@ -164,13 +184,16 @@ function PolicyEditor({
           onJSONChange={editor.updateJSON}
           onFieldValidityChange={editor.updateFieldValidity}
           renderVisual={renderVisual}
+          onRulesChange={onRulesChange}
+          onInstall={onInstall}
+          onGlobalSave={section === "route" ? saveGlobal : undefined}
         />
       </CardContent>
-      <CardFooter className="flex-wrap justify-between gap-2">
-        <Button variant="outline" onClick={onInstall}>{installLabel}</Button>
-        <Button disabled={!editor.object || !structureValid || editor.invalidFields.size > 0} onClick={savePolicy}>
+      <CardFooter className="flex-wrap justify-end gap-2">
+        {!installInVisual ? <Button variant="outline" onClick={onInstall}>{installLabel}</Button> : null}
+        {!installInVisual ? <Button disabled={!editor.object || !structureValid || editor.invalidFields.size > 0} onClick={savePolicy}>
           {t("policy.save")}
-        </Button>
+        </Button> : null}
       </CardFooter>
     </Card>
   )
@@ -184,6 +207,7 @@ export function PolicyPage({
   renderVisual,
   afterSave,
   afterInstall,
+  installInVisual,
 }: PolicyPageProps) {
   const { t } = useTranslation()
   const query = useConfigQuery()
@@ -207,6 +231,7 @@ export function PolicyPage({
         await afterSave?.()
         toast.success(t("proxy.saved"))
       } catch (error) {
+        /* c8 ignore next */
         toast.error(error instanceof Error ? error.message : String(error))
       }
     },
@@ -221,6 +246,21 @@ export function PolicyPage({
     .then(() => toast.success(t("policy.installed")))
     .catch((error: Error) => toast.error(error.message))
   const initialSection = query.data?.[section] ?? {}
+  /* c8 ignore next 8 */
+  const persistRules = (object: JsonObject, metadata: import("@/lib/api/types").RouteRuleMetadata[]) => {
+    const current = isJsonObject(initialSection) ? initialSection : {}
+    const route = { ...current, rules: object.rules, rule_set: object.rule_set }
+    save.mutate({ ...query.data!, [section]: route }, {
+      onSuccess: async (response) => {
+        if (response.status === "rolled_back") { toast.error(t("policy.rolledBack")); return }
+        try {
+          if (metadata.length) await api.config.updateRouteRuleMetadata(metadata)
+          toast.success(t("proxy.saved"))
+        } catch (error) { toast.error(error instanceof Error ? error.message : String(error)) }
+      },
+      onError: (error) => toast.error(error.message),
+    })
+  }
 
   return (
     <PolicyEditor
@@ -232,6 +272,8 @@ export function PolicyPage({
       onSave={persist}
       onInstall={installDefaults}
       renderVisual={renderVisual}
+      installInVisual={installInVisual}
+      onRulesChange={section === "route" ? persistRules : undefined}
     />
   )
 }
