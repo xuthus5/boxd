@@ -3,6 +3,7 @@ package core
 import (
 	"regexp"
 	"sync"
+	"time"
 
 	"github.com/sagernet/sing-box/log"
 )
@@ -10,8 +11,9 @@ import (
 var ansiRe = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
 type LogEntry struct {
-	Level   string `json:"level"`
-	Message string `json:"message"`
+	Level     string    `json:"level"`
+	Message   string    `json:"message"`
+	Timestamp time.Time `json:"timestamp"`
 }
 
 type LogWriter struct {
@@ -32,8 +34,9 @@ func NewLogWriter(maxBuf int) *LogWriter {
 
 func (w *LogWriter) WriteMessage(level log.Level, message string) {
 	entry := LogEntry{
-		Level:   levelToString(level),
-		Message: ansiRe.ReplaceAllString(message, ""),
+		Level:     levelToString(level),
+		Message:   ansiRe.ReplaceAllString(message, ""),
+		Timestamp: time.Now().UTC(),
 	}
 
 	w.mu.Lock()

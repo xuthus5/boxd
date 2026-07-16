@@ -209,7 +209,11 @@ func (h *StatsHandler) streamLogs(w http.ResponseWriter, r *http.Request, lw *co
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				writeSSE(w, map[string]string{"level": "info", "message": "no log writer"})
+				writeSSE(w, map[string]string{
+					"level":     "info",
+					"message":   "no log writer",
+					"timestamp": time.Now().UTC().Format(time.RFC3339),
+				})
 				flusher.Flush()
 			}
 		}

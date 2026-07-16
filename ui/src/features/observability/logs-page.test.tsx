@@ -43,6 +43,9 @@ describe("LogsPage", () => {
     expect(await screen.findByRole("tab", { name: "内核日志" })).toBeInTheDocument()
     expect(screen.getByRole("tab", { name: "应用日志" })).toBeInTheDocument()
     expect(await screen.findByText("kernel ready")).toBeInTheDocument()
+    const timestamp = document.querySelector('time[datetime="2026-01-01T00:00:00Z"]')
+    expect(timestamp).toBeInTheDocument()
+    expect(timestamp).not.toHaveTextContent("—")
   })
 
   it("shows error logs without a timestamp", async () => {
@@ -50,7 +53,8 @@ describe("LogsPage", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(sse({ level: "error", message: "failed", timestamp: "" })))
     renderApp(<App />, "/observability/logs")
     expect(await screen.findByText("failed")).toBeInTheDocument()
-    expect(screen.queryByText("时间")).not.toBeInTheDocument()
+    expect(screen.getByRole("columnheader", { name: "时间" })).toBeInTheDocument()
+    expect(screen.getByText("—")).toBeInTheDocument()
   })
 
   it("preserves each tab filter while switching sources", async () => {

@@ -39,6 +39,7 @@ export interface VersionInfo {
 export interface LogEvent {
   level: string
   message: string
+  timestamp?: string
 }
 
 export interface Connection {

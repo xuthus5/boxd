@@ -27,6 +27,9 @@ func TestLogWriterWriteAndRecent(t *testing.T) {
 	if recent[0].Level != "info" {
 		t.Errorf("expected level 'info', got '%s'", recent[0].Level)
 	}
+	if recent[0].Timestamp.IsZero() {
+		t.Error("expected a log generation timestamp")
+	}
 }
 
 func TestLogWriterBufferLimit(t *testing.T) {
