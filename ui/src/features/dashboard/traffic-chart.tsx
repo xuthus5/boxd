@@ -1,4 +1,4 @@
-import { CartesianGrid, Line, LineChart, XAxis } from "recharts"
+import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts"
 import { useTranslation } from "react-i18next"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -23,6 +23,7 @@ export function TrafficChart({ points }: { points: TrafficHistoryPoint[] }) {
         <ChartContainer config={chartConfig} className="h-64 w-full">
           <LineChart accessibilityLayer data={points}>
             <CartesianGrid vertical={false} />
+            <YAxis width={72} tickLine={false} axisLine={false} tickFormatter={(value: number) => formatBytes(value)} />
             <XAxis dataKey="timestamp" tickLine={false} axisLine={false} tickFormatter={(value: string) => new Date(value).toLocaleTimeString()} />
             <ChartTooltip content={<ChartTooltipContent formatter={(value) => formatBytes(Number(value))} />} />
             <Line dataKey="upload_bytes" type="monotone" stroke="var(--color-upload_bytes)" dot={false} />
