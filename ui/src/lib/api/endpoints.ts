@@ -1,5 +1,8 @@
 import { apiRequest, apiRequestEnvelope } from "@/lib/api/client"
 import type {
+  RuleSetAutoUpdate,
+  RuleSetStatusItem,
+  RuleSetUpdateResponse,
   AuthResponse,
   ConnectionEvent,
   ImportResult,
@@ -59,6 +62,12 @@ export const api = {
     updateRaw: (config: SingBoxConfig) => apiRequestEnvelope<JsonValue>("/api/config/raw", json("PUT", config)),
     installDNS: () => apiRequestEnvelope<JsonValue>("/api/config/dns/defaults", json("POST")),
     installRuleSets: () => apiRequestEnvelope<JsonValue>("/api/config/rule-sets/defaults", json("POST")),
+    ruleSetsStatus: () => apiRequest<RuleSetStatusItem[]>("/api/config/rule-sets/status"),
+    updateRuleSets: (input?: { tags?: string[]; types?: string[] }) =>
+      apiRequestEnvelope<RuleSetUpdateResponse>("/api/config/rule-sets/update", json("POST", input ?? {})),
+    ruleSetsAutoUpdate: () => apiRequest<RuleSetAutoUpdate>("/api/config/rule-sets/auto-update"),
+    setRuleSetsAutoUpdate: (input: RuleSetAutoUpdate) =>
+      apiRequest<RuleSetAutoUpdate>("/api/config/rule-sets/auto-update", json("PUT", input)),
     installOutbounds: () => apiRequestEnvelope<JsonValue>("/api/config/outbounds/defaults", json("POST")),
     installRoute: () => apiRequestEnvelope<JsonValue>("/api/config/route/defaults", json("POST")),
     getRouteRuleMetadata: () => apiRequest<RouteRuleMetadata[]>("/api/config/route/rule-metadata"),

@@ -101,5 +101,8 @@ func TestRemoteRuleSetDefaultsContent(t *testing.T) {
 		if entry["download_detour"] != "direct" {
 			t.Errorf("%s download_detour = %v, want direct", tag, entry["download_detour"])
 		}
+		if entry["update_interval"] != "1d" {
+			t.Errorf("%s update_interval = %v, want 1d", tag, entry["update_interval"])
+		}
 	}
 }

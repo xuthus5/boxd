@@ -23,6 +23,7 @@ describe("settings alternate states", () => {
       const data = path.endsWith("/password") ? { defaultPassword: true }
         : path.endsWith("/jwt-secret") ? { masked: "", present: false, length: 0 }
           : path.endsWith("/urltest-defaults") ? { enabled: true, url: "https://example.com/generate_204", interval: "3m", tolerance: 50 }
+          : path.endsWith("/rule-sets/auto-update") ? { enabled: false, interval: "24h" }
           : path.endsWith("/url-test") ? { url: "" } : { enabled: false }
       return Promise.resolve(new Response(JSON.stringify(data)))
     }))
@@ -40,6 +41,7 @@ describe("settings save failures", () => {
       const data = path.endsWith("/password") ? { defaultPassword: false }
         : path.endsWith("/jwt-secret") ? { masked: "x", present: true, length: 1 }
           : path.endsWith("/urltest-defaults") ? { enabled: true, url: "https://example.com/generate_204", interval: "3m", tolerance: 50 }
+          : path.endsWith("/rule-sets/auto-update") ? { enabled: false, interval: "24h" }
           : path.endsWith("/url-test") ? { url: "https://example.com" } : { enabled: false }
       return Promise.resolve(new Response(JSON.stringify(data)))
     }))
@@ -58,6 +60,7 @@ describe("settings save failures", () => {
       const data = path.endsWith("/password") ? { defaultPassword: false }
         : path.endsWith("/jwt-secret") ? { masked: "x", present: true, length: 1 }
           : path.endsWith("/urltest-defaults") ? { enabled: true, url: "https://example.com/generate_204", interval: "3m", tolerance: 50 }
+          : path.endsWith("/rule-sets/auto-update") ? { enabled: false, interval: "24h" }
           : path.endsWith("/url-test") ? { url: "https://example.com" } : { enabled: false }
       return Promise.resolve(new Response(JSON.stringify(data)))
     }))
@@ -79,6 +82,7 @@ describe("settings credential failures", () => {
       const data = path.endsWith("/password") ? { defaultPassword: false }
         : path.endsWith("/jwt-secret") ? { masked: "x", present: true, length: 1 }
           : path.endsWith("/urltest-defaults") ? { enabled: true, url: "https://example.com/generate_204", interval: "3m", tolerance: 50 }
+          : path.endsWith("/rule-sets/auto-update") ? { enabled: false, interval: "24h" }
           : path.endsWith("/url-test") ? { url: "https://example.com" } : { enabled: false }
       return Promise.resolve(new Response(JSON.stringify(data)))
     }))

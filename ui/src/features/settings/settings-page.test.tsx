@@ -15,6 +15,7 @@ describe("SettingsPage", () => {
       const data = path.endsWith("/password") ? { defaultPassword: false }
         : path.endsWith("/jwt-secret") ? { masked: "ab********cd", present: true, length: 32 }
           : path.endsWith("/urltest-defaults") ? { enabled: true, url: "https://www.gstatic.com/generate_204", interval: "3m", tolerance: 50 }
+          : path.endsWith("/rule-sets/auto-update") ? { enabled: false, interval: "24h" }
           : path.endsWith("/url-test") ? { url: "https://cp.cloudflare.com/" }
             : { enabled: true }
       return Promise.resolve(new Response(JSON.stringify(data)))

@@ -1,6 +1,8 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { ListPlusIcon, RouteIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -15,7 +17,8 @@ import { RouteRuleDialog } from "@/features/policy/route-rule-dialog"
 import { RouteRuleSetCard } from "@/features/policy/route-rule-set-card"
 import { RouteRuleSetDialog } from "@/features/policy/route-rule-set-dialog"
 import { routeRuleSets, routeRules, setRouteRuleSets, setRouteRules } from "@/features/policy/route-form-model"
-import type { JsonValue, RouteRuleMetadata } from "@/lib/api/types"
+import { api } from "@/lib/api/endpoints"
+import type { JsonValue, RouteRuleMetadata, RuleSetStatusItem } from "@/lib/api/types"
 
 interface EditorSelection {
   kind: "rule" | "rule-set"
@@ -99,19 +102,53 @@ function RuleSetSection({ object, onChange, onRulesChange, onEdit }: {
   onRulesChange?: (object: JsonObject, metadata: RouteRuleMetadata[]) => void
 }) {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
   const ruleSets = routeRuleSets(object)
+  const statusQuery = useQuery({ queryKey: ["rule-sets", "status"], queryFn: api.config.ruleSetsStatus })
+  const statusItems = Array.isArray(statusQuery.data) ? statusQuery.data : []
+  const statusByTag = new Map(statusItems.map((item: RuleSetStatusItem) => [item.tag, item]))
+  const [pendingTag, setPendingTag] = useState<string | null>(null)
+  const updateMutation = useMutation({
+    mutationFn: (input?: { tags?: string[]; types?: string[] }) => api.config.updateRuleSets(input),
+    onSuccess: async (envelope) => {
+      const data = envelope.data
+      const updated = data?.updated_count ?? 0
+      const failed = data?.failed_count ?? 0
+      if (failed > 0 && updated > 0) toast.warning(t("policy.route.ruleSetUpdatePartial", { updated, failed }))
+      else if (failed > 0) toast.error(t("policy.route.ruleSetUpdateFailed", { failed }))
+      else toast.success(t("policy.route.ruleSetUpdateSuccess", { updated }))
+      await queryClient.invalidateQueries({ queryKey: ["rule-sets", "status"] })
+      await queryClient.invalidateQueries({ queryKey: ["config"] })
+    },
+    onError: (error: Error) => toast.error(error.message),
+    onSettled: () => setPendingTag(null),
+  })
   const update = (next: readonly JsonObject[]) => { const nextObject = setRouteRuleSets(object, next); onChange(nextObject); onRulesChange?.(nextObject, []) }
+  const updatableCount = ruleSets.filter((item) => {
+    const tag = typeof item.tag === "string" ? item.tag : ""
+    return statusByTag.get(tag)?.updatable
+  }).length
   return <Card><CardHeader className="min-w-0 grid-cols-1 has-data-[slot=card-action]:grid-cols-1 sm:has-data-[slot=card-action]:grid-cols-[1fr_auto]">
     <CardTitle>{t("policy.route.ruleSetsTitle")}</CardTitle><CardDescription>{t("policy.route.ruleSetsDescription")}</CardDescription>
     <CardAction className="col-start-1 row-start-auto w-full justify-self-start sm:col-start-2 sm:row-start-1 sm:w-auto sm:justify-self-end">
-      <Button className="w-full sm:w-auto" onClick={() => onEdit(null)}><ListPlusIcon data-icon="inline-start" />{t("policy.route.addRuleSet")}</Button>
+      <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+        <Button variant="outline" className="w-full sm:w-auto" disabled={updateMutation.isPending || updatableCount === 0}
+          onClick={() => { setPendingTag("*"); updateMutation.mutate({}) }}>{t("policy.route.updateAllRuleSets")}</Button>
+        <Button className="w-full sm:w-auto" onClick={() => onEdit(null)}><ListPlusIcon data-icon="inline-start" />{t("policy.route.addRuleSet")}</Button>
+      </div>
     </CardAction></CardHeader>
     <CardContent>{ruleSets.length === 0
       ? <EmptySection title={t("policy.route.emptyRuleSetsTitle")} description={t("policy.route.emptyRuleSetsDescription")}
         action={t("policy.route.addRuleSet")} onAdd={() => onEdit(null)} />
-      : <div className="flex flex-col gap-3">{ruleSets.map((item, index) => <RouteRuleSetCard key={index} item={item}
-        onEdit={() => onEdit(index)} onCopy={() => update(insertCopy(ruleSets, index))}
-        onDelete={() => update(ruleSets.filter((_, itemIndex) => itemIndex !== index))} />)}</div>}
+      : <div className="flex flex-col gap-3">{ruleSets.map((item, index) => {
+        const tag = typeof item.tag === "string" ? item.tag : ""
+        const status = statusByTag.get(tag)
+        return <RouteRuleSetCard key={index} item={item} status={status}
+          updating={updateMutation.isPending && (pendingTag === tag || pendingTag === "*")}
+          onEdit={() => onEdit(index)} onCopy={() => update(insertCopy(ruleSets, index))}
+          onDelete={() => update(ruleSets.filter((_, itemIndex) => itemIndex !== index))}
+          onUpdate={status?.updatable ? () => { setPendingTag(tag); updateMutation.mutate({ tags: [tag] }) } : undefined} />
+      })}</div>}
     </CardContent><CardFooter><p className="text-muted-foreground">{t("policy.route.ruleSetsCount", { count: ruleSets.length })}</p></CardFooter></Card>
 }
 

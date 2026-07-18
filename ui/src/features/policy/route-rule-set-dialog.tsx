@@ -26,7 +26,7 @@ const formatFields = [{ path: "format", label: "format" }] as const satisfies re
 const localFields = [{ path: "path", label: "path", required: true }] as const satisfies readonly PolicyFieldSpec[]
 const remoteFields = [
   { path: "url", label: "url", required: true },
-  { path: "download_detour", label: "downloadDetour" },
+  { path: "download_detour", label: "downloadDetour", kind: "ref", ref: "outbound" },
   { path: "update_interval", label: "updateInterval" },
 ] as const satisfies readonly PolicyFieldSpec[]
 

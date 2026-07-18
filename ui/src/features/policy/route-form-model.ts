@@ -285,7 +285,8 @@ export function summarizeRuleSet(ruleSet: JsonObject): { type: string; detail: s
   const baseType = typeof ruleSet.type === "string" && ruleSet.type ? ruleSet.type : "inline"
   const format = typeof ruleSet.format === "string" && ruleSet.format ? ` · ${ruleSet.format}` : ""
   const location = [ruleSet.url, ruleSet.path, ruleSet.tag].find((value) => typeof value === "string")
-  return { type: `${baseType}${format}`, detail: typeof location === "string" ? location : "" }
+  const interval = typeof ruleSet.update_interval === "string" && ruleSet.update_interval ? ` · ${ruleSet.update_interval}` : ""
+  return { type: `${baseType}${format}${interval}`, detail: typeof location === "string" ? location : "" }
 }
 
 export function managedRouteGlobalFields() {

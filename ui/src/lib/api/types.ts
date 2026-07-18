@@ -135,3 +135,42 @@ export interface NetworkInterfaceInfo {
   name: string
   ips?: string[]
 }
+
+
+export interface RuleSetAutoUpdate {
+  enabled: boolean
+  interval: string
+}
+
+export interface RuleSetStatusItem {
+  tag: string
+  type: string
+  format?: string
+  path?: string
+  url?: string
+  update_interval?: string
+  download_detour?: string
+  builtin: boolean
+  updatable: boolean
+  last_updated?: string
+  last_etag?: string
+  file_size?: number
+  note?: string
+}
+
+export interface RuleSetUpdateResult {
+  tag: string
+  type: string
+  ok: boolean
+  updated_at?: string
+  not_modified?: boolean
+  error?: string
+}
+
+export interface RuleSetUpdateResponse {
+  results: RuleSetUpdateResult[]
+  updated_count: number
+  failed_count: number
+  skipped_count: number
+  restarted: boolean
+}

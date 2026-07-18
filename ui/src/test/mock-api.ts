@@ -34,6 +34,8 @@ const payloads: Record<string, unknown> = {
   "/api/settings/password": { defaultPassword: false },
   "/api/settings/jwt-secret": { masked: "ab********cd", present: true, length: 32 },
   "/api/settings/url-test": { url: "https://cp.cloudflare.com/" },
+  "/api/config/rule-sets/auto-update": { enabled: false, interval: "24h" },
+  "/api/config/rule-sets/status": [],
   "/api/settings/urltest-defaults": { enabled: true, url: "https://www.gstatic.com/generate_204", interval: "3m", tolerance: 50 },
   "/api/settings/kernel-autostart": { enabled: true },
   "/api/network/interfaces": { interfaces: [{ name: "eth0", ips: ["10.0.0.2"] }, { name: "wlan0", ips: [] }] },

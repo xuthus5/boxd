@@ -541,6 +541,7 @@ func TestNewRouterHealthWorksWithoutStaticFiles(t *testing.T) {
 		NewNetworkHandler(),
 		NewKernelHandler("test-version"),
 		NewRuntimeHandler(instance),
+		NewRuleSetHandler(nil, settingsMgr),
 		settingsMgr,
 		nil,
 		instance,

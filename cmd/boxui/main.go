@@ -153,15 +153,20 @@ func newHandler(cfg *config.Config, db *bbolt.DB, settingsManager *core.Settings
 	routeMetadataManager := core.NewRouteRuleMetadataManager(db)
 
 	authHandler := api.NewAuthHandler(cfg.Username, cfg.Password, settingsManager)
+	ruleSetInstaller := core.NewLoyalsoldierRuleSetInstaller(cfg.DataDir)
+	ruleSetUpdater := core.NewRuleSetUpdater(cfg.ConfigPath, cfg.DataDir, ruleSetInstaller, instance.Stop, instance.Start)
+	ruleSetAutoUpdater := core.NewRuleSetAutoUpdater(settingsManager, ruleSetUpdater)
+	ruleSetAutoUpdater.Start()
 	configHandler := api.NewConfigHandler(
 		cfg.ConfigPath,
 		instance,
-		core.NewLoyalsoldierRuleSetInstaller(cfg.DataDir),
+		ruleSetInstaller,
 		core.NewDefaultOutboundsInstaller(),
 		core.NewDefaultRouteInstaller(),
 		core.NewDefaultDNSInstaller(),
 		routeMetadataManager,
 	)
+	ruleSetHandler := api.NewRuleSetHandler(ruleSetUpdater, settingsManager)
 	serviceHandler := api.NewServiceHandler(instance)
 	statsHandler := api.NewStatsHandler(kernelLogWriter, appLogWriter, instance)
 	importHandler := api.NewImportHandler(nodeManager, subscriptionManager, cfg.ConfigPath)
@@ -193,6 +198,7 @@ func newHandler(cfg *config.Config, db *bbolt.DB, settingsManager *core.Settings
 		networkHandler,
 		kernelHandler,
 		runtimeHandler,
+		ruleSetHandler,
 		settingsManager,
 		cfg.CORSAllowedOrigins,
 		instance,

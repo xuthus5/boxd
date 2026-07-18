@@ -86,7 +86,7 @@ func (i *LoyalsoldierRuleSetInstaller) Install(ctx context.Context) ([]map[strin
 		if err != nil {
 			return nil, fmt.Errorf("marshal %s: %w", src.Tag, err)
 		}
-		if err := os.WriteFile(path, data, 0600); err != nil {
+		if err := atomicWriteFile0600(path, data); err != nil {
 			return nil, fmt.Errorf("write %s: %w", src.Tag, err)
 		}
 
@@ -112,6 +112,7 @@ var remoteRuleSetDefaults = []map[string]any{
 		"format":          "binary",
 		"url":             "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-cn.srs",
 		"download_detour": "direct",
+		"update_interval": "1d",
 	},
 	{
 		"tag":             "geoip-cn",
@@ -119,6 +120,7 @@ var remoteRuleSetDefaults = []map[string]any{
 		"format":          "binary",
 		"url":             "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.srs",
 		"download_detour": "direct",
+		"update_interval": "1d",
 	},
 	{
 		"tag":             "geosite-google-play",
@@ -126,6 +128,7 @@ var remoteRuleSetDefaults = []map[string]any{
 		"format":          "binary",
 		"url":             "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-google-play.srs",
 		"download_detour": "direct",
+		"update_interval": "1d",
 	},
 	{
 		"tag":             "geosite-category-ads-all",
@@ -133,7 +136,68 @@ var remoteRuleSetDefaults = []map[string]any{
 		"format":          "binary",
 		"url":             "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-ads-all.srs",
 		"download_detour": "direct",
+		"update_interval": "1d",
 	},
+}
+
+func DefaultRemoteRuleSetInterval() string { return "1d" }
+
+func BuiltinLocalRuleSetTags() []string {
+	return []string{"loyalsoldier-direct", "loyalsoldier-proxy", "loyalsoldier-reject"}
+}
+
+func BuiltinRemoteRuleSetTags() []string {
+	return []string{"geosite-cn", "geoip-cn", "geosite-google-play", "geosite-category-ads-all"}
+}
+
+func (i *LoyalsoldierRuleSetInstaller) RuleSetDir() string { return i.ruleSetDir }
+
+func (i *LoyalsoldierRuleSetInstaller) SourceByTag(tag string) (RuleSetSource, bool) {
+	for _, src := range i.sources {
+		if src.Tag == tag {
+			return src, true
+		}
+	}
+	return RuleSetSource{}, false
+}
+
+func (i *LoyalsoldierRuleSetInstaller) IsBuiltinLocal(tag string) bool {
+	_, ok := i.SourceByTag(tag)
+	return ok
+}
+
+func atomicWriteFile0600(path string, data []byte) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(dir, ".ruleset-*")
+	if err != nil {
+		return err
+	}
+	tmpName := tmp.Name()
+	cleanup := true
+	defer func() {
+		if cleanup {
+			_ = os.Remove(tmpName)
+		}
+	}()
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Chmod(0600); err != nil {
+		_ = tmp.Close()
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmpName, path); err != nil {
+		return err
+	}
+	cleanup = false
+	return nil
 }
 
 func (i *LoyalsoldierRuleSetInstaller) fetchAndConvert(ctx context.Context, src RuleSetSource) (sourceRuleSetFile, error) {

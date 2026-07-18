@@ -24,6 +24,7 @@ func NewRouter(
 	networkHandler *NetworkHandler,
 	kernelHandler *KernelHandler,
 	runtimeHandler *RuntimeHandler,
+	ruleSetHandler *RuleSetHandler,
 	secrets core.SecretProvider,
 	corsAllowedOrigins []string,
 	instance *core.SBInstance,
@@ -59,6 +60,10 @@ func NewRouter(
 		r.Put("/raw", configHandler.UpdateRawConfig)
 		r.Post("/dns/defaults", configHandler.InstallDefaultDNS)
 		r.Post("/rule-sets/defaults", configHandler.InstallDefaultRuleSets)
+		r.Get("/rule-sets/status", ruleSetHandler.Status)
+		r.Post("/rule-sets/update", ruleSetHandler.Update)
+		r.Get("/rule-sets/auto-update", ruleSetHandler.GetAutoUpdate)
+		r.Put("/rule-sets/auto-update", ruleSetHandler.SetAutoUpdate)
 		r.Post("/outbounds/defaults", configHandler.InstallDefaultOutbounds)
 		r.Post("/route/defaults", configHandler.InstallDefaultRouteRules)
 		r.Get("/route/rule-metadata", configHandler.GetRouteRuleMetadata)
