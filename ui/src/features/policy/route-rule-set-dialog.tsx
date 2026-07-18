@@ -91,7 +91,7 @@ export function RouteRuleSetDialog({ open, item, title, onOpenChange, onSave }: 
       <div className="min-h-0 min-w-0 overflow-y-auto pr-1"><div className="flex min-w-0 flex-col gap-4">
         {!requiredValid ? <Alert variant="destructive"><AlertTitle>{t("policy.route.requiredTitle")}</AlertTitle>
           <AlertDescription>{t("policy.route.ruleSetRequiredDescription")}</AlertDescription></Alert> : null}
-        <Tabs defaultValue="basic" className="min-w-0"><TabsList activateOnFocus className="max-w-full overflow-x-auto"><TabsTrigger value="basic">{t("policy.route.ruleSetBasicTab")}</TabsTrigger><TabsTrigger value="advanced">{t("policy.route.advancedJSON")}</TabsTrigger></TabsList>
+        <Tabs defaultValue="basic" className="min-w-0"><TabsList activateOnFocus className="max-w-full overflow-x-auto overflow-y-hidden"><TabsTrigger value="basic">{t("policy.route.ruleSetBasicTab")}</TabsTrigger><TabsTrigger value="advanced">{t("policy.route.advancedJSON")}</TabsTrigger></TabsList>
           <TabsContent value="basic" className="pt-4" keepMounted><RuleSetFields object={state.object} revision={state.revision} onChange={state.update} /></TabsContent>
           <TabsContent value="advanced" className="pt-4" keepMounted><AdvancedJSONField value={state.value} title={title}
             revision={state.editorRevision} onChange={state.updateJSON} /></TabsContent>

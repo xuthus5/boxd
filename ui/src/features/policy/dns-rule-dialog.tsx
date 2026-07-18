@@ -115,7 +115,7 @@ function RuleTabs({ state, title, serverTags }: {
 }) {
   const { t } = useTranslation()
   const logical = state.object.type === "logical"
-  return <Tabs defaultValue="basic" className="min-h-0 min-w-0"><TabsList activateOnFocus className="h-auto max-w-full justify-start overflow-x-auto" variant="line">
+  return <Tabs defaultValue="basic" className="min-h-0 min-w-0"><TabsList activateOnFocus className="h-auto max-w-full justify-start overflow-x-auto overflow-y-hidden" variant="line">
     <TabsTrigger value="basic">{t("policy.dns.ruleBasicTab")}</TabsTrigger><TabsTrigger value="domain">{t("policy.dns.domainTab")}</TabsTrigger>
     <TabsTrigger value="process">{t("policy.dns.processTab")}</TabsTrigger><TabsTrigger value="action">{t("policy.dns.actionTab")}</TabsTrigger>
     <TabsTrigger value="advanced">{t("policy.dns.advancedJSON")}</TabsTrigger></TabsList>

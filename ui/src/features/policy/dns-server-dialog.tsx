@@ -94,7 +94,7 @@ function ServerTabs({ state, title }: { state: ReturnType<typeof useDNSDialogSta
   const type = inferDNSServerType(object)
   const fieldProps = { object, type, revision: state.revision, onChange: state.update,
     onValidity: state.updateValidity, transform: state.transform }
-  return <Tabs defaultValue="basic" className="min-h-0 min-w-0"><TabsList activateOnFocus className="h-auto max-w-full justify-start overflow-x-auto" variant="line">
+  return <Tabs defaultValue="basic" className="min-h-0 min-w-0"><TabsList activateOnFocus className="h-auto max-w-full justify-start overflow-x-auto overflow-y-hidden" variant="line">
     <TabsTrigger value="basic">{t("policy.dns.basicTab")}</TabsTrigger><TabsTrigger value="dialer">{t("policy.dns.dialerTab")}</TabsTrigger>
     <TabsTrigger value="tls">{t("policy.dns.tlsTab")}</TabsTrigger><TabsTrigger value="special">{t("policy.dns.specialTab")}</TabsTrigger>
     <TabsTrigger value="advanced">{t("policy.dns.advancedJSON")}</TabsTrigger></TabsList>

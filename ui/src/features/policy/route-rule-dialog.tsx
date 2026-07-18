@@ -141,7 +141,7 @@ function RuleTabs(props: RuleTabsProps) {
   const { object, value, title, revision, editorRevision, onChange, onJSONChange, onValidity, transform } = props
   const logical = object.type === "logical"
   return <Tabs defaultValue="basic" className="min-h-0 min-w-0">
-    <TabsList activateOnFocus className="h-auto max-w-full justify-start overflow-x-auto" variant="line">
+    <TabsList activateOnFocus className="h-auto max-w-full justify-start overflow-x-auto overflow-y-hidden" variant="line">
       <TabsTrigger value="basic">{t("policy.route.basicTab")}</TabsTrigger><TabsTrigger value="domain">{t("policy.route.domainTab")}</TabsTrigger>
       <TabsTrigger value="process">{t("policy.route.processTab")}</TabsTrigger><TabsTrigger value="environment">{t("policy.route.environmentTab")}</TabsTrigger>
       <TabsTrigger value="action">{t("policy.route.actionTab")}</TabsTrigger><TabsTrigger value="advanced">{t("policy.route.advancedJSON")}</TabsTrigger>
@@ -154,7 +154,15 @@ function RuleTabs(props: RuleTabsProps) {
       </div>
     </TabsContent>
     <TabsContent value="domain" className="pt-4" keepMounted><StructuredFields object={object} fields={logical ? [] : domainFields} revision={revision} onChange={onChange} onValidity={onValidity} transform={transform} /></TabsContent>
-    <TabsContent value="process" className="pt-4" keepMounted><StructuredFields object={object} fields={logical ? [] : processFields} revision={revision} onChange={onChange} onValidity={onValidity} transform={transform} /></TabsContent>
+    <TabsContent value="process" className="pt-4" keepMounted>
+      <div className="flex flex-col gap-4">
+        {logical ? null : <Alert>
+          <AlertTitle>{t("policy.route.processMatchTitle")}</AlertTitle>
+          <AlertDescription>{t("policy.route.processMatchDescription")}</AlertDescription>
+        </Alert>}
+        <StructuredFields object={object} fields={logical ? [] : processFields} revision={revision} onChange={onChange} onValidity={onValidity} transform={transform} />
+      </div>
+    </TabsContent>
     <TabsContent value="environment" className="pt-4" keepMounted><StructuredFields object={object} fields={logical ? [] : environmentFields} revision={revision} onChange={onChange} onValidity={onValidity} transform={transform} /></TabsContent>
     <TabsContent value="action" className="pt-4" keepMounted><ActionFields object={object} revision={revision} onChange={onChange} onValidity={onValidity} transform={transform} /></TabsContent>
     <TabsContent value="advanced" className="pt-4" keepMounted><AdvancedJSONField value={value} title={title}

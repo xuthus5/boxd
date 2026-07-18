@@ -90,18 +90,23 @@ function useFieldValidity(path: string, valid: boolean, onChange?: ValidityCallb
   return useCallback((next: boolean) => callbackRef.current?.(path, next), [path])
 }
 
-function BooleanField({ field, label, checked, onChange }: BooleanFieldProps) {
+function BooleanField({ field, label, namespace, checked, onChange }: BooleanFieldProps & { namespace: string }) {
   const id = useId()
+  const { t, i18n } = useTranslation()
+  const helpKey = `${namespace}.${field.label}Help`
   return (
-    <Field orientation="horizontal">
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <Switch
-        id={id}
-        aria-label={label}
-        required={field.required}
-        checked={checked}
-        onCheckedChange={onChange}
-      />
+    <Field className={i18n.exists(helpKey) ? "sm:col-span-2" : undefined}>
+      <div className="flex items-center justify-between gap-3">
+        <FieldLabel htmlFor={id}>{label}</FieldLabel>
+        <Switch
+          id={id}
+          aria-label={label}
+          required={field.required}
+          checked={checked}
+          onCheckedChange={onChange}
+        />
+      </div>
+      {i18n.exists(helpKey) ? <FieldDescription>{t(helpKey)}</FieldDescription> : null}
     </Field>
   )
 }
@@ -146,8 +151,10 @@ function SelectField({ field, label, namespace, value, onChange, onFieldValidity
   )
 }
 
-function TextField({ field, label, value, onChange }: TextFieldProps) {
+function TextField({ field, label, namespace, value, onChange }: TextFieldProps & { namespace: string }) {
   const id = useId()
+  const { t, i18n } = useTranslation()
+  const helpKey = `${namespace}.${field.label}Help`
   const area = field.kind === "textarea" || field.kind === "list" || field.kind === "number-list"
   const control = area ? (
     <Textarea
@@ -171,9 +178,11 @@ function TextField({ field, label, value, onChange }: TextFieldProps) {
     <Field>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
       {control}
+      {i18n.exists(helpKey) ? <FieldDescription>{t(helpKey)}</FieldDescription> : null}
     </Field>
   )
 }
+
 
 function useStructuredDraft(props: StructuredFieldProps) {
   const { field, revision = 0, value, array, onChange, onFieldValidityChange } = props
@@ -248,7 +257,7 @@ function PolicyField(props: Omit<PolicyFormFieldsProps, "fields"> & { field: Pol
     if (next) onChange(next)
   }
   if (field.kind === "boolean") {
-    return <BooleanField field={field} label={label} checked={value === true}
+    return <BooleanField field={field} label={label} namespace={namespace} checked={value === true}
       onChange={(checked) => onChange(setPolicyPath(object, field.path, checked))} />
   }
   if (field.kind === "select") {
@@ -264,7 +273,7 @@ function PolicyField(props: Omit<PolicyFormFieldsProps, "fields"> & { field: Pol
   if (transformField) {
     return <TransformedPolicyField {...props} label={label} value={value} transformField={transformField} />
   }
-  return <TextField field={field} label={label} value={textValue(value)} onChange={update} />
+  return <TextField field={field} label={label} namespace={namespace} value={textValue(value)} onChange={update} />
 }
 
 export function PolicyFormFields({ fields, leading, ...props }: PolicyFormFieldsProps) {
