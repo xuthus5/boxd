@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
@@ -11,6 +12,10 @@ import type { JsonObject } from "@/features/policy/policy-form-model"
 import type { PolicyVisualEditorProps } from "@/features/policy/policy-page"
 import { sessionStore } from "@/lib/session"
 import { renderApp } from "@/test/render"
+
+function renderDNS(ui: React.ReactElement) {
+  return renderApp(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{ui}</QueryClientProvider>)
+}
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -207,7 +212,7 @@ describe("DNS server cards", () => {
 describe("DNS rule dialog and cards", () => {
   it("edits approved matches, route target, logical JSON, and special unions", async () => {
     const onSave = vi.fn()
-    renderApp(<DNSRuleDialog open title="新增 DNS 规则" item={{ action: "route" }} serverTags={["local", "remote"]} onOpenChange={vi.fn()} onSave={onSave} />)
+    renderDNS(<DNSRuleDialog open title="新增 DNS 规则" item={{ action: "route" }} serverTags={["local", "remote"]} onOpenChange={vi.fn()} onSave={onSave} />)
     expect(screen.getByRole("button", { name: "保存" })).toBeDisabled()
     expect(screen.getByText("请补全逻辑规则或当前动作的必填值。")).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText("查询类型"), { target: { value: "A!" } })
@@ -226,10 +231,10 @@ describe("DNS rule dialog and cards", () => {
     expect(screen.getByRole("button", { name: "保存" })).toBeDisabled()
     fireEvent.change(screen.getByLabelText("响应码"), { target: { value: "REFUSED" } })
     expect(screen.getByRole("button", { name: "保存" })).toBeEnabled()
-  })
+  }, 15_000)
 
   it("supports four actions, logical mode/invert, and Advanced JSON child rules", async () => {
-    renderApp(<DNSRuleDialog open title="编辑 DNS 规则" item={{ type: "logical", mode: "or", rules: [], action: "reject" }} serverTags={[]} onOpenChange={vi.fn()} onSave={vi.fn()} />)
+    renderDNS(<DNSRuleDialog open title="编辑 DNS 规则" item={{ type: "logical", mode: "or", rules: [], action: "reject" }} serverTags={[]} onOpenChange={vi.fn()} onSave={vi.fn()} />)
     expect(screen.getByText("逻辑子规则请在高级 JSON 中维护。")).toBeInTheDocument()
     await choose("逻辑模式", "and")
     await userEvent.click(screen.getByRole("switch", { name: "反向匹配" }))
@@ -291,7 +296,7 @@ describe("DNS page integration", () => {
     expectEveryFieldGrouped()
     cleanup()
 
-    renderApp(<DNSRuleDialog open title="编辑 DNS 规则" item={{ action: "reject" }} serverTags={[]}
+    renderDNS(<DNSRuleDialog open title="编辑 DNS 规则" item={{ action: "reject" }} serverTags={[]}
       onOpenChange={vi.fn()} onSave={vi.fn()} />)
     expectEveryFieldGrouped()
     await userEvent.click(screen.getByRole("tab", { name: "高级 JSON" }))

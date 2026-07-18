@@ -44,10 +44,10 @@ export const dnsServerTypes = [
 
 export const dnsRuleMatchFields = [
   { path: "type", label: "type", kind: "select", options: ["default", "logical"] },
-  { path: "inbound", label: "inbound", kind: "list" },
-  { path: "ip_version", label: "ipVersion", kind: "number" },
+  { path: "inbound", label: "inbound", kind: "ref-multi", ref: "inbound" },
+  { path: "ip_version", label: "ipVersion", kind: "select", options: ["4", "6"] },
   { path: "query_type", label: "queryType", kind: "list" },
-  { path: "network", label: "network", kind: "list" },
+  { path: "network", label: "network", kind: "network-multi" },
   { path: "auth_user", label: "authUser", kind: "list" },
   { path: "protocol", label: "protocol", kind: "list" },
   { path: "domain", label: "domain", kind: "list" },
@@ -70,7 +70,7 @@ export const dnsRuleMatchFields = [
   { path: "user_id", label: "userID", kind: "number-list" },
   { path: "outbound", label: "outbound", kind: "list" },
   { path: "clash_mode", label: "clashMode" },
-  { path: "rule_set", label: "ruleSet", kind: "list" },
+  { path: "rule_set", label: "ruleSet", kind: "ref-multi", ref: "rule-set" },
   { path: "rule_set_ip_cidr_match_source", label: "ruleSetIPCIDRMatchSource", kind: "boolean" },
   { path: "network_type", label: "networkType", kind: "list" },
   { path: "network_is_expensive", label: "networkIsExpensive", kind: "boolean" },

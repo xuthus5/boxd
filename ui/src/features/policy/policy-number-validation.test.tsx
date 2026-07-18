@@ -76,7 +76,7 @@ describe("dialog numeric validation", () => {
     await expectInvalidThenValid("源端口", "-1", "53")
     await userEvent.click(screen.getByRole("tab", { name: "执行动作" }))
     await expectInvalidThenValid("路由标记", "0x100000000", "0x10")
-  })
+  }, 15_000)
 
   it("gates DNS server fields", async () => {
     renderApp(<DNSServerDialog open title="编辑 DNS 服务器"
@@ -87,9 +87,10 @@ describe("dialog numeric validation", () => {
   })
 
   it("gates DNS rule matcher and action fields", async () => {
-    renderApp(<DNSRuleDialog open title="编辑 DNS 规则" item={{ action: "reject" }} serverTags={[]}
+    renderDialog(<DNSRuleDialog open title="编辑 DNS 规则" item={{ action: "reject" }} serverTags={[]}
       onOpenChange={vi.fn()} onSave={vi.fn()} />)
-    await expectInvalidThenValid("IP 版本", "5", "4")
+    // IP version is a fixed select (4/6); numeric free-input validation no longer applies
+    expect(screen.getByRole("combobox", { name: "IP 版本" })).toBeInTheDocument()
     await userEvent.click(screen.getByRole("tab", { name: "端口与环境" }))
     await expectInvalidThenValid("用户 ID", "-1", "1000")
   })

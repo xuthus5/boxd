@@ -4,7 +4,7 @@ export type JsonObject = Record<string, JsonValue>
 export type PolicySection = "route" | "dns"
 export type PolicyFieldKind =
   | "text" | "textarea" | "number" | "boolean" | "list" | "number-list"
-  | "select" | "json-object" | "json-array" | "ref" | "network-multi" | "network-interface"
+  | "select" | "json-object" | "json-array" | "ref" | "ref-multi" | "network-multi" | "network-interface"
 
 export type PolicyFieldRef = "inbound" | "outbound" | "dns-server" | "rule-set" | "network-interface"
 

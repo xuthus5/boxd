@@ -1,9 +1,14 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 
 import { DNSRuleDialog } from "@/features/policy/dns-rule-dialog"
 import type { JsonObject } from "@/features/policy/policy-form-model"
 import { renderApp } from "@/test/render"
+
+function renderDNS(ui: React.ReactElement) {
+  return renderApp(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{ui}</QueryClientProvider>)
+}
 
 const logicalCases: readonly [string, JsonObject, boolean][] = [
   ["missing children", { type: "logical", mode: "and", action: "reject" }, false],
@@ -21,7 +26,7 @@ const predefinedCases: readonly [string, JsonObject][] = [
 
 describe("DNS logical rule requirements", () => {
   it.each(logicalCases)("handles %s", (_name, item, enabled) => {
-    renderApp(<DNSRuleDialog open title="编辑 DNS 规则" item={item} serverTags={[]}
+    renderDNS(<DNSRuleDialog open title="编辑 DNS 规则" item={item} serverTags={[]}
       onOpenChange={vi.fn()} onSave={vi.fn()} />)
 
     if (enabled) expect(screen.getByRole("button", { name: "保存" })).toBeEnabled()
@@ -31,7 +36,7 @@ describe("DNS logical rule requirements", () => {
 
 describe("DNS predefined action requirements", () => {
   it.each(predefinedCases)("allows %s predefined response without rcode", (_name, item) => {
-    renderApp(<DNSRuleDialog open title="编辑 DNS 规则" item={item} serverTags={[]}
+    renderDNS(<DNSRuleDialog open title="编辑 DNS 规则" item={item} serverTags={[]}
       onOpenChange={vi.fn()} onSave={vi.fn()} />)
 
     expect(screen.getByRole("button", { name: "保存" })).toBeEnabled()

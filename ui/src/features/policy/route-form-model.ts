@@ -34,8 +34,8 @@ export const routeGlobalFields = [
 
 export const routeMatchFields = [
   { path: "type", label: "type", kind: "select", options: ["default", "logical"], section: "basic" },
-  { path: "inbound", label: "inbound", kind: "list", section: "basic" },
-  { path: "ip_version", label: "ipVersion", kind: "number", section: "basic" },
+  { path: "inbound", label: "inbound", kind: "ref-multi", ref: "inbound", section: "basic" },
+  { path: "ip_version", label: "ipVersion", kind: "select", options: ["4", "6"], section: "basic" },
   { path: "network", label: "network", kind: "network-multi", section: "basic" },
   { path: "auth_user", label: "authUser", kind: "list", section: "basic" },
   { path: "protocol", label: "protocol", kind: "list", section: "basic" },
@@ -58,7 +58,7 @@ export const routeMatchFields = [
   { path: "package_name", label: "packageName", kind: "list", section: "process" },
   { path: "user", label: "user", kind: "list", section: "process" },
   { path: "user_id", label: "userID", kind: "number-list", section: "process" },
-  { path: "rule_set", label: "ruleSet", kind: "list", section: "environment" },
+  { path: "rule_set", label: "ruleSet", kind: "ref-multi", ref: "rule-set", section: "environment" },
   { path: "rule_set_ip_cidr_match_source", label: "ruleSetIPCIDRMatchSource", kind: "boolean", section: "environment" },
   { path: "clash_mode", label: "clashMode", section: "environment" },
   { path: "network_type", label: "networkType", kind: "list", section: "environment" },
@@ -169,7 +169,7 @@ function matchesField(value: unknown, field: PolicyFieldSpec): boolean {
   if (value === undefined) return true
   if (field.kind === "boolean") return typeof value === "boolean"
   if (field.kind === "number") return typeof value === "number" && Number.isFinite(value)
-  if (field.kind === "list" || field.kind === "network-multi") {
+  if (field.kind === "list" || field.kind === "network-multi" || field.kind === "ref-multi") {
     return typeof value === "string" || Array.isArray(value) && value.every((item) => typeof item === "string")
   }
   if (field.kind === "number-list") return typeof value === "number" && Number.isFinite(value)

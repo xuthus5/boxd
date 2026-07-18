@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { useState } from "react"
 import { fireEvent, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
@@ -27,10 +28,14 @@ async function choose(label: string, option: string) {
   await userEvent.click(await screen.findByRole("option", { name: option }))
 }
 
+function renderEditor(ui: React.ReactElement) {
+  return renderApp(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{ui}</QueryClientProvider>)
+}
+
 describe("DNS visual editor replacement workflows", () => {
   it("replaces existing servers and rules and closes a cancelled dialog", async () => {
     const user = userEvent.setup()
-    renderApp(<EditorHarness initial={{
+    renderEditor(<EditorHarness initial={{
       servers: [{ tag: "local", address: "local" }],
       rules: [{ action: "reject", domain: ["old.example"] }],
     }} />)
@@ -54,7 +59,7 @@ describe("DNS visual editor replacement workflows", () => {
 
   it("appends a route rule from Empty using an existing server tag", async () => {
     const user = userEvent.setup()
-    renderApp(<EditorHarness initial={{ servers: [{ tag: "dns", address: "local" }] }} />)
+    renderEditor(<EditorHarness initial={{ servers: [{ tag: "dns", address: "local" }] }} />)
     await user.click(screen.getAllByRole("button", { name: "新增 DNS 规则" })[0])
     await user.click(screen.getByRole("tab", { name: "执行动作" }))
     await choose("目标 DNS 服务器", "dns")
@@ -64,7 +69,7 @@ describe("DNS visual editor replacement workflows", () => {
 
   it("synchronizes a server card after Advanced JSON replacement", async () => {
     const user = userEvent.setup()
-    renderApp(<EditorHarness initial={{ servers: [{ tag: "old", address: "local" }] }} />)
+    renderEditor(<EditorHarness initial={{ servers: [{ tag: "old", address: "local" }] }} />)
     await user.click(screen.getByRole("button", { name: "编辑 DNS 服务器 old" }))
     await user.click(screen.getByRole("tab", { name: "高级 JSON" }))
     const editor = screen.getByRole("textbox", { name: "编辑 DNS 服务器 JSON" })

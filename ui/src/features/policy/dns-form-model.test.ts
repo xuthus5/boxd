@@ -256,3 +256,12 @@ describe("DNS arrays and summaries", () => {
     expect(summarizeDNSRule({ action: "custom" }).action).toBe("custom")
   })
 })
+
+describe("dns match field kinds", () => {
+  it("dns match fields use ref-multi and ip select", () => {
+    expect(dnsRuleMatchFields.find((field) => field.path === "inbound")).toMatchObject({ kind: "ref-multi", ref: "inbound" })
+    expect(dnsRuleMatchFields.find((field) => field.path === "rule_set")).toMatchObject({ kind: "ref-multi", ref: "rule-set" })
+    expect(dnsRuleMatchFields.find((field) => field.path === "ip_version")).toMatchObject({ kind: "select", options: ["4", "6"] })
+    expect(dnsRuleMatchFields.find((field) => field.path === "network")).toMatchObject({ kind: "network-multi" })
+  })
+})

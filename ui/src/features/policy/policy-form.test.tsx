@@ -380,6 +380,8 @@ describe("policy form hierarchy and refs", () => {
     ]
     expect(visiblePolicyFields(fields, { tls_fragment: false }).map((field) => field.path)).toEqual(["tls_fragment"])
     expect(pruneInvisiblePolicyFields({ tls_fragment: false, tls_fragment_fallback_delay: "1s" }, fields)).toEqual({ tls_fragment: false })
+    expect(isPolicyFieldVisible({ mode: "x" }, { path: "child", label: "c", when: { path: "mode", is: ["a", "b"] } })).toBe(false)
+    expect(isPolicyFieldVisible({ mode: [] }, { path: "child", label: "c", when: { path: "mode", falsy: true } })).toBe(true)
   })
 })
 
@@ -403,10 +405,10 @@ describe("policy form ref variants and helpers", () => {
     />)
     expect(screen.getByText("leading-slot")).toBeInTheDocument()
     await user.click(screen.getByRole("combobox", { name: "入站" }))
-    await user.click(await screen.findByRole("option", { name: "mixed-in" }))
+    await user.click(await screen.findByRole("option", { name: /mixed-in/ }))
     expect(onChange).toHaveBeenLastCalledWith({ inbound: "mixed-in" })
     await user.click(screen.getByRole("combobox", { name: "规则集" }))
-    await user.click(await screen.findByRole("option", { name: "geo" }))
+    await user.click(await screen.findByRole("option", { name: /geo/ }))
     expect(onChange).toHaveBeenLastCalledWith({ inbound: "legacy-in", rule_set: "geo" })
     await user.click(await screen.findByRole("combobox", { name: "默认接口" }))
     await user.click(await screen.findByRole("option", { name: /wlan0/ }))
@@ -477,5 +479,218 @@ describe("policy form ref clear and unknown option", () => {
     expect(await screen.findByRole("option", { name: "legacy" })).toBeInTheDocument()
     await user.click(await screen.findByRole("option", { name: "未设置" }))
     expect(onChange).toHaveBeenLastCalledWith({})
+  })
+})
+
+describe("policy form multi refs and ip version select", () => {
+  it("ref-multi inbound and rule-set selections store string arrays", async () => {
+    const user = userEvent.setup()
+    function Harness() {
+      const [object, setObject] = useState<JsonObject>({})
+      return <>
+        <output aria-label="form state">{JSON.stringify(object)}</output>
+        <PolicyFormFields
+          fields={[
+            { path: "inbound", label: "inbound", kind: "ref-multi", ref: "inbound" },
+            { path: "rule_set", label: "ruleSet", kind: "ref-multi", ref: "rule-set" },
+            { path: "ip_version", label: "ipVersion", kind: "select", options: ["4", "6"] },
+          ]}
+          object={object}
+          namespace="policy.route"
+          context={{ inboundTags: ["mixed-in", "tun-in"], ruleSetTags: ["geo", "cn"] }}
+          onChange={setObject}
+        />
+      </>
+    }
+    renderApp(<Harness />)
+    await user.click(screen.getByLabelText("入站 mixed-in"))
+    expect(screen.getByLabelText("form state")).toHaveTextContent('"inbound":["mixed-in"]')
+    await user.click(screen.getByLabelText("规则集 geo"))
+    expect(screen.getByLabelText("form state")).toHaveTextContent('"rule_set":["geo"]')
+    await user.click(screen.getByRole("combobox", { name: "IP 版本" }))
+    await user.click(await screen.findByRole("option", { name: "4" }))
+    expect(screen.getByLabelText("form state")).toHaveTextContent('"ip_version":4')
+  })
+})
+
+
+describe("policy form ref-multi empty and numeric select branches", () => {
+  it("shows empty multi-ref hint and clears values", async () => {
+    const user = userEvent.setup()
+    function Harness() {
+      const [object, setObject] = useState<JsonObject>({ inbound: ["legacy"], rule_set: ["old"] })
+      return <>
+        <output aria-label="form state">{JSON.stringify(object)}</output>
+        <PolicyFormFields
+          fields={[
+            { path: "inbound", label: "inbound", kind: "ref-multi", ref: "inbound" },
+            { path: "rule_set", label: "ruleSet", kind: "ref-multi", ref: "rule-set" },
+            { path: "ip_version", label: "ipVersion", kind: "select", options: ["4", "6"] },
+            { path: "strategy", label: "defaultDomainResolverStrategy", kind: "select", options: ["prefer_ipv4", "prefer_ipv6"] },
+          ]}
+          object={object}
+          namespace="policy.route"
+          context={{ inboundTags: [], ruleSetTags: ["geo"] }}
+          onChange={setObject}
+        />
+      </>
+    }
+    renderApp(<Harness />)
+    // unknown current inbound still listed for uncheck
+    expect(screen.getByLabelText("入站 legacy")).toBeInTheDocument()
+    await user.click(screen.getByLabelText("入站 legacy"))
+    expect(screen.getByLabelText("form state")).not.toHaveTextContent("inbound")
+    await user.click(screen.getByLabelText("规则集 geo"))
+    expect(screen.getByLabelText("form state")).toHaveTextContent('"rule_set":["old","geo"]')
+    await user.click(screen.getByLabelText("规则集 old"))
+    expect(screen.getByLabelText("form state")).toHaveTextContent('"rule_set":["geo"]')
+    // string select path (non-numeric)
+    await user.click(screen.getByRole("combobox", { name: "默认域名解析策略" }))
+    await user.click(await screen.findByRole("option", { name: "prefer_ipv6" }))
+    expect(screen.getByLabelText("form state")).toHaveTextContent('"strategy":"prefer_ipv6"')
+    // clear numeric select
+    await user.click(screen.getByRole("combobox", { name: "IP 版本" }))
+    await user.click(await screen.findByRole("option", { name: "6" }))
+    expect(screen.getByLabelText("form state")).toHaveTextContent('"ip_version":6')
+    await user.click(screen.getByRole("combobox", { name: "IP 版本" }))
+    await user.click(await screen.findByRole("option", { name: "未设置" }))
+    expect(screen.getByLabelText("form state")).not.toHaveTextContent("ip_version")
+  })
+
+  it("renders empty multi-ref placeholder without context options", () => {
+    renderApp(<PolicyFormFields
+      fields={[{ path: "inbound", label: "inbound", kind: "ref-multi", ref: "inbound" }]}
+      object={{}}
+      namespace="policy.route"
+      onChange={vi.fn()}
+    />)
+    expect(screen.getByText("暂无可选项，可先在配置中添加。")).toBeInTheDocument()
+  })
+})
+
+describe("policy form select transform and multi-ref variants", () => {
+  it("covers select transform null and ref-multi outbound/dns", async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+    const transform = vi.fn((_object: JsonObject, field: PolicyFieldSpec, raw: string) => {
+      if (field.path === "ip_version" && raw === "4") return null
+      if (field.path === "ip_version" && raw === "6") return undefined
+      return undefined
+    })
+    renderApp(<PolicyFormFields
+      fields={[
+        { path: "ip_version", label: "ipVersion", kind: "select", options: ["4", "6"] },
+        { path: "outbound", label: "outbound", kind: "ref-multi", ref: "outbound" },
+        { path: "server", label: "resolveServer", kind: "ref-multi", ref: "dns-server" },
+      ]}
+      object={{}}
+      namespace="policy.route"
+      context={{ outboundTags: ["proxy"], dnsServerTags: ["dns-remote"] }}
+      transformField={transform}
+      onChange={onChange}
+    />)
+    await user.click(screen.getByRole("combobox", { name: "IP 版本" }))
+    await user.click(await screen.findByRole("option", { name: "4" }))
+    expect(onChange).not.toHaveBeenCalled()
+    await user.click(screen.getByRole("combobox", { name: "IP 版本" }))
+    await user.click(await screen.findByRole("option", { name: "6" }))
+    expect(onChange).toHaveBeenLastCalledWith({ ip_version: 6 })
+    await user.click(screen.getByLabelText("目标出站 proxy"))
+    expect(onChange).toHaveBeenLastCalledWith({ outbound: ["proxy"] })
+    await user.click(screen.getByLabelText("解析服务器 dns-remote"))
+    expect(onChange).toHaveBeenLastCalledWith({ server: ["dns-remote"] })
+  })
+})
+
+describe("policy form remaining select/multi branches", () => {
+  it("select transform returns object and multi-ref option refs", async () => {
+    const user = userEvent.setup()
+    function Harness() {
+      const [object, setObject] = useState<JsonObject>({})
+      return <>
+        <output aria-label="form state">{JSON.stringify(object)}</output>
+        <PolicyFormFields
+          fields={[
+            { path: "ip_version", label: "ipVersion", kind: "select", options: ["4", "6"] },
+            { path: "tags", label: "ruleSet", kind: "ref-multi", options: ["a", "b"] },
+          ]}
+          object={object}
+          namespace="policy.route"
+          transformField={(current, field, raw) => field.path === "ip_version" && raw === "4"
+            ? { ...current, ip_version: 4, marked: true }
+            : undefined}
+          onChange={setObject}
+        />
+      </>
+    }
+    renderApp(<Harness />)
+    await user.click(screen.getByRole("combobox", { name: "IP 版本" }))
+    await user.click(await screen.findByRole("option", { name: "4" }))
+    expect(screen.getByLabelText("form state")).toHaveTextContent('"ip_version":4')
+    expect(screen.getByLabelText("form state")).toHaveTextContent('"marked":true')
+    await user.click(screen.getByLabelText("规则集 a"))
+    expect(screen.getByLabelText("form state")).toHaveTextContent('"tags":["a"]')
+    await user.click(screen.getByLabelText("规则集 a"))
+    expect(screen.getByLabelText("form state")).not.toHaveTextContent("tags")
+  })
+})
+
+describe("policy form multi-ref options-only branch", () => {
+  it("covers multi-ref field.options without ref and empty clear", async () => {
+    const user = userEvent.setup()
+    function Harness() {
+      const [object, setObject] = useState<JsonObject>({ tags: ["b"] })
+      return <>
+        <output aria-label="form state">{JSON.stringify(object)}</output>
+        <PolicyFormFields
+          fields={[{ path: "tags", label: "ruleSet", kind: "ref-multi", options: ["a", "b"] }]}
+          object={object}
+          namespace="policy.route"
+          onChange={setObject}
+        />
+      </>
+    }
+    renderApp(<Harness />)
+    await user.click(screen.getByLabelText("规则集 a"))
+    expect(screen.getByLabelText("form state")).toHaveTextContent('"tags":["b","a"]')
+    await user.click(screen.getByLabelText("规则集 b"))
+    await user.click(screen.getByLabelText("规则集 a"))
+    expect(screen.getByLabelText("form state")).not.toHaveTextContent("tags")
+  })
+})
+
+describe("policy form select clear path", () => {
+  it("clears non-numeric select and keeps unknown multi values", async () => {
+    const user = userEvent.setup()
+    function Harness() {
+      const [object, setObject] = useState<JsonObject>({ strategy: "prefer_ipv4", tags: ["custom"] })
+      return <>
+        <output aria-label="form state">{JSON.stringify(object)}</output>
+        <PolicyFormFields
+          fields={[
+            { path: "strategy", label: "defaultDomainResolverStrategy", kind: "select", options: ["prefer_ipv4", "prefer_ipv6"] },
+            { path: "tags", label: "ruleSet", kind: "ref-multi", ref: "rule-set" },
+          ]}
+          object={object}
+          namespace="policy.route"
+          context={{ ruleSetTags: ["geo"] }}
+          onChange={setObject}
+        />
+      </>
+    }
+    renderApp(<Harness />)
+    expect(screen.getByLabelText("规则集 custom")).toBeInTheDocument()
+    await user.click(screen.getByRole("combobox", { name: "默认域名解析策略" }))
+    await user.click(await screen.findByRole("option", { name: "未设置" }))
+    expect(screen.getByLabelText("form state")).not.toHaveTextContent("strategy")
+  })
+})
+
+describe("policy tag helper edge cases", () => {
+  it("policyConfigTags skips empty tags", () => {
+    expect(policyConfigTags([{ tag: "" }, { tag: "ok" }, { tag: "ok" }])).toEqual(["ok"])
+    expect(policyDNSServerTags({ servers: "bad" })).toEqual([])
+    expect(policyRuleSetTags({ rule_set: [{ tag: 1 }, { tag: "geo" }] })).toEqual(["geo"])
+    expect(groupPolicyFieldsBySection([])).toEqual([])
   })
 })

@@ -8,11 +8,14 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { JsonEditor } from "@/features/config/json-editor"
+import { useConfigQuery } from "@/features/config/config-hooks"
 import { optionsWithCurrent, useDNSDialogState } from "@/features/policy/dns-dialog-state"
 import { PolicyFormFields } from "@/features/policy/policy-form-fields"
 import { changeDNSAction, changeDNSRuleType, dnsActionFields, dnsActions, dnsRuleMatchFields } from "@/features/policy/dns-form-model"
 import {
   isNonEmptyJsonObjectArray,
+  policyConfigTags,
+  policyRuleSetTags,
   setPolicyPath,
   type JsonObject,
   type PolicyFieldSpec,
@@ -86,9 +89,12 @@ function RouteServerField({ object, tags, onChange }: {
     </Select></Field>
 }
 
-function FormFields({ state, fields }: { state: ReturnType<typeof useDNSDialogState>; fields: readonly PolicyFieldSpec[] }) {
+function FormFields({ state, fields, context }: {
+  state: ReturnType<typeof useDNSDialogState>; fields: readonly PolicyFieldSpec[]
+  context?: import("@/features/policy/policy-form-model").PolicyFormContext
+}) {
   return <PolicyFormFields fields={fields} object={state.object} namespace="policy.dns" revision={state.revision}
-    onChange={state.update} onFieldValidityChange={state.updateValidity} transformField={state.transform} />
+    context={context} onChange={state.update} onFieldValidityChange={state.updateValidity} transformField={state.transform} />
 }
 
 function ActionFields({ state, serverTags }: { state: ReturnType<typeof useDNSDialogState>; serverTags: readonly string[] }) {
@@ -114,18 +120,25 @@ function RuleTabs({ state, title, serverTags }: {
   state: ReturnType<typeof useDNSDialogState>; title: string; serverTags: readonly string[]
 }) {
   const { t } = useTranslation()
+  const config = useConfigQuery()
   const logical = state.object.type === "logical"
+  const context = {
+    inboundTags: policyConfigTags(config.data?.inbounds),
+    outboundTags: policyConfigTags(config.data?.outbounds),
+    dnsServerTags: serverTags ? [...serverTags] : [],
+    ruleSetTags: policyRuleSetTags(config.data?.route),
+  }
   return <Tabs defaultValue="basic" className="min-h-0 min-w-0"><TabsList activateOnFocus className="h-auto max-w-full justify-start overflow-x-auto overflow-y-hidden" variant="line">
     <TabsTrigger value="basic">{t("policy.dns.ruleBasicTab")}</TabsTrigger><TabsTrigger value="domain">{t("policy.dns.domainTab")}</TabsTrigger>
     <TabsTrigger value="process">{t("policy.dns.processTab")}</TabsTrigger><TabsTrigger value="action">{t("policy.dns.actionTab")}</TabsTrigger>
     <TabsTrigger value="advanced">{t("policy.dns.advancedJSON")}</TabsTrigger></TabsList>
     <TabsContent value="basic" className="pt-4" keepMounted><FieldGroup className="gap-4">
       <RuleTypeField object={state.object} onChange={state.update} />
-      <FormFields state={state} fields={logical ? logicalFields : [...basicFields, dnsRuleMatchFields.at(-1)!]} />
+      <FormFields state={state} context={context} fields={logical ? logicalFields : [...basicFields, dnsRuleMatchFields.at(-1)!]} />
       {logical ? <Alert><AlertTitle>{t("policy.dns.logicalTitle")}</AlertTitle><AlertDescription>{t("policy.dns.logicalDescription")}</AlertDescription></Alert> : null}
     </FieldGroup></TabsContent>
-    <TabsContent value="domain" className="pt-4" keepMounted><FormFields state={state} fields={logical ? [] : domainFields} /></TabsContent>
-    <TabsContent value="process" className="pt-4" keepMounted><FormFields state={state} fields={logical ? [] : processFields} /></TabsContent>
+    <TabsContent value="domain" className="pt-4" keepMounted><FormFields state={state} context={context} fields={logical ? [] : domainFields} /></TabsContent>
+    <TabsContent value="process" className="pt-4" keepMounted><FormFields state={state} context={context} fields={logical ? [] : processFields} /></TabsContent>
     <TabsContent value="action" className="pt-4" keepMounted><ActionFields state={state} serverTags={serverTags} /></TabsContent>
     <TabsContent value="advanced" className="pt-4" keepMounted><AdvancedJSON value={state.value} title={title}
       revision={state.editorRevision} onChange={state.updateJSON} /></TabsContent>

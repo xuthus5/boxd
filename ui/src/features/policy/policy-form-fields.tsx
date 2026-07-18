@@ -3,6 +3,7 @@ import { CircleHelpIcon } from "lucide-react"
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 
+import { Checkbox } from "@/components/ui/checkbox"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import {
@@ -179,6 +180,45 @@ function interfaceLabel(item: NetworkInterfaceInfo) {
   return item.ips?.length ? `${item.name} (${item.ips.join(", ")})` : item.name
 }
 
+function RefMultiField({ field, label, namespace, value, context, onChange }: {
+  field: PolicyFieldSpec; label: string; namespace: string; value: string[]
+  context?: PolicyFormContext; onChange: (value: string[] | undefined) => void
+}) {
+  const { t } = useTranslation()
+  const id = useId()
+  const options = useMemo(() => {
+    if (field.ref === "inbound") return context?.inboundTags ?? []
+    if (field.ref === "outbound") return context?.outboundTags ?? []
+    if (field.ref === "dns-server") return context?.dnsServerTags ?? []
+    if (field.ref === "rule-set") return context?.ruleSetTags ?? []
+    return field.options ? [...field.options] : []
+  }, [context?.dnsServerTags, context?.inboundTags, context?.outboundTags, context?.ruleSetTags, field.options, field.ref])
+  const items = useMemo(() => {
+    const list = [...options]
+    for (const item of value) if (item && !list.includes(item)) list.unshift(item)
+    return list
+  }, [options, value])
+  const toggle = (option: string, checked: boolean) => {
+    const next = checked ? [...new Set([...value, option])] : value.filter((item) => item !== option)
+    onChange(next.length ? next : undefined)
+  }
+  return <Field className="sm:col-span-2">
+    <FieldHeading id={id} label={label} namespace={namespace} labelKey={field.label} />
+    <div className="flex flex-col gap-2" role="group" aria-label={label}>
+      {items.length === 0
+        ? <p className="text-sm text-muted-foreground">{t(`${namespace}.refMultiEmpty`)}</p>
+        : items.map((option) => <div key={option} className="flex items-center gap-2 text-sm">
+          <Checkbox
+            checked={value.includes(option)}
+            onCheckedChange={(next) => toggle(option, next === true)}
+            aria-label={`${label} ${option}`}
+          />
+          <span aria-hidden="true">{option}</span>
+        </div>)}
+    </div>
+  </Field>
+}
+
 function NetworkInterfaceField({ label, namespace, labelKey, revision = 0, value, onChange }: {
   label: string; namespace: string; labelKey: string; revision?: number; value: string
   onChange: (value: string) => void
@@ -326,7 +366,20 @@ function PolicyField(props: Omit<PolicyFormFieldsProps, "fields" | "leading"> & 
   }
   if (field.kind === "select") {
     return <SelectField field={field} label={label} namespace={namespace} value={textValue(value)}
-      onChange={update} onFieldValidityChange={onFieldValidityChange} />
+      onChange={(raw) => {
+        if (transformField) {
+          const transformed = transformField(object, field, raw)
+          if (transformed === null) return
+          if (transformed !== undefined) { onChange(transformed); return }
+        }
+        const options = field.options ?? []
+        const numeric = options.length > 0 && options.every((option) => option !== "" && Number.isFinite(Number(option)))
+        if (numeric) {
+          onChange(setPolicyPath(object, field.path, raw === "" ? undefined : Number(raw)))
+          return
+        }
+        update(raw)
+      }} onFieldValidityChange={onFieldValidityChange} />
   }
   if (field.kind === "ref" && field.ref === "network-interface") {
     return <NetworkInterfaceField label={label} namespace={namespace} labelKey={field.label} revision={revision}
@@ -335,6 +388,10 @@ function PolicyField(props: Omit<PolicyFormFieldsProps, "fields" | "leading"> & 
   if (field.kind === "ref") {
     return <RefSelectField field={field} label={label} namespace={namespace} value={textValue(value)} context={context}
       onChange={update} onFieldValidityChange={onFieldValidityChange} />
+  }
+  if (field.kind === "ref-multi") {
+    return <RefMultiField field={field} label={label} namespace={namespace} value={listValue(value)} context={context}
+      onChange={(next) => onChange(setPolicyPath(object, field.path, next))} />
   }
   if (field.kind === "network-multi") {
     return <NetworkMultiField label={label} namespace={namespace} labelKey={field.label} value={listValue(value)}

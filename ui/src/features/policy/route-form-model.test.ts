@@ -316,3 +316,36 @@ describe("route hierarchical field pruning", () => {
     expect(managedRouteGlobalFields().map((field) => field.path)).not.toContain("final")
   })
 })
+
+describe("route match field kinds", () => {
+  it("accepts select ip_version and ref-multi arrays", () => {
+    const inbound = routeMatchFields.find((field) => field.path === "inbound")
+    const ip = routeMatchFields.find((field) => field.path === "ip_version")
+    const ruleSet = routeMatchFields.find((field) => field.path === "rule_set")
+    expect(inbound).toMatchObject({ kind: "ref-multi", ref: "inbound" })
+    expect(ip).toMatchObject({ kind: "select", options: ["4", "6"] })
+    expect(ruleSet).toMatchObject({ kind: "ref-multi", ref: "rule-set" })
+  })
+})
+
+describe("route field kind transitions", () => {
+  it("preserves ref-multi inbound arrays and numeric ip_version on transitions", () => {
+    const rule = {
+      inbound: ["mixed-in"],
+      ip_version: 6,
+      rule_set: ["geo"],
+      network: ["tcp"],
+      custom: "keep",
+    }
+    expect(changeRouteRuleType(rule, "logical")).toMatchObject({
+      type: "logical",
+      custom: "keep",
+    })
+    // re-enter default keeps compatible multi fields
+    expect(changeRouteRuleType({ type: "logical", mode: "and", rules: [], inbound: ["mixed-in"], ip_version: 4, rule_set: ["geo"], custom: "x" }, "default"))
+      .toEqual({ custom: "x" })
+    // action change keeps match fields
+    expect(changeRouteAction({ action: "route", outbound: "proxy", inbound: ["mixed-in"], ip_version: 4 }, "reject"))
+      .toEqual({ action: "reject", inbound: ["mixed-in"], ip_version: 4 })
+  })
+})
