@@ -3,13 +3,17 @@ import { CircleHelpIcon } from "lucide-react"
 import { useCallback, useEffect, useId, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 
+import { Checkbox } from "@/components/ui/checkbox"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { getPath, type FieldSpec, type FieldTransform, type JsonObject, setPath, visibleFields } from "@/features/proxy/proxy-form-model"
+import { InboundUsersField } from "@/features/proxy/inbound-users-field"
+import {
+  getPath, groupFieldsBySection, type FieldSpec, type FieldTransform, type FormFieldContext, type JsonObject, setPath, visibleFields,
+} from "@/features/proxy/proxy-form-model"
 import { api } from "@/lib/api/endpoints"
 import type { JsonValue, NetworkInterfaceInfo } from "@/lib/api/types"
 
@@ -18,6 +22,7 @@ interface ProxyFormFieldsProps {
   object: JsonObject
   namespace: "proxy.inbound" | "proxy.outbound"
   revision?: number
+  context?: FormFieldContext
   onChange: (object: JsonObject) => void
   onFieldValidityChange?: (path: string, valid: boolean) => void
   transformField?: FieldTransform
@@ -187,7 +192,7 @@ function NetworkInterfaceField({ label, namespace, labelKey, revision = 0, value
 
 function TextField({ field, label, namespace, value, onChange }: { field: FieldSpec; label: string; namespace: ProxyFormFieldsProps["namespace"]; value: string; onChange: (value: string) => void }) {
   const id = useId()
-  const area = field.kind === "textarea" || field.kind === "list" || field.kind === "number-list" || field.kind === "users"
+  const area = field.kind === "textarea" || field.kind === "list" || field.kind === "number-list"
   const control = area
     ? <Textarea id={id} aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} />
     : <Input id={id} aria-label={label} type={field.kind === "number" ? "number" : "text"} value={value} onChange={(event) => onChange(event.target.value)} />
@@ -234,25 +239,118 @@ function defaultUpdate(object: JsonObject, field: FieldSpec, raw: string) {
     return numbers.every(Number.isFinite) ? setPath(object, field.path, numbers) : null
   }
   if (field.kind === "number") return setPath(object, field.path, raw === "" ? undefined : Number(raw))
-  if (field.path === "udp_fragment") return setPath(object, field.path, raw === "" ? undefined : raw === "true")
   return setPath(object, field.path, raw || undefined)
 }
 
-function ProxyField({ field, object, namespace, revision, onChange, onFieldValidityChange, transformField }: Omit<ProxyFormFieldsProps, "fields"> & { field: FieldSpec }) {
+function listValue(value: JsonValue | undefined) {
+  return Array.isArray(value) ? value.map(String) : []
+}
+
+function RefSelectField({ field, label, namespace, value, context, onChange }: { field: FieldSpec; label: string; namespace: ProxyFormFieldsProps["namespace"]; value: string; context?: FormFieldContext; onChange: (value: string) => void }) {
+  const { t } = useTranslation()
+  const id = useId()
+  const unset = "__unset__"
+  const options = useMemo(() => {
+    if (field.ref === "inbound") return context?.inboundTags ?? []
+    if (field.ref === "outbound") return context?.outboundTags ?? []
+    if (field.ref === "dns-server") return context?.dnsServerTags ?? []
+    return field.options ?? []
+  }, [context?.dnsServerTags, context?.inboundTags, context?.outboundTags, field.options, field.ref])
+  const items = useMemo(() => {
+    const list = [...options]
+    if (value && !list.includes(value)) list.unshift(value)
+    return [{ value: unset, label: t(`${namespace}.notSet`) }, ...list.map((option) => ({ value: option, label: option }))]
+  }, [namespace, options, t, value])
+  return <Field>
+    <FieldHeading id={id} label={label} namespace={namespace} labelKey={field.label} />
+    <Select items={items} value={value || unset} onValueChange={(next) => onChange(next === unset ? "" : String(next))}>
+      <SelectTrigger id={id} aria-label={label} className="w-full"><SelectValue /></SelectTrigger>
+      <SelectContent><SelectGroup>
+        <SelectItem value={unset}>{t(`${namespace}.notSet`)}</SelectItem>
+        {items.filter((item) => item.value !== unset).map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
+      </SelectGroup></SelectContent>
+    </Select>
+  </Field>
+}
+
+function NetworkMultiField({ label, namespace, labelKey, value, onChange }: { label: string; namespace: ProxyFormFieldsProps["namespace"]; labelKey: string; value: string[]; onChange: (value: string[] | undefined) => void }) {
+  const id = useId()
+  const options = ["tcp", "udp"]
+  const toggle = (option: string, checked: boolean) => {
+    const next = checked ? [...new Set([...value, option])] : value.filter((item) => item !== option)
+    onChange(next.length ? next : undefined)
+  }
+  return <Field className="sm:col-span-2">
+    <FieldHeading id={id} label={label} namespace={namespace} labelKey={labelKey} />
+    <div className="flex flex-wrap gap-6" role="group" aria-label={label}>
+      {options.map((option) => <Field key={option} orientation="horizontal" className="w-auto">
+        <FieldLabel>{option}</FieldLabel>
+        <Switch aria-label={`${label} ${option}`} checked={value.includes(option)} onCheckedChange={(checked) => toggle(option, checked)} />
+      </Field>)}
+    </div>
+  </Field>
+}
+
+function InterfaceMultiField({ label, namespace, labelKey, value, onChange }: { label: string; namespace: ProxyFormFieldsProps["namespace"]; labelKey: string; value: string[]; onChange: (value: string[] | undefined) => void }) {
+  const id = useId()
+  const query = useQuery({ queryKey: ["network", "interfaces"], queryFn: api.network.interfaces })
+  const interfaces = useMemo(() => query.data?.interfaces ?? [], [query.data?.interfaces])
+  const options = useMemo(() => [...new Set([...interfaces.map((item) => item.name), ...value])], [interfaces, value])
+  const toggle = (option: string, checked: boolean) => {
+    const next = checked ? [...new Set([...value, option])] : value.filter((item) => item !== option)
+    onChange(next.length ? next : undefined)
+  }
+  return <Field className="sm:col-span-2">
+    <FieldHeading id={id} label={label} namespace={namespace} labelKey={labelKey} />
+    <div className="flex flex-col gap-2" role="group" aria-label={label}>
+      {options.length === 0 ? <p className="text-sm text-muted-foreground">—</p> : options.map((option) => {
+        const meta = interfaces.find((item) => item.name === option)
+        return <label key={option} className="flex items-center gap-2 text-sm">
+          <Checkbox checked={value.includes(option)} onCheckedChange={(next) => toggle(option, next === true)} aria-label={`${label} ${option}`} />
+          <span>{meta ? interfaceLabel(meta) : option}</span>
+        </label>
+      })}
+    </div>
+  </Field>
+}
+
+function ProxyField({ field, object, namespace, revision, context, onChange, onFieldValidityChange, transformField }: Omit<ProxyFormFieldsProps, "fields"> & { field: FieldSpec }) {
   const { t } = useTranslation()
   const value = getPath(object, field.path)
   const label = t(`${namespace}.${field.label}`)
-  const update = (raw: string) => { const transformed = transformField?.(object, field, raw); const next = transformed === undefined ? defaultUpdate(object, field, raw) : transformed; if (next) onChange(next) }
+  const update = (raw: string) => {
+    const transformed = transformField?.(object, field, raw)
+    const next = transformed === undefined ? defaultUpdate(object, field, raw) : transformed
+    if (next) onChange(next)
+  }
   if (field.kind === "boolean") return <BooleanField label={label} namespace={namespace} labelKey={field.label} checked={value === true} onChange={(checked) => onChange(setPath(object, field.path, checked || undefined))} />
   if (field.kind === "select") return <SelectField field={field} label={label} namespace={namespace} value={textValue(value)} onChange={update} />
   if (field.kind === "listen-address") return <ListenAddressField label={label} namespace={namespace} labelKey={field.label} revision={revision} value={textValue(value)} onChange={update} />
   if (field.kind === "network-interface") return <NetworkInterfaceField label={label} namespace={namespace} labelKey={field.label} revision={revision} value={textValue(value)} onChange={update} />
+  if (field.kind === "ref" && field.ref === "network-interface-multi") return <InterfaceMultiField label={label} namespace={namespace} labelKey={field.label} value={listValue(value)} onChange={(next) => onChange(setPath(object, field.path, next))} />
+  if (field.kind === "ref") return <RefSelectField field={field} label={label} namespace={namespace} value={textValue(value)} context={context} onChange={update} />
+  if (field.kind === "network-multi") return <NetworkMultiField label={label} namespace={namespace} labelKey={field.label} value={listValue(value)} onChange={(next) => onChange(setPath(object, field.path, next))} />
+  if (field.kind === "users" && namespace === "proxy.inbound") {
+    return <InboundUsersField label={label} type={context?.inboundType ?? ""} value={value} onChange={(next) => onChange(setPath(object, field.path, next))} onFieldValidityChange={onFieldValidityChange} path={field.path} />
+  }
   if (field.kind === "users" || field.kind === "json-object") return <JSONField field={field} label={label} namespace={namespace} revision={revision} value={value} array={field.kind === "users"} onChange={(next) => onChange(setPath(object, field.path, next))} onFieldValidityChange={onFieldValidityChange} />
   return <TextField field={field} label={label} namespace={namespace} value={textValue(value)} onChange={update} />
 }
 
 export function ProxyFormFields(props: ProxyFormFieldsProps) {
   const { fields, object, ...rest } = props
+  const { t, i18n } = useTranslation()
   const shown = visibleFields(fields, object)
-  return <FieldGroup className="grid gap-4 sm:grid-cols-2">{shown.map((field) => <ProxyField key={field.path} field={field} object={object} {...rest} />)}</FieldGroup>
+  const groups = groupFieldsBySection(shown)
+  return <div className="flex flex-col gap-6">
+    {groups.map((group, index) => {
+      const hasTitle = Boolean(group.section && i18n.exists(`${props.namespace}.section.${group.section}`))
+      return <section key={`${group.section ?? "default"}-${index}`} className="flex flex-col gap-3">
+        {hasTitle ? <h3 className="text-sm font-medium text-muted-foreground">{t(`${props.namespace}.section.${group.section}`)}</h3> : null}
+        <FieldGroup className="grid gap-4 sm:grid-cols-2">
+          {group.fields.map((field) => <ProxyField key={field.path} field={field} object={object} {...rest} />)}
+        </FieldGroup>
+      </section>
+    })}
+  </div>
 }

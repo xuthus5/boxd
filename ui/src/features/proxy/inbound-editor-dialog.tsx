@@ -7,6 +7,7 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useConfigQuery } from "@/features/config/config-hooks"
 import { JsonEditor } from "@/features/config/json-editor"
 import { isValidJSON } from "@/features/config/json-utils"
 import { InboundFormFields } from "@/features/proxy/inbound-form-fields"
@@ -14,6 +15,7 @@ import {
   changeInboundType, getPath, inboundTypes, listenFields, multiplexFields, multiplexTypes, protocolFields, tlsFields, tlsTypes,
   transportTypeFields, transportTypes, tunFields, type JsonObject,
 } from "@/features/proxy/inbound-form-model"
+import { configTags, dnsServerTags } from "@/features/proxy/proxy-form-model"
 
 interface InboundEditorDialogProps {
   title: string
@@ -56,24 +58,33 @@ interface FormTabsProps {
 
 function FormTabs({ object, value, title, revision, onChange, onJSONChange, onFieldValidityChange }: FormTabsProps) {
   const { t } = useTranslation()
+  const config = useConfigQuery()
   const type = String(object.type ?? "")
   const transportType = String(getPath(object, "transport.type") ?? "")
   const hasTLS = tlsTypes.has(type)
   const hasTransport = transportTypes.has(type) || multiplexTypes.has(type)
+  const currentTag = String(object.tag ?? "")
+  const context = {
+    currentTag,
+    inboundType: type,
+    inboundTags: configTags(config.data?.inbounds, currentTag),
+    outboundTags: configTags(config.data?.outbounds, currentTag),
+    dnsServerTags: dnsServerTags(config.data?.dns),
+  }
   return <Tabs defaultValue="basic" className="min-h-0">
     <TabsList className="h-auto w-full justify-start overflow-x-auto" variant="line">
       <TabsTrigger value="basic">{t("proxy.inbound.basic")}</TabsTrigger>
-      <TabsTrigger value="listen">{t("proxy.inbound.listenAndConnection")}</TabsTrigger>
+      <TabsTrigger value="listen">{t(type === "tun" ? "proxy.inbound.tun" : "proxy.inbound.listenAndConnection")}</TabsTrigger>
       <TabsTrigger value="protocol">{t("proxy.inbound.protocol")}</TabsTrigger>
       {hasTLS ? <TabsTrigger value="tls">{t("proxy.inbound.tlsReality")}</TabsTrigger> : null}
       {hasTransport ? <TabsTrigger value="transport">{t("proxy.inbound.transportMultiplex")}</TabsTrigger> : null}
       <TabsTrigger value="advanced">{t("proxy.advancedJSON")}</TabsTrigger>
     </TabsList>
     <TabsContent value="basic" className="pt-4"><BaseFields object={object} onChange={onChange} /></TabsContent>
-    <TabsContent value="listen" className="pt-4"><InboundFormFields fields={type === "tun" ? tunFields.slice(4) : listenFields.slice(2)} object={object} type={type} onChange={onChange} /></TabsContent>
-    <TabsContent value="protocol" className="pt-4" keepMounted><InboundFormFields fields={protocolFields(type)} object={object} type={type} revision={revision} onChange={onChange} onFieldValidityChange={onFieldValidityChange} /></TabsContent>
-    {hasTLS ? <TabsContent value="tls" className="pt-4"><InboundFormFields fields={tlsFields} object={object} type={type} onChange={onChange} /></TabsContent> : null}
-    {hasTransport ? <TabsContent value="transport" className="pt-4" keepMounted><InboundFormFields fields={[...(transportTypes.has(type) ? transportTypeFields(transportType) : []), ...(multiplexTypes.has(type) ? multiplexFields : [])]} object={object} type={type} revision={revision} onChange={onChange} onFieldValidityChange={onFieldValidityChange} /></TabsContent> : null}
+    <TabsContent value="listen" className="pt-4"><InboundFormFields fields={type === "tun" ? tunFields.slice(4) : listenFields.slice(2)} object={object} type={type} context={context} onChange={onChange} /></TabsContent>
+    <TabsContent value="protocol" className="pt-4" keepMounted><InboundFormFields fields={protocolFields(type)} object={object} type={type} revision={revision} context={context} onChange={onChange} onFieldValidityChange={onFieldValidityChange} /></TabsContent>
+    {hasTLS ? <TabsContent value="tls" className="pt-4"><InboundFormFields fields={tlsFields} object={object} type={type} context={context} onChange={onChange} /></TabsContent> : null}
+    {hasTransport ? <TabsContent value="transport" className="pt-4" keepMounted><InboundFormFields fields={[...(transportTypes.has(type) ? transportTypeFields(transportType) : []), ...(multiplexTypes.has(type) ? multiplexFields : [])]} object={object} type={type} revision={revision} context={context} onChange={onChange} onFieldValidityChange={onFieldValidityChange} /></TabsContent> : null}
     <TabsContent value="advanced" className="pt-4"><Field><FieldLabel className="sr-only">{t("proxy.advancedJSON")}</FieldLabel><JsonEditor value={value} onChange={onJSONChange} ariaLabel={`${title} JSON`} /></Field></TabsContent>
   </Tabs>
 }

@@ -43,16 +43,20 @@ function payload(path: string) { return payloads[path] ?? {} }
 
 export function installMockAPI() {
   const fetchMock = vi.fn((input: string | URL | Request) => {
-    const path = typeof input === "string"
+    const raw = typeof input === "string"
       ? input
       : input instanceof URL
         ? input.pathname
         : new URL(input.url).pathname
-    if (path === "/api/stats/logs" || path === "/api/stats/app-logs") {
-      return Promise.resolve(stream({ level: "info", message: "ready", timestamp: "2026-01-01T00:00:00Z" }))
+    const path = raw.split("?")[0]
+    if (path === "/api/stats/logs" || path === "/api/stats/app-logs" || path === "/api/stats/traffic") {
+      return Promise.resolve(stream({ level: "info", message: "ready", timestamp: "2026-01-01T00:00:00Z", upload_bytes: 30, download_bytes: 40 }))
     }
     if (path === "/api/stats/connections") {
       return Promise.resolve(stream({ active_connections: 1, list: [{ id: "1", target: "example.com:443", outbound: "proxy", upload: 10, download: 20, duration: "1s" }] }))
+    }
+    if (path === "/api/nodes/groups") {
+      return Promise.resolve(new Response(JSON.stringify({ groups: [] })))
     }
     return Promise.resolve(new Response(JSON.stringify(payload(path))))
   })

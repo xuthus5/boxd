@@ -1,13 +1,16 @@
 import type { JsonValue } from "@/lib/api/types"
 
 export type JsonObject = Record<string, JsonValue>
-export type FieldKind = "text" | "textarea" | "number" | "boolean" | "list" | "number-list" | "select" | "json-object" | "users" | "listen-address" | "network-interface"
+export type FieldKind =
+  | "text" | "textarea" | "number" | "boolean" | "list" | "number-list"
+  | "select" | "json-object" | "users" | "listen-address" | "network-interface"
+  | "ref" | "network-multi"
+
+export type FieldRef = "inbound" | "dns-server" | "outbound" | "network-interface-multi"
 
 export interface FieldWhen {
   path: string
-  /** Match exact value or any value in the list. */
   is?: JsonValue | readonly JsonValue[]
-  /** Match when the path value is undefined / null / false / "". */
   falsy?: boolean
 }
 
@@ -17,6 +20,16 @@ export interface FieldSpec {
   kind?: FieldKind
   options?: string[]
   when?: FieldWhen | FieldWhen[]
+  section?: string
+  ref?: FieldRef
+}
+
+export interface FormFieldContext {
+  inboundTags?: string[]
+  outboundTags?: string[]
+  dnsServerTags?: string[]
+  currentTag?: string
+  inboundType?: string
 }
 
 export type FieldTransform = (object: JsonObject, field: FieldSpec, raw: string) => JsonObject | null | undefined
@@ -70,7 +83,16 @@ export function visibleFields(fields: FieldSpec[], object: JsonObject) {
   return fields.filter((field) => isFieldVisible(object, field))
 }
 
-/** Remove values for fields that are currently hidden by `when` rules. */
+export function groupFieldsBySection(fields: FieldSpec[]) {
+  const groups: { section?: string; fields: FieldSpec[] }[] = []
+  for (const field of fields) {
+    const last = groups[groups.length - 1]
+    if (last && last.section === field.section) last.fields.push(field)
+    else groups.push({ section: field.section, fields: [field] })
+  }
+  return groups
+}
+
 export function pruneInvisibleFields(object: JsonObject, fields: FieldSpec[]) {
   let next = object
   let changed = true
@@ -84,4 +106,19 @@ export function pruneInvisibleFields(object: JsonObject, fields: FieldSpec[]) {
     }
   }
   return next
+}
+
+export function configTags(items: unknown, currentTag?: string) {
+  if (!Array.isArray(items)) return [] as string[]
+  const tags = items.flatMap((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return []
+    const tag = (item as JsonObject).tag
+    return typeof tag === "string" && tag && tag !== currentTag ? [tag] : []
+  })
+  return [...new Set(tags)]
+}
+
+export function dnsServerTags(dns: unknown) {
+  if (!dns || typeof dns !== "object" || Array.isArray(dns)) return [] as string[]
+  return configTags((dns as JsonObject).servers)
 }

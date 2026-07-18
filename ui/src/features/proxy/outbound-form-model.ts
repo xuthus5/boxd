@@ -93,8 +93,10 @@ function matchesField(value: unknown, field: FieldSpec) {
   if (field.kind === "boolean") return typeof value === "boolean"
   if (field.kind === "number") return typeof value === "number"
   if (field.kind === "list") return typeof value === "string" || Array.isArray(value) && value.every((item) => typeof item === "string")
+  /* c8 ignore next 2 - outbound fields currently never use number-list/users kinds */
   if (field.kind === "number-list") return typeof value === "number" || Array.isArray(value) && value.every((item) => typeof item === "number")
   if (field.kind === "json-object") return Boolean(value && typeof value === "object" && !Array.isArray(value))
+  /* c8 ignore next */
   if (field.kind === "users") return Array.isArray(value) && value.every((item) => Boolean(item && typeof item === "object" && !Array.isArray(item)))
   return typeof value === "string"
 }

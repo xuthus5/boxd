@@ -1,14 +1,20 @@
+import type { ReactElement } from "react"
 import { fireEvent, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { describe, expect, it, vi } from "vitest"
 
 import { InboundEditorDialog } from "@/features/proxy/inbound-editor-dialog"
 import { renderApp } from "@/test/render"
 
+function renderEditor(ui: ReactElement) {
+  return renderApp(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>{ui}</QueryClientProvider>)
+}
+
 describe("inbound editor", () => {
   it("offers supported inbound types and mixed fields", async () => {
     const user = userEvent.setup()
-    renderApp(<InboundEditorDialog title="新增入站" item={{}} onClose={vi.fn()} onSave={vi.fn()} />)
+    renderEditor(<InboundEditorDialog title="新增入站" item={{}} onClose={vi.fn()} onSave={vi.fn()} />)
 
     await user.click(screen.getByRole("combobox", { name: "类型" }))
     for (const type of ["mixed", "socks", "http", "tun", "vless", "hysteria2", "tuic"]) {
@@ -16,17 +22,20 @@ describe("inbound editor", () => {
     }
     await user.click(screen.getByRole("option", { name: "mixed" }))
     await user.click(screen.getByRole("tab", { name: "协议" }))
-    expect(screen.getByLabelText("认证用户")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "添加用户" })).toBeInTheDocument()
     expect(screen.getByRole("switch", { name: "设置系统代理" })).toBeInTheDocument()
   })
 
   it("edits VLESS TLS, Reality, transport, and multiplex fields", async () => {
     const onSave = vi.fn()
     const user = userEvent.setup()
-    renderApp(<InboundEditorDialog title="编辑 vless" item={{ tag: "in", type: "vless", custom: "keep" }} onClose={vi.fn()} onSave={onSave} />)
+    renderEditor(<InboundEditorDialog title="编辑 vless" item={{ tag: "in", type: "vless", custom: "keep" }} onClose={vi.fn()} onSave={onSave} />)
 
     await user.click(screen.getByRole("tab", { name: "协议" }))
-    fireEvent.change(screen.getByLabelText("认证用户"), { target: { value: '[{"name":"alice","uuid":"uuid","flow":"xtls-rprx-vision","custom":"keep"}]' } })
+    await user.click(screen.getByRole("button", { name: "添加用户" }))
+    fireEvent.change(screen.getByLabelText("认证用户 1 名称"), { target: { value: "alice" } })
+    fireEvent.change(screen.getByLabelText("认证用户 1 UUID"), { target: { value: "uuid" } })
+    fireEvent.change(screen.getByLabelText("认证用户 1 Flow"), { target: { value: "xtls-rprx-vision" } })
     await user.click(screen.getByRole("tab", { name: "TLS / Reality" }))
     await user.click(screen.getByRole("switch", { name: "启用 TLS" }))
     fireEvent.change(screen.getByLabelText("服务器名称"), { target: { value: "example.com" } })
@@ -44,14 +53,14 @@ describe("inbound editor", () => {
       tls: expect.objectContaining({ enabled: true, server_name: "example.com", reality: expect.objectContaining({ enabled: true }) }),
       transport: expect.objectContaining({ type: "ws", path: "/ws" }),
       multiplex: expect.objectContaining({ enabled: true }),
-      users: [{ name: "alice", uuid: "uuid", flow: "xtls-rprx-vision", custom: "keep" }],
+      users: [{ name: "alice", uuid: "uuid", flow: "xtls-rprx-vision" }],
     }))
   })
 
   it("shows TUN fields without listen address and clears fields when type changes", async () => {
     const onSave = vi.fn()
     const user = userEvent.setup()
-    renderApp(<InboundEditorDialog title="编辑" item={{ type: "mixed", listen: "::", listen_port: 1080, users: [{ username: "old" }] }} onClose={vi.fn()} onSave={onSave} />)
+    renderEditor(<InboundEditorDialog title="编辑" item={{ type: "mixed", listen: "::", listen_port: 1080, users: [{ username: "old" }] }} onClose={vi.fn()} onSave={onSave} />)
 
     await user.click(screen.getByRole("combobox", { name: "类型" }))
     await user.click(await screen.findByRole("option", { name: "tun" }))
@@ -70,7 +79,7 @@ describe("inbound editor", () => {
   it("shows transport-specific fields and saves HTTP Upgrade host as a string", async () => {
     const onSave = vi.fn()
     const user = userEvent.setup()
-    renderApp(<InboundEditorDialog title="编辑" item={{ type: "vless", transport: { type: "ws", path: "/ws" } }} onClose={vi.fn()} onSave={onSave} />)
+    renderEditor(<InboundEditorDialog title="编辑" item={{ type: "vless", transport: { type: "ws", path: "/ws" } }} onClose={vi.fn()} onSave={onSave} />)
 
     expect(screen.getByRole("dialog")).toHaveClass("sm:max-w-5xl")
     await user.click(screen.getByRole("tab", { name: "传输与复用" }))
@@ -90,7 +99,7 @@ describe("inbound editor", () => {
   it("supports listen address presets and manual input", async () => {
     const onSave = vi.fn()
     const user = userEvent.setup()
-    renderApp(<InboundEditorDialog title="编辑" item={{ type: "mixed", listen: "::", listen_port: 1080 }} onClose={vi.fn()} onSave={onSave} />)
+    renderEditor(<InboundEditorDialog title="编辑" item={{ type: "mixed", listen: "::", listen_port: 1080 }} onClose={vi.fn()} onSave={onSave} />)
 
     await user.click(screen.getByRole("combobox", { name: "监听地址" }))
     await user.click(await screen.findByRole("option", { name: "0.0.0.0（IPv4 全接口）" }))
@@ -103,20 +112,20 @@ describe("inbound editor", () => {
   })
 
   it("requires an inbound type before saving", () => {
-    renderApp(<InboundEditorDialog title="新增" item={{}} onClose={vi.fn()} onSave={vi.fn()} />)
+    renderEditor(<InboundEditorDialog title="新增" item={{}} onClose={vi.fn()} onSave={vi.fn()} />)
     expect(screen.getByRole("button", { name: "保存" })).toBeDisabled()
   })
 
   it("blocks saving while a structured field contains invalid JSON", async () => {
     const user = userEvent.setup()
-    renderApp(<InboundEditorDialog title="编辑" item={{ type: "mixed" }} onClose={vi.fn()} onSave={vi.fn()} />)
-    await user.click(screen.getByRole("tab", { name: "协议" }))
-    fireEvent.change(screen.getByLabelText("认证用户"), { target: { value: "invalid" } })
+    renderEditor(<InboundEditorDialog title="编辑" item={{ type: "vless", transport: { type: "ws" } }} onClose={vi.fn()} onSave={vi.fn()} />)
+    await user.click(screen.getByRole("tab", { name: "传输与复用" }))
+    fireEvent.change(screen.getByLabelText("传输 Headers"), { target: { value: "invalid" } })
     expect(screen.getByRole("button", { name: "保存" })).toBeDisabled()
     await user.click(screen.getByRole("tab", { name: "基础" }))
     expect(screen.getByRole("button", { name: "保存" })).toBeDisabled()
-    await user.click(screen.getByRole("tab", { name: "协议" }))
-    fireEvent.change(screen.getByLabelText("认证用户"), { target: { value: "[]" } })
+    await user.click(screen.getByRole("tab", { name: "传输与复用" }))
+    fireEvent.change(screen.getByLabelText("传输 Headers"), { target: { value: "{}" } })
     expect(screen.getByRole("button", { name: "保存" })).toBeEnabled()
   })
 })

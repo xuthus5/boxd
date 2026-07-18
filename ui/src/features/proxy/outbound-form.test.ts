@@ -93,3 +93,56 @@ describe("outbound transport transitions", () => {
     expect(changeOutboundTransportType({ transport: { type: "custom", host: [1], path: "/path", custom: "keep" } }, "http")).toEqual({ transport: { type: "http", path: "/path", custom: "keep" } })
   })
 })
+
+describe("outbound field compatibility branches", () => {
+  it("matchesField type branches preserve compatible values", () => {
+    // socks keeps username/password; http headers/path removed by incompatibility
+    expect(changeOutboundType({
+      type: "http", headers: { X: "1" }, path: "/x", username: "u", password: "p",
+    }, "socks")).toEqual({ type: "socks" })
+
+    expect(changeOutboundType({
+      type: "selector", outbounds: ["a", "b"], default: "a", interrupt_exist_connections: true,
+    }, "urltest")).toEqual({ type: "urltest", outbounds: ["a", "b"], interrupt_exist_connections: true })
+
+    // boolean mismatch should drop interrupt flag
+    expect(changeOutboundType({
+      type: "selector", outbounds: ["a"], interrupt_exist_connections: "yes" as never,
+    }, "urltest")).toEqual({ type: "urltest", outbounds: ["a"] })
+
+    // transport shared fields kept when compatible types
+    expect(changeOutboundTransportType({
+      transport: { type: "ws", path: "/ws", headers: { A: "1" }, max_early_data: 1 },
+    }, "http")).toEqual({
+      transport: { type: "http", path: "/ws", headers: { A: "1" } },
+    })
+
+    // invalid list/json shaped values dropped when switching protocols
+    expect(changeOutboundType({
+      type: "shadowsocks", method: "aes-128-gcm", password: "secret", plugin_opts: { foo: 1 } as never,
+    }, "http")).toEqual({ type: "http" })
+
+    // number array is incompatible with list(string) and is dropped; credentials also cleared
+    expect(changeOutboundType({
+      type: "hysteria", server_ports: [443, 8443], hop_interval: "30s", up_mbps: 100, down_mbps: 100, auth_str: "s",
+    }, "hysteria2")).toEqual({ type: "hysteria2", hop_interval: "30s", up_mbps: 100, down_mbps: 100 })
+
+    // invalid string-field value is dropped on protocol switch
+    expect(changeOutboundType({
+      type: "socks", username: [{ name: "x" }] as never, password: "p",
+    }, "http")).toEqual({ type: "http" })
+
+    // list accepts string form and string arrays
+    expect(changeOutboundType({
+      type: "hysteria", server_ports: "443,8443", network: "tcp",
+    }, "hysteria2")).toEqual({ type: "hysteria2", server_ports: "443,8443", network: "tcp" })
+    expect(changeOutboundType({
+      type: "hysteria", server_ports: ["443", "8443"],
+    }, "hysteria2")).toEqual({ type: "hysteria2", server_ports: ["443", "8443"] })
+
+    // json-object invalid array is dropped when switching into a protocol that expects object headers
+    expect(changeOutboundType({
+      type: "socks", headers: ["bad"] as never, username: "u", password: "p",
+    }, "http")).toEqual({ type: "http" })
+  })
+})

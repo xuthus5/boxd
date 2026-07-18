@@ -6,9 +6,9 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { InboundFormFields } from "@/features/proxy/inbound-form-fields"
 import {
-  applyInboundFieldChange, changeInboundType, changeTransportType, getPath, protocolFields, setPath, tlsFields, transportTypeFields, type FieldSpec, type JsonObject,
+  applyInboundFieldChange, changeInboundType, changeTransportType, getPath, protocolFields, setPath, tlsFields, transportTypeFields, userSchema, type FieldSpec, type JsonObject,
 } from "@/features/proxy/inbound-form-model"
-import { isFieldVisible, pruneInvisibleFields } from "@/features/proxy/proxy-form-model"
+import { configTags, dnsServerTags, groupFieldsBySection, isFieldVisible, pruneInvisibleFields } from "@/features/proxy/proxy-form-model"
 import { ProxyFormFields } from "@/features/proxy/proxy-form-fields"
 import { renderApp } from "@/test/render"
 
@@ -145,22 +145,17 @@ describe("inbound form field conversions", () => {
 
   it("supports explicit UDP fragmentation and user variants", async () => {
     const user = userEvent.setup()
-    const selectChange = renderFields([{ path: "udp_fragment", label: "udpFragment", kind: "select", options: ["true", "false"] }], { udp_fragment: false })
-    await user.click(screen.getByRole("combobox", { name: "UDP 分片" }))
-    await user.click(await screen.findByRole("option", { name: "启用" }))
-    expect(selectChange).toHaveBeenLastCalledWith({ udp_fragment: true })
-    await user.click(screen.getByRole("combobox", { name: "UDP 分片" }))
-    await user.click(await screen.findByRole("option", { name: "未设置" }))
+    const selectChange = renderFields([{ path: "udp_fragment", label: "udpFragment", kind: "boolean" }], { udp_fragment: true })
+    await user.click(screen.getByRole("switch", { name: "UDP 分片" }))
     expect(selectChange).toHaveBeenLastCalledWith({})
     cleanup()
 
     const usersChange = renderFields([{ path: "users", label: "users", kind: "users" }], { users: [{ name: "old", uuid: "id", custom: "keep" }] }, "vmess")
-    expect(screen.getByLabelText("认证用户")).toHaveValue(JSON.stringify([{ name: "old", uuid: "id", custom: "keep" }], null, 2))
-    fireEvent.change(screen.getByLabelText("认证用户"), { target: { value: '[{"name":"new","uuid":"new-id","custom":"keep"}]' } })
-    expect(usersChange).toHaveBeenLastCalledWith({ users: [{ name: "new", uuid: "new-id", custom: "keep" }] })
-    fireEvent.change(screen.getByLabelText("认证用户"), { target: { value: "invalid" } })
-    expect(screen.getByText("请输入有效的 JSON 结构。")).toBeInTheDocument()
-    fireEvent.change(screen.getByLabelText("认证用户"), { target: { value: "" } })
+    expect(screen.getByLabelText("认证用户 1 名称")).toHaveValue("old")
+    expect(screen.getByLabelText("认证用户 1 UUID")).toHaveValue("id")
+    fireEvent.change(screen.getByLabelText("认证用户 1 名称"), { target: { value: "new" } })
+    expect(usersChange).toHaveBeenLastCalledWith({ users: [{ name: "new", uuid: "id", custom: "keep" }] })
+    await user.click(screen.getByRole("button", { name: "删除用户" }))
     expect(usersChange).toHaveBeenLastCalledWith({})
   })
 
@@ -302,5 +297,259 @@ describe("inbound hierarchical fields", () => {
     expect(pruned).toEqual({ tls: { enabled: false }, multiplex: { enabled: false } })
     expect(isFieldVisible({ tls: { enabled: true } }, tlsFields[1])).toBe(true)
     expect(applyInboundFieldChange({}, { disable_tcp_keep_alive: true, tcp_keep_alive: "5m" }, "mixed")).toEqual({ disable_tcp_keep_alive: true })
+  })
+})
+
+describe("inbound ref and network multi fields", () => {
+  it("selects detour from inbound tags and network multi options", async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+    renderApp(<InboundFormFields fields={[{ path: "detour", label: "detour", kind: "ref", ref: "inbound" }, { path: "network", label: "network", kind: "network-multi" }, { path: "domain_resolver", label: "domainResolver", kind: "ref", ref: "dns-server" }]} object={{}} type="mixed" context={{ inboundTags: ["mixed-in", "tun-in"], dnsServerTags: ["local", "remote"] }} onChange={onChange} />)
+    await user.click(screen.getByRole("combobox", { name: "前置入站" }))
+    await user.click(await screen.findByRole("option", { name: "mixed-in" }))
+    expect(onChange).toHaveBeenLastCalledWith({ detour: "mixed-in" })
+    await user.click(screen.getByRole("switch", { name: "网络 tcp" }))
+    expect(onChange).toHaveBeenLastCalledWith({ network: ["tcp"] })
+    await user.click(screen.getByRole("combobox", { name: "域名解析器" }))
+    await user.click(await screen.findByRole("option", { name: "local" }))
+    expect(onChange).toHaveBeenLastCalledWith({ domain_resolver: "local" })
+  })
+})
+
+function UsersHarness() {
+  const [object, setObject] = useState<JsonObject>({ users: [{ username: "a", password: "b" }] })
+  return <InboundFormFields fields={[{ path: "users", label: "users", kind: "users" }]} object={object} type="mixed" onChange={setObject} />
+}
+
+describe("inbound users structured and fallback", () => {
+  it("adds structured users and falls back to JSON for invalid arrays", async () => {
+    const user = userEvent.setup()
+    renderApp(<UsersHarness />)
+    expect(screen.getByLabelText("认证用户 1 用户名")).toHaveValue("a")
+    await user.click(screen.getByRole("button", { name: "添加用户" }))
+    expect(screen.getByLabelText("认证用户 2 用户名")).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText("认证用户 1 密码"), { target: { value: "new" } })
+    expect(screen.getByLabelText("认证用户 1 密码")).toHaveValue("new")
+    cleanup()
+
+    const onChange = vi.fn()
+    const onValidity = vi.fn()
+    renderApp(<InboundFormFields fields={[{ path: "users", label: "users", kind: "users" }]} object={{ users: 1 as unknown as never }} type="mixed" onChange={onChange} onFieldValidityChange={onValidity} />)
+    const area = screen.getByLabelText("认证用户")
+    fireEvent.change(area, { target: { value: "invalid" } })
+    expect(onValidity).toHaveBeenLastCalledWith("users", false)
+    fireEvent.change(area, { target: { value: '[{"username":"x","password":"y"}]' } })
+    expect(onChange).toHaveBeenLastCalledWith({ users: [{ username: "x", password: "y" }] })
+    fireEvent.change(area, { target: { value: "" } })
+    expect(onChange).toHaveBeenLastCalledWith({})
+  })
+
+  it("toggles interface multi selection for TUN filters", async () => {
+    const user = userEvent.setup()
+    const fetchMock = vi.fn((input: string | URL | Request) => {
+      const path = typeof input === "string" ? input : input.toString()
+      if (path.includes("/api/network/interfaces")) {
+        return Promise.resolve(new Response(JSON.stringify({
+          status: "ok",
+          data: { interfaces: [{ name: "eth0", ips: ["10.0.0.1"] }, { name: "wlan0", ips: [] }] },
+          error: null,
+          meta: null,
+        }), { status: 200, headers: { "Content-Type": "application/json" } }))
+      }
+      return Promise.resolve(new Response(JSON.stringify({ status: "ok", data: {}, error: null, meta: null }), { status: 200 }))
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    function InterfaceHarness() {
+      const [object, setObject] = useState<JsonObject>({ include_interface: ["custom0"] })
+      return <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <InboundFormFields fields={[{ path: "include_interface", label: "includeInterface", kind: "ref", ref: "network-interface-multi" }]} object={object} type="tun" onChange={setObject} />
+        <pre>{JSON.stringify(object)}</pre>
+      </QueryClientProvider>
+    }
+    renderApp(<InterfaceHarness />)
+    expect(await screen.findByText("eth0 (10.0.0.1)")).toBeInTheDocument()
+    await user.click(screen.getByRole("checkbox", { name: /eth0/ }))
+    expect(screen.getByText('{"include_interface":["custom0","eth0"]}')).toBeInTheDocument()
+    await user.click(screen.getByRole("checkbox", { name: /custom0/ }))
+    expect(screen.getByText('{"include_interface":["eth0"]}')).toBeInTheDocument()
+  })
+})
+
+describe("userSchema", () => {
+  it("returns protocol specific keys", () => {
+    expect(userSchema("vless")).toEqual(["name", "uuid", "flow"])
+    expect(userSchema("mixed")).toEqual(["username", "password"])
+    expect(userSchema("unknown")).toEqual(["name", "password"])
+  })
+})
+
+describe("proxy form helpers", () => {
+  it("extracts config and dns tags and groups sections", () => {
+    expect(configTags([{ tag: "a" }, { tag: "b" }, { tag: "a" }, null, "x"], "b")).toEqual(["a"])
+    expect(configTags(undefined)).toEqual([])
+    expect(dnsServerTags({ servers: [{ tag: "local" }, { tag: "" }, {}] })).toEqual(["local"])
+    expect(dnsServerTags(null)).toEqual([])
+    expect(groupFieldsBySection([
+      { path: "a", label: "a", section: "bind" },
+      { path: "b", label: "b", section: "bind" },
+      { path: "c", label: "c", section: "tcp" },
+      { path: "d", label: "d" },
+    ]).map((group) => [group.section, group.fields.map((field) => field.path)])).toEqual([
+      ["bind", ["a", "b"]],
+      ["tcp", ["c"]],
+      [undefined, ["d"]],
+    ])
+  })
+
+  it("covers remaining user schemas and preserves unknown ref values", async () => {
+    for (const [type, keys] of [
+      ["socks", ["username", "password"]],
+      ["http", ["username", "password"]],
+      ["naive", ["username", "password"]],
+      ["anytls", ["username", "password"]],
+      ["trojan", ["name", "password"]],
+      ["shadowsocks", ["name", "password"]],
+      ["shadowtls", ["name", "password"]],
+      ["vmess", ["name", "uuid", "alterId"]],
+      ["tuic", ["name", "uuid", "password"]],
+      ["hysteria", ["name", "password"]],
+      ["hysteria2", ["name", "password"]],
+    ] as const) expect(userSchema(type)).toEqual([...keys])
+    const user = userEvent.setup()
+    function RefHarness() {
+      const [object, setObject] = useState<JsonObject>({ detour: "legacy", network: ["tcp"] })
+      return <>
+        <InboundFormFields fields={[{ path: "detour", label: "detour", kind: "ref", ref: "inbound" }, { path: "network", label: "network", kind: "network-multi" }]} object={object} type="mixed" context={{ inboundTags: ["mixed-in"] }} onChange={setObject} />
+        <pre>{JSON.stringify(object)}</pre>
+      </>
+    }
+    renderApp(<RefHarness />)
+    await user.click(screen.getByRole("combobox", { name: "前置入站" }))
+    expect(await screen.findByRole("option", { name: "legacy" })).toBeInTheDocument()
+    await user.click(await screen.findByRole("option", { name: "未设置" }))
+    expect(screen.getByText('{"network":["tcp"]}')).toBeInTheDocument()
+    await user.click(screen.getByRole("switch", { name: "网络 tcp" }))
+    expect(screen.getByText("{}")).toBeInTheDocument()
+    await user.click(screen.getByRole("switch", { name: "网络 udp" }))
+    expect(screen.getByText('{"network":["udp"]}')).toBeInTheDocument()
+  })
+
+  it("edits vmess alterId and removes empty users", async () => {
+    const user = userEvent.setup()
+    function VmessUsers() {
+      const [object, setObject] = useState<JsonObject>({ users: [{ name: "n", uuid: "u", alterId: 1 }] })
+      return <>
+        <InboundFormFields fields={[{ path: "users", label: "users", kind: "users" }]} object={object} type="vmess" onChange={setObject} />
+        <pre>{JSON.stringify(object)}</pre>
+      </>
+    }
+    renderApp(<VmessUsers />)
+    fireEvent.change(screen.getByLabelText("认证用户 1 Alter ID"), { target: { value: "2" } })
+    expect(screen.getByText('{"users":[{"name":"n","uuid":"u","alterId":2}]}')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText("认证用户 1 名称"), { target: { value: "" } })
+    expect(screen.getByText('{"users":[{"uuid":"u","alterId":2}]}')).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "删除用户" }))
+    expect(screen.getByText("{}")).toBeInTheDocument()
+    cleanup()
+
+    renderApp(<InboundFormFields fields={[{ path: "users", label: "users", kind: "users" }]} object={{}} type="mixed" onChange={vi.fn()} />)
+    expect(screen.getByText("暂无用户，可点击添加。")).toBeInTheDocument()
+  })
+
+  it("shows empty interface multi state", async () => {
+    const fetchMock = vi.fn(() => Promise.resolve(new Response(JSON.stringify({
+      status: "ok", data: { interfaces: [] }, error: null, meta: null,
+    }), { status: 200, headers: { "Content-Type": "application/json" } })))
+    vi.stubGlobal("fetch", fetchMock)
+    renderApp(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><InboundFormFields fields={[{ path: "include_interface", label: "includeInterface", kind: "ref", ref: "network-interface-multi" }]} object={{}} type="tun" onChange={vi.fn()} /></QueryClientProvider>)
+    expect(await screen.findByText("—")).toBeInTheDocument()
+  })
+
+  it("covers dns/outbound refs, invalid users, and sparse field branches", async () => {
+    const user = userEvent.setup()
+    function MultiRefHarness() {
+      const [object, setObject] = useState<JsonObject>({
+        detour: "out-legacy",
+        domain_resolver: "dns-legacy",
+        custom_ref: "kept",
+        ports: [1, 2],
+        count: 3,
+      })
+      return <>
+        <ProxyFormFields
+          fields={[
+            { path: "detour", label: "detour", kind: "ref", ref: "outbound" },
+            { path: "domain_resolver", label: "domainResolver", kind: "ref", ref: "dns-server" },
+            { path: "custom_ref", label: "method", kind: "ref", options: ["a", "b"] },
+            { path: "ports", label: "listenPort", kind: "number-list" },
+            { path: "count", label: "mtu", kind: "number" },
+            { path: "note", label: "password", kind: "text", section: "missing-section" },
+          ]}
+          object={object}
+          namespace="proxy.inbound"
+          context={{ outboundTags: ["proxy"], dnsServerTags: ["local"] }}
+          onChange={setObject}
+        />
+        <pre data-testid="object">{JSON.stringify(object)}</pre>
+      </>
+    }
+    renderApp(<MultiRefHarness />)
+    await user.click(screen.getByRole("combobox", { name: "前置入站" }))
+    expect(await screen.findByRole("option", { name: "out-legacy" })).toBeInTheDocument()
+    await user.click(await screen.findByRole("option", { name: "proxy" }))
+    await user.click(screen.getByRole("combobox", { name: "域名解析器" }))
+    expect(await screen.findByRole("option", { name: "dns-legacy" })).toBeInTheDocument()
+    await user.click(await screen.findByRole("option", { name: "local" }))
+    await user.click(screen.getByRole("combobox", { name: "加密方法" }))
+    await user.click(await screen.findByRole("option", { name: "a" }))
+    fireEvent.change(screen.getByLabelText("监听端口"), { target: { value: "bad" } })
+    expect(screen.getByTestId("object")).toHaveTextContent('{"detour":"proxy","domain_resolver":"local","custom_ref":"a","ports":[1,2],"count":3}')
+    fireEvent.change(screen.getByLabelText("监听端口"), { target: { value: "" } })
+    fireEvent.change(screen.getByLabelText("MTU"), { target: { value: "" } })
+    expect(screen.getByTestId("object")).toHaveTextContent('{"detour":"proxy","domain_resolver":"local","custom_ref":"a"}')
+    cleanup()
+
+    function InvalidUsers() {
+      const [object, setObject] = useState<JsonObject>({ users: "broken" as unknown as never })
+      const [valid, setValid] = useState(true)
+      return <>
+        <span data-testid="validity">{valid ? "valid" : "invalid"}</span>
+        <InboundFormFields fields={[{ path: "users", label: "users", kind: "users" }]} object={object} type="mixed" onChange={setObject} onFieldValidityChange={(_path, next) => setValid(next)} />
+        <pre data-testid="users-object">{JSON.stringify(object)}</pre>
+      </>
+    }
+    renderApp(<InvalidUsers />)
+    const textarea = screen.getByLabelText("认证用户")
+    fireEvent.change(textarea, { target: { value: "{" } })
+    expect(screen.getByTestId("validity")).toHaveTextContent("invalid")
+    fireEvent.change(textarea, { target: { value: '[{"username":"a","password":"b"}]' } })
+    expect(screen.getByTestId("validity")).toHaveTextContent("valid")
+    expect(screen.getByTestId("users-object")).toHaveTextContent('{"users":[{"username":"a","password":"b"}]}')
+    cleanup()
+
+    // non-object array item keeps JSON mode invalid
+    function BadArrayUsers() {
+      const [object, setObject] = useState<JsonObject>({ users: [1] as unknown as never })
+      const [valid, setValid] = useState(true)
+      return <>
+        <span data-testid="validity2">{valid ? "valid" : "invalid"}</span>
+        <InboundFormFields fields={[{ path: "users", label: "users", kind: "users" }]} object={object} type="mixed" onChange={setObject} onFieldValidityChange={(_path, next) => setValid(next)} />
+      </>
+    }
+    renderApp(<BadArrayUsers />)
+    fireEvent.change(screen.getByLabelText("认证用户"), { target: { value: "" } })
+    expect(screen.getByTestId("validity2")).toHaveTextContent("valid")
+    cleanup()
+
+    function AlterIdEmpty() {
+      const [object, setObject] = useState<JsonObject>({ users: [{ name: "n", uuid: "u", alterId: 1 }] })
+      return <>
+        <InboundFormFields fields={[{ path: "users", label: "users", kind: "users" }]} object={object} type="vmess" onChange={setObject} />
+        <pre>{JSON.stringify(object)}</pre>
+      </>
+    }
+    renderApp(<AlterIdEmpty />)
+    fireEvent.change(screen.getByLabelText("认证用户 1 Alter ID"), { target: { value: "" } })
+    expect(screen.getByText('{"users":[{"name":"n","uuid":"u"}]}')).toBeInTheDocument()
   })
 })

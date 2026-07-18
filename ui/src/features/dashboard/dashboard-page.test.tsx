@@ -38,7 +38,7 @@ describe("DashboardPage", () => {
   it("shows service, traffic, memory, and version data", async () => {
     sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
     vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
-      const path = typeof input === "string" ? input : input.toString()
+      const path = typeof input === "string" ? input : input instanceof URL ? input.pathname : "url" in input ? new URL(input.url).pathname : String(input)
       if (path === "/api/stats/traffic") return Promise.resolve(eventStream({ upload_bytes: 30, download_bytes: 40, timestamp: "2026-01-01T00:00:01Z" }))
       if (path === "/api/stats/logs") return Promise.resolve(eventStream({ level: "info", message: "ready" }))
       return Promise.resolve(new Response(JSON.stringify(responseFor(path))))
@@ -56,7 +56,7 @@ describe("DashboardPage", () => {
   it("keeps the latest twenty dashboard logs", async () => {
     sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
     vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
-      const path = typeof input === "string" ? input : input.toString()
+      const path = typeof input === "string" ? input : input instanceof URL ? input.pathname : "url" in input ? new URL(input.url).pathname : String(input)
       if (path === "/api/stats/traffic") return Promise.resolve(eventStream({ upload_bytes: 0, download_bytes: 0, timestamp: "2026-01-01T00:00:01Z" }))
       if (path === "/api/stats/logs") return Promise.resolve(eventStreams(Array.from({ length: 25 }, (_, index) => ({ level: "info", message: `log-${index}` }))))
       return Promise.resolve(new Response(JSON.stringify(responseFor(path))))

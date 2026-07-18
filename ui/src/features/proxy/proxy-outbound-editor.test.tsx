@@ -11,9 +11,17 @@ afterEach(() => { vi.unstubAllGlobals(); sessionStore.clear() })
 describe("outbound editor", () => {
   it("edits server fields instead of inbound listen fields", async () => {
     sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
-    const fetchMock = vi.fn((_input: string | URL | Request, init?: RequestInit) => Promise.resolve(new Response(JSON.stringify(
-      init?.method === "PUT" ? { status: "ok", data: null, error: null, meta: null } : { outbounds: [{ tag: "proxy", type: "vless", server: "old.example.com", server_port: 443 }] },
-    ))))
+    const fetchMock = vi.fn((input: string | URL | Request, init?: RequestInit) => {
+      const path = typeof input === "string" ? input : input instanceof URL ? input.pathname : new URL(input.url).pathname
+      if (init?.method === "PUT") {
+        return Promise.resolve(new Response(JSON.stringify({ status: "ok", data: null, error: null, meta: null })))
+      }
+      if (path === "/api/subscriptions/") return Promise.resolve(new Response(JSON.stringify([])))
+      if (path === "/api/nodes/groups") return Promise.resolve(new Response(JSON.stringify({ groups: [] })))
+      return Promise.resolve(new Response(JSON.stringify({
+        outbounds: [{ tag: "proxy", type: "vless", server: "old.example.com", server_port: 443 }],
+      })))
+    })
     vi.stubGlobal("fetch", fetchMock)
     const user = userEvent.setup()
     renderApp(<App />, "/proxy/outbounds")
