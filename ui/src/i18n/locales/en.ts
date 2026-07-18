@@ -55,7 +55,7 @@ export const en = {
       currentPassword: "Current password", newPassword: "New password", passwordHint: "At least 8 characters.", rotatePassword: "Rotate password",
       jwtSecret: "JWT signing secret", rotateJWT: "Rotate JWT secret", rotateJWTTitle: "Rotate JWT secret?",
       rotateJWTDescription: "All existing login sessions will be invalidated immediately.", cancel: "Cancel", confirmRotate: "Confirm rotation",
-      runtimeTitle: "System Settings", runtimeDescription: "Configure node speed testing and kernel startup behavior.", testURL: "Speed test URL",
+      runtimeTitle: "System Settings", runtimeDescription: "Configure node speed testing and kernel startup behavior.", testURL: "Speed test URL", testURLDescription: "Probe URL used by node TCP/HTTP speed tests. Choose a preset or switch to manual input for a custom URL.", testURLManual: "Manual input", testURLManualInput: "Custom speed test URL", testURLManualPlaceholder: "https://example.com/generate_204",
       saveTestURL: "Save speed test URL", autostart: "Kernel autostart", passwordRotated: "Password rotated. Sign in again.",
       jwtRotated: "JWT secret rotated. Sign in again.", testURLSaved: "Speed test URL saved", autostartSaved: "Kernel autostart updated",
       urlTestDefaultsTitle: "Subscription URLTest Defaults", urlTestDefaultsDescription: "These settings control sing-box subscription URLTest groups and do not affect node card TCP, HTTP, or ICMP tests.",

@@ -22,6 +22,8 @@ describe("SettingsPage", () => {
     renderApp(<App />, "/settings")
     expect(await screen.findByRole("heading", { name: "应用设置" })).toBeInTheDocument()
     expect(screen.getByText("登录用户名由 BOXUI_USERNAME 或启动参数管理，前端不可轮换。")).toBeInTheDocument()
+    expect(screen.getByRole("combobox", { name: "测速地址" })).toBeInTheDocument()
+    expect(screen.queryByLabelText("自定义测速地址")).not.toBeInTheDocument()
     expect(screen.getByRole("button", { name: "保存测速地址" })).toBeInTheDocument()
     expect(screen.getByText("订阅 URLTest 默认值")).toBeInTheDocument()
   })

@@ -12,22 +12,44 @@ afterEach(() => { vi.unstubAllGlobals(); sessionStore.clear(); localStorage.clea
 describe("settings interactions", () => {
   it("updates appearance and runtime preferences", async () => {
     sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
-    installMockAPI()
+    const fetchMock = installMockAPI()
     const user = userEvent.setup()
     renderApp(<App />, "/settings")
     await screen.findByRole("heading", { name: "应用设置" })
     await user.click(screen.getByText("深色"))
     await user.click(screen.getByText("深色"))
     await user.click(screen.getByText("Warn"))
-    await user.clear(screen.getByLabelText("测速地址"))
-    await user.type(screen.getByLabelText("测速地址"), "https://example.com/test")
+    await user.click(screen.getByRole("combobox", { name: "测速地址" }))
+    await user.click(await screen.findByRole("option", { name: "手动输入" }))
+    await user.clear(screen.getByLabelText("自定义测速地址"))
+    await user.type(screen.getByLabelText("自定义测速地址"), "https://example.com/test")
     await user.click(screen.getByRole("button", { name: "保存测速地址" }))
+    expect(fetchMock).toHaveBeenCalledWith("/api/settings/url-test", expect.objectContaining({
+      method: "PUT",
+      body: JSON.stringify({ url: "https://example.com/test" }),
+    }))
     await user.click(screen.getByRole("switch", { name: "内核自启" }))
     await user.click(screen.getByText("English"))
     await user.click(screen.getByText("English"))
     expect(screen.getByRole("heading", { name: "Application Settings" })).toBeInTheDocument()
     expect(localStorage.getItem("boxui.preferences.v1")).toContain("dark")
     expect(localStorage.getItem("boxui.preferences.v1")).toContain("warn")
+  })
+
+  it("selects a preset speed test URL without manual input", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    const fetchMock = installMockAPI()
+    const user = userEvent.setup()
+    renderApp(<App />, "/settings")
+    await screen.findByRole("heading", { name: "应用设置" })
+    await user.click(screen.getByRole("combobox", { name: "测速地址" }))
+    await user.click(await screen.findByRole("option", { name: "https://www.gstatic.com/generate_204" }))
+    expect(screen.queryByLabelText("自定义测速地址")).not.toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "保存测速地址" }))
+    expect(fetchMock).toHaveBeenCalledWith("/api/settings/url-test", expect.objectContaining({
+      method: "PUT",
+      body: JSON.stringify({ url: "https://www.gstatic.com/generate_204" }),
+    }))
   })
 
   it("submits password and JWT rotations", async () => {

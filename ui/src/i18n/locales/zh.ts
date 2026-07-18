@@ -55,7 +55,7 @@ export const zh = {
       currentPassword: "当前密码", newPassword: "新密码", passwordHint: "至少 8 个字符。", rotatePassword: "轮换密码",
       jwtSecret: "JWT 签名密钥", rotateJWT: "轮换 JWT 密钥", rotateJWTTitle: "轮换 JWT 密钥？",
       rotateJWTDescription: "所有现有登录会话都会立即失效，需要重新登录。", cancel: "取消", confirmRotate: "确认轮换",
-      runtimeTitle: "系统设置", runtimeDescription: "配置节点测速和内核启动行为。", testURL: "测速地址",
+      runtimeTitle: "系统设置", runtimeDescription: "配置节点测速和内核启动行为。", testURL: "测速地址", testURLDescription: "节点 TCP/HTTP 测速使用的探测地址。可选择预置地址，或切换为手动输入自定义 URL。", testURLManual: "手动输入", testURLManualInput: "自定义测速地址", testURLManualPlaceholder: "https://example.com/generate_204",
       saveTestURL: "保存测速地址", autostart: "内核自启", passwordRotated: "密码已轮换，请重新登录",
       jwtRotated: "JWT 密钥已轮换，请重新登录", testURLSaved: "测速地址已保存", autostartSaved: "内核自启已更新",
       urlTestDefaultsTitle: "订阅 URLTest 默认值", urlTestDefaultsDescription: "此配置用于 sing-box 订阅 URLTest 分组，不影响节点卡片的 TCP、HTTP、ICMP 测速。",
