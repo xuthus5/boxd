@@ -1,15 +1,15 @@
 import { useMutation, useQueries } from "@tanstack/react-query"
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
+import { ProbeURLField } from "@/components/probe-url-field"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldDescription, FieldGroup, FieldLabel, FieldTitle } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
@@ -17,12 +17,7 @@ import { useAuth } from "@/features/auth/auth-context"
 import { usePreferences } from "@/features/preferences/preferences-provider"
 import { URLTestDefaultsCard } from "@/features/settings/urltest-defaults-card"
 import { api } from "@/lib/api/endpoints"
-import {
-  isSpeedTestURLPreset,
-  resolveInitialSpeedTestURL,
-  resolveSpeedTestURLMode,
-  SPEED_TEST_URL_PRESETS,
-} from "@/lib/speed-test-urls"
+import { resolveInitialSpeedTestURL } from "@/lib/speed-test-urls"
 import type { Language, LogThreshold, Theme } from "@/lib/storage"
 
 function AppearanceCard() {
@@ -53,9 +48,7 @@ function AccountCard({ defaultPassword, jwt }: { defaultPassword: boolean; jwt: 
 
 function RuntimeSettingsCard({ url, enabled }: { url: string; enabled: boolean }) {
   const { t } = useTranslation()
-  const initialURL = resolveInitialSpeedTestURL(url)
-  const [testURL, setTestURL] = useState(initialURL)
-  const [mode, setMode] = useState(() => resolveSpeedTestURLMode(url || initialURL))
+  const [testURL, setTestURL] = useState(() => resolveInitialSpeedTestURL(url))
   const [autostart, setAutostart] = useState(enabled)
   const saveURL = useMutation({ mutationFn: () => api.settings.setTestURL(testURL), onSuccess: () => toast.success(t("settings.testURLSaved")), onError: (error: Error) => toast.error(error.message) })
   const saveAutostart = (checked: boolean) => {
@@ -63,35 +56,17 @@ function RuntimeSettingsCard({ url, enabled }: { url: string; enabled: boolean }
     setAutostart(checked)
     api.settings.setAutostart(checked).then(() => toast.success(t("settings.autostartSaved"))).catch((error: Error) => { setAutostart(previous); toast.error(error.message) })
   }
-  const items = useMemo(() => [
-    ...SPEED_TEST_URL_PRESETS.map((preset) => ({ value: preset, label: preset })),
-    { value: "manual", label: t("settings.testURLManual") },
-  ], [t])
   return <Card><CardHeader><CardTitle>{t("settings.runtimeTitle")}</CardTitle><CardDescription>{t("settings.runtimeDescription")}</CardDescription></CardHeader><CardContent><FieldGroup>
-    <Field>
-      <FieldLabel htmlFor="test-url">{t("settings.testURL")}</FieldLabel>
-      <div className="grid gap-2">
-        <Select items={items} value={mode} onValueChange={(next) => {
-          const selected = String(next)
-          if (selected === "manual") {
-            setMode("manual")
-            if (isSpeedTestURLPreset(testURL)) setTestURL("")
-            return
-          }
-          setMode(selected)
-          setTestURL(selected)
-        }}>
-          <SelectTrigger id="test-url" aria-label={t("settings.testURL")} className="w-full"><SelectValue /></SelectTrigger>
-          <SelectContent><SelectGroup>
-            {SPEED_TEST_URL_PRESETS.map((preset) => <SelectItem key={preset} value={preset}>{preset}</SelectItem>)}
-            <SelectItem value="manual">{t("settings.testURLManual")}</SelectItem>
-          </SelectGroup></SelectContent>
-        </Select>
-        {mode === "manual" ? <Input id="test-url-manual" aria-label={t("settings.testURLManualInput")} value={isSpeedTestURLPreset(testURL) ? "" : testURL} placeholder={t("settings.testURLManualPlaceholder")} onChange={(event) => setTestURL(event.target.value)} /> : null}
-      </div>
-      <FieldDescription>{t("settings.testURLDescription")}</FieldDescription>
+    <div className="grid gap-2">
+      <ProbeURLField
+        id="test-url"
+        label={t("settings.testURL")}
+        value={testURL}
+        onChange={setTestURL}
+        description={t("settings.testURLDescription")}
+      />
       <Button onClick={() => saveURL.mutate()} disabled={!testURL.trim()}>{t("settings.saveTestURL")}</Button>
-    </Field>
+    </div>
     <Field orientation="horizontal"><FieldLabel htmlFor="autostart">{t("settings.autostart")}</FieldLabel><Switch id="autostart" checked={autostart} onCheckedChange={saveAutostart} /></Field>
   </FieldGroup></CardContent></Card>
 }

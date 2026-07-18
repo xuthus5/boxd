@@ -45,7 +45,7 @@ describe("settings save failures", () => {
     }))
     const user = userEvent.setup()
     renderApp(<App />, "/settings")
-    expect(await screen.findByLabelText("自定义测速地址")).toHaveValue("https://example.com")
+    expect(await screen.findByDisplayValue("https://example.com")).toHaveAttribute("id", "test-url-manual")
     await user.click(await screen.findByRole("button", { name: "保存测速地址" }))
     expect(await screen.findByText("save failed")).toBeInTheDocument()
   })

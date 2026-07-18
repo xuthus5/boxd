@@ -82,8 +82,10 @@ describe("settings interactions", () => {
     renderApp(<App />, "/settings")
     await screen.findByText("订阅 URLTest 默认值")
 
-    await user.clear(screen.getByLabelText("URLTest 测试地址"))
-    await user.type(screen.getByLabelText("URLTest 测试地址"), "https://example.com/generate_204")
+    await user.click(screen.getByRole("combobox", { name: "URLTest 测试地址" }))
+    await user.click(await screen.findByRole("option", { name: "手动输入" }))
+    await user.clear(screen.getByLabelText("自定义 URLTest 地址"))
+    await user.type(screen.getByLabelText("自定义 URLTest 地址"), "https://example.com/generate_204")
     await user.clear(screen.getByLabelText("URLTest 测试间隔"))
     await user.type(screen.getByLabelText("URLTest 测试间隔"), "5m")
     await user.clear(screen.getByLabelText("URLTest 切换容差（毫秒）"))

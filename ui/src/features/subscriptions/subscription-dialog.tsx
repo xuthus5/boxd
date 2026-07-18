@@ -3,6 +3,7 @@ import { type Dispatch, type SetStateAction, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
+import { ProbeURLField } from "@/components/probe-url-field"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -92,24 +93,25 @@ function URLTestFields({ defaults, state, setState, onReset }: URLTestFieldsProp
       <AlertDescription>{t("subscriptions.urlTestDisabledDescription")}</AlertDescription>
     </Alert> : null}
     {!disabled ? <>
-      <Field data-invalid={isURLInvalid || undefined}>
-        <FieldLabel htmlFor="subscription-urltest-url">{t("settings.urlTestURL")}</FieldLabel>
-        <Input
-          id="subscription-urltest-url"
-          disabled={inherit}
-          aria-invalid={isURLInvalid || undefined}
-          placeholder={defaults.url}
-          value={urlValue}
-          onChange={(event) => update({ url: event.target.value })}
-        />
-        <FieldDescription>
-          {isURLInvalid
+      <ProbeURLField
+        id="subscription-urltest-url"
+        label={t("settings.urlTestURL")}
+        manualLabel={t("settings.urlTestURLManualInput")}
+        value={urlValue}
+        onChange={(value) => update({ url: value })}
+        disabled={inherit}
+        invalid={isURLInvalid}
+        allowEmpty={!inherit}
+        emptyLabel={t("settings.urlTestURLEmpty")}
+        placeholder={defaults.url}
+        description={
+          isURLInvalid
             ? t("settings.urlTestURLInvalid")
             : inherit
               ? t("subscriptions.urlTestInheritHint")
-              : t("subscriptions.leaveBlankToInherit")}
-        </FieldDescription>
-      </Field>
+              : t("subscriptions.leaveBlankToInherit")
+        }
+      />
       <Field data-invalid={isIntervalInvalid || undefined}>
         <FieldLabel htmlFor="subscription-urltest-interval">{t("settings.urlTestInterval")}</FieldLabel>
         <Input
