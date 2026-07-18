@@ -29,14 +29,13 @@ type TestHandler struct {
 	instance    outboundDialer
 }
 
-var dialTimeout = net.DialTimeout
-
 var commandOutput = func(name string, args ...string) ([]byte, error) {
 	return exec.Command(name, args...).Output()
 }
 
 type outboundDialer interface {
 	DialOutbound(ctx context.Context, tag, network, addr string) (net.Conn, error)
+	OutboundDelay(ctx context.Context, tag, link string, timeout time.Duration) (uint16, error)
 }
 
 func NewTestHandler(settingsURLFn func() string, nodeManager *core.NodeManager, instance outboundDialer) *TestHandler {
@@ -159,15 +158,24 @@ func (h *TestHandler) ListResults(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TestHandler) tcpPing(req TestRequest) model.TestResult {
-	addr := net.JoinHostPort(req.Server, fmt.Sprintf("%d", req.Port))
-	start := time.Now()
-	conn, err := dialTimeout("tcp", addr, 5*time.Second)
+	if h.instance == nil {
+		return model.TestResult{Error: "test service not available"}
+	}
+	link := ""
+	if h.settingsURL != nil {
+		link = h.settingsURL()
+	}
+	const timeout = 5 * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	delay, err := h.instance.OutboundDelay(ctx, req.Tag, link, timeout)
 	if err != nil {
 		return model.TestResult{Error: err.Error()}
 	}
-	_ = conn.Close()
-	latency := time.Since(start).Seconds() * 1000
-	return model.TestResult{Success: true, LatencyMs: latency}
+	if delay == 0 {
+		return model.TestResult{Error: "delay test failed: no response"}
+	}
+	return model.TestResult{Success: true, LatencyMs: float64(delay)}
 }
 
 func (h *TestHandler) httpTest(req TestRequest) model.TestResult {

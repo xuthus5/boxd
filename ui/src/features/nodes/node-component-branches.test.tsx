@@ -52,6 +52,22 @@ describe("node component branches", () => {
 })
 
 describe("node persisted result branches", () => {
+  it("keeps sub-millisecond latency visible", async () => {
+    authenticate()
+    vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
+      const path = typeof input === "string" ? input : input.toString()
+      if (path === "/api/nodes/") return Promise.resolve(new Response(JSON.stringify([
+        { tag: "fast", type: "vless", server: "fast.example", port: 443, source: "import" },
+      ])))
+      if (path === "/api/nodes/test-results") return Promise.resolve(new Response(JSON.stringify({
+        fast_tcp: { tcp: { tag: "fast", test_type: "tcp", success: true, latency_ms: 0.3 } },
+      })))
+      return Promise.resolve(new Response(JSON.stringify({ groups: [] })))
+    }))
+    renderApp(<App />, "/nodes")
+    expect(await screen.findAllByText("0.3 ms")).toHaveLength(2)
+  })
+
   it("renders failed persisted results without latency", async () => {
     authenticate()
     vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -127,24 +128,30 @@ func TestTestHandlerRunAndListResults(t *testing.T) {
 }
 
 func TestTestHandlerTCPPing(t *testing.T) {
-	previous := dialTimeout
-	t.Cleanup(func() { dialTimeout = previous })
-
-	handler := NewTestHandler(nil, nil, nil)
-	dialTimeout = func(network, address string, timeout time.Duration) (net.Conn, error) {
-		return nopConn{}, nil
-	}
-	result := handler.tcpPing(TestRequest{Server: "example.com", Port: 443})
-	if !result.Success || result.Error != "" {
+	dialer := &fakeDialer{delay: 187}
+	handler := NewTestHandler(func() string { return "https://example.com/ping" }, nil, dialer)
+	result := handler.tcpPing(TestRequest{Tag: "proxy", Server: "example.com", Port: 443})
+	if !result.Success || result.Error != "" || result.LatencyMs != 187 {
 		t.Fatalf("tcp result = %#v", result)
 	}
-
-	dialTimeout = func(network, address string, timeout time.Duration) (net.Conn, error) {
-		return nil, errors.New("dial failed")
+	delayTag, delayLink := dialer.lastDelayInput()
+	if delayTag != "proxy" || delayLink != "https://example.com/ping" {
+		t.Fatalf("delay input = %q %q", delayTag, delayLink)
 	}
+
+	dialer.delayErr = errors.New("delay failed")
 	result = handler.tcpPing(TestRequest{Server: "example.com", Port: 443})
 	if result.Error == "" {
-		t.Fatalf("expected dial error, got %#v", result)
+		t.Fatalf("expected delay error, got %#v", result)
+	}
+
+	dialer.delayErr = nil
+	dialer.delay = 0
+	if result = handler.tcpPing(TestRequest{Tag: "proxy"}); result.Error == "" {
+		t.Fatalf("expected zero delay error, got %#v", result)
+	}
+	if result = NewTestHandler(nil, nil, nil).tcpPing(TestRequest{Tag: "proxy"}); result.Error == "" {
+		t.Fatalf("expected unavailable error, got %#v", result)
 	}
 }
 
@@ -152,7 +159,7 @@ func TestTestHandlerHTTPTestWithDialer(t *testing.T) {
 	handler := NewTestHandler(
 		func() string { return "http://example.test/" },
 		nil,
-		fakeDialer{connFactory: func() net.Conn { return newHTTPResponseConn() }},
+		&fakeDialer{connFactory: func() net.Conn { return newHTTPResponseConn() }},
 	)
 	result := handler.httpTest(TestRequest{Tag: "proxy", Server: "http://ignored.test/"})
 	if !result.Success || result.Error != "" {
@@ -162,7 +169,7 @@ func TestTestHandlerHTTPTestWithDialer(t *testing.T) {
 	handler = NewTestHandler(
 		func() string { return "http://example.test/" },
 		nil,
-		fakeDialer{err: errors.New("dial failed")},
+		&fakeDialer{err: errors.New("dial failed")},
 	)
 	result = handler.httpTest(TestRequest{Tag: "proxy"})
 	if result.Error == "" {
@@ -444,44 +451,15 @@ func TestCanceledRequestIsAlreadyDone(t *testing.T) {
 	}
 }
 
-type nopConn struct{}
-
-func (nopConn) Read(b []byte) (int, error) {
-	return 0, io.EOF
-}
-
-func (nopConn) Write(b []byte) (int, error) {
-	return len(b), nil
-}
-
-func (nopConn) Close() error {
-	return nil
-}
-
-func (nopConn) LocalAddr() net.Addr {
-	return nil
-}
-
-func (nopConn) RemoteAddr() net.Addr {
-	return nil
-}
-
-func (nopConn) SetDeadline(t time.Time) error {
-	return nil
-}
-
-func (nopConn) SetReadDeadline(t time.Time) error {
-	return nil
-}
-
-func (nopConn) SetWriteDeadline(t time.Time) error {
-	return nil
-}
-
 type fakeDialer struct {
+	mu          sync.Mutex
 	conn        net.Conn
 	connFactory func() net.Conn
 	err         error
+	delay       uint16
+	delayErr    error
+	delayTag    string
+	delayLink   string
 }
 
 type fakeService struct {
@@ -504,7 +482,7 @@ func (s *fakeService) Status() model.ServiceStatus {
 	return model.ServiceStatus{Running: true, Version: "test"}
 }
 
-func (d fakeDialer) DialOutbound(ctx context.Context, tag, network, addr string) (net.Conn, error) {
+func (d *fakeDialer) DialOutbound(ctx context.Context, tag, network, addr string) (net.Conn, error) {
 	if d.err != nil {
 		return nil, d.err
 	}
@@ -512,6 +490,20 @@ func (d fakeDialer) DialOutbound(ctx context.Context, tag, network, addr string)
 		return d.connFactory(), nil
 	}
 	return d.conn, nil
+}
+
+func (d *fakeDialer) OutboundDelay(ctx context.Context, tag, link string, timeout time.Duration) (uint16, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.delayTag = tag
+	d.delayLink = link
+	return d.delay, d.delayErr
+}
+
+func (d *fakeDialer) lastDelayInput() (string, string) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.delayTag, d.delayLink
 }
 
 func newHTTPResponseConn() net.Conn {
@@ -597,17 +589,11 @@ func TestStatsHandlerCloseAllConnections(t *testing.T) {
 // ---- 新增：批量测速 handler 测试 ----
 
 func TestTestHandlerRunBatch(t *testing.T) {
-	previous := dialTimeout
-	t.Cleanup(func() { dialTimeout = previous })
-	dialTimeout = func(network, address string, timeout time.Duration) (net.Conn, error) {
-		return nopConn{}, nil
-	}
-
 	nodeMgr, _, _, _ := newAPIManagers(t)
 	handler := NewTestHandler(
 		func() string { return "http://example.test/" },
 		nodeMgr,
-		fakeDialer{connFactory: func() net.Conn { return newHTTPResponseConn() }},
+		&fakeDialer{connFactory: func() net.Conn { return newHTTPResponseConn() }, delay: 12},
 	)
 
 	t.Run("invalid json", func(t *testing.T) {
