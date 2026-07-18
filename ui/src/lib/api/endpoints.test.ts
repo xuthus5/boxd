@@ -1,10 +1,20 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { api } from "@/lib/api/endpoints"
+import { api, groupNodeTestResults } from "@/lib/api/endpoints"
 
 afterEach(() => vi.unstubAllGlobals())
 
 describe("api endpoints", () => {
+  it("groups persisted node test results by node tag", () => {
+    const tcp = { tag: "hk-01", test_type: "tcp", success: true, latency_ms: 18 }
+    const http = { tag: "hk-01", test_type: "http", success: true, latency_ms: 32 }
+
+    expect(groupNodeTestResults({ "hk-01_tcp": { tcp }, "hk-01_http": { http } })).toEqual({
+      "hk-01": { tcp, http },
+    })
+    expect(groupNodeTestResults({ invalid: { tcp: { ...tcp, tag: "" } } })).toEqual({})
+  })
+
   it("posts login credentials", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       token: "token",

@@ -57,7 +57,7 @@ describe("node management workflows", () => {
   it("switches test type and displays persisted results", async () => {
     const { fetchMock, user } = setup((path) => {
       if (path === "/api/nodes/") return [{ tag: "hk-01", type: "vless", server: "example.com", port: 443, source: "import" }]
-      if (path === "/api/nodes/test-results") return { "hk-01": { tcp: { tag: "hk-01", test_type: "tcp", success: true, latency_ms: 18 } } }
+      if (path === "/api/nodes/test-results") return { "hk-01_tcp": { tcp: { tag: "hk-01", test_type: "tcp", success: true, latency_ms: 18 } } }
       if (path === "/api/nodes/groups") return { groups: [] }
       if (path === "/api/nodes/test") return { tag: "hk-01", test_type: "tcp", success: true, latency_ms: 18 }
       return {}

@@ -24,6 +24,18 @@ const json = (method: string, body?: unknown): RequestInit => ({
 })
 const segment = (value: string) => encodeURIComponent(value)
 
+export function groupNodeTestResults(results: Record<string, Record<string, TestResult>>) {
+  const grouped: Record<string, Record<string, TestResult>> = {}
+  for (const byType of Object.values(results)) {
+    for (const result of Object.values(byType)) {
+      if (!result.tag || !result.test_type) continue
+      grouped[result.tag] ??= {}
+      grouped[result.tag][result.test_type] = result
+    }
+  }
+  return grouped
+}
+
 export interface LoginInput { username: string; password: string }
 export interface NodeInput { tag: string; type: string; server: string; port: number; config: JsonValue }
 export interface SubscriptionInput {
@@ -92,7 +104,9 @@ export const api = {
       "/api/nodes/test-batch",
       json("POST", { items, concurrency }),
     ),
-    results: () => apiRequest<Record<string, Record<string, TestResult>>>("/api/nodes/test-results"),
+    results: async () => groupNodeTestResults(
+      await apiRequest<Record<string, Record<string, TestResult>>>("/api/nodes/test-results"),
+    ),
     select: (group: string, tag: string) => apiRequest<{ selected: string }>(
       `/api/nodes/selectors/${segment(group)}/select`,
       json("POST", { tag }),
