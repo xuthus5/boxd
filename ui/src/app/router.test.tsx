@@ -47,7 +47,7 @@ describe("application routing", () => {
     })
     const user = userEvent.setup()
     renderApp(<App />, "/advanced/endpoints")
-    await screen.findByRole("heading", { name: "Endpoints" })
+    await screen.findByRole("heading", { name: "端点" })
     await user.click(screen.getByRole("button", { name: "退出登录" }))
     expect(await screen.findByRole("heading", { name: "boxd" })).toBeInTheDocument()
     expect(await screen.findByText("logout failed")).toBeInTheDocument()

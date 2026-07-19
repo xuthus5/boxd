@@ -30,7 +30,7 @@ describe("EndpointCard", () => {
         <EndpointCard item={{ type: "tailscale" }} onEdit={onEdit} onDelete={onDelete} />
       </I18nextProvider>,
     )
-    expect(screen.getByRole("heading", { name: "未命名 Endpoint" })).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "未命名端点" })).toBeInTheDocument()
     const user = userEvent.setup()
     await user.click(screen.getByRole("button", { name: "编辑" }))
     expect(onEdit).toHaveBeenCalled()

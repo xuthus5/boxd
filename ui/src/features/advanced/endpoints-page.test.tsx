@@ -55,7 +55,7 @@ function fill(label: string, value: string, scope: HTMLElement | Document = docu
 describe("endpoints page", () => {
   it("renders visual and advanced tabs with endpoint cards", async () => {
     setup()
-    expect(await screen.findByRole("heading", { name: "Endpoints" })).toBeInTheDocument()
+    expect(await screen.findByRole("heading", { name: "端点" })).toBeInTheDocument()
     expect(screen.getByRole("tab", { name: "可视化配置" })).toBeInTheDocument()
     expect(screen.getByRole("tab", { name: "高级 JSON" })).toBeInTheDocument()
     expect(screen.getByRole("heading", { name: "wg-home" })).toBeInTheDocument()
@@ -64,8 +64,8 @@ describe("endpoints page", () => {
 
   it("adds a wireguard endpoint from the visual editor and saves", async () => {
     const { user, fetchMock } = setup({ log: { level: "info" }, endpoints: [] })
-    await screen.findByRole("heading", { name: "Endpoints" })
-    await user.click(screen.getAllByRole("button", { name: "新增 Endpoint" })[0])
+    await screen.findByRole("heading", { name: "端点" })
+    await user.click(screen.getAllByRole("button", { name: "新增端点" })[0])
     const dialog = await screen.findByRole("dialog")
     fill("Tag", "wg-new", dialog)
     fill("本端地址", "10.8.0.2/32", dialog)
@@ -87,9 +87,9 @@ describe("endpoints page", () => {
 
   it("switches to advanced JSON and disables save for non-array values", async () => {
     const { user } = setup()
-    await screen.findByRole("heading", { name: "Endpoints" })
+    await screen.findByRole("heading", { name: "端点" })
     await user.click(screen.getByRole("tab", { name: "高级 JSON" }))
-    const editor = await screen.findByLabelText("Endpoints 配置 JSON")
+    const editor = await screen.findByLabelText("端点配置 JSON")
     await user.click(editor)
     await user.keyboard("{Control>}a{/Control}{Backspace}")
     await user.paste("{}")

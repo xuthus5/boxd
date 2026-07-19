@@ -43,7 +43,7 @@ function setup(config: SingBoxConfig = {
 describe("experimental page", () => {
   it("renders visual and advanced tabs", async () => {
     setup()
-    expect(await screen.findByRole("heading", { name: "Experimental" })).toBeInTheDocument()
+    expect(await screen.findByRole("heading", { name: "实验特性" })).toBeInTheDocument()
     expect(screen.getByRole("tab", { name: "可视化配置" })).toBeInTheDocument()
     expect(screen.getByRole("tab", { name: "高级 JSON" })).toBeInTheDocument()
     expect(screen.getByText("缓存文件")).toBeInTheDocument()
@@ -53,7 +53,7 @@ describe("experimental page", () => {
 
   it("saves experimental changes from the visual form", async () => {
     const { user, fetchMock } = setup()
-    await screen.findByRole("heading", { name: "Experimental" })
+    await screen.findByRole("heading", { name: "实验特性" })
     const path = await screen.findByLabelText("缓存路径")
     await user.clear(path)
     await user.type(path, "/tmp/experimental-cache.db")
@@ -71,17 +71,17 @@ describe("experimental page", () => {
 
   it("switches to advanced JSON and keeps save enabled for objects", async () => {
     const { user } = setup()
-    await screen.findByRole("heading", { name: "Experimental" })
+    await screen.findByRole("heading", { name: "实验特性" })
     await user.click(screen.getByRole("tab", { name: "高级 JSON" }))
-    expect(await screen.findByLabelText("Experimental 配置 JSON")).toBeInTheDocument()
+    expect(await screen.findByLabelText("实验特性配置 JSON")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "保存配置" })).toBeEnabled()
   })
 
   it("disables save when advanced JSON is not an object", async () => {
     const { user } = setup()
-    await screen.findByRole("heading", { name: "Experimental" })
+    await screen.findByRole("heading", { name: "实验特性" })
     await user.click(screen.getByRole("tab", { name: "高级 JSON" }))
-    const editor = await screen.findByLabelText("Experimental 配置 JSON")
+    const editor = await screen.findByLabelText("实验特性配置 JSON")
     await user.click(editor)
     await user.keyboard("{Control>}a{/Control}[BracketLeft][BracketRight]")
     expect(screen.getByRole("button", { name: "保存配置" })).toBeDisabled()
