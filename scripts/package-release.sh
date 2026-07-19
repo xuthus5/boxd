@@ -25,8 +25,18 @@ install -m 0600 THIRD_PARTY_NOTICES.md "$stage_dir/THIRD_PARTY_NOTICES.md"
 install -m 0600 README.md "$stage_dir/README.md"
 install -m 0600 README.zh-CN.md "$stage_dir/README.zh-CN.md"
 install -m 0600 docs/operations.md "$stage_dir/OPERATIONS.md"
+
+# Local systemd deployment helpers (always include unit file).
+if [[ ! -f deploy/boxd.service ]]; then
+  echo "deploy/boxd.service is required for release packages" >&2
+  exit 1
+fi
 install -m 0600 deploy/boxd.service "$stage_dir/boxd.service"
-install -m 0600 deploy/boxd.env.example "$stage_dir/boxd.env.example"
+
+# Env template is optional: package when present. Never ship real secrets.
+if [[ -f deploy/boxd.env.example ]]; then
+  install -m 0600 deploy/boxd.env.example "$stage_dir/boxd.env.example"
+fi
 
 sing_box_license="$(go env GOMODCACHE)/github.com/sagernet/sing-box@v${KERNEL_VERSION:-1.13.14}/LICENSE"
 if [[ ! -f "$sing_box_license" ]]; then

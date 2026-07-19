@@ -107,13 +107,27 @@ The archive database entry is `boxd.db`.
 - JWT: secret generated on first start and stored in the DB; rotation from Settings invalidates all sessions.
 - Default password keeps a persistent warning and forces rotation.
 
-## Deploy
+## Install from release archive
 
-### systemd (recommended)
+Nightly and formal release archives are Linux amd64 tarballs. Typical contents:
+
+- `boxd` — binary
+- `boxd.service` — systemd unit
+- `boxd.env.example` — optional environment template (included when present in the repo)
+- docs / licenses
+
+boxd itself does **not** auto-load a `.env` file. Configuration comes from:
+
+1. process environment variables (`BOXD_*`)
+2. CLI flags
+3. when run under systemd, `EnvironmentFile=-/etc/boxd/boxd.env` in `boxd.service` (the leading `-` means “optional if missing”)
+
+### systemd install (recommended)
 
 ```bash
-# 1. Build
-make build
+# 1. Unpack
+tar -xzf boxd_v0.1.0_linux_amd64.tar.gz -C /tmp/boxd-release
+cd /tmp/boxd-release
 
 # 2. System user and directories
 useradd --system --home /var/lib/boxd --shell /sbin/nologin boxd || true
@@ -121,11 +135,18 @@ install -d -o boxd -g boxd -m 0700 /var/lib/boxd
 install -d -o root -g boxd -m 0750 /etc/boxd
 install -d -o boxd -g boxd -m 0750 /etc/sing-box
 
-# 3. Install binary and unit
-install -o root -g boxd -m 0750 bin/boxd /usr/local/bin/boxd
-install -m 0644 deploy/boxd.service /etc/systemd/system/boxd.service
-install -o root -g boxd -m 0640 deploy/boxd.env.example /etc/boxd/boxd.env
-# Edit /etc/boxd/boxd.env and set at least BOXD_PASSWORD
+# 3. Binary + unit + env
+install -o root -g boxd -m 0750 ./boxd /usr/local/bin/boxd
+install -m 0644 ./boxd.service /etc/systemd/system/boxd.service
+if [[ -f ./boxd.env.example ]]; then
+  install -o root -g boxd -m 0640 ./boxd.env.example /etc/boxd/boxd.env
+  # set BOXD_PASSWORD and review other values
+  ${EDITOR:-vi} /etc/boxd/boxd.env
+else
+  printf '%s\n' 'BOXD_PASSWORD=your-strong-password' > /etc/boxd/boxd.env
+  chown root:boxd /etc/boxd/boxd.env
+  chmod 0640 /etc/boxd/boxd.env
+fi
 
 # 4. Start
 systemctl daemon-reload
@@ -133,24 +154,70 @@ systemctl enable --now boxd.service
 systemctl status boxd.service
 ```
 
-Unit: [`deploy/boxd.service`](deploy/boxd.service). Env sample: [`deploy/boxd.env.example`](deploy/boxd.env.example).
+Open `http://127.0.0.1:9091` (or your listen address). Default username is `admin`.
 
-Permissions:
-
-- Binary: `root:boxd` `0750`
-- Data dir `/var/lib/boxd`: `0700`
-- Config files: `0600` / `0640` as needed
-
-### Docker
+### Run the binary without systemd
 
 ```bash
-docker build -t boxd .
-docker run --name boxd -p 9091:9091 \
+export BOXD_PASSWORD='your-strong-password'
+export BOXD_DATA_DIR=/var/lib/boxd
+export BOXD_CONFIG=/etc/sing-box/config.json
+/usr/local/bin/boxd
+```
+
+Or pass flags:
+
+```bash
+/usr/local/bin/boxd \
+  --data-dir /var/lib/boxd \
+  --config /etc/sing-box/config.json \
+  --password 'your-strong-password'
+```
+
+## Docker
+
+Public images (after CI push):
+
+```bash
+# Nightly from main
+docker pull ghcr.io/xuthus5/boxd:nightly
+
+# Formal release
+docker pull ghcr.io/xuthus5/boxd:latest
+docker pull ghcr.io/xuthus5/boxd:v0.1.0
+```
+
+### Run with Docker
+
+```bash
+docker run -d --name boxd --restart unless-stopped \
+  -p 9091:9091 \
   -e BOXD_PASSWORD='your-strong-password' \
+  -e BOXD_LISTEN='[::]:9091' \
   -v boxd-data:/var/lib/boxd \
   -v boxd-config:/etc/sing-box \
-  boxd
+  --cap-add NET_ADMIN \
+  ghcr.io/xuthus5/boxd:latest
 ```
+
+Notes:
+
+- Pass config via `-e BOXD_*` (or `--env-file`); the container process does not read `/etc/boxd/boxd.env` by itself.
+- Persist `/var/lib/boxd` (database, caches) and `/etc/sing-box` (kernel config).
+- `NET_ADMIN` is recommended when using TUN / advanced networking features of sing-box.
+- Health check hits `http://127.0.0.1:9091/healthz` inside the container.
+
+### Build the image locally
+
+```bash
+docker build --build-arg VERSION=dev -t boxd:local .
+docker run --rm -p 9091:9091 -e BOXD_PASSWORD='dev-password' boxd:local
+```
+
+## Deploy
+
+For binary installs, prefer [Install from release archive](#install-from-release-archive).
+For containers, prefer [Docker](#docker).
 
 ### TLS
 
@@ -165,6 +232,7 @@ BOXD_TLS_KEY=/etc/boxd/tls/privkey.pem \
 Or terminate TLS with Caddy / Nginx / Traefik, keep upstream on `127.0.0.1:9091`, and pass through WebSocket/SSE.
 
 Release gates and rollback: [docs/boxd/release-checklist.md](docs/boxd/release-checklist.md), [docs/operations.md](docs/operations.md).
+
 
 ## CI artifacts and Docker images
 

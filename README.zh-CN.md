@@ -107,13 +107,27 @@ systemctl start boxd.service
 - JWT：首次启动自动生成密钥写入数据库；设置页可轮换，轮换后全部会话失效。
 - 默认密码状态下面板会持续告警并引导修改。
 
-## 部署
+## 从二进制归档安装
 
-### systemd（推荐）
+Nightly 与正式版归档均为 Linux amd64 tar 包。常见内容：
+
+- `boxd` — 二进制
+- `boxd.service` — systemd 单元
+- `boxd.env.example` — 可选环境变量模板（仓库中存在时才会打进包）
+- 文档 / 许可证
+
+boxd 进程**不会**自动加载 `.env` 文件。配置来源只有：
+
+1. 进程环境变量（`BOXD_*`）
+2. CLI 参数
+3. 在 systemd 下由 `boxd.service` 的 `EnvironmentFile=-/etc/boxd/boxd.env` 注入（前缀 `-` 表示文件可不存在）
+
+### systemd 安装（推荐）
 
 ```bash
-# 1. 构建
-make build
+# 1. 解压
+tar -xzf boxd_v0.1.0_linux_amd64.tar.gz -C /tmp/boxd-release
+cd /tmp/boxd-release
 
 # 2. 系统用户与目录
 useradd --system --home /var/lib/boxd --shell /sbin/nologin boxd || true
@@ -121,11 +135,18 @@ install -d -o boxd -g boxd -m 0700 /var/lib/boxd
 install -d -o root -g boxd -m 0750 /etc/boxd
 install -d -o boxd -g boxd -m 0750 /etc/sing-box
 
-# 3. 安装二进制与单元
-install -o root -g boxd -m 0750 bin/boxd /usr/local/bin/boxd
-install -m 0644 deploy/boxd.service /etc/systemd/system/boxd.service
-install -o root -g boxd -m 0640 deploy/boxd.env.example /etc/boxd/boxd.env
-# 编辑 /etc/boxd/boxd.env，至少设置 BOXD_PASSWORD
+# 3. 二进制 + 单元 + 环境文件
+install -o root -g boxd -m 0750 ./boxd /usr/local/bin/boxd
+install -m 0644 ./boxd.service /etc/systemd/system/boxd.service
+if [[ -f ./boxd.env.example ]]; then
+  install -o root -g boxd -m 0640 ./boxd.env.example /etc/boxd/boxd.env
+  # 至少设置 BOXD_PASSWORD，并检查其他项
+  ${EDITOR:-vi} /etc/boxd/boxd.env
+else
+  printf '%s\n' 'BOXD_PASSWORD=your-strong-password' > /etc/boxd/boxd.env
+  chown root:boxd /etc/boxd/boxd.env
+  chmod 0640 /etc/boxd/boxd.env
+fi
 
 # 4. 启动
 systemctl daemon-reload
@@ -133,24 +154,70 @@ systemctl enable --now boxd.service
 systemctl status boxd.service
 ```
 
-单元文件见 [`deploy/boxd.service`](deploy/boxd.service)，环境示例见 [`deploy/boxd.env.example`](deploy/boxd.env.example)。
+浏览器访问 `http://127.0.0.1:9091`（或你的监听地址）。默认用户名 `admin`。
 
-权限约定：
-
-- 二进制：`root:boxd` `0750`
-- 数据目录 `/var/lib/boxd`：`0700`
-- 配置文件：`0600` / `0640`（按实际共享需求）
-
-### Docker
+### 不使用 systemd 直接运行
 
 ```bash
-docker build -t boxd .
-docker run --name boxd -p 9091:9091 \
+export BOXD_PASSWORD='your-strong-password'
+export BOXD_DATA_DIR=/var/lib/boxd
+export BOXD_CONFIG=/etc/sing-box/config.json
+/usr/local/bin/boxd
+```
+
+或使用参数：
+
+```bash
+/usr/local/bin/boxd \
+  --data-dir /var/lib/boxd \
+  --config /etc/sing-box/config.json \
+  --password 'your-strong-password'
+```
+
+## Docker
+
+公开镜像（CI 推送后）：
+
+```bash
+# main 的 nightly
+docker pull ghcr.io/xuthus5/boxd:nightly
+
+# 正式版
+docker pull ghcr.io/xuthus5/boxd:latest
+docker pull ghcr.io/xuthus5/boxd:v0.1.0
+```
+
+### Docker 运行
+
+```bash
+docker run -d --name boxd --restart unless-stopped \
+  -p 9091:9091 \
   -e BOXD_PASSWORD='your-strong-password' \
+  -e BOXD_LISTEN='[::]:9091' \
   -v boxd-data:/var/lib/boxd \
   -v boxd-config:/etc/sing-box \
-  boxd
+  --cap-add NET_ADMIN \
+  ghcr.io/xuthus5/boxd:latest
 ```
+
+说明：
+
+- 通过 `-e BOXD_*` 或 `--env-file` 传入配置；容器内进程不会自行读取 `/etc/boxd/boxd.env`。
+- 请持久化 `/var/lib/boxd`（数据库、缓存）与 `/etc/sing-box`（内核配置）。
+- 使用 TUN 等高级网络能力时建议加 `NET_ADMIN`。
+- 健康检查访问容器内 `http://127.0.0.1:9091/healthz`。
+
+### 本地构建镜像
+
+```bash
+docker build --build-arg VERSION=dev -t boxd:local .
+docker run --rm -p 9091:9091 -e BOXD_PASSWORD='dev-password' boxd:local
+```
+
+## 部署
+
+二进制安装请优先看 [从二进制归档安装](#从二进制归档安装)。
+容器运行请优先看 [Docker](#docker)。
 
 ### TLS
 
@@ -165,6 +232,7 @@ BOXD_TLS_KEY=/etc/boxd/tls/privkey.pem \
 或由 Caddy / Nginx / Traefik 终止 TLS，上游仅监听 `127.0.0.1:9091`，并透传 WebSocket/SSE。
 
 更完整的发布门禁与回滚见 [docs/boxd/release-checklist.md](docs/boxd/release-checklist.md) 与 [docs/operations.md](docs/operations.md)。
+
 
 ## CI 产物与 Docker 镜像
 
