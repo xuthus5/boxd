@@ -109,7 +109,7 @@ systemctl start boxd.service
 
 ## 从二进制归档安装
 
-Nightly 与正式版归档均为 Linux amd64 tar 包。常见内容：
+Nightly 与正式版归档同时提供 `linux/amd64` 与 `linux/arm64`。常见内容：
 
 - `boxd` — 二进制
 - `boxd.service` — systemd 单元
@@ -126,7 +126,7 @@ boxd 进程**不会**自动加载 `.env` 文件。配置来源只有：
 
 ```bash
 # 1. 解压
-tar -xzf boxd_v0.1.0_linux_amd64.tar.gz -C /tmp/boxd-release
+tar -xzf boxd_v0.1.0_linux_amd64.tar.gz -C /tmp/boxd-release   # or linux_arm64
 cd /tmp/boxd-release
 
 # 2. 系统用户与目录
@@ -239,8 +239,8 @@ BOXD_TLS_KEY=/etc/boxd/tls/privkey.pem \
 | 触发条件 | 二进制 | Docker（GHCR） |
 | --- | --- | --- |
 | Pull Request | 仅质量门禁 | 构建冒烟（不推送） |
-| 推送到 `main` | 滚动 **nightly** GitHub Release + Actions 产物（固定 `boxd_nightly_linux_amd64.tar.gz`） | `ghcr.io/<owner>/boxd:nightly` |
-| 打 `v*` tag | 正式 GitHub Release + SBOM | `ghcr.io/<owner>/boxd:<tag>`、`:<version>`、`:latest` |
+| 推送到 `main` | 滚动 **nightly** GitHub Release + Actions 产物（固定 `boxd_nightly_linux_amd64.tar.gz` / `boxd_nightly_linux_arm64.tar.gz`） | 多架构 `ghcr.io/<owner>/boxd:nightly`（`linux/amd64`、`linux/arm64`） |
+| 打 `v*` tag | 正式 GitHub Release + SBOM（`linux/amd64`、`linux/arm64`） | 多架构 `ghcr.io/<owner>/boxd:<tag>`、`:<version>`、`:latest` |
 
 示例（替换 owner）：
 
@@ -292,7 +292,7 @@ goimports-reviser -rm-unused -set-alias -project-name github.com/xuthus5/boxd -r
 
 ```bash
 ./scripts/package-release.sh v0.1.0 release
-# 产出 release/boxd_v0.1.0_linux_amd64.tar.gz 及 sha256
+# 产出 release/boxd_v0.1.0_linux_{amd64,arm64}.tar.gz 及对应 sha256
 ```
 
 推送 `v*` tag 后，GitHub Release workflow 会跑完整质量门禁并上传归档、SBOM。

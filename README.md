@@ -109,7 +109,7 @@ The archive database entry is `boxd.db`.
 
 ## Install from release archive
 
-Nightly and formal release archives are Linux amd64 tarballs. Typical contents:
+Nightly and formal release archives are published for both `linux/amd64` and `linux/arm64`. Typical contents:
 
 - `boxd` — binary
 - `boxd.service` — systemd unit
@@ -126,7 +126,7 @@ boxd itself does **not** auto-load a `.env` file. Configuration comes from:
 
 ```bash
 # 1. Unpack
-tar -xzf boxd_v0.1.0_linux_amd64.tar.gz -C /tmp/boxd-release
+tar -xzf boxd_v0.1.0_linux_amd64.tar.gz -C /tmp/boxd-release   # or linux_arm64
 cd /tmp/boxd-release
 
 # 2. System user and directories
@@ -239,8 +239,8 @@ Release gates and rollback: [docs/boxd/release-checklist.md](docs/boxd/release-c
 | Trigger | Binary | Docker (GHCR) |
 | --- | --- | --- |
 | Pull request | quality checks only | build smoke (`push: false`) |
-| Push to `main` | rolling **nightly** GitHub Release + Actions artifact (`boxd_nightly_linux_amd64.tar.gz`) | `ghcr.io/<owner>/boxd:nightly` |
-| Tag `v*` | formal GitHub Release + SBOM | `ghcr.io/<owner>/boxd:<tag>`, `:<version>`, `:latest` |
+| Push to `main` | rolling **nightly** GitHub Release + Actions artifacts (`boxd_nightly_linux_amd64.tar.gz`, `boxd_nightly_linux_arm64.tar.gz`) | multi-arch `ghcr.io/<owner>/boxd:nightly` (`linux/amd64`, `linux/arm64`) |
+| Tag `v*` | formal GitHub Release + SBOM (`linux/amd64`, `linux/arm64`) | multi-arch `ghcr.io/<owner>/boxd:<tag>`, `:<version>`, `:latest` |
 
 Examples (replace owner):
 
@@ -292,7 +292,7 @@ goimports-reviser -rm-unused -set-alias -project-name github.com/xuthus5/boxd -r
 
 ```bash
 ./scripts/package-release.sh v0.1.0 release
-# produces release/boxd_v0.1.0_linux_amd64.tar.gz and sha256
+# produces release/boxd_v0.1.0_linux_amd64.tar.gz, release/boxd_v0.1.0_linux_arm64.tar.gz, and sha256 files
 ```
 
 Pushing a `v*` tag runs the GitHub Release workflow (full gates, archive, SBOM).

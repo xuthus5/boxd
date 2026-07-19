@@ -30,15 +30,17 @@ jobs:
           cache-dependency-path: ui/package-lock.json
       - name: Install frontend deps
         run: npm ci --prefix ui
-      - name: Package Linux amd64 nightly
+      - name: Package Linux amd64/arm64 nightly
         run: ./scripts/package-release.sh nightly release
       - name: Upload nightly artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: boxd-nightly-linux-amd64
+          name: boxd-nightly-linux
           path: |
             release/boxd_nightly_linux_amd64.tar.gz
             release/boxd_nightly_linux_amd64.tar.gz.sha256
+            release/boxd_nightly_linux_arm64.tar.gz
+            release/boxd_nightly_linux_arm64.tar.gz.sha256
           if-no-files-found: error
           retention-days: 14
       - name: Update rolling nightly GitHub Release
@@ -50,9 +52,12 @@ jobs:
 
           - Commit: \`${{ github.sha }}\`
           - Built at: \`${{ github.event.head_commit.timestamp }}\`
+          - Architectures: \`linux/amd64\`, \`linux/arm64\`
 
           This release always points at the latest successful \`main\` build.
-          Asset names stay fixed as \`boxd_nightly_linux_amd64.tar.gz\`."
+          Asset names stay fixed as:
+          - \`boxd_nightly_linux_amd64.tar.gz\`
+          - \`boxd_nightly_linux_arm64.tar.gz\`"
           if gh release view nightly >/dev/null 2>&1; then
             gh release edit nightly --title Nightly --prerelease --notes "$notes"
           else
@@ -65,6 +70,8 @@ jobs:
           gh release upload nightly \
             release/boxd_nightly_linux_amd64.tar.gz \
             release/boxd_nightly_linux_amd64.tar.gz.sha256 \
+            release/boxd_nightly_linux_arm64.tar.gz \
+            release/boxd_nightly_linux_arm64.tar.gz.sha256 \
             --clobber
           git tag -f nightly "${{ github.sha }}"
           git push -f origin refs/tags/nightly
@@ -81,6 +88,7 @@ jobs:
           image="ghcr.io/${GITHUB_REPOSITORY,,}"
           echo "image=${image}" >> "$GITHUB_OUTPUT"
           echo "tags=${image}:nightly" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -91,6 +99,7 @@ jobs:
         with:
           context: .
           push: true
+          platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           build-args: |
             VERSION=nightly
