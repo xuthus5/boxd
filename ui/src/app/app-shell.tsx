@@ -44,9 +44,9 @@ function NavItems({ items }: { items: NavigationItem[] }) {
     <SidebarMenu>
       {items.map((item) => (
         <SidebarMenuItem key={item.to}>
-          <SidebarMenuButton render={<NavLink to={item.to} />} isActive={pathname === item.to} tooltip={t(item.label)}>
+          <SidebarMenuButton render={<NavLink to={item.to} aria-label={t(item.label)} />} isActive={pathname === item.to} tooltip={t(item.label)}>
             <item.icon />
-            <span>{t(item.label)}</span>
+            <span className="group-data-[collapsible=icon]:hidden">{t(item.label)}</span>
           </SidebarMenuButton>
         </SidebarMenuItem>
       ))}
@@ -70,7 +70,7 @@ function AppSidebar() {
   }
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader><SidebarMenu><SidebarMenuItem><SidebarMenuButton size="lg" render={<NavLink to="/dashboard" />} tooltip="boxd"><BoxIcon /><span className="flex min-w-0 flex-col items-start"><span className="truncate font-semibold">boxd</span><span className="truncate text-xs text-sidebar-foreground/60">sing-box control plane</span></span></SidebarMenuButton></SidebarMenuItem></SidebarMenu></SidebarHeader>
+      <SidebarHeader><SidebarMenu><SidebarMenuItem><SidebarMenuButton size="lg" render={<NavLink to="/dashboard" aria-label="boxd" />} tooltip="boxd"><BoxIcon /><span className="flex min-w-0 flex-col items-start group-data-[collapsible=icon]:hidden"><span className="truncate font-semibold">boxd</span><span className="truncate text-xs text-sidebar-foreground/60">sing-box control plane</span></span></SidebarMenuButton></SidebarMenuItem></SidebarMenu></SidebarHeader>
       <SidebarContent>
         <SidebarGroup><SidebarGroupContent><NavItems items={primaryItems} /></SidebarGroupContent></SidebarGroup>
         {navigationGroups.map((group) => (
@@ -84,9 +84,9 @@ function AppSidebar() {
         <NavItems items={footerItems} />
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton disabled={loggingOut} onClick={() => { void logout() }}>
+            <SidebarMenuButton disabled={loggingOut} tooltip={t("nav.logout")} aria-label={t("nav.logout")} onClick={() => { void logout() }}>
               {loggingOut ? <Spinner aria-hidden="true" /> : <LogOutIcon />}
-              <span>{t("nav.logout")}</span>
+              <span className="group-data-[collapsible=icon]:hidden">{t("nav.logout")}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
