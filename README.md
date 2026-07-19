@@ -239,7 +239,7 @@ Release gates and rollback: [docs/boxd/release-checklist.md](docs/boxd/release-c
 | Trigger | Binary | Docker (GHCR) |
 | --- | --- | --- |
 | Pull request | quality checks only | build smoke (`push: false`) |
-| Push to `main` | rolling **nightly** GitHub Release + Actions artifact | `ghcr.io/<owner>/boxd:nightly`, `:nightly-<sha>` |
+| Push to `main` | rolling **nightly** GitHub Release + Actions artifact (`boxd_nightly_linux_amd64.tar.gz`) | `ghcr.io/<owner>/boxd:nightly` |
 | Tag `v*` | formal GitHub Release + SBOM | `ghcr.io/<owner>/boxd:<tag>`, `:<version>`, `:latest` |
 
 Examples (replace owner):

@@ -239,7 +239,7 @@ BOXD_TLS_KEY=/etc/boxd/tls/privkey.pem \
 | 触发条件 | 二进制 | Docker（GHCR） |
 | --- | --- | --- |
 | Pull Request | 仅质量门禁 | 构建冒烟（不推送） |
-| 推送到 `main` | 滚动 **nightly** GitHub Release + Actions 产物 | `ghcr.io/<owner>/boxd:nightly`、`:nightly-<sha>` |
+| 推送到 `main` | 滚动 **nightly** GitHub Release + Actions 产物（固定 `boxd_nightly_linux_amd64.tar.gz`） | `ghcr.io/<owner>/boxd:nightly` |
 | 打 `v*` tag | 正式 GitHub Release + SBOM | `ghcr.io/<owner>/boxd:<tag>`、`:<version>`、`:latest` |
 
 示例（替换 owner）：
