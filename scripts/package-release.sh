@@ -20,7 +20,7 @@ cd "$root_dir"
 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 VERSION="$version" make build
 
 install -m 0700 bin/boxd "$stage_dir/boxd"
-install -m 0600 LICENSE "$stage_dir/LICENSE-MIT"
+install -m 0600 LICENSE "$stage_dir/LICENSE-APACHE-2.0"
 install -m 0600 THIRD_PARTY_NOTICES.md "$stage_dir/THIRD_PARTY_NOTICES.md"
 install -m 0600 README.md "$stage_dir/README.md"
 install -m 0600 docs/operations.md "$stage_dir/OPERATIONS.md"

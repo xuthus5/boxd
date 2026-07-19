@@ -12,7 +12,7 @@ archive="$output_dir/boxd_${version}_linux_amd64.tar.gz"
 
 sha256sum -c "$archive.sha256"
 tar -xzf "$archive" -C "$extract_dir"
-for file in boxd LICENSE-MIT LICENSE-GPL-3.0 THIRD_PARTY_NOTICES.md SOURCE-OFFER.txt OPERATIONS.md; do
+for file in boxd LICENSE-APACHE-2.0 LICENSE-GPL-3.0 THIRD_PARTY_NOTICES.md SOURCE-OFFER.txt OPERATIONS.md; do
   test -f "$extract_dir/$file"
 done
 test "$(stat -c '%a' "$extract_dir/boxd")" = "700"

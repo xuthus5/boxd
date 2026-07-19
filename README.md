@@ -1,148 +1,220 @@
 # boxd
 
-sing-box Web 管理面板（boxd），提供节点管理、订阅、配置编辑、流量监控等功能。
+sing-box 单节点控制平面（control plane）。提供 Web 面板管理内核配置、订阅节点、路由/DNS 策略与运行观测。
+
+> 当前处于 PoC 阶段，接口与数据模型可能随开发调整。
+
+## 功能
+
+- **仪表盘**：内核启停/重启、实时上下行流量、内存、最近日志
+- **代理配置**：入站 / 出站结构化表单编辑（含 TLS/Reality、传输等），保留高级 JSON
+- **流量策略**：路由规则与规则集、DNS 服务器与规则；规则名称/描述独立持久化
+- **节点与订阅**：订阅分组卡片、导入单节点、节点/分组 TCP·HTTP·ICMP 测速
+- **运行观测**：内核日志、应用日志、活跃连接
+- **高级配置**：Endpoints、Experimental、完整内核 JSON
+- **应用设置**：主题、中英文、账号密码与 JWT 轮换、测速地址、URLTest 全局默认、日志级别
 
 ## 技术栈
 
-- 后端：Go + chi + bbolt + sing-box
-- 前端：React 19 + Vite + shadcn/ui + Tailwind CSS
-- 认证：JWT（HS256）
+| 层 | 选型 |
+| --- | --- |
+| 后端 | Go、chi、bbolt、sing-box（静态链接） |
+| 前端 | React 19、TypeScript、Vite、shadcn/ui、Tailwind CSS |
+| 认证 | JWT（HS256），密码 Argon2id |
 
 ## 快速开始
 
+### 要求
+
+- Go 1.26+
+- Node.js 20+
+- Linux（生产推荐）；本地开发可用当前环境
+
+### 一键构建并运行
+
 ```bash
-# 构建前端并嵌入二进制
 make build
-
-# 运行（JWT 密钥首次启动自动生成并持久化到数据库）
-BOXD_PASSWORD=your-initial-password ./bin/boxd
-
-# 开发模式（前后端分离）
-make dev
+BOXD_PASSWORD='your-strong-password' \
+  BOXD_DATA_DIR=./data \
+  BOXD_CONFIG=./data/config.json \
+  ./bin/boxd
 ```
+
+浏览器打开 `http://127.0.0.1:9091`，默认用户名 `admin`。首次使用默认密码时会强制进入设置页完成密码轮换。
+
+### 开发模式（前后端分离）
+
+```bash
+# 终端 1：前端 Vite（默认 http://127.0.0.1:5173）
+cd ui && npm ci && npm run dev
+
+# 终端 2：后端 API（默认 [::]:9091）
+export BOXD_PASSWORD='dev-password'
+export BOXD_DATA_DIR="$PWD/data"
+export BOXD_CONFIG="$PWD/data/config.json"
+export BOXD_CORS_ALLOWED_ORIGINS='http://127.0.0.1:5173,http://localhost:5173'
+go run ./cmd/boxd/
+```
+
+也可使用 `make dev`（会后台启动前端并运行后端，适合快速试跑）。
+
+## 使用说明
+
+1. 登录面板，轮换管理员密码。
+2. **订阅 / 节点**：添加订阅 URL 或导入单节点；按需配置 URLTest（可继承全局默认）。
+3. **入站 / 出站**：创建本地代理入站；出站可绑定订阅组 selector / urltest，或直连/阻断等。
+4. **路由 / DNS**：用表单维护规则；可一键安装常用默认规则与规则集。
+5. **仪表盘**：启动内核；观察流量与日志。
+6. **设置**：主题、语言、最低日志级别、系统测速地址、内核自启等。
+
+### 预置路由能力
+
+路由页可一键安装常见规则（嗅探、劫持 DNS、绕过局域网/ICMP、屏蔽 QUIC/广告、中国域名/IP 分流等）。规则集默认包含 Loyalsoldier 文本规则集（本地转换）与 SagerNet 二进制规则集（远程缓存）。
+
+### 备份与恢复
+
+```bash
+./bin/boxd --backup /var/backups/boxd/boxd-$(date +%F).tar.gz
+systemctl stop boxd.service   # 若以服务运行
+./bin/boxd --restore /var/backups/boxd/boxd-YYYY-MM-DD.tar.gz \
+  --data-dir /var/lib/boxd --config /etc/sing-box/config.json
+systemctl start boxd.service
+```
+
+归档内数据库文件名为 `boxd.db`。
 
 ## 配置
 
-| 环境变量                     | Flag         | 默认值                      | 说明                                     |
-| ---------------------------- | ------------ | --------------------------- | ---------------------------------------- |
-| `BOXD_LISTEN`               | `--listen`   | `[::]:9091`                 | 监听地址                                 |
-| `BOXD_PORT`                 | -            | `9091`                      | 监听端口号                               |
-| `BOXD_CONFIG`               | `--config`   | `/etc/sing-box/config.json` | sing-box 配置路径                        |
-| `BOXD_DATA_DIR`             | `--data-dir` | `/var/lib/boxd`            | 数据目录                                 |
-| `BOXD_USERNAME`             | `--username` | `admin`                     | 登录用户名                               |
-| `BOXD_PASSWORD`             | `--password` | `admin123`                  | 首次初始化密码；数据库已有密码后不再覆盖 |
-| `BOXD_CORS_ALLOWED_ORIGINS` | -            | -                           | CORS 允许的源（逗号分隔）                |
+| 环境变量 | Flag | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `BOXD_LISTEN` | `--listen` | `[::]:9091` | 监听地址（优先于 `BOXD_PORT`） |
+| `BOXD_PORT` | - | `9091` | 仅端口时使用 |
+| `BOXD_CONFIG` | `--config` | `/etc/sing-box/config.json` | 内核配置路径 |
+| `BOXD_DATA_DIR` | `--data-dir` | `/var/lib/boxd` | 数据目录（库、备份、规则集缓存等） |
+| `BOXD_USERNAME` | `--username` | `admin` | 登录用户名 |
+| `BOXD_PASSWORD` | `--password` | `admin123` | 仅首次初始化密码；库中已有哈希后不覆盖 |
+| `BOXD_LOG_LEVEL` | `--log-level` | `info` | 应用日志级别 |
+| `BOXD_REFRESH_INTERVAL` | `--refresh-interval` | `60` | 订阅刷新间隔（分钟） |
+| `BOXD_TLS_CERT` | `--tls-cert` | - | TLS 证书路径 |
+| `BOXD_TLS_KEY` | `--tls-key` | - | TLS 私钥路径 |
+| `BOXD_CORS_ALLOWED_ORIGINS` | - | - | CORS 允许源，逗号分隔 |
 
+### 认证说明
 
-## 面板能力
+- 密码：Argon2id 存入 bbolt；优先级为「库中哈希 → 首次 `BOXD_PASSWORD` → `admin123`」。
+- JWT：首次启动自动生成密钥写入数据库；设置页可轮换，轮换后全部会话失效。
+- 默认密码状态下面板会持续告警并引导修改。
 
-- **仪表盘**：服务启停/重启、实时流量、内存 GC、DNS/FakeIP 维护、最近日志
-- **代理配置**：按 sing-box 类型结构化编辑入站与出站参数、TLS/Reality、传输与复用，并保留高级 JSON 编辑能力
-- **流量策略**：以卡片表单编辑路由规则、规则集、DNS 服务器和 DNS 规则；路由规则名称与描述由 boxd 独立持久化，并保留 Advanced JSON
-- **节点与订阅**：响应式节点卡片、按来源分组、节点级与分组批量 TCP/HTTP/ICMP 测速，订阅 URLTest 字段级覆盖与自动配置同步
-- **运行观测**：内核日志、应用日志、活跃连接管理
-- **sing-box 高级配置**：Endpoints、Experimental、完整 JSON 配置编辑
-- **应用设置**：浅色/深色主题、中英文切换、密码与 JWT 密钥轮换、系统测速地址、订阅 URLTest 全局默认值、内核自启
+## 部署
 
-## 预置规则
-
-路由配置页提供一键安装常用规则，覆盖常见客户端场景：
-
-- **嗅探**：协议探测后再按规则分流
-- **劫持 DNS**：把 DNS 请求交给内核 DNS 模块
-- **绕过局域网**：私有 IP 走直连
-- **绕过 ICMP**：ping 走直连，避免被拦截
-- **屏蔽 QUIC**：拒绝 UDP 443，回落到 TCP
-- **屏蔽广告**：Loyalsoldier reject / geosite-category-ads-all → block
-- **中国域名**：Loyalsoldier direct / geosite-cn → direct
-- **中国 IP**：geoip-cn → direct
-- **中国 Google Play**：geosite-google-play → proxy
-- **代理**：Loyalsoldier proxy → proxy
-
-规则集默认安装两类：Loyalsoldier 文本规则集（本地转换）与 SagerNet 二进制规则集（远程缓存）。
-
-## JWT 密钥管理
-
-- 首次启动时若数据库无密钥，则随机生成并存入 bbolt（`settings` bucket 的 `jwt_secret` 键），不再读取任何环境变量。
-- 密钥持久化在本地数据库，无需环境变量。
-- 可在「设置 → JWT 签名密钥」页面查看脱敏状态并轮换；轮换后所有已登录会话立即失效。
-
-## 管理员密码
-
-- 管理员密码使用 Argon2id 哈希存入 bbolt，不保存明文。
-- 密码优先级为：数据库中的密码哈希 → 首次启动时的 `BOXD_PASSWORD` → `admin123`。
-- 后台修改密码后，环境变量不会在重启时覆盖新密码。
-- 使用默认密码时设置页面会持续显示警告；修改密码会使所有现有登录失效。
-
-
-## 发布与运维
-
-自托管发布请按 [docs/boxd/release-checklist.md](docs/boxd/release-checklist.md) 执行。
-
-常用命令：
+### systemd（推荐）
 
 ```bash
-# 真链路 API 冒烟：登录 → 改配置 → 校验状态/日志
-BOXD_PASSWORD='your-password' ./scripts/e2e-live.sh
+# 1. 构建
+make build
 
-# 运行时内存/goroutine 浸泡采样（默认 5 分钟 smoke）
-BOXD_PASSWORD='your-password' ./scripts/soak-runtime.sh
+# 2. 系统用户与目录
+useradd --system --home /var/lib/boxd --shell /sbin/nologin boxd || true
+install -d -o boxd -g boxd -m 0700 /var/lib/boxd
+install -d -o root -g boxd -m 0750 /etc/boxd
+install -d -o boxd -g boxd -m 0750 /etc/sing-box
 
-# 备份 / 恢复
-./bin/boxd --backup /var/backups/boxd/boxd.tar.gz
-./bin/boxd --restore /var/backups/boxd/boxd.tar.gz
+# 3. 安装二进制与单元
+install -o root -g boxd -m 0750 bin/boxd /usr/local/bin/boxd
+install -m 0644 deploy/boxd.service /etc/systemd/system/boxd.service
+install -o root -g boxd -m 0640 deploy/boxd.env.example /etc/boxd/boxd.env
+# 编辑 /etc/boxd/boxd.env，至少设置 BOXD_PASSWORD
+
+# 4. 启动
+systemctl daemon-reload
+systemctl enable --now boxd.service
+systemctl status boxd.service
 ```
 
-生产环境建议启用 `BOXD_TLS_CERT` / `BOXD_TLS_KEY`，或通过反向代理终止 TLS。默认密码会被面板强制跳转到设置页完成轮换。
+单元文件见 [`deploy/boxd.service`](deploy/boxd.service)，环境示例见 [`deploy/boxd.env.example`](deploy/boxd.env.example)。
 
-## Docker
+权限约定：
+
+- 二进制：`root:boxd` `0750`
+- 数据目录 `/var/lib/boxd`：`0700`
+- 配置文件：`0600` / `0640`（按实际共享需求）
+
+### Docker
 
 ```bash
 docker build -t boxd .
-docker run -p 9091:9091 -e BOXD_PASSWORD=your-password boxd
+docker run --name boxd -p 9091:9091 \
+  -e BOXD_PASSWORD='your-strong-password' \
+  -v boxd-data:/var/lib/boxd \
+  -v boxd-config:/etc/sing-box \
+  boxd
 ```
 
-## 开发
+### TLS
+
+内置 TLS：
 
 ```bash
-# 前端开发
-cd ui && npm ci && npm run dev
+BOXD_TLS_CERT=/etc/boxd/tls/fullchain.pem \
+BOXD_TLS_KEY=/etc/boxd/tls/privkey.pem \
+/usr/local/bin/boxd
+```
 
-# 后端
+或由 Caddy / Nginx / Traefik 终止 TLS，上游仅监听 `127.0.0.1:9091`，并透传 WebSocket/SSE。
+
+更完整的发布门禁与回滚见 [docs/boxd/release-checklist.md](docs/boxd/release-checklist.md) 与 [docs/operations.md](docs/operations.md)。
+
+## 本地开发
+
+### 日常命令
+
+```bash
+make build              # 前端构建 + 嵌入 + 产出 bin/boxd
+make dev                # 简易联调
+make clean              # 清理 bin 与 dist
+make check-go           # Go 测试、race、覆盖率 ≥90%、lint、govulncheck
+make check-ui           # 前端 typecheck/lint/coverage/build
+make check-embedded-ui  # 嵌入资源完整性
+```
+
+前端目录：
+
+```bash
+cd ui
+npm ci
+npm run dev        # 开发服务器
+npm run check      # 类型 / lint / 覆盖率 / 构建
+npm run e2e:install && npm run e2e   # Playwright（Mock，不连生产 9091）
+```
+
+后端：
+
+```bash
 go run ./cmd/boxd/
-
-# 测试与生产构建
 go test ./...
-cd ui && npm run check
-
-# 浏览器端到端测试（Vite 预览服务 + 浏览器 API Mock）
-npm run e2e:install
-npm run e2e
-
-# Lint
 golangci-lint run ./...
 goimports-reviser -rm-unused -set-alias -project-name github.com/xuthus5/boxd -recursive ./internal
 goimports-reviser -rm-unused -set-alias -project-name github.com/xuthus5/boxd -recursive ./cmd
 ```
 
-完整质量门禁：
+### 发布包
 
 ```bash
-make check-go          # test、race、>=90% 覆盖率、lint、govulncheck
-make check-ui          # >=90% 业务覆盖率、lint、生产构建
-make check-embedded-ui # 验证最终嵌入资源及动态依赖完整性
+./scripts/package-release.sh v0.1.0 release
+# 产出 release/boxd_v0.1.0_linux_amd64.tar.gz 及 sha256
 ```
 
-E2E 不连接本机 9091、systemd 或生产数据；Playwright 关闭时会停止 Vite 预览服务。
+推送 `v*` tag 后，GitHub Release workflow 会跑完整质量门禁并上传归档、SBOM。
 
-创建 Linux amd64 发布包：
+### 运行时抽检
 
 ```bash
-./scripts/package-release.sh v1.0.0 release
+BOXD_PASSWORD='your-password' ./scripts/e2e-live.sh
+BOXD_PASSWORD='your-password' ./scripts/soak-runtime.sh
 ```
-
-推送 `v*` Git tag 后，Release workflow 会在全部质量门禁通过后发布归档、SHA-256 和 SPDX SBOM。
 
 ## 许可证
 
-boxd 自有代码采用 [MIT License](LICENSE)。正式二进制静态链接 GPL-3.0 的 sing-box，分发时还需遵守 [第三方声明](THIRD_PARTY_NOTICES.md) 中说明的 GPL-3.0 义务。
+boxd **自有代码**采用 [Apache License 2.0](LICENSE)。
+
+正式发布的二进制**静态链接**了 GPL-3.0 的 sing-box / sing，分发二进制时还需同时遵守 [第三方声明](THIRD_PARTY_NOTICES.md) 中的 GPL-3.0 义务（含对应源码与构建信息）。本说明不构成法律意见。

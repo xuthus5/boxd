@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-boxd 自有代码按仓库根目录的 MIT License 授权。正式发布的 boxd 二进制静态链接了 GPL-3.0 组件，因此二进制分发必须同时满足 GPL-3.0 的适用义务。本文件不是法律意见；商业分发方应结合实际修改和交付方式进行合规审查。
+boxd 自有代码按仓库根目录的 Apache License 2.0 授权。正式发布的 boxd 二进制静态链接了 GPL-3.0 组件，因此二进制分发必须同时满足 GPL-3.0 的适用义务。本文件不是法律意见；商业分发方应结合实际修改和交付方式进行合规审查。
 
 ## GPL-3.0 组件
 
@@ -14,7 +14,7 @@ boxd 自有代码按仓库根目录的 MIT License 授权。正式发布的 boxd
 - `github.com/go-chi/chi/v5` — MIT
 - `github.com/golang-jwt/jwt/v5` — MIT
 - `go.etcd.io/bbolt` — MIT
-- Vue、Vite、Pinia、Axios、Tailwind CSS、Chart.js、CodeMirror、Lucide 和 Radix Vue — MIT 或其他兼容的宽松许可证，具体版本见 `ui/package-lock.json`
+- React、Vite、TanStack Query、Tailwind CSS、CodeMirror、Lucide 与 shadcn/ui 相关依赖 — MIT 或其他兼容的宽松许可证，具体版本见 `ui/package-lock.json`
 - Go 扩展模块与其他传递依赖 — 具体版本见 `go.sum`
 
 每次发布生成的 SPDX SBOM 是该制品依赖版本的权威机器可读清单。许可证文本及声明仍以各上游项目随附内容为准。
