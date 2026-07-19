@@ -11,6 +11,7 @@ export function useDefaultPasswordStatus() {
     queryFn: api.settings.password,
     staleTime: 15_000,
     retry: false,
+    refetchOnWindowFocus: false,
   })
 }
 
