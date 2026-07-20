@@ -279,3 +279,10 @@ func ensureRouteFinal(config map[string]any) {
 		route["final"] = "proxy"
 	}
 }
+
+func restartAfterSync(instance restartableInstance) error {
+	if instance == nil {
+		return nil
+	}
+	return instance.Restart()
+}

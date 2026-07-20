@@ -84,3 +84,11 @@ describe("RuntimeGroupsCard", () => {
     expect(screen.getByText("proxy")).toBeInTheDocument()
   })
 })
+
+  it("shows config vs runtime type mismatch", () => {
+    wrap(<RuntimeGroupCard group={{ type: "selector", tag: "xuthus5", now: "a", all: ["a", "b"] }} configType="urltest" />)
+    expect(screen.getByText("配置与运行时不一致")).toBeInTheDocument()
+    expect(screen.getByText("配置与运行时类型不一致")).toBeInTheDocument()
+    expect(screen.getByText(/配置为 urltest/)).toBeInTheDocument()
+  })
+

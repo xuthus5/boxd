@@ -71,4 +71,20 @@ describe("proxy configuration pages", () => {
     expect(await screen.findByRole("button", { name: "运行 自动订阅 URLTest" })).toBeInTheDocument()
     expect(screen.queryByText("node.example:443")).not.toBeInTheDocument()
   })
+
+  it("shows config and runtime group type mismatch on outbound cards", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
+      const path = String(input)
+      const data = path === "/api/subscriptions/"
+        ? [{ id: "1", name: "自动订阅", url: "https://example.com", interval_min: 60, last_updated: "", outbounds: [{ tag: "node", type: "vless" }] }]
+        : path === "/api/nodes/groups"
+          ? { groups: [{ type: "selector", tag: "自动订阅", now: "node", all: ["node"] }] }
+          : { outbounds: [{ type: "urltest", tag: "自动订阅", outbounds: ["node"], url: "https://cp.cloudflare.com/", interval: "3m", tolerance: 50 }] }
+      return Promise.resolve(new Response(JSON.stringify(data)))
+    }))
+    renderApp(<App />, "/proxy/outbounds")
+    expect(await screen.findByText("配置与运行时不一致")).toBeInTheDocument()
+    expect(screen.getByText("配置与运行时类型不一致")).toBeInTheDocument()
+  })
 })

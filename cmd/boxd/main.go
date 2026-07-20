@@ -169,9 +169,9 @@ func newHandler(cfg *config.Config, db *bbolt.DB, settingsManager *core.Settings
 	ruleSetHandler := api.NewRuleSetHandler(ruleSetUpdater, settingsManager)
 	serviceHandler := api.NewServiceHandler(instance)
 	statsHandler := api.NewStatsHandler(kernelLogWriter, appLogWriter, instance)
-	importHandler := api.NewImportHandler(nodeManager, subscriptionManager, cfg.ConfigPath)
-	subscriptionHandler := api.NewSubscriptionHandler(subscriptionManager, nodeManager, cfg.ConfigPath)
-	nodesHandler := api.NewNodesHandler(nodeManager, subscriptionManager, cfg.ConfigPath)
+	importHandler := api.NewImportHandler(nodeManager, subscriptionManager, cfg.ConfigPath, instance)
+	subscriptionHandler := api.NewSubscriptionHandler(subscriptionManager, nodeManager, cfg.ConfigPath, instance)
+	nodesHandler := api.NewNodesHandler(nodeManager, subscriptionManager, cfg.ConfigPath, instance)
 	settingsHandler := api.NewSettingsHandler(settingsManager, cfg.Username)
 	testHandler := api.NewTestHandler(func() string {
 		u := settingsManager.Get("url_test")

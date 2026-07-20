@@ -14,10 +14,15 @@ type NodesHandler struct {
 	nodeManager *core.NodeManager
 	subManager  *core.SubscriptionManager
 	configPath  string
+	instance    restartableInstance
 }
 
-func NewNodesHandler(nodeManager *core.NodeManager, subManager *core.SubscriptionManager, configPath string) *NodesHandler {
-	return &NodesHandler{nodeManager: nodeManager, subManager: subManager, configPath: configPath}
+func NewNodesHandler(nodeManager *core.NodeManager, subManager *core.SubscriptionManager, configPath string, instance ...restartableInstance) *NodesHandler {
+	handler := &NodesHandler{nodeManager: nodeManager, subManager: subManager, configPath: configPath}
+	if len(instance) > 0 {
+		handler.instance = instance[0]
+	}
+	return handler
 }
 
 func (h *NodesHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -108,7 +113,10 @@ func (h *NodesHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorNodeUpdateFailed, "failed to update node")
 		return
 	}
-	_ = syncOutboundsToConfig(h.nodeManager, h.subManager, h.configPath)
+	if err := h.sync(); err != nil {
+		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorInternal, err.Error())
+		return
+	}
 	writeJSON(w, http.StatusOK, nil)
 }
 
@@ -133,10 +141,17 @@ func (h *NodesHandler) SyncToConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if w != nil {
-		writeJSON(w, http.StatusOK, map[string]any{"outbounds": 0, "selector_tags": 0})
+		writeJSON(w, http.StatusOK, map[string]any{
+			"outbounds":     0,
+			"selector_tags": 0,
+			"restarted":     h.instance != nil,
+		})
 	}
 }
 
 func (h *NodesHandler) sync() error {
-	return syncOutboundsToConfig(h.nodeManager, h.subManager, h.configPath)
+	if err := syncOutboundsToConfig(h.nodeManager, h.subManager, h.configPath); err != nil {
+		return err
+	}
+	return restartAfterSync(h.instance)
 }

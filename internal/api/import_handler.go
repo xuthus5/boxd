@@ -12,14 +12,22 @@ type ImportHandler struct {
 	nodeManager *core.NodeManager
 	subManager  *core.SubscriptionManager
 	configPath  string
+	instance    restartableInstance
 }
 
-func NewImportHandler(nodeManager *core.NodeManager, subManager *core.SubscriptionManager, configPath string) *ImportHandler {
-	return &ImportHandler{nodeManager: nodeManager, subManager: subManager, configPath: configPath}
+func NewImportHandler(nodeManager *core.NodeManager, subManager *core.SubscriptionManager, configPath string, instance ...restartableInstance) *ImportHandler {
+	handler := &ImportHandler{nodeManager: nodeManager, subManager: subManager, configPath: configPath}
+	if len(instance) > 0 {
+		handler.instance = instance[0]
+	}
+	return handler
 }
 
-func (h *ImportHandler) syncConfig() {
-	_ = syncOutboundsToConfig(h.nodeManager, h.subManager, h.configPath)
+func (h *ImportHandler) syncConfig() error {
+	if err := syncOutboundsToConfig(h.nodeManager, h.subManager, h.configPath); err != nil {
+		return err
+	}
+	return restartAfterSync(h.instance)
 }
 
 func (h *ImportHandler) ImportLink(w http.ResponseWriter, r *http.Request) {
@@ -73,7 +81,7 @@ func (h *ImportHandler) SaveNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.syncConfig()
+	_ = h.syncConfig()
 
 	writeJSON(w, http.StatusOK, nil)
 }

@@ -1,10 +1,12 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/xuthus5/boxd/internal/core"
@@ -160,6 +162,70 @@ func TestNodesSyncToConfigError(t *testing.T) {
 
 	if rr.Code != http.StatusInternalServerError {
 		t.Errorf("status = %d, want %d", rr.Code, http.StatusInternalServerError)
+	}
+}
+
+func TestNodesSyncToConfigRestarts(t *testing.T) {
+	nodeMgr, subMgr, _, configPath := newAPIManagers(t)
+	restarter := &fakeRestartable{}
+	handler := NewNodesHandler(nodeMgr, subMgr, configPath, restarter)
+
+	rr := httptest.NewRecorder()
+	handler.SyncToConfig(rr, httptest.NewRequest(http.MethodPost, "/api/nodes/sync-config", nil))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	if restarter.calls != 1 {
+		t.Fatalf("restart calls = %d, want 1", restarter.calls)
+	}
+	if !strings.Contains(rr.Body.String(), `"restarted":true`) {
+		t.Fatalf("body = %s", rr.Body.String())
+	}
+}
+
+func TestNodesSyncToConfigRestartError(t *testing.T) {
+	nodeMgr, subMgr, _, configPath := newAPIManagers(t)
+	restarter := &fakeRestartable{errs: []error{errors.New("restart failed")}}
+	handler := NewNodesHandler(nodeMgr, subMgr, configPath, restarter)
+
+	rr := httptest.NewRecorder()
+	handler.SyncToConfig(rr, httptest.NewRequest(http.MethodPost, "/api/nodes/sync-config", nil))
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	if restarter.calls != 1 {
+		t.Fatalf("restart calls = %d, want 1", restarter.calls)
+	}
+}
+
+func TestImportSaveNodeSyncRestarts(t *testing.T) {
+	nodeMgr, subMgr, _, configPath := newAPIManagers(t)
+	restarter := &fakeRestartable{}
+	handler := NewImportHandler(nodeMgr, subMgr, configPath, restarter)
+
+	rr := httptest.NewRecorder()
+	handler.SaveNode(rr, jsonRequest(http.MethodPost, "/api/import/save", `{"tag":"n1","type":"vless","server":"1.1.1.1","port":443,"config":{"uuid":"u"}}`))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	if restarter.calls != 1 {
+		t.Fatalf("restart calls = %d, want 1", restarter.calls)
+	}
+}
+
+func TestSubscriptionRefreshFailedSkipsRestart(t *testing.T) {
+	nodeMgr, subMgr, _, configPath := newAPIManagers(t)
+	restarter := &fakeRestartable{}
+	handler := NewSubscriptionHandler(subMgr, nodeMgr, configPath, restarter)
+
+	rr := httptest.NewRecorder()
+	req := withURLParam(httptest.NewRequest(http.MethodPost, "/api/subscriptions/missing/refresh", nil), "id", "missing")
+	handler.Refresh(rr, req)
+	if rr.Code == http.StatusOK {
+		t.Fatal("expected refresh failure for missing subscription")
+	}
+	if restarter.calls != 0 {
+		t.Fatalf("restart calls = %d, want 0", restarter.calls)
 	}
 }
 

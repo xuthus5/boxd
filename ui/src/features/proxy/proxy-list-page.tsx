@@ -59,11 +59,13 @@ function OutboundCards({ items, onEdit, onDelete }: { items: JsonObject[]; onEdi
   const groups = subscriptionList.flatMap((subscription) => {
     if (!subscription.outbounds?.length) return []
     const configured = indexedItems.find(({ item }) => item.tag === subscription.name)
-    const group = runtimeGroups.get(subscription.name) ?? (configured ? configGroup(configured.item) : null)
-    return group ? [group] : []
+    const configuredGroup = configured ? configGroup(configured.item) : null
+    const group = runtimeGroups.get(subscription.name) ?? configuredGroup
+    if (!group) return []
+    return [{ group, configType: configuredGroup?.type ?? (typeof configured?.item.type === "string" ? configured.item.type : undefined) }]
   })
   return <div className="flex flex-col gap-4">
-    {groups.length ? <section className="flex flex-col gap-3"><div><h2 className="text-lg font-medium">{t("proxy.outbound.group")}</h2><p className="text-sm text-muted-foreground">{t("proxy.description")}</p></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{groups.map((group) => <RuntimeGroupCard key={group.tag} group={group} />)}</div></section> : null}
+    {groups.length ? <section className="flex flex-col gap-3"><div><h2 className="text-lg font-medium">{t("proxy.outbound.group")}</h2><p className="text-sm text-muted-foreground">{t("proxy.description")}</p></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{groups.map(({ group, configType }) => <RuntimeGroupCard key={group.tag} group={group} configType={configType} />)}</div></section> : null}
     {independent.length ? <section className="flex flex-col gap-3"><div><h2 className="text-lg font-medium">{t("proxy.outbound.protocol")}</h2><p className="text-sm text-muted-foreground">{t("proxy.description")}</p></div><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{independent.map(({ item, index }) => <OutboundCard key={`${String(item.tag)}-${index}`} item={item} onEdit={() => onEdit(index)} onDelete={() => onDelete(index)} />)}</div></section> : null}
   </div>
 }

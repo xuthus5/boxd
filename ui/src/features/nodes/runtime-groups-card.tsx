@@ -3,6 +3,7 @@ import { useId, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -24,13 +25,6 @@ function SelectorControl({ group }: { group: OutboundGroup }) {
   </Select>
 }
 
-export function RuntimeGroupCard({ group }: { group: OutboundGroup }) {
-  const { t } = useTranslation()
-  return <Card size="sm"><CardHeader><CardTitle>{group.tag}</CardTitle><CardDescription>{t("nodes.current")}: {group.now}</CardDescription><CardAction><Badge variant="outline">{group.type}</Badge></CardAction></CardHeader>
-    <CardContent>{group.type === "selector" ? <SelectorControl group={group} /> : <URLTestControl group={group} />}</CardContent>
-  </Card>
-}
-
 function URLTestControl({ group }: { group: OutboundGroup }) {
   const { t } = useTranslation()
   const [delays, setDelays] = useState<Record<string, number>>({})
@@ -38,6 +32,17 @@ function URLTestControl({ group }: { group: OutboundGroup }) {
   return <div className="flex flex-col gap-2"><Button variant="outline" size="sm" disabled={mutation.isPending} onClick={() => mutation.mutate()}>{t("nodes.runURLTest", { group: group.tag })}</Button>
     {Object.entries(delays).map(([tag, delay]) => <span key={tag} className="text-sm text-muted-foreground">{tag}: {delay} ms</span>)}
   </div>
+}
+
+export function RuntimeGroupCard({ group, configType }: { group: OutboundGroup; configType?: string }) {
+  const { t } = useTranslation()
+  const mismatched = Boolean(configType && configType !== group.type)
+  return <Card size="sm"><CardHeader><CardTitle>{group.tag}</CardTitle><CardDescription>{t("nodes.current")}: {group.now}</CardDescription><CardAction className="flex flex-wrap items-center justify-end gap-1"><Badge variant="outline">{group.type}</Badge>{mismatched ? <Badge variant="destructive">{t("nodes.groupTypeMismatchBadge")}</Badge> : null}</CardAction></CardHeader>
+    <CardContent className="flex flex-col gap-3">
+      {mismatched ? <Alert><AlertTitle>{t("nodes.groupTypeMismatchTitle")}</AlertTitle><AlertDescription>{t("nodes.groupTypeMismatchDescription", { config: configType, runtime: group.type })}</AlertDescription></Alert> : null}
+      {group.type === "selector" ? <SelectorControl group={group} /> : <URLTestControl group={group} />}
+    </CardContent>
+  </Card>
 }
 
 export function RuntimeGroupsCard() {

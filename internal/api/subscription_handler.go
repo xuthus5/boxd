@@ -14,6 +14,7 @@ type SubscriptionHandler struct {
 	manager    *core.SubscriptionManager
 	nodeMgr    *core.NodeManager
 	configPath string
+	instance   restartableInstance
 }
 
 type subscriptionRequest struct {
@@ -32,12 +33,19 @@ func (r subscriptionRequest) params() core.SubscriptionParams {
 	}
 }
 
-func NewSubscriptionHandler(manager *core.SubscriptionManager, nodeMgr *core.NodeManager, configPath string) *SubscriptionHandler {
-	return &SubscriptionHandler{manager: manager, nodeMgr: nodeMgr, configPath: configPath}
+func NewSubscriptionHandler(manager *core.SubscriptionManager, nodeMgr *core.NodeManager, configPath string, instance ...restartableInstance) *SubscriptionHandler {
+	handler := &SubscriptionHandler{manager: manager, nodeMgr: nodeMgr, configPath: configPath}
+	if len(instance) > 0 {
+		handler.instance = instance[0]
+	}
+	return handler
 }
 
-func (h *SubscriptionHandler) syncConfig() {
-	_ = syncOutboundsToConfig(h.nodeMgr, h.manager, h.configPath)
+func (h *SubscriptionHandler) syncConfig() error {
+	if err := syncOutboundsToConfig(h.nodeMgr, h.manager, h.configPath); err != nil {
+		return err
+	}
+	return restartAfterSync(h.instance)
 }
 
 func (h *SubscriptionHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -132,7 +140,7 @@ func (h *SubscriptionHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.syncConfig()
+	_ = h.syncConfig()
 
 	writeJSONWithMeta(w, http.StatusOK, nil, map[string]string{"action": "refreshing"})
 }
@@ -140,7 +148,7 @@ func (h *SubscriptionHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 func (h *SubscriptionHandler) RefreshAll(w http.ResponseWriter, r *http.Request) {
 	errs := h.manager.RefreshAll()
 
-	h.syncConfig()
+	_ = h.syncConfig()
 
 	if len(errs) > 0 {
 		writeJSONStatus(w, http.StatusOK, model.StatusPartial, nil, &model.APIError{
