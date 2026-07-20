@@ -113,7 +113,9 @@ func shouldReplaceExistingOutbound(entry map[string]any, managedGroups map[strin
 	}
 	typeName, _ := entry["type"].(string)
 	tag, _ := entry["tag"].(string)
-	if managedNodeTypes[typeName] || typeName == "direct" || typeName == "dns" {
+	// Rebuild managed protocol nodes and the canonical direct/dns entries from source.
+	// Keep other direct-like outbounds (e.g. bypass) so default selector dependencies remain valid.
+	if managedNodeTypes[typeName] || typeName == "dns" || (typeName == "direct" && tag == "direct") {
 		return true
 	}
 	if (typeName == "urltest" || typeName == "selector") && managedGroups[tag] {

@@ -372,6 +372,20 @@ func TestOutboundGroupsListsSelectors(t *testing.T) {
 	}
 }
 
+func TestOutboundGroupsListsURLTest(t *testing.T) {
+	ut := &fakeURLTestOutbound{tag: "auto", all: []string{"a", "b"}, now: "a"}
+	instance := startInstanceWithBox(t, newURLTestFakeBox(ut))
+
+	groups := instance.OutboundGroups()
+	if len(groups) != 1 {
+		t.Fatalf("expected 1 group, got %d", len(groups))
+	}
+	g := groups[0]
+	if g.Tag != "auto" || g.Type != "urltest" || g.Now != "a" || len(g.All) != 2 || g.All[0] != "a" {
+		t.Fatalf("group = %#v", g)
+	}
+}
+
 func TestSelectOutboundSuccess(t *testing.T) {
 	selector := &fakeSelectorOutbound{tag: "proxy", outType: "selector", all: []string{"a", "b"}, now: "a"}
 	instance := startInstanceWithBox(t, newSelectorFakeBox(selector))

@@ -78,8 +78,9 @@ func TestSyncOutboundsToConfigPreservesCustomGroupsAndBuiltins(t *testing.T) {
 	writeConfigFile(t, configPath, map[string]any{
 		"outbounds": []any{
 			map[string]any{"type": "direct", "tag": "direct"},
+			map[string]any{"type": "direct", "tag": "bypass", "routing_mark": 128},
 			map[string]any{"type": "block", "tag": "block"},
-			map[string]any{"type": "selector", "tag": "whitelist", "outbounds": []string{"direct", "proxy"}},
+			map[string]any{"type": "selector", "tag": "whitelist", "outbounds": []string{"bypass", "proxy"}},
 			map[string]any{"type": "urltest", "tag": "auto", "outbounds": []string{"node-a"}},
 		},
 		"route": map[string]any{"final": "proxy"},
@@ -94,7 +95,7 @@ func TestSyncOutboundsToConfigPreservesCustomGroupsAndBuiltins(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, expected := range []string{`"tag": "block"`, `"tag": "whitelist"`, `"tag": "auto"`} {
+	for _, expected := range []string{`"tag": "block"`, `"tag": "whitelist"`, `"tag": "auto"`, `"tag": "bypass"`, `"routing_mark": 128`} {
 		if !strings.Contains(string(data), expected) {
 			t.Fatalf("config missing preserved outbound %s: %s", expected, data)
 		}

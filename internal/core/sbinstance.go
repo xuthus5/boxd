@@ -64,11 +64,17 @@ type boxOutboundManager interface {
 	Outbounds() []adapter.Outbound
 }
 
-// 可切换出站接口（selector 满足）。避免直接依赖 protocol/group 包。
-type selectableOutbound interface {
+// groupOutbound 覆盖 selector/urltest 等出站分组（adapter.OutboundGroup）。
+// 避免直接依赖 protocol/group 包。
+type groupOutbound interface {
 	adapter.Outbound
 	Now() string
 	All() []string
+}
+
+// selectableOutbound 额外支持手动切换成员（selector）。
+type selectableOutbound interface {
+	groupOutbound
 	SelectOutbound(string) bool
 }
 

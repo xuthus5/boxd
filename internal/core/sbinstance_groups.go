@@ -20,7 +20,7 @@ func (s *SBInstance) OutboundGroups() []OutboundGroupInfo {
 
 	var groups []OutboundGroupInfo
 	for _, ob := range box.Outbound().Outbounds() {
-		g, ok := ob.(selectableOutbound)
+		g, ok := ob.(groupOutbound)
 		if !ok {
 			continue
 		}
