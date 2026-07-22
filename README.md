@@ -8,11 +8,11 @@ Single-node control plane for [sing-box](https://github.com/SagerNet/sing-box). 
 
 ## Features
 
-- **Dashboard**: start/stop/restart kernel, live up/down traffic, memory, recent logs
+- **Dashboard**: start/stop/restart kernel, global outbound switch, live traffic, memory, recent logs
 - **Proxy config**: structured inbound/outbound forms (TLS/Reality, transports), plus Advanced JSON
 - **Traffic policy**: route rules and rule-sets, DNS servers and rules; rule name/description stored by boxd
 - **Nodes & subscriptions**: subscription group cards with traffic/expiry from userinfo, node search, runtime groups, per-node and batch probes
-- **Observability**: kernel logs, application logs, active connections
+- **Observability**: kernel/app logs, active connections with rule and search
 - **Advanced**: Endpoints, Experimental, full kernel JSON
 - **Settings**: theme, language, and log level persisted in DB; password/JWT rotation, probe URLs, global URLTest defaults
 

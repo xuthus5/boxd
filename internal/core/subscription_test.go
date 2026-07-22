@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/base64"
 	"testing"
 
 	"go.etcd.io/bbolt"
@@ -255,5 +256,24 @@ func TestParseSubscriptionContentComments(t *testing.T) {
 	result := parseSubscriptionContent(body)
 	if len(result) != 1 {
 		t.Fatalf("expected 1 outbound, got %d", len(result))
+	}
+}
+
+func TestParseSubscriptionContentBase64(t *testing.T) {
+	links := "trojan://pass@example.com:443#trojan-b64\n" +
+		"ss://aes-256-gcm:secret@server.example.com:8388#ss-b64\n"
+	encoded := base64.StdEncoding.EncodeToString([]byte(links))
+	result := parseSubscriptionContent([]byte(encoded))
+	if len(result) != 2 {
+		t.Fatalf("expected 2 outbounds from base64 body, got %d (%#v)", len(result), result)
+	}
+	if result[0].Tag != "trojan-b64" || result[1].Tag != "ss-b64" {
+		t.Fatalf("tags = %q %q", result[0].Tag, result[1].Tag)
+	}
+}
+
+func TestDecodeSubscriptionBodyRejectsNoise(t *testing.T) {
+	if _, ok := decodeSubscriptionBody([]byte("not-base64")); ok {
+		t.Fatal("expected reject")
 	}
 }

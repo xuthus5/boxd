@@ -37,6 +37,7 @@ func (t *TrafficTracker) Connections() []TrafficConn {
 			ID:       tc.id,
 			Target:   tc.target,
 			Outbound: tc.outbound,
+			Rule:     tc.rule,
 			Upload:   tc.upload.Load(),
 			Download: tc.download.Load(),
 			Start:    tc.start,
@@ -79,6 +80,7 @@ func (t *TrafficTracker) RoutedConnection(ctx context.Context, conn net.Conn, me
 		tracker:  t,
 		target:   metadata.Destination.Fqdn,
 		outbound: matchOutbound.Tag(),
+		rule:     ruleName(matchedRule),
 		start:    time.Now(),
 	}
 	if metadata.Destination.Fqdn == "" {
@@ -97,6 +99,7 @@ type trafficConnInternal struct {
 	tracker  *TrafficTracker
 	target   string
 	outbound string
+	rule     string
 	upload   atomic.Int64
 	download atomic.Int64
 	start    time.Time
@@ -155,7 +158,21 @@ type TrafficConn struct {
 	ID       int64     `json:"id"`
 	Target   string    `json:"target"`
 	Outbound string    `json:"outbound"`
+	Rule     string    `json:"rule,omitempty"`
 	Upload   int64     `json:"upload"`
 	Download int64     `json:"download"`
 	Start    time.Time `json:"start"`
+}
+
+func ruleName(rule adapter.Rule) string {
+	if rule == nil {
+		return ""
+	}
+	// Rule.String() 通常包含类型信息；优先用 Type() 保持短可读。
+	if typed, ok := any(rule).(interface{ Type() string }); ok {
+		if name := typed.Type(); name != "" {
+			return name
+		}
+	}
+	return rule.String()
 }

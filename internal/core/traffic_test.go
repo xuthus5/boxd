@@ -278,3 +278,21 @@ func TestTrafficTrackerCloseAllConns(t *testing.T) {
 	_ = right1.Close()
 	_ = right2.Close()
 }
+
+func TestTrafficTrackerConnectionRuleEmptyWhenNoMatch(t *testing.T) {
+	tracker := NewTrafficTracker()
+	left, right := net.Pipe()
+	defer left.Close()
+	defer right.Close()
+	_ = tracker.RoutedConnection(context.Background(), left, adapter.InboundContext{Destination: M.ParseSocksaddr("rule.example:443")}, nil, fakeOutbound{tag: "proxy"})
+	conns := tracker.Connections()
+	if len(conns) != 1 {
+		t.Fatalf("len = %d", len(conns))
+	}
+	if conns[0].Rule != "" {
+		t.Fatalf("rule = %q", conns[0].Rule)
+	}
+	if conns[0].Outbound != "proxy" {
+		t.Fatalf("outbound = %q", conns[0].Outbound)
+	}
+}

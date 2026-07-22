@@ -11,6 +11,7 @@ function responseFor(path: string) {
   if (path === "/api/stats/traffic/history") return { points: [{ upload_bytes: 10, download_bytes: 20, timestamp: "2026-01-01T00:00:00Z" }] }
   if (path === "/api/runtime/memory") return { alloc: 1024, total: 2048, sys: 4096, num_gc: 2, heap_inuse: 512, stack_inuse: 128, num_goroutine: 12 }
   if (path === "/api/runtime/version") return { version: "dev", kernel_version: "1.13.14" }
+  if (path === "/api/nodes/groups") return { groups: [{ tag: "proxy", type: "selector", now: "a", all: ["a", "b"] }] }
   return null
 }
 

@@ -59,7 +59,9 @@ export function installMockAPI() {
       return Promise.resolve(stream({ active_connections: 1, list: [{ id: "1", target: "example.com:443", outbound: "proxy", upload: 10, download: 20, duration: "1s" }] }))
     }
     if (path === "/api/nodes/groups") {
-      return Promise.resolve(new Response(JSON.stringify({ groups: [] })))
+      return Promise.resolve(new Response(JSON.stringify({
+        groups: [{ tag: "proxy", type: "selector", now: "direct", all: ["direct", "auto"] }],
+      })))
     }
     return Promise.resolve(new Response(JSON.stringify(payload(path))))
   })

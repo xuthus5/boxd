@@ -47,6 +47,7 @@ export interface Connection {
   id: number
   target: string
   outbound: string
+  rule?: string
   upload: number
   download: number
   start: string
