@@ -26,6 +26,7 @@ type ConfigHandler struct {
 	instance          restartableInstance
 	ruleSetInstaller  core.RuleSetDefaultsInstaller
 	outboundInstaller core.OutboundDefaultsInstaller
+	inboundInstaller  core.InboundDefaultsInstaller
 	routeInstaller    core.RouteDefaultsInstaller
 	dnsInstaller      core.DNSDefaultsInstaller
 	routeMetadata     *core.RouteRuleMetadataManager
@@ -41,6 +42,7 @@ func NewConfigHandler(configPath string, instance restartableInstance, ruleSetIn
 		instance:          instance,
 		ruleSetInstaller:  ruleSetInstaller,
 		outboundInstaller: outboundInstaller,
+		inboundInstaller:  core.NewDefaultInboundsInstaller(),
 		routeInstaller:    routeInstaller,
 		dnsInstaller:      dnsInstaller,
 	}

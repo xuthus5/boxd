@@ -323,3 +323,31 @@ func TestRuntimeConfigErrorMessage(t *testing.T) {
 		t.Fatalf("plain = %q", got)
 	}
 }
+
+func TestInstallDefaultInboundsSuccess(t *testing.T) {
+	handler, _ := newConfigHandlerWithFile(t)
+	rr := httptest.NewRecorder()
+	handler.InstallDefaultInbounds(rr, httptest.NewRequest(http.MethodPost, "/api/config/inbounds/defaults", nil))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestInstallDefaultInboundsConfigNotFound(t *testing.T) {
+	handler := NewConfigHandler(filepath.Join(t.TempDir(), "missing.json"), nil, nil, nil, nil, nil)
+	rr := httptest.NewRecorder()
+	handler.InstallDefaultInbounds(rr, httptest.NewRequest(http.MethodPost, "/api/config/inbounds/defaults", nil))
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("status = %d", rr.Code)
+	}
+}
+
+func TestInstallDefaultInboundsNilInstaller(t *testing.T) {
+	handler, path := newConfigHandlerWithFile(t)
+	handler.inboundInstaller = nil
+	rr := httptest.NewRecorder()
+	handler.InstallDefaultInbounds(rr, httptest.NewRequest(http.MethodPost, "/api/config/inbounds/defaults", nil))
+	if rr.Code != http.StatusNotImplemented {
+		t.Fatalf("status = %d path=%s", rr.Code, path)
+	}
+}

@@ -64,7 +64,7 @@ go run ./cmd/boxd/
 
 1. Sign in and rotate the admin password.
 2. **Subscriptions / nodes**: add a subscription URL or import a single node; configure URLTest (inherit global defaults when needed).
-3. **Inbounds / outbounds**: create local proxy inbounds; bind subscription groups as selector/urltest, or use direct/block.
+3. **Inbounds / outbounds**: install mixed (1080) + TUN templates or create custom inbounds; bind subscription groups as selector/urltest, or use direct/block.
 4. **Route / DNS**: edit rules in forms; install common default rules and rule-sets when useful.
 5. **Dashboard**: start the kernel; watch traffic and logs.
 6. **Settings**: theme, language, minimum log level (stored in the database), system probe URLs, kernel autostart.

@@ -184,3 +184,47 @@ func mergeRuleSets(existing []any, installed []map[string]any) []any {
 	}
 	return merged
 }
+
+func (h *ConfigHandler) InstallDefaultInbounds(w http.ResponseWriter, r *http.Request) {
+	if h.inboundInstaller == nil {
+		writeJSONError(w, http.StatusNotImplemented, "default inbound installer is not configured")
+		return
+	}
+
+	data, err := os.ReadFile(h.configPath)
+	if err != nil {
+		writeJSONError(w, http.StatusNotFound, "config not found")
+		return
+	}
+
+	var cfg map[string]any
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "invalid JSON in config")
+		return
+	}
+	if cfg == nil {
+		cfg = map[string]any{}
+	}
+
+	result, err := h.inboundInstaller.Install(cfg)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	cfg["inbounds"] = result.Inbounds
+
+	body, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "failed to encode config")
+		return
+	}
+	status, apiErr, err := h.applyConfigBytes(body, false)
+	if err != nil {
+		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorInternal, "failed to write config")
+		return
+	}
+	writeJSONStatus(w, http.StatusOK, status, result.Installed, apiErr, map[string]any{
+		"installed_count": len(result.Installed),
+		"rolled_back":     status == model.StatusRolledBack,
+	})
+}
