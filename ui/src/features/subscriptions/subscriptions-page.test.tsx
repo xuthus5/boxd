@@ -45,4 +45,22 @@ describe("SubscriptionsPage", () => {
     expect(await screen.findByText("URLTest：继承全局")).toBeInTheDocument()
     expect(screen.queryByText("URLTest：自定义")).not.toBeInTheDocument()
   })
+
+  it("sorts subscriptions by last_updated descending", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
+      const path = typeof input === "string" ? input : input.toString()
+      const data = path.endsWith("/urltest-defaults")
+        ? { enabled: true, url: "https://www.gstatic.com/generate_204", interval: "3m", tolerance: 50 }
+        : path.endsWith("/nodes/") ? [] : [
+          { id: "old", name: "旧订阅", url: "https://example.com/old", interval_min: 60, last_updated: "2026-01-01T00:00:00Z", outbounds: [] },
+          { id: "new", name: "新订阅", url: "https://example.com/new", interval_min: 60, last_updated: "2026-06-01T00:00:00Z", outbounds: [] },
+        ]
+      return Promise.resolve(new Response(JSON.stringify(data)))
+    }))
+    renderApp(<App />, "/subscriptions")
+    const older = await screen.findByText("旧订阅")
+    const newer = screen.getByText("新订阅")
+    expect(newer.compareDocumentPosition(older) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
 })

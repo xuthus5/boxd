@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"sync"
 	"time"
 
@@ -75,7 +76,19 @@ func (m *SubscriptionManager) List() ([]model.Subscription, error) {
 	if err != nil {
 		return nil, err
 	}
+	sortSubscriptionsByLastUpdated(subs)
 	return subs, nil
+}
+
+// sortSubscriptionsByLastUpdated 按 last_updated 降序，相同时间再按 ID 升序稳定展示。
+func sortSubscriptionsByLastUpdated(subs []model.Subscription) {
+	sort.SliceStable(subs, func(i, j int) bool {
+		left, right := subs[i].LastUpdated, subs[j].LastUpdated
+		if !left.Equal(right) {
+			return left.After(right)
+		}
+		return subs[i].ID < subs[j].ID
+	})
 }
 
 func (m *SubscriptionManager) Create(params SubscriptionParams) (*model.Subscription, error) {

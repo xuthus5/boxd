@@ -26,6 +26,15 @@ function urlTestStatus(item: Subscription, t: (key: string) => string) {
   return t("subscriptions.urlTestInherited")
 }
 
+
+function sortSubscriptions(items: Subscription[]) {
+  return [...items].sort((left, right) => {
+    const delta = new Date(right.last_updated).getTime() - new Date(left.last_updated).getTime()
+    if (delta !== 0) return delta
+    return left.id.localeCompare(right.id)
+  })
+}
+
 function SubscriptionItem({ item, onEdit, onRefresh, onDelete }: ItemProps) {
   const { t } = useTranslation()
   return (
@@ -104,7 +113,7 @@ export function SubscriptionsPage() {
         </div>
         {query.data?.length
           ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {query.data.map((item) => (
+            {sortSubscriptions(query.data).map((item) => (
               <SubscriptionItem
                 key={item.id}
                 item={item}
