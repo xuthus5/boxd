@@ -2,6 +2,8 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -9,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/xuthus5/boxd/internal/core"
+	"github.com/xuthus5/boxd/internal/model"
 )
 
 func newConfigHandlerWithFile(t *testing.T) (*ConfigHandler, string) {
@@ -287,5 +290,36 @@ func TestMergeRuleSets(t *testing.T) {
 	}
 	if first["updated"] != true {
 		t.Error("expected existing item to be updated")
+	}
+}
+
+func TestUpdateConfigInvalidRuntimeDetail(t *testing.T) {
+	dir := t.TempDir()
+	configPath := dir + "/config.json"
+	if err := os.WriteFile(configPath, []byte(`{}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	handler := NewConfigHandler(configPath, nil, nil, nil, nil, nil)
+	rr := httptest.NewRecorder()
+	handler.UpdateConfig(rr, jsonRequest(http.MethodPut, "/api/config", `{"outbounds":"bad"}`))
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d body = %s", rr.Code, rr.Body.String())
+	}
+	envelope := decodeEnvelope(t, rr)
+	if envelope.Error == nil || envelope.Error.Code != model.ErrorConfigInvalidRuntime {
+		t.Fatalf("envelope = %#v", envelope)
+	}
+	if envelope.Error.Message == "" || envelope.Error.Message == "invalid sing-box config" {
+		t.Fatalf("expected detailed message, got %q", envelope.Error.Message)
+	}
+}
+
+func TestRuntimeConfigErrorMessage(t *testing.T) {
+	err := fmt.Errorf("%w: decode failed", ErrInvalidRuntimeConfig)
+	if got := runtimeConfigErrorMessage(err); got != "decode failed" {
+		t.Fatalf("got %q", got)
+	}
+	if got := runtimeConfigErrorMessage(errors.New("plain")); got != "plain" {
+		t.Fatalf("plain = %q", got)
 	}
 }

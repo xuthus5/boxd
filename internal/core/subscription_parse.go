@@ -30,6 +30,11 @@ func parseSubscriptionPayload(body []byte) []model.Outbound {
 		return singBox.Outbounds
 	}
 
+	// Try Clash / Meta YAML proxies list.
+	if outbounds := parseClashSubscription(body); len(outbounds) > 0 {
+		return outbounds
+	}
+
 	// Try proxy links format (one URL per line)
 	lines := strings.Split(string(body), "\n")
 	var outbounds []model.Outbound
@@ -83,7 +88,7 @@ func decodeSubscriptionBody(body []byte) ([]byte, bool) {
 		}
 		// 粗略校验：解码结果应是可打印文本（JSON 或代理链接）。
 		sample := string(decoded)
-		if strings.Contains(sample, "://") || strings.Contains(sample, "outbounds") || strings.Contains(sample, "{") {
+		if strings.Contains(sample, "://") || strings.Contains(sample, "outbounds") || strings.Contains(sample, "proxies") || strings.Contains(sample, "{") {
 			return decoded, true
 		}
 	}

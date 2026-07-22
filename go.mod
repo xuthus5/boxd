@@ -9,6 +9,7 @@ require (
 	github.com/sagernet/sing-box v1.13.14
 	go.etcd.io/bbolt v1.5.0
 	golang.org/x/crypto v0.52.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (

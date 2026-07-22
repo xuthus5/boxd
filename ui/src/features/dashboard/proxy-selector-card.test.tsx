@@ -24,7 +24,7 @@ describe("ProxySelectorCard", () => {
           groups: [{ tag: "proxy", type: "selector", now: "a", all: ["a", "b"] }],
         })))
       }
-      if (init?.method === "POST") {
+      if (init?.method === "POST" && path.includes("/select")) {
         return Promise.resolve(new Response(JSON.stringify({ selected: "b" })))
       }
       return Promise.resolve(new Response(JSON.stringify({})))
@@ -41,6 +41,29 @@ describe("ProxySelectorCard", () => {
         expect.objectContaining({ method: "POST" }),
       )
     })
+  })
+
+  it("tests member delays via group urltest", async () => {
+    const fetchMock = vi.fn((input: string | URL | Request, init?: RequestInit) => {
+      const path = String(typeof input === "string" ? input : input instanceof URL ? input.pathname : new URL(input.url).pathname)
+      if (path.includes("/api/nodes/groups") && !path.includes("urltest")) {
+        return Promise.resolve(new Response(JSON.stringify({
+          groups: [{ tag: "proxy", type: "selector", now: "a", all: ["a", "b"] }],
+        })))
+      }
+      if (path.includes("/urltest")) {
+        return Promise.resolve(new Response(JSON.stringify({ a: 12, b: 34 })))
+      }
+      return Promise.resolve(new Response(JSON.stringify({})))
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    const user = userEvent.setup()
+    wrap(<ProxySelectorCard />)
+    await screen.findByText("当前出口")
+    await user.click(screen.getByRole("button", { name: "测试出口延迟" }))
+    expect(await screen.findByText("12 ms")).toBeInTheDocument()
+    await user.click(screen.getByRole("combobox", { name: "当前出口" }))
+    expect(await screen.findByRole("option", { name: /b \(34 ms\)/ })).toBeInTheDocument()
   })
 
   it("shows empty state when no selector exists", async () => {

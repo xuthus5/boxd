@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/sagernet/sing-box/include"
 	"github.com/sagernet/sing-box/option"
@@ -58,6 +59,18 @@ func validateRuntimeConfig(body []byte) error {
 		return fmt.Errorf("%w: %v", ErrInvalidRuntimeConfig, err)
 	}
 	return nil
+}
+
+func runtimeConfigErrorMessage(err error) string {
+	msg := err.Error()
+	prefix := ErrInvalidRuntimeConfig.Error() + ": "
+	if detail, ok := strings.CutPrefix(msg, prefix); ok && detail != "" {
+		return detail
+	}
+	if msg != "" {
+		return msg
+	}
+	return "invalid sing-box config"
 }
 
 func atomicWriteFile(path string, body []byte) error {
@@ -173,7 +186,7 @@ func (h *ConfigHandler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 	status, apiErr, err := h.applyConfigBytes(body, true)
 	if err != nil {
 		if errors.Is(err, ErrInvalidRuntimeConfig) {
-			writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorConfigInvalidRuntime, "invalid sing-box config")
+			writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorConfigInvalidRuntime, runtimeConfigErrorMessage(err))
 			return
 		}
 		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorInternal, "failed to write config")
@@ -210,7 +223,7 @@ func (h *ConfigHandler) UpdateRawConfig(w http.ResponseWriter, r *http.Request) 
 	status, apiErr, err := h.applyConfigBytes(body, true)
 	if err != nil {
 		if errors.Is(err, ErrInvalidRuntimeConfig) {
-			writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorConfigInvalidRuntime, "invalid sing-box config")
+			writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorConfigInvalidRuntime, runtimeConfigErrorMessage(err))
 			return
 		}
 		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorInternal, "failed to write config")
