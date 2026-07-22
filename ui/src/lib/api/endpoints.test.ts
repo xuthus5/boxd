@@ -15,6 +15,21 @@ describe("api endpoints", () => {
     expect(groupNodeTestResults({ invalid: { tcp: { ...tcp, tag: "" } } })).toEqual({})
   })
 
+  it("reads and writes ui preferences", async () => {
+    const body = JSON.stringify({ theme: "dark", language: "en", minimumLogLevel: "info" })
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response(body)))
+    vi.stubGlobal("fetch", fetchMock)
+
+    await api.settings.preferences()
+    await api.settings.setPreferences({ theme: "dark", language: "en", minimumLogLevel: "info" })
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/settings/preferences", expect.any(Object))
+    expect(fetchMock).toHaveBeenCalledWith("/api/settings/preferences", expect.objectContaining({
+      method: "PUT",
+      body: JSON.stringify({ theme: "dark", language: "en", minimumLogLevel: "info" }),
+    }))
+  })
+
   it("posts login credentials", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
       token: "token",

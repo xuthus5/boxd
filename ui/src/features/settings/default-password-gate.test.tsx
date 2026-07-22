@@ -60,6 +60,9 @@ function stub(defaultPassword: boolean) {
     if (path === "/api/settings/kernel-autostart") {
       return json({ enabled: true })
     }
+    if (path === "/api/settings/preferences") {
+      return json({ theme: "system", language: "zh", minimumLogLevel: "all" })
+    }
     if (path === "/api/config/rule-sets/auto-update") {
       return json({ enabled: false, interval: "24h" })
     }

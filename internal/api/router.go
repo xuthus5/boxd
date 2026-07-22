@@ -134,6 +134,8 @@ func NewRouter(
 		r.Put("/jwt-secret", settingsHandler.SetJWTSecret)
 		r.Get("/password", settingsHandler.GetPasswordStatus)
 		r.Put("/password", settingsHandler.ChangePassword)
+		r.Get("/preferences", settingsHandler.GetUIPreferences)
+		r.Put("/preferences", settingsHandler.SetUIPreferences)
 	})
 
 	r.Route("/api/network", func(r chi.Router) {

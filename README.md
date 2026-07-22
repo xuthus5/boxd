@@ -14,7 +14,7 @@ Single-node control plane for [sing-box](https://github.com/SagerNet/sing-box). 
 - **Nodes & subscriptions**: subscription group cards, imported singles, per-node and batch TCP/HTTP/ICMP probes
 - **Observability**: kernel logs, application logs, active connections
 - **Advanced**: Endpoints, Experimental, full kernel JSON
-- **Settings**: theme, language, password/JWT rotation, probe URLs, global URLTest defaults, log level
+- **Settings**: theme, language, and log level persisted in DB; password/JWT rotation, probe URLs, global URLTest defaults
 
 ## Stack
 
@@ -67,7 +67,7 @@ go run ./cmd/boxd/
 3. **Inbounds / outbounds**: create local proxy inbounds; bind subscription groups as selector/urltest, or use direct/block.
 4. **Route / DNS**: edit rules in forms; install common default rules and rule-sets when useful.
 5. **Dashboard**: start the kernel; watch traffic and logs.
-6. **Settings**: theme, language, minimum log level, system probe URLs, kernel autostart.
+6. **Settings**: theme, language, minimum log level (stored in the database), system probe URLs, kernel autostart.
 
 ### Built-in routing helpers
 

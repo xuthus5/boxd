@@ -20,6 +20,7 @@ import type {
   RouteRuleMetadata,
   VersionInfo,
   NetworkInterfaceInfo,
+  UIPreferences,
 } from "@/lib/api/types"
 
 const json = (method: string, body?: unknown): RequestInit => ({
@@ -161,6 +162,11 @@ export const api = {
     changePassword: (currentPassword: string, newPassword: string) => apiRequest<{ changed: boolean }>(
       "/api/settings/password",
       json("PUT", { currentPassword, newPassword }),
+    ),
+    preferences: () => apiRequest<UIPreferences>("/api/settings/preferences"),
+    setPreferences: (input: UIPreferences) => apiRequest<UIPreferences>(
+      "/api/settings/preferences",
+      json("PUT", input),
     ),
   },
   network: {

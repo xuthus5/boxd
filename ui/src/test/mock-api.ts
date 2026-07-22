@@ -38,6 +38,7 @@ const payloads: Record<string, unknown> = {
   "/api/config/rule-sets/status": [],
   "/api/settings/urltest-defaults": { enabled: true, url: "https://www.gstatic.com/generate_204", interval: "3m", tolerance: 50 },
   "/api/settings/kernel-autostart": { enabled: true },
+  "/api/settings/preferences": { theme: "system", language: "zh", minimumLogLevel: "all" },
   "/api/network/interfaces": { interfaces: [{ name: "eth0", ips: ["10.0.0.2"] }, { name: "wlan0", ips: [] }] },
 }
 

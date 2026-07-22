@@ -99,3 +99,10 @@ type TestResult struct {
 	LatencyMs float64 `json:"latency_ms,omitempty"`
 	Error     string  `json:"error,omitempty"`
 }
+
+// UIPreferences stores panel appearance preferences persisted in the database.
+type UIPreferences struct {
+	Theme           string `json:"theme"`
+	Language        string `json:"language"`
+	MinimumLogLevel string `json:"minimumLogLevel"`
+}

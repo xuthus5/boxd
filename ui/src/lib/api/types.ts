@@ -175,3 +175,9 @@ export interface RuleSetUpdateResponse {
   skipped_count: number
   restarted: boolean
 }
+
+export interface UIPreferences {
+  theme: "light" | "dark" | "system"
+  language: "zh" | "en"
+  minimumLogLevel: "all" | "debug" | "info" | "warn" | "error"
+}

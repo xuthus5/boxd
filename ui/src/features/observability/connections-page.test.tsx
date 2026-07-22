@@ -11,8 +11,42 @@ describe("ConnectionsPage", () => {
   it("shows live connections", async () => {
     sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
     const encoder = new TextEncoder()
-    const body = new ReadableStream({ start(controller) { controller.enqueue(encoder.encode(`data: ${JSON.stringify({ active_connections: 1, list: [{ id: 1, target: "example.com:443", outbound: "proxy", upload: 10, download: 20, start: new Date(Date.now() - 1000).toISOString() }] })}\n\n`)); controller.close() } })
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body)))
+    const body = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+          active_connections: 1,
+          list: [{
+            id: 1,
+            target: "example.com:443",
+            outbound: "proxy",
+            upload: 10,
+            download: 20,
+            start: new Date(Date.now() - 1000).toISOString(),
+          }],
+        })}\n\n`))
+        controller.close()
+      },
+    })
+    vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
+      const raw = typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.pathname
+          : new URL(input.url).pathname
+      const path = raw.split("?")[0]
+      if (path === "/api/stats/connections") {
+        return Promise.resolve(new Response(body, { headers: { "Content-Type": "text/event-stream" } }))
+      }
+      if (path === "/api/settings/preferences") {
+        return Promise.resolve(new Response(JSON.stringify({
+          theme: "system", language: "zh", minimumLogLevel: "all",
+        })))
+      }
+      if (path === "/api/settings/password") {
+        return Promise.resolve(new Response(JSON.stringify({ defaultPassword: false })))
+      }
+      return Promise.resolve(new Response(JSON.stringify({})))
+    }))
     renderApp(<App />, "/observability/connections")
 
     expect(await screen.findByText("example.com:443")).toBeInTheDocument()

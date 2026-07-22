@@ -159,6 +159,34 @@ func (h *SettingsHandler) SetKernelAutostart(w http.ResponseWriter, r *http.Requ
 	writeJSON(w, http.StatusOK, map[string]bool{"enabled": req.Enabled})
 }
 
+// GetUIPreferences GET /api/settings/preferences
+func (h *SettingsHandler) GetUIPreferences(w http.ResponseWriter, r *http.Request) {
+	prefs, err := h.settings.UIPreferences()
+	if err != nil {
+		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorInternal, "failed to load preferences")
+		return
+	}
+	writeJSON(w, http.StatusOK, prefs)
+}
+
+// SetUIPreferences PUT /api/settings/preferences
+func (h *SettingsHandler) SetUIPreferences(w http.ResponseWriter, r *http.Request) {
+	var req model.UIPreferences
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, "invalid request")
+		return
+	}
+	if err := core.ValidateUIPreferences(req); err != nil {
+		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, err.Error())
+		return
+	}
+	if err := h.settings.SetUIPreferences(req); err != nil {
+		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorInternal, "failed to save preferences")
+		return
+	}
+	writeJSON(w, http.StatusOK, req)
+}
+
 // maskJWTSecret 对密钥做脱敏展示：长度不足时仅返回掩码，其余保留首尾各 2 个字符。
 func maskJWTSecret(secret string) string {
 	n := len(secret)

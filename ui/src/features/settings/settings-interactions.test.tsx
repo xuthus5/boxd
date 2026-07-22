@@ -34,6 +34,9 @@ describe("settings interactions", () => {
     expect(screen.getByRole("heading", { name: "Application Settings" })).toBeInTheDocument()
     expect(localStorage.getItem("boxd.preferences.v1")).toContain("dark")
     expect(localStorage.getItem("boxd.preferences.v1")).toContain("warn")
+    expect(fetchMock).toHaveBeenCalledWith("/api/settings/preferences", expect.objectContaining({
+      method: "PUT",
+    }))
   })
 
   it("selects a preset speed test URL without manual input", async () => {

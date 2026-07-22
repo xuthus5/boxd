@@ -12,12 +12,14 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
   }))
   return (
     <QueryClientProvider client={queryClient}>
-      <PreferencesProvider>
-        <TooltipProvider>
-          <AuthProvider>{children}</AuthProvider>
-          <Toaster />
-        </TooltipProvider>
-      </PreferencesProvider>
+      <AuthProvider>
+        <PreferencesProvider>
+          <TooltipProvider>
+            {children}
+            <Toaster />
+          </TooltipProvider>
+        </PreferencesProvider>
+      </AuthProvider>
     </QueryClientProvider>
   )
 }
