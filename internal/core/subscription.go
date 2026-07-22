@@ -194,34 +194,43 @@ func (m *SubscriptionManager) Refresh(id string) error {
 	if sub == nil {
 		return fmt.Errorf("subscription not found: %s", id)
 	}
-	outbounds, err := downloadSubscriptionOutbounds(sub.URL)
+	outbounds, traffic, err := downloadSubscriptionOutbounds(sub.URL)
 	if err != nil {
 		m.setError(id, err.Error())
 		return err
 	}
-	return m.saveRefreshedSubscription(id, outbounds)
+	return m.saveRefreshedSubscription(id, outbounds, traffic)
 }
 
-func downloadSubscriptionOutbounds(rawURL string) ([]model.Outbound, error) {
+func downloadSubscriptionOutbounds(rawURL string) ([]model.Outbound, *model.SubscriptionTraffic, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+	// 部分机场根据 UA 返回不同内容；使用常见 clash 兼容 UA 提高兼容性。
+	req.Header.Set("User-Agent", "clash.meta")
 	resp, err := subscriptionHTTPClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, nil, fmt.Errorf("subscription HTTP %d", resp.StatusCode)
+	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return parseSubscriptionContent(body), nil
+	return parseSubscriptionContent(body), parseSubscriptionUserinfo(resp.Header), nil
 }
 
-func (m *SubscriptionManager) saveRefreshedSubscription(id string, outbounds []model.Outbound) error {
+func (m *SubscriptionManager) saveRefreshedSubscription(
+	id string,
+	outbounds []model.Outbound,
+	traffic *model.SubscriptionTraffic,
+) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.db.Update(func(tx *bbolt.Tx) error {
@@ -235,6 +244,7 @@ func (m *SubscriptionManager) saveRefreshedSubscription(id string, outbounds []m
 			return err
 		}
 		s.Outbounds = outbounds
+		s.Traffic = traffic
 		s.LastUpdated = time.Now()
 		s.Error = ""
 		newData, err := json.Marshal(s)

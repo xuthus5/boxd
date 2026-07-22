@@ -74,6 +74,13 @@ export interface OutboundGroup {
   all: string[]
 }
 
+export interface SubscriptionTraffic {
+  upload: number
+  download: number
+  total: number
+  expire?: string
+}
+
 export interface Subscription {
   id: string
   name: string
@@ -82,6 +89,7 @@ export interface Subscription {
   urltest?: URLTestOverrides
   last_updated: string
   error?: string
+  traffic?: SubscriptionTraffic
   outbounds?: Outbound[]
 }
 

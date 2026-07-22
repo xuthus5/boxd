@@ -153,3 +153,32 @@ func TestSubscriptionJSON(t *testing.T) {
 		t.Error("outbounds roundtrip failed")
 	}
 }
+
+func TestSubscriptionTrafficJSON(t *testing.T) {
+	expire := time.Unix(1719859200, 0).UTC()
+	sub := Subscription{
+		ID:   "1",
+		Name: "s",
+		URL:  "https://example.com",
+		Traffic: &SubscriptionTraffic{
+			Upload:   1,
+			Download: 2,
+			Total:    3,
+			Expire:   &expire,
+		},
+	}
+	data, err := json.Marshal(sub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded Subscription
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if decoded.Traffic == nil || decoded.Traffic.Upload != 1 || decoded.Traffic.Download != 2 || decoded.Traffic.Total != 3 {
+		t.Fatalf("traffic = %#v", decoded.Traffic)
+	}
+	if decoded.Traffic.Expire == nil || !decoded.Traffic.Expire.Equal(expire) {
+		t.Fatalf("expire = %v", decoded.Traffic.Expire)
+	}
+}

@@ -46,15 +46,23 @@ type Connection struct {
 	Rule     string `json:"rule,omitempty"`
 }
 
+type SubscriptionTraffic struct {
+	Upload   int64      `json:"upload"`
+	Download int64      `json:"download"`
+	Total    int64      `json:"total"`
+	Expire   *time.Time `json:"expire,omitempty"`
+}
+
 type Subscription struct {
-	ID          string            `json:"id"`
-	Name        string            `json:"name"`
-	URL         string            `json:"url"`
-	IntervalMin int               `json:"interval_min"`
-	URLTest     *URLTestOverrides `json:"urltest,omitempty"`
-	LastUpdated time.Time         `json:"last_updated"`
-	Error       string            `json:"error,omitempty"`
-	Outbounds   []Outbound        `json:"outbounds,omitempty"`
+	ID          string               `json:"id"`
+	Name        string               `json:"name"`
+	URL         string               `json:"url"`
+	IntervalMin int                  `json:"interval_min"`
+	URLTest     *URLTestOverrides    `json:"urltest,omitempty"`
+	LastUpdated time.Time            `json:"last_updated"`
+	Error       string               `json:"error,omitempty"`
+	Traffic     *SubscriptionTraffic `json:"traffic,omitempty"`
+	Outbounds   []Outbound           `json:"outbounds,omitempty"`
 }
 
 type URLTestDefaults struct {

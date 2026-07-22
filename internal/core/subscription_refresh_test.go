@@ -85,14 +85,50 @@ func TestSubscriptionRefreshAll(t *testing.T) {
 	}
 }
 
+func TestSubscriptionRefreshUserinfo(t *testing.T) {
+	db, cleanup := setupSubDB(t)
+	defer cleanup()
+
+	withSubscriptionHTTPClientHeader(t,
+		`{"outbounds":[{"tag":"node","type":"direct"}]}`,
+		http.Header{"Subscription-Userinfo": []string{"upload=1; download=2; total=10; expire=1719859200"}},
+	)
+	manager := NewSubscriptionManager(db, t.TempDir())
+	subscription, err := manager.Create(SubscriptionParams{Name: "traffic", URL: "https://example.test/traffic", IntervalMin: 60})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := manager.Refresh(subscription.ID); err != nil {
+		t.Fatal(err)
+	}
+	got := manager.Get(subscription.ID)
+	if got == nil || got.Traffic == nil {
+		t.Fatalf("expected traffic, got %#v", got)
+	}
+	if got.Traffic.Upload != 1 || got.Traffic.Download != 2 || got.Traffic.Total != 10 {
+		t.Fatalf("traffic = %#v", got.Traffic)
+	}
+	if got.Traffic.Expire == nil {
+		t.Fatal("expected expire")
+	}
+}
+
 func withSubscriptionHTTPClient(t *testing.T, body string) {
 	t.Helper()
+	withSubscriptionHTTPClientHeader(t, body, http.Header{})
+}
+
+func withSubscriptionHTTPClientHeader(t *testing.T, body string, header http.Header) {
+	t.Helper()
 	previous := subscriptionHTTPClient
+	if header == nil {
+		header = http.Header{}
+	}
 	subscriptionHTTPClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
 		return &http.Response{
 			StatusCode: http.StatusOK,
 			Body:       io.NopCloser(strings.NewReader(body)),
-			Header:     http.Header{},
+			Header:     header.Clone(),
 			Request:    req,
 		}, nil
 	})}
