@@ -1,5 +1,6 @@
 import { useId, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -12,6 +13,12 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useAuth } from "@/features/auth/auth-context"
+import {
+  buildLogExportFilename,
+  copyText,
+  downloadTextFile,
+  formatLogExport,
+} from "@/features/observability/log-export"
 import { meetsLogThreshold, type LogThreshold } from "@/features/observability/log-level"
 import { useStreamBuffer } from "@/features/observability/use-stream-buffer"
 import { usePreferences } from "@/features/preferences/preferences-provider"
@@ -69,6 +76,29 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
       && `${item.level} ${item.message}`.toLowerCase().includes(filter.toLowerCase())),
     [filter, minimum, stream.items],
   )
+  const exportText = useMemo(() => formatLogExport(items), [items])
+  const canExport = items.length > 0
+
+  const onCopy = async () => {
+    if (!canExport) return
+    try {
+      await copyText(exportText)
+      toast.success(t("observability.logsCopied", { count: items.length }))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("observability.logsCopyFailed"))
+    }
+  }
+
+  const onDownload = () => {
+    if (!canExport) return
+    try {
+      downloadTextFile(buildLogExportFilename(title), exportText)
+      toast.success(t("observability.logsExported", { count: items.length }))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("observability.logsExportFailed"))
+    }
+  }
+
   return <Card>
     <CardHeader>
       <CardTitle>{title}</CardTitle>
@@ -101,11 +131,18 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
           </Table>}
       </ScrollArea>
     </CardContent>
-    <CardFooter className="flex gap-2">
+    <CardFooter className="flex flex-wrap gap-2">
       <Button variant="outline" onClick={() => stream.setPaused(!stream.paused)}>
         {stream.paused ? t("observability.resume") : t("observability.pause")}
       </Button>
       <Button variant="outline" onClick={stream.clear}>{t("observability.clear")}</Button>
+      <Button variant="outline" disabled={!canExport} onClick={() => { void onCopy() }}>
+        {t("observability.copyLogs")}
+      </Button>
+      <Button variant="outline" disabled={!canExport} onClick={onDownload}>
+        {t("observability.exportLogs")}
+      </Button>
+      <span className="text-sm text-muted-foreground">{t("observability.shownCount", { count: items.length })}</span>
     </CardFooter>
   </Card>
 }

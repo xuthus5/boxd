@@ -103,7 +103,10 @@ export function SubscriptionsPage() {
     return response
   }).then(refresh).then(() => toast.success(t("subscriptions.refreshedAll"))).catch((error: Error) => toast.error(error.message))
 
-  const items = Array.isArray(query.data) ? query.data : []
+  const items = useMemo(
+    () => (Array.isArray(query.data) ? query.data : []),
+    [query.data],
+  )
   const failedIds = useMemo(() => failedSubscriptionIds(items), [items])
   const visible = useMemo(
     () => filterSubscriptions(items, { query: search, status }),

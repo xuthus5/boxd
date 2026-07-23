@@ -36,4 +36,48 @@ describe("observability interactions", () => {
     await user.click(within(panel).getByRole("button", { name: "清空显示" }))
     await user.click(screen.getByRole("tab", { name: "应用日志" }))
   })
+
+  it("copies and exports visible logs", async () => {
+    const user = setup("/observability/logs")
+    renderApp(<App />, "/observability/logs")
+    const panel = await screen.findByRole("tabpanel")
+    await within(panel).findByText("ready")
+
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    })
+    const click = vi.fn()
+    const remove = vi.fn()
+    const appendChild = vi.spyOn(document.body, "appendChild").mockImplementation((node) => {
+      if (node instanceof HTMLAnchorElement) {
+        Object.defineProperty(node, "click", { value: click })
+        Object.defineProperty(node, "remove", { value: remove })
+      }
+      return node
+    })
+    const createObjectURL = vi.fn().mockReturnValue("blob:logs")
+    const revokeObjectURL = vi.fn()
+    const originalCreate = URL.createObjectURL
+    const originalRevoke = URL.revokeObjectURL
+    // @ts-expect-error test stub
+    URL.createObjectURL = createObjectURL
+    // @ts-expect-error test stub
+    URL.revokeObjectURL = revokeObjectURL
+
+    try {
+      await user.click(within(panel).getByRole("button", { name: "复制可见日志" }))
+      expect(writeText).toHaveBeenCalled()
+      await user.click(within(panel).getByRole("button", { name: "导出可见日志" }))
+      expect(createObjectURL).toHaveBeenCalled()
+      expect(click).toHaveBeenCalled()
+      expect(remove).toHaveBeenCalled()
+      expect(revokeObjectURL).toHaveBeenCalledWith("blob:logs")
+    } finally {
+      URL.createObjectURL = originalCreate
+      URL.revokeObjectURL = originalRevoke
+      appendChild.mockRestore()
+    }
+  })
 })

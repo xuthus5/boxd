@@ -1,0 +1,71 @@
+import { afterEach, describe, expect, it, vi } from "vitest"
+
+import {
+  buildLogExportFilename,
+  copyText,
+  downloadTextFile,
+  formatLogExport,
+  formatLogLine,
+} from "@/features/observability/log-export"
+
+describe("log-export", () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it("formats lines and export payload", () => {
+    expect(formatLogLine({ level: "info", message: "ready", timestamp: "2026-01-01T00:00:00Z" }))
+      .toBe("2026-01-01T00:00:00Z\tinfo\tready")
+    expect(formatLogExport([
+      { level: "info", message: "a", timestamp: "t1" },
+      { level: "error", message: "b", timestamp: "" },
+    ])).toBe("t1\tinfo\ta\n-\terror\tb")
+  })
+
+  it("builds a stable filename", () => {
+    expect(buildLogExportFilename("Kernel Logs", new Date("2026-07-23T01:02:03.004Z")))
+      .toBe("boxd-kernel-logs-2026-07-23T01-02-03-004Z.log")
+  })
+
+  it("copies text through clipboard", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    await copyText("hello", { writeText })
+    expect(writeText).toHaveBeenCalledWith("hello")
+    await expect(copyText("x", undefined as never)).rejects.toThrow(/clipboard/i)
+  })
+
+  it("downloads text via temporary anchor", () => {
+    const click = vi.fn()
+    const remove = vi.fn()
+    const appendChild = vi.fn()
+    const createElement = vi.fn().mockReturnValue({
+      href: "",
+      download: "",
+      rel: "",
+      click,
+      remove,
+    })
+    const createObjectURL = vi.fn().mockReturnValue("blob:mock")
+    const revokeObjectURL = vi.fn()
+    const originalCreate = URL.createObjectURL
+    const originalRevoke = URL.revokeObjectURL
+    // @ts-expect-error test stub
+    URL.createObjectURL = createObjectURL
+    // @ts-expect-error test stub
+    URL.revokeObjectURL = revokeObjectURL
+    try {
+      downloadTextFile("a.log", "body", {
+        createElement,
+        body: { appendChild },
+      } as unknown as Document)
+      expect(createElement).toHaveBeenCalledWith("a")
+      expect(appendChild).toHaveBeenCalled()
+      expect(click).toHaveBeenCalled()
+      expect(remove).toHaveBeenCalled()
+      expect(revokeObjectURL).toHaveBeenCalledWith("blob:mock")
+    } finally {
+      URL.createObjectURL = originalCreate
+      URL.revokeObjectURL = originalRevoke
+    }
+  })
+})
