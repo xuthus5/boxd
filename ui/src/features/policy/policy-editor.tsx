@@ -1,5 +1,6 @@
-import { useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -15,7 +16,8 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ConfigDiffPanel } from "@/features/config/config-diff-panel"
 import { diffConfig } from "@/features/config/config-diff"
-import { JsonEditor } from "@/features/config/json-editor"
+import { JsonEditor, type JsonEditorHandle } from "@/features/config/json-editor"
+import { useConfigPathReveal } from "@/features/config/use-config-path-reveal"
 import {
   isJsonObject,
   isPolicySectionStructureValid,
@@ -44,6 +46,8 @@ interface PolicyEditorProps {
   renderVisual: (props: PolicyVisualEditorProps) => React.ReactNode
   installInVisual?: boolean
   onRulesChange?: (object: JsonObject, metadata: RouteRuleMetadata[]) => void
+  jumpPath?: string | null
+  onJumpPathHandled?: () => void
 }
 
 interface PolicyEditorTabsProps {
@@ -58,6 +62,9 @@ interface PolicyEditorTabsProps {
   onRulesChange?: (object: JsonObject, metadata: RouteRuleMetadata[]) => void
   onInstall?: () => void
   onGlobalSave?: (object: JsonObject) => void
+  editorRef?: React.RefObject<JsonEditorHandle | null>
+  activeTab: string
+  onTabChange: (value: string | number | null) => void
 }
 
 function parsePolicyObject(value: string): JsonObject | null {
@@ -103,11 +110,14 @@ function PolicyEditorTabs({
   onRulesChange,
   onInstall,
   onGlobalSave,
+  editorRef,
+  activeTab,
+  onTabChange,
 }: PolicyEditorTabsProps) {
   const { t } = useTranslation()
   const structureValid = Boolean(object && isPolicySectionStructureValid(section, object))
   return (
-    <Tabs defaultValue="visual" className="min-w-0">
+    <Tabs value={activeTab} onValueChange={onTabChange} className="min-w-0">
       <TabsList activateOnFocus className="h-auto max-w-full justify-start overflow-x-auto overflow-y-hidden" variant="line">
         <TabsTrigger value="visual">{t("policy.visualTab")}</TabsTrigger>
         <TabsTrigger value="json">{t("policy.advancedTab")}</TabsTrigger>
@@ -124,7 +134,7 @@ function PolicyEditorTabs({
         <FieldGroup>
           <Field>
             <FieldLabel className="sr-only">{t("policy.jsonLabel")}</FieldLabel>
-            <JsonEditor value={value} onChange={onJSONChange} ariaLabel={t("policy.jsonLabel")} />
+            <JsonEditor ref={editorRef} value={value} onChange={onJSONChange} ariaLabel={t("policy.jsonLabel")} />
           </Field>
         </FieldGroup>
       </TabsContent>
@@ -142,12 +152,35 @@ export function PolicyEditor({
   renderVisual,
   installInVisual,
   onRulesChange,
+  jumpPath,
+  onJumpPathHandled,
 }: PolicyEditorProps) {
   const { t } = useTranslation()
   const editor = usePolicyEditorState(initialSection)
+  const editorRef = useRef<JsonEditorHandle>(null)
+  const [activeTab, setActiveTab] = useState("visual")
   const structureValid = Boolean(editor.object && isPolicySectionStructureValid(section, editor.object))
   const initialObject = isJsonObject(initialSection) ? initialSection : {}
   const diffItems = editor.object ? diffConfig(initialObject, editor.object) : []
+  const reveal = useCallback((path: string) => {
+    setActiveTab("json")
+    const candidates = [path]
+    if (path.startsWith(`${section}.`)) candidates.push(path.slice(section.length + 1))
+    if (path.startsWith(`${section}[`)) candidates.push(path.slice(section.length))
+    if (!path.startsWith(section)) candidates.push(`${section}.${path.replace(/^\./, "")}`)
+    const tryReveal = () => candidates.some((candidate) => editorRef.current?.revealPath(candidate) ?? false)
+    if (tryReveal()) return true
+    window.setTimeout(() => {
+      if (!tryReveal()) toast.message(t("config.pathNotFound", { path }))
+    }, 50)
+    return true
+  }, [section, t])
+  useConfigPathReveal((path) => reveal(path), { section })
+  useEffect(() => {
+    if (!jumpPath) return
+    reveal(jumpPath)
+    onJumpPathHandled?.()
+  }, [jumpPath, onJumpPathHandled, reveal])
   const savePolicy = () => {
     if (editor.object) onSave(editor.object)
   }
@@ -179,10 +212,17 @@ export function PolicyEditor({
           onRulesChange={onRulesChange}
           onInstall={onInstall}
           onGlobalSave={section === "route" || section === "dns" ? saveGlobal : undefined}
+          editorRef={editorRef}
+          activeTab={activeTab}
+          onTabChange={(value) => setActiveTab(String(value || "visual"))}
         />
       </CardContent>
       <CardFooter className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
-        {!installInVisual ? <div data-testid="policy-diff-summary"><ConfigDiffPanel items={diffItems} /></div> : <span />}
+        {!installInVisual ? (
+          <div data-testid="policy-diff-summary">
+            <ConfigDiffPanel items={diffItems} onSelectPath={reveal} />
+          </div>
+        ) : <span />}
         <div className="flex flex-wrap justify-end gap-2">
           {!installInVisual ? <Button variant="outline" size="sm" className="h-8" onClick={onInstall}>{installLabel}</Button> : null}
           {!installInVisual ? <Button size="sm" className="h-8" disabled={!editor.object || !structureValid || editor.invalidFields.size > 0} onClick={savePolicy}>

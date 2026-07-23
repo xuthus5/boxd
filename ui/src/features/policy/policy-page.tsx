@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
@@ -43,6 +44,7 @@ export function PolicyPage({
   const query = useConfigQuery()
   const save = useSaveConfigMutation()
   const { saveError, clearSaveError, reportError, reportRollback } = useConfigSaveError()
+  const [jumpPath, setJumpPath] = useState<string | null>(null)
   if (query.isLoading) return <Skeleton className="h-64 w-full" />
   if (query.error) {
     return (
@@ -109,7 +111,11 @@ export function PolicyPage({
 
   return (
     <div className="flex flex-col gap-3 sm:gap-4">
-      <ConfigSaveErrorAlert error={saveError} onDismiss={clearSaveError} />
+      <ConfigSaveErrorAlert
+        error={saveError}
+        onDismiss={clearSaveError}
+        onJumpToPath={(path) => setJumpPath(path)}
+      />
       <PolicyEditor
         section={section}
         key={JSON.stringify(initialSection)}
@@ -121,6 +127,8 @@ export function PolicyPage({
         renderVisual={renderVisual}
         installInVisual={installInVisual}
         onRulesChange={section === "route" || section === "dns" ? persistRules : undefined}
+        jumpPath={jumpPath}
+        onJumpPathHandled={() => setJumpPath(null)}
       />
     </div>
   )

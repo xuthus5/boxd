@@ -149,4 +149,24 @@ describe("PolicyPage editor shell", () => {
       }),
     })))
   })
+
+  it("makes config diff paths clickable in the advanced editor shell", async () => {
+    const config = { route: { final: "proxy", auto_detect_interface: true } }
+    stubConfig(config)
+    renderPolicy(({ object }) => <p>可视化内容：{String(object.final)}</p>)
+    expect(await screen.findByText("可视化内容：proxy")).toBeInTheDocument()
+    // edit JSON so a diff appears
+    const user = userEvent.setup()
+    await user.click(screen.getByRole("tab", { name: "高级 JSON" }))
+    const editor = screen.getByRole("textbox", { name: "流量策略 JSON" })
+    await user.click(editor)
+    await user.keyboard("{Control>}a{/Control}")
+    await user.paste(JSON.stringify({ final: "direct" }, null, 2))
+    // switch back to ensure footer still visible
+    const pathButton = await screen.findByRole("button", { name: "final" })
+    expect(pathButton).toBeInTheDocument()
+    await user.click(pathButton)
+    expect(screen.getByRole("tab", { name: "高级 JSON" })).toHaveAttribute("aria-selected", "true")
+  })
+
 })
