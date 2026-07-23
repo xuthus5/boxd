@@ -66,15 +66,33 @@ func validateRuntimeConfig(body []byte) error {
 }
 
 func runtimeConfigErrorMessage(err error) string {
-	msg := err.Error()
+	msg := strings.TrimSpace(err.Error())
 	prefix := ErrInvalidRuntimeConfig.Error() + ": "
 	if detail, ok := strings.CutPrefix(msg, prefix); ok && detail != "" {
-		return detail
+		msg = strings.TrimSpace(detail)
 	}
-	if msg != "" {
-		return msg
+	// Collapse multi-line decoder noise to a single readable line.
+	if lines := strings.Split(msg, "\n"); len(lines) > 1 {
+		first := strings.TrimSpace(lines[0])
+		for _, line := range lines[1:] {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+			if strings.Contains(line, ".") || strings.Contains(line, "[") {
+				msg = first + ": " + line
+				break
+			}
+		}
+		if !strings.Contains(msg, ":") {
+			msg = first
+		}
 	}
-	return "invalid sing-box config"
+	msg = strings.TrimSpace(msg)
+	if msg == "" {
+		return "invalid sing-box config"
+	}
+	return msg
 }
 
 func restartFailureMessage(err error) string {

@@ -323,6 +323,10 @@ func TestRuntimeConfigErrorMessage(t *testing.T) {
 	if got := runtimeConfigErrorMessage(errors.New("plain")); got != "plain" {
 		t.Fatalf("plain = %q", got)
 	}
+	multi := errors.New("decode config failed\ninbounds[0].listen_port: invalid type")
+	if got := runtimeConfigErrorMessage(multi); !strings.Contains(got, "inbounds[0].listen_port") {
+		t.Fatalf("multi = %q", got)
+	}
 }
 
 func TestInstallDefaultInboundsSuccess(t *testing.T) {

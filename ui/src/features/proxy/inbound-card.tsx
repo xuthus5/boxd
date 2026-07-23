@@ -3,6 +3,7 @@ import { useId } from "react"
 import { useTranslation } from "react-i18next"
 
 import { ConfirmAction } from "@/components/confirm-action"
+import { CopyTagButton } from "@/features/proxy/copy-tag-button"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -45,11 +46,7 @@ export function InboundCard({ item, onEdit, onDelete, onPatch, busy }: InboundCa
         <CardHeader className="min-w-0">
           <CardTitle><h2 id={titleId} className="truncate">{tag}</h2></CardTitle>
           <CardDescription className="truncate">{address}</CardDescription>
-          <CardAction>
-            <Button variant="outline" size="xs" onClick={onEdit}>
-              <PencilIcon data-icon="inline-start" />{t("common.edit")}
-            </Button>
-          </CardAction>
+          <CardAction className="flex gap-1"><CopyTagButton tag={tag} /><Button variant="outline" size="xs" onClick={onEdit}><PencilIcon data-icon="inline-start" />{t("common.edit")}</Button></CardAction>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           <div className="flex flex-wrap gap-2">

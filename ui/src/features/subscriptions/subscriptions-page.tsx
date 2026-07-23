@@ -13,6 +13,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { Skeleton } from "@/components/ui/skeleton"
 import { ImportedNodesCard } from "@/features/subscriptions/imported-nodes-card"
 import { SubscriptionDialog } from "@/features/subscriptions/subscription-dialog"
+import { formatRelativeTime } from "@/features/subscriptions/relative-time"
 import { SubscriptionTrafficBadges } from "@/features/subscriptions/subscription-traffic"
 import { api } from "@/lib/api/endpoints"
 import type { Subscription } from "@/lib/api/types"
@@ -36,7 +37,7 @@ function sortSubscriptions(items: Subscription[]) {
 }
 
 function SubscriptionItem({ item, onEdit, onRefresh, onDelete }: ItemProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   return (
     <article aria-label={item.name}>
       <Card size="sm">
@@ -46,7 +47,11 @@ function SubscriptionItem({ item, onEdit, onRefresh, onDelete }: ItemProps) {
           <CardAction><Badge variant="outline">{t("subscriptions.nodeCount", { count: item.outbounds?.length ?? 0 })}</Badge></CardAction>
         </CardHeader>
         <CardContent className="flex flex-col gap-2">
-          <span className="text-sm text-muted-foreground">{t("subscriptions.lastUpdated")}: {new Date(item.last_updated).toLocaleString()}</span>
+          <span className="text-sm text-muted-foreground" title={item.last_updated ? new Date(item.last_updated).toLocaleString() : undefined}>
+            {item.last_updated && !Number.isNaN(Date.parse(item.last_updated))
+              ? t("subscriptions.updatedRelative", { time: formatRelativeTime(item.last_updated, Date.now(), i18n.language) })
+              : t("subscriptions.neverUpdated")}
+          </span>
           <div className="flex flex-wrap gap-2">
             <Badge variant={item.error ? "destructive" : "secondary"}>{item.error || t("common.normal")}</Badge>
             <Badge variant="outline">{urlTestStatus(item, t)}</Badge>

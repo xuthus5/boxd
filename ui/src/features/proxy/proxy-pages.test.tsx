@@ -10,13 +10,13 @@ afterEach(() => { vi.unstubAllGlobals(); sessionStore.clear() })
 describe("proxy configuration pages", () => {
   it("renders each inbound configuration as a card", async () => {
     sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
       inbounds: [
         { tag: "mixed-in", type: "mixed", listen: "::", listen_port: 1080 },
         { tag: "tun-in", type: "tun", interface_name: "tun0" },
       ],
       outbounds: [],
-    }))))
+    })))))
 
     renderApp(<App />, "/proxy/inbounds")
 
@@ -25,6 +25,7 @@ describe("proxy configuration pages", () => {
     expect(screen.getAllByRole("article")).toHaveLength(2)
     expect(screen.queryByRole("table")).not.toBeInTheDocument()
     expect(screen.getByRole("button", { name: "新增入站" })).toBeInTheDocument()
+    expect(screen.getByLabelText("搜索配置")).toBeInTheDocument()
   })
 
   it("renders each outbound configuration as a card", async () => {

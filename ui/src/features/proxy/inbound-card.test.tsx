@@ -57,4 +57,5 @@ describe("InboundCard", () => {
     expect(screen.getByText("系统代理已开")).toBeInTheDocument()
     expect(screen.queryByRole("switch")).not.toBeInTheDocument()
   })
+
 })

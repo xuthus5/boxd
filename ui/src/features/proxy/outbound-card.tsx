@@ -3,6 +3,7 @@ import { useId } from "react"
 import { useTranslation } from "react-i18next"
 
 import { ConfirmAction } from "@/components/confirm-action"
+import { CopyTagButton } from "@/features/proxy/copy-tag-button"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -28,7 +29,7 @@ export function OutboundCard({ item, onEdit, onDelete }: { item: JsonObject; onE
   const transport = typeof item.transport === "object" && item.transport && !Array.isArray(item.transport) ? text(item.transport.type) : null
   const tls = typeof item.tls === "object" && item.tls && !Array.isArray(item.tls) && item.tls.enabled === true
   return <article aria-labelledby={titleId}><Card size="sm" className="h-full">
-    <CardHeader className="min-w-0"><CardTitle><h2 id={titleId} className="truncate">{tag}</h2></CardTitle><CardDescription className="truncate">{server ?? t("proxy.outbound.groupOutbound")}</CardDescription><CardAction><Button variant="outline" size="xs" onClick={onEdit}><PencilIcon data-icon="inline-start" />{t("common.edit")}</Button></CardAction></CardHeader>
+    <CardHeader className="min-w-0"><CardTitle><h2 id={titleId} className="truncate">{tag}</h2></CardTitle><CardDescription className="truncate">{server ?? t("proxy.outbound.groupOutbound")}</CardDescription><CardAction className="flex gap-1"><CopyTagButton tag={tag} /><Button variant="outline" size="xs" onClick={onEdit}><PencilIcon data-icon="inline-start" />{t("common.edit")}</Button></CardAction></CardHeader>
     <CardContent className="flex flex-col gap-3"><div className="flex flex-wrap gap-2"><Badge>{type}</Badge>{tls ? <Badge variant="secondary">TLS</Badge> : null}{transport && transport !== "—" ? <Badge variant="outline">{transport}</Badge> : null}</div>{members.length ? <p className="line-clamp-2 text-sm text-muted-foreground">{t("proxy.outbound.members", { members: members.join(", ") })}</p> : null}{item.detour ? <p className="truncate text-sm text-muted-foreground">{t("proxy.outbound.detourSummary", { detour: text(item.detour) })}</p> : null}</CardContent>
     <CardFooter className="justify-end"><ConfirmAction trigger={<Button variant="destructive" size="xs"><Trash2Icon data-icon="inline-start" />{t("common.delete")}</Button>} title={t("proxy.deleteTitle")} description={t("proxy.deleteDescription", { tag })} confirmLabel={t("proxy.confirmDelete")} confirmVariant="destructive" onConfirm={onDelete} /></CardFooter>
   </Card></article>

@@ -54,4 +54,5 @@ describe("OutboundCard", () => {
     await user.click(screen.getByRole("button", { name: "确认删除" }))
     expect(onDelete).toHaveBeenCalled()
   })
+
 })
