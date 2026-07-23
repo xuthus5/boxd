@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   buildConnectionsHref,
+  connectionTargetLogQuery,
   connectionFacetValue,
   connectionFiltersActive,
   filterConnectionsByFacets,
@@ -62,4 +63,12 @@ describe("connection-facets", () => {
     )
     expect(buildConnectionsHref({})).toBe("/observability/connections")
   })
+
+  it("derives log query hosts from connection targets", () => {
+    expect(connectionTargetLogQuery("example.com:443")).toBe("example.com")
+    expect(connectionTargetLogQuery("[2001:db8::1]:443")).toBe("2001:db8::1")
+    expect(connectionTargetLogQuery("plain-host")).toBe("plain-host")
+    expect(connectionTargetLogQuery("")).toBe("")
+  })
 })
+

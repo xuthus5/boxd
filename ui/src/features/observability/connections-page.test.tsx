@@ -164,4 +164,20 @@ describe("ConnectionsPage", () => {
     expect(screen.getByText("显示 1 条")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "清除筛选" })).toBeInTheDocument()
   })
+
+
+  it("deep-links connection targets to log search", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    mockConnectionsFetch()
+    renderApp(<App />, "/observability/connections")
+
+    expect(await screen.findByText("example.com:443")).toBeInTheDocument()
+    const link = screen.getByRole("link", { name: "查看日志: example.com:443" })
+    expect(link).toHaveAttribute("href", "/observability/logs?q=example.com")
+    expect(screen.getByRole("link", { name: "查看日志: cdn.example.net:443" })).toHaveAttribute(
+      "href",
+      "/observability/logs?q=cdn.example.net",
+    )
+  })
+
 })

@@ -1,9 +1,10 @@
-import { CopyIcon } from "lucide-react"
+import { CopyIcon, ScrollTextIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { Link } from "react-router-dom"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -13,9 +14,17 @@ import {
   type ConnectionColumnId,
 } from "@/features/observability/connection-columns"
 import { formatBytes } from "@/features/dashboard/format"
+import { connectionTargetLogQuery } from "@/features/observability/connection-facets"
+import { buildLogsHref } from "@/features/observability/log-filter-presets"
 import { copyText } from "@/features/proxy/copy-tag-button"
 import { useIsMobile } from "@/hooks/use-mobile"
 import type { Connection } from "@/lib/api/types"
+import { cn } from "@/lib/utils"
+
+function targetLogsHref(target?: string) {
+  const query = connectionTargetLogQuery(target)
+  return query ? buildLogsHref({ query }) : ""
+}
 
 function formatDuration(start: string) {
   const startedAt = new Date(start).getTime()
@@ -109,7 +118,17 @@ function ConnectionMobileCard({
           {show("outbound") && show("rule") ? " · " : null}
           {show("rule") ? (connection.rule || "—") : null}
         </CardDescription>
-        <CardAction>
+        <CardAction className="flex flex-wrap justify-end gap-1">
+          {connection.target ? (
+            <Link
+              to={targetLogsHref(connection.target)}
+              aria-label={`${t("observability.viewTargetLogs")}: ${connection.target}`}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              <ScrollTextIcon data-icon="inline-start" />
+              {t("observability.viewTargetLogs")}
+            </Link>
+          ) : null}
           <Button size="sm" variant="destructive" disabled={busy} onClick={() => onClose(id)}>
             {t("observability.close")}
           </Button>
@@ -191,9 +210,21 @@ export function ConnectionListTable({
                 if (column.id === "actions") {
                   return (
                     <TableCell key={column.id}>
-                      <Button size="sm" variant="destructive" disabled={busy} onClick={() => onClose(id)}>
-                        {t("observability.close")}
-                      </Button>
+                      <div className="flex flex-wrap items-center gap-1">
+                        {connection.target ? (
+                          <Link
+                            to={targetLogsHref(connection.target)}
+                            aria-label={`${t("observability.viewTargetLogs")}: ${connection.target}`}
+                            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                          >
+                            <ScrollTextIcon data-icon="inline-start" />
+                            {t("observability.viewTargetLogs")}
+                          </Link>
+                        ) : null}
+                        <Button size="sm" variant="destructive" disabled={busy} onClick={() => onClose(id)}>
+                          {t("observability.close")}
+                        </Button>
+                      </div>
                     </TableCell>
                   )
                 }

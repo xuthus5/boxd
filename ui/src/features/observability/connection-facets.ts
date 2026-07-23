@@ -111,3 +111,19 @@ export function buildConnectionsHref(filters: ConnectionFacetFilters = {}): stri
   const qs = params.toString()
   return qs ? `/observability/connections?${qs}` : "/observability/connections"
 }
+
+
+/** Build a log search query from a connection target (host:port or host). */
+export function connectionTargetLogQuery(target: string | undefined): string {
+  const raw = target?.trim() ?? ""
+  if (!raw) return ""
+  if (raw.startsWith("[")) {
+    const close = raw.indexOf("]")
+    if (close > 0) return raw.slice(1, close)
+  }
+  // host:port -> host (only when a single trailing numeric port exists)
+  const match = raw.match(/^(.*):(\d+)$/)
+  if (match && !match[1].includes(":")) return match[1]
+  return raw
+}
+
