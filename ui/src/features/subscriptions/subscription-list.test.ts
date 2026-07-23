@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   buildSubscriptionsHref,
   failedSubscriptionIds,
+  listFailedSubscriptions,
   filterSubscriptions,
   matchesSubscription,
   parseSubscriptionSearchParams,
@@ -57,3 +58,13 @@ describe("subscription-list", () => {
     expect(summarizeSubscriptionStatus(sample, "备用")).toEqual({ total: 1, ok: 1, error: 0 })
   })
 })
+
+  it("lists a limited failed-subscription preview", () => {
+    const preview = listFailedSubscriptions(sample, 1)
+    expect(preview).toHaveLength(1)
+    expect(preview[0]?.id).toBe("c") // newer failed first
+    expect(listFailedSubscriptions(sample, 2).map((item) => item.id)).toEqual(["c", "a"])
+    expect(listFailedSubscriptions(sample, 0)).toEqual([])
+    expect(listFailedSubscriptions([], 5)).toEqual([])
+  })
+

@@ -76,6 +76,12 @@ describe("SetupChecklistCard", () => {
       "href",
       "/subscriptions?status=error",
     )
+    expect(screen.getByText("失败订阅")).toBeInTheDocument()
+    expect(screen.getAllByText("timeout").length).toBeGreaterThan(0)
+    expect(screen.getByRole("link", { name: "查看: 失败订阅" })).toHaveAttribute(
+      "href",
+      "/subscriptions?q=%E5%A4%B1%E8%B4%A5%E8%AE%A2%E9%98%85&status=error",
+    )
     // setup complete: incomplete steps list is hidden
     expect(screen.queryByText("去配置")).not.toBeInTheDocument()
   })

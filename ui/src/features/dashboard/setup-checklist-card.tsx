@@ -10,9 +10,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Skeleton } from "@/components/ui/skeleton"
 import { useConfigQuery } from "@/features/config/config-hooks"
 import { buildSetupSteps, setupProgress, type SetupStepId } from "@/features/dashboard/setup-checklist"
+import { FailedSubscriptionsPreview } from "@/features/dashboard/failed-subscriptions-preview"
 import {
   buildSubscriptionsHref,
   failedSubscriptionIds,
+  listFailedSubscriptions,
 } from "@/features/subscriptions/subscription-list"
 import { api } from "@/lib/api/endpoints"
 import type { ServiceStatus, Subscription } from "@/lib/api/types"
@@ -36,6 +38,7 @@ export function SetupChecklistCard({ status }: { status?: ServiceStatus }) {
     [subscriptions.data],
   )
   const failedCount = useMemo(() => failedSubscriptionIds(items).length, [items])
+  const failedPreview = useMemo(() => listFailedSubscriptions(items, 3), [items])
   const failedHref = buildSubscriptionsHref({ status: "error" })
 
   const steps = useMemo(
@@ -91,16 +94,19 @@ export function SetupChecklistCard({ status }: { status?: ServiceStatus }) {
         </CardContent>
       ) : null}
       {showFailed ? (
-        <CardFooter className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-destructive">
-            {t("dashboard.failedSubscriptions", { count: failedCount })}
-          </p>
-          <Link
-            to={failedHref}
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8 shrink-0")}
-          >
-            {t("dashboard.openFailedSubscriptions")}
-          </Link>
+        <CardFooter className="flex flex-col items-stretch gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-destructive">
+              {t("dashboard.failedSubscriptions", { count: failedCount })}
+            </p>
+            <Link
+              to={failedHref}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8 shrink-0")}
+            >
+              {t("dashboard.openFailedSubscriptions")}
+            </Link>
+          </div>
+          <FailedSubscriptionsPreview items={failedPreview} total={failedCount} />
         </CardFooter>
       ) : null}
     </Card>

@@ -43,6 +43,12 @@ export function failedSubscriptionIds(items: Subscription[]) {
   return items.filter((item) => Boolean(item.error)).map((item) => item.id)
 }
 
+/** 失败优先排序后的失败订阅预览（默认最多 5 条）。 */
+export function listFailedSubscriptions(items: readonly Subscription[], limit = 5): Subscription[] {
+  if (!Array.isArray(items) || items.length === 0 || limit <= 0) return []
+  return sortSubscriptions(items.filter((item) => Boolean(item.error))).slice(0, Math.floor(limit))
+}
+
 export type SubscriptionListFilters = {
   query?: string
   status?: SubscriptionFilter
