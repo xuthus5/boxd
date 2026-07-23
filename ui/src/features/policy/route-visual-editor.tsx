@@ -28,10 +28,15 @@ import {
 import { toggleRuleInvert } from "@/features/policy/rule-invert"
 import { RouteRuleDialog } from "@/features/policy/route-rule-dialog"
 import { RouteRuleSetCard } from "@/features/policy/route-rule-set-card"
+import {
+  formatRuleSetUpdateMessage,
+  ruleSetUpdateToastTone,
+  summarizeRuleSetUpdate,
+} from "@/features/policy/ruleset-update-error"
 import { RouteRuleSetDialog } from "@/features/policy/route-rule-set-dialog"
 import { routeRuleSets, routeRules, setRouteRuleSets, setRouteRules } from "@/features/policy/route-form-model"
 import { api } from "@/lib/api/endpoints"
-import type { JsonValue, RouteRuleMetadata, RuleSetStatusItem } from "@/lib/api/types"
+import type { JsonValue, RouteRuleMetadata, RuleSetStatusItem, RuleSetUpdateResult } from "@/lib/api/types"
 
 interface EditorSelection {
   kind: "rule" | "rule-set"
@@ -161,15 +166,21 @@ function RuleSetSection({ object, onChange, onRulesChange, onEdit }: {
   const statusItems = Array.isArray(statusQuery.data) ? statusQuery.data : []
   const statusByTag = new Map(statusItems.map((item: RuleSetStatusItem) => [item.tag, item]))
   const [pendingTag, setPendingTag] = useState<string | null>(null)
+  const [lastUpdateByTag, setLastUpdateByTag] = useState<Record<string, RuleSetUpdateResult>>({})
   const updateMutation = useMutation({
     mutationFn: (input?: { tags?: string[]; types?: string[] }) => api.config.updateRuleSets(input),
     onSuccess: async (envelope) => {
-      const data = envelope.data
-      const updated = data?.updated_count ?? 0
-      const failed = data?.failed_count ?? 0
-      if (failed > 0 && updated > 0) toast.warning(t("policy.route.ruleSetUpdatePartial", { updated, failed }))
-      else if (failed > 0) toast.error(t("policy.route.ruleSetUpdateFailed", { failed }))
-      else toast.success(t("policy.route.ruleSetUpdateSuccess", { updated }))
+      const summary = summarizeRuleSetUpdate(envelope.data)
+      const message = formatRuleSetUpdateMessage(summary, t)
+      const tone = ruleSetUpdateToastTone(summary)
+      if (tone === "error") toast.error(message)
+      else if (tone === "warning") toast.warning(message)
+      else toast.success(message)
+      const next: Record<string, RuleSetUpdateResult> = {}
+      for (const item of envelope.data?.results ?? []) {
+        if (item.tag) next[item.tag] = item
+      }
+      if (Object.keys(next).length) setLastUpdateByTag((prev) => ({ ...prev, ...next }))
       await queryClient.invalidateQueries({ queryKey: ["rule-sets", "status"] })
       await queryClient.invalidateQueries({ queryKey: ["config"] })
     },
@@ -196,7 +207,7 @@ function RuleSetSection({ object, onChange, onRulesChange, onEdit }: {
       : <div className="flex flex-col gap-2 sm:gap-3">{ruleSets.map((item, index) => {
         const tag = typeof item.tag === "string" ? item.tag : ""
         const status = statusByTag.get(tag)
-        return <RouteRuleSetCard key={index} item={item} status={status}
+        return <RouteRuleSetCard key={index} item={item} status={status} lastUpdate={tag ? lastUpdateByTag[tag] : undefined}
           updating={updateMutation.isPending && (pendingTag === tag || pendingTag === "*")}
           onEdit={() => onEdit(index)} onCopy={() => update(insertCopy(ruleSets, index))}
           onDelete={() => update(ruleSets.filter((_, itemIndex) => itemIndex !== index))}

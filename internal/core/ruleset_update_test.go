@@ -326,6 +326,9 @@ func TestRuleSetUpdaterRemoteEdgeCases(t *testing.T) {
 	if result.FailedCount != 1 {
 		t.Fatalf("empty url result = %#v", result)
 	}
+	if result.Results[0].ErrorCode != RuleSetErrorInvalidURL {
+		t.Fatalf("empty url code = %#v", result.Results[0])
+	}
 
 	// unexpected status
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -348,6 +351,9 @@ func TestRuleSetUpdaterRemoteEdgeCases(t *testing.T) {
 	if result.FailedCount != 1 {
 		t.Fatalf("bad status result = %#v", result)
 	}
+	if result.Results[0].ErrorCode != RuleSetErrorHTTP {
+		t.Fatalf("bad status code = %#v", result.Results[0])
+	}
 
 	// empty body
 	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -369,6 +375,9 @@ func TestRuleSetUpdaterRemoteEdgeCases(t *testing.T) {
 	}
 	if result.FailedCount != 1 {
 		t.Fatalf("empty body result = %#v", result)
+	}
+	if result.Results[0].ErrorCode != RuleSetErrorEmpty {
+		t.Fatalf("empty body code = %#v", result.Results[0])
 	}
 }
 

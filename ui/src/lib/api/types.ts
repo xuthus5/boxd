@@ -222,6 +222,7 @@ export interface RuleSetUpdateResult {
   updated_at?: string
   not_modified?: boolean
   error?: string
+  error_code?: string
 }
 
 export interface RuleSetUpdateResponse {

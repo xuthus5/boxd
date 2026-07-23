@@ -149,7 +149,8 @@ func (u *RuleSetUpdater) Update(ctx context.Context, req RuleSetUpdateRequest) (
 		case result.OK && !result.NotModified:
 			resp.UpdatedCount++
 		case result.OK && result.NotModified:
-		case strings.Contains(result.Error, "not auto-updated") || strings.Contains(result.Error, "not updatable"):
+		case result.ErrorCode == RuleSetErrorNotUpdatable || result.ErrorCode == RuleSetErrorUnsupported ||
+			strings.Contains(result.Error, "not auto-updated") || strings.Contains(result.Error, "not updatable"):
 			resp.SkippedCount++
 		default:
 			resp.FailedCount++
@@ -177,8 +178,7 @@ func (u *RuleSetUpdater) updateOne(ctx context.Context, entry map[string]any) mo
 	case "remote":
 		return u.updateRemote(ctx, entry, result)
 	default:
-		result.Error = ErrRuleSetNotUpdatable.Error()
-		return result
+		return failRuleSetResult(result, ErrRuleSetNotUpdatable.Error(), ErrRuleSetNotUpdatable)
 	}
 }
 
@@ -186,13 +186,11 @@ func (u *RuleSetUpdater) updateLocal(ctx context.Context, entry map[string]any, 
 	tag := result.Tag
 	src, ok := u.installer.SourceByTag(tag)
 	if !ok {
-		result.Error = "custom local rule-set files are not auto-updated"
-		return result
+		return failRuleSetResult(result, "custom local rule-set files are not auto-updated", nil)
 	}
 	ruleFile, err := u.installer.fetchAndConvert(ctx, src)
 	if err != nil {
-		result.Error = err.Error()
-		return result
+		return failRuleSetResult(result, err.Error(), err)
 	}
 	path, _ := entry["path"].(string)
 	if path == "" {
@@ -200,12 +198,10 @@ func (u *RuleSetUpdater) updateLocal(ctx context.Context, entry map[string]any, 
 	}
 	data, err := json.MarshalIndent(ruleFile, "", "  ")
 	if err != nil {
-		result.Error = err.Error()
-		return result
+		return failRuleSetResult(result, err.Error(), err)
 	}
 	if err := atomicWriteFile0600(path, data); err != nil {
-		result.Error = err.Error()
-		return result
+		return failRuleSetResult(result, err.Error(), err)
 	}
 	now := time.Now()
 	result.OK = true
@@ -216,8 +212,7 @@ func (u *RuleSetUpdater) updateLocal(ctx context.Context, entry map[string]any, 
 func (u *RuleSetUpdater) updateRemote(ctx context.Context, entry map[string]any, result model.RuleSetUpdateResult) model.RuleSetUpdateResult {
 	url, _ := entry["url"].(string)
 	if strings.TrimSpace(url) == "" {
-		result.Error = "remote rule-set url is empty"
-		return result
+		return failRuleSetResult(result, "remote rule-set url is empty", nil)
 	}
 	etag := ""
 	if cache, err := u.openCacheReadOnly(); err == nil && cache != nil {
@@ -228,24 +223,21 @@ func (u *RuleSetUpdater) updateRemote(ctx context.Context, entry map[string]any,
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		result.Error = err.Error()
-		return result
+		return failRuleSetResult(result, err.Error(), err)
 	}
 	if etag != "" {
 		req.Header.Set("If-None-Match", etag)
 	}
 	resp, err := u.client.Do(req)
 	if err != nil {
-		result.Error = err.Error()
-		return result
+		return failRuleSetResult(result, err.Error(), err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 	now := time.Now()
 	switch resp.StatusCode {
 	case http.StatusNotModified:
 		if err := u.touchRemoteCache(result.Tag, now); err != nil && !errors.Is(err, ErrRuleSetCacheDisabled) {
-			result.Error = err.Error()
-			return result
+			return failRuleSetResult(result, err.Error(), err)
 		}
 		result.OK = true
 		result.NotModified = true
@@ -253,22 +245,18 @@ func (u *RuleSetUpdater) updateRemote(ctx context.Context, entry map[string]any,
 		return result
 	case http.StatusOK:
 	default:
-		result.Error = fmt.Sprintf("unexpected status %d", resp.StatusCode)
-		return result
+		return failRuleSetResult(result, fmt.Sprintf("unexpected status %d", resp.StatusCode), nil)
 	}
 	content, err := io.ReadAll(resp.Body)
 	if err != nil {
-		result.Error = err.Error()
-		return result
+		return failRuleSetResult(result, err.Error(), err)
 	}
 	if len(content) == 0 {
-		result.Error = "empty rule-set body"
-		return result
+		return failRuleSetResult(result, "empty rule-set body", nil)
 	}
 	newEtag := resp.Header.Get("Etag")
 	if err := u.saveRemoteCache(result.Tag, content, newEtag, now); err != nil {
-		result.Error = err.Error()
-		return result
+		return failRuleSetResult(result, err.Error(), err)
 	}
 	result.OK = true
 	result.UpdatedAt = &now

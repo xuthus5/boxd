@@ -9,6 +9,7 @@ import { i18n } from "@/i18n"
 function renderCard(options: {
   item?: Record<string, unknown>
   status?: Parameters<typeof RouteRuleSetCard>[0]["status"]
+  lastUpdate?: Parameters<typeof RouteRuleSetCard>[0]["lastUpdate"]
   updating?: boolean
   withUpdate?: boolean
 } = {}) {
@@ -21,6 +22,7 @@ function renderCard(options: {
       <RouteRuleSetCard
         item={(options.item ?? { type: "remote", tag: "geo", url: "https://example.com/geo.srs" }) as never}
         status={options.status}
+        lastUpdate={options.lastUpdate}
         updating={options.updating}
         onEdit={onEdit}
         onCopy={onCopy}
@@ -75,5 +77,30 @@ describe("RouteRuleSetCard", () => {
     await user.click(screen.getByRole("button", { name: "删除规则集 geo" }))
     await user.click(screen.getByRole("button", { name: "确认删除" }))
     expect(onDelete).toHaveBeenCalled()
+  })
+})
+
+
+describe("RouteRuleSetCard update errors", () => {
+  it("renders failed update diagnostics and copies them", async () => {
+    const copy = await import("@/features/proxy/copy-tag-button")
+    const spy = vi.spyOn(copy, "copyText").mockResolvedValue()
+    renderCard({
+      status: { tag: "geo", type: "remote", updatable: true, builtin: false },
+      lastUpdate: {
+        tag: "geo",
+        type: "remote",
+        ok: false,
+        error: "unexpected status 500",
+        error_code: "http_status",
+      },
+    })
+    expect(screen.getByText("http_status")).toBeInTheDocument()
+    expect(screen.getByText("unexpected status 500")).toBeInTheDocument()
+    expect(screen.getByText(/非成功状态码|non-success/i)).toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole("button", { name: "复制更新错误: geo" }))
+    expect(spy).toHaveBeenCalled()
+    expect(String(spy.mock.calls[0][0])).toContain("code: http_status")
+    spy.mockRestore()
   })
 })

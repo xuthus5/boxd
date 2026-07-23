@@ -34,6 +34,7 @@ type RuleSetUpdateResult struct {
 	UpdatedAt   *time.Time `json:"updated_at,omitempty"`
 	NotModified bool       `json:"not_modified,omitempty"`
 	Error       string     `json:"error,omitempty"`
+	ErrorCode   string     `json:"error_code,omitempty"`
 }
 
 // RuleSetUpdateResponse 批量更新汇总。
