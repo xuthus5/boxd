@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
@@ -8,16 +8,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ConfirmAction } from "@/components/confirm-action"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Skeleton } from "@/components/ui/skeleton"
+import { ConfigDiffPanel } from "@/features/config/config-diff-panel"
 import { useRawConfigQuery, useSaveConfigMutation } from "@/features/config/config-hooks"
-import { JsonEditor } from "@/features/config/json-editor"
 import { diffConfig, formatConfigDiffSummary } from "@/features/config/config-diff"
+import { JsonEditor, type JsonEditorHandle } from "@/features/config/json-editor"
 import { isValidJSON } from "@/features/config/json-utils"
 import type { SingBoxConfig } from "@/lib/api/types"
-import { rolledBackMessage } from "@/lib/api/status"
+import { rolledBackMessage, saveErrorMessage } from "@/lib/api/status"
+import { parseConfigError } from "@/lib/api/config-error"
 
 function RawEditor({ initial }: { initial: SingBoxConfig }) {
   const { t } = useTranslation()
+  const editorRef = useRef<JsonEditorHandle>(null)
   const [value, setValue] = useState(() => JSON.stringify(initial, null, 2))
+  const [errorPath, setErrorPath] = useState<string | null>(null)
   const save = useSaveConfigMutation(true)
   const valid = isValidJSON(value)
   const nextConfig = valid ? JSON.parse(value) as SingBoxConfig : null
@@ -29,24 +33,50 @@ function RawEditor({ initial }: { initial: SingBoxConfig }) {
     none: t("advanced.diffNone"),
     more: t("advanced.diffMore"),
   })
+  const reveal = (path: string) => {
+    const ok = editorRef.current?.revealPath(path) ?? false
+    if (!ok) toast.message(t("config.pathNotFound", { path }))
+  }
   const persist = () => {
     if (!nextConfig) return
+    setErrorPath(null)
     save.mutate(nextConfig, {
       onSuccess: (response) => response.status === "rolled_back"
         ? toast.error(rolledBackMessage(response, t("advanced.rolledBack")))
         : toast.success(t("advanced.rawSaved")),
-      onError: (error) => toast.error(error.message),
+      onError: (error) => {
+        const message = saveErrorMessage(error)
+        toast.error(message)
+        const parsed = parseConfigError(error.message)
+        if (parsed.path) {
+          setErrorPath(parsed.path)
+          reveal(parsed.path)
+        }
+      },
     })
   }
   return (
     <FieldGroup>
       <Field>
         <FieldLabel className="sr-only">{t("advanced.rawJSON")}</FieldLabel>
-        <JsonEditor value={value} onChange={setValue} ariaLabel={t("advanced.rawJSON")} />
+        <JsonEditor ref={editorRef} value={value} onChange={setValue} ariaLabel={t("advanced.rawJSON")} />
       </Field>
-      <p className="text-sm text-muted-foreground" data-testid="raw-config-diff">{diffSummary}</p>
+      {errorPath ? (
+        <Alert variant="destructive" data-testid="raw-config-error-path">
+          <AlertTitle>{t("config.errorPathTitle")}</AlertTitle>
+          <AlertDescription className="flex flex-wrap items-center gap-2">
+            <span>{t("config.errorPathDescription", { path: errorPath })}</span>
+            <Button type="button" size="xs" variant="outline" onClick={() => reveal(errorPath)}>
+              {t("config.jumpToPath")}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      <ConfigDiffPanel items={diffItems} onSelectPath={reveal} />
       <Field orientation="horizontal">
-        <Button variant="outline" onClick={() => setValue(JSON.stringify(initial, null, 2))}>{t("advanced.reset")}</Button>
+        <Button variant="outline" onClick={() => { setValue(JSON.stringify(initial, null, 2)); setErrorPath(null) }}>
+          {t("advanced.reset")}
+        </Button>
         <ConfirmAction
           trigger={<Button disabled={!valid || save.isPending}>{t("advanced.saveRaw")}</Button>}
           title={t("advanced.overwriteTitle")}

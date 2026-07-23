@@ -3,6 +3,8 @@ import type { JsonValue } from "@/lib/api/types"
 export interface ConfigDiffItem {
   path: string
   kind: "added" | "removed" | "changed"
+  before?: JsonValue
+  after?: JsonValue
 }
 
 function isObject(value: unknown): value is Record<string, JsonValue> {
@@ -17,20 +19,24 @@ function same(left: unknown, right: unknown) {
   return JSON.stringify(left) === JSON.stringify(right)
 }
 
+function asJson(value: unknown): JsonValue | undefined {
+  if (value === undefined) return undefined
+  return value as JsonValue
+}
+
+function leafItem(path: string, before: unknown, after: unknown): ConfigDiffItem {
+  if (before === undefined) return { path, kind: "added", after: asJson(after) }
+  if (after === undefined) return { path, kind: "removed", before: asJson(before) }
+  return { path, kind: "changed", before: asJson(before), after: asJson(after) }
+}
+
 export function diffConfig(before: unknown, after: unknown, base = "", limit = 40): ConfigDiffItem[] {
   if (same(before, after)) return []
   if (Array.isArray(before) || Array.isArray(after)) {
-    if (same(before, after)) return []
-    const path = base || "$"
-    if (before === undefined) return [{ path, kind: "added" }]
-    if (after === undefined) return [{ path, kind: "removed" }]
-    return [{ path, kind: "changed" }]
+    return [leafItem(base || "$", before, after)]
   }
   if (!isObject(before) || !isObject(after)) {
-    const path = base || "$"
-    if (before === undefined) return [{ path, kind: "added" }]
-    if (after === undefined) return [{ path, kind: "removed" }]
-    return [{ path, kind: "changed" }]
+    return [leafItem(base || "$", before, after)]
   }
   const keys = new Set([...Object.keys(before), ...Object.keys(after)])
   const items: ConfigDiffItem[] = []
@@ -40,23 +46,15 @@ export function diffConfig(before: unknown, after: unknown, base = "", limit = 4
     const right = after[key]
     if (same(left, right)) continue
     const path = pathJoin(base, key)
-    if (left === undefined) {
-      items.push({ path, kind: "added" })
-      continue
-    }
-    if (right === undefined) {
-      items.push({ path, kind: "removed" })
+    if (left === undefined || right === undefined) {
+      items.push(leafItem(path, left, right))
       continue
     }
     if (isObject(left) && isObject(right)) {
       items.push(...diffConfig(left, right, path, limit - items.length))
       continue
     }
-    if (Array.isArray(left) || Array.isArray(right)) {
-      items.push({ path, kind: "changed" })
-      continue
-    }
-    items.push({ path, kind: "changed" })
+    items.push(leafItem(path, left, right))
   }
   return items.slice(0, limit)
 }
@@ -83,4 +81,19 @@ export function formatConfigDiffSummary(
   })
   const extra = items.length > preview ? ` ${labels.more.replace("{{count}}", String(items.length - preview))}` : ""
   return `${labels.changed}: ${counts.changed}, ${labels.added}: ${counts.added}, ${labels.removed}: ${counts.removed}. ${head.join(", ")}${extra}`
+}
+
+/** Compact single-line preview of a JSON value for diff lists. */
+export function previewJsonValue(value: JsonValue | undefined, max = 72): string {
+  if (value === undefined) return "—"
+  if (value === null) return "null"
+  if (typeof value === "string") {
+    const text = JSON.stringify(value)
+    return text.length > max ? `${text.slice(0, max - 1)}…` : text
+  }
+  if (typeof value === "number" || typeof value === "boolean") return String(value)
+  const text = JSON.stringify(value)
+  if (text.length <= max) return text
+  if (Array.isArray(value)) return `[…${value.length}]`
+  return `{…${Object.keys(value as object).length}}`
 }
