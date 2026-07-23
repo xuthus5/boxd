@@ -86,7 +86,23 @@ describe("LogsPage", () => {
     expect(within(panel).queryByText("dns query ok")).not.toBeInTheDocument()
     expect(await within(panel).findByText("connection failed")).toBeInTheDocument()
   })
+  it("deep-links log hosts to connection search", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(sse({
+      level: "info",
+      message: "outbound/vless[hk]: outbound connection to api.telegram.org:443",
+      timestamp: "2026-01-01T00:00:00Z",
+    })))
+    renderApp(<App />, "/observability/logs")
+
+    expect(await screen.findByText(/outbound connection to api.telegram.org:443/)).toBeInTheDocument()
+    const link = screen.getByRole("link", { name: /查看连接/ })
+    expect(link).toHaveAttribute("href", "/observability/connections?q=api.telegram.org")
+  })
+
+
 })
+
 
 describe("LogsPage level threshold", () => {
   it("describes the threshold and maps All and Debug", async () => {

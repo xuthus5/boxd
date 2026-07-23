@@ -1,11 +1,13 @@
 import { useId, useMemo } from "react"
 import { useTranslation } from "react-i18next"
-import { useSearchParams } from "react-router-dom"
+import { Link, useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
+
+import { NetworkIcon } from "lucide-react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
@@ -14,6 +16,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useAuth } from "@/features/auth/auth-context"
+import { logConnectionsHref } from "@/features/observability/connection-facets"
 import {
   buildLogExportFilename,
   copyText,
@@ -35,6 +38,7 @@ import { meetsLogThreshold, type LogThreshold } from "@/features/observability/l
 import { useStreamBuffer } from "@/features/observability/use-stream-buffer"
 import { usePreferences } from "@/features/preferences/preferences-provider"
 import type { LogEvent } from "@/lib/api/types"
+import { cn } from "@/lib/utils"
 
 function formatLogTimestamp(timestamp?: string) {
   if (!timestamp) return "—"
@@ -215,15 +219,33 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
               <TableHead>{t("observability.time")}</TableHead>
               <TableHead>{t("dashboard.level")}</TableHead>
               <TableHead>{t("dashboard.message")}</TableHead>
+              <TableHead className="w-28">{t("common.actions")}</TableHead>
             </TableRow></TableHeader>
             <TableBody>
-              {items.map((item, index) => <TableRow key={`${item.timestamp}-${item.level}-${index}`}>
-                <TableCell className="whitespace-nowrap text-muted-foreground">
-                  <time dateTime={item.timestamp || undefined}>{formatLogTimestamp(item.timestamp)}</time>
-                </TableCell>
-                <TableCell><Badge variant={item.level === "error" ? "destructive" : "secondary"}>{item.level}</Badge></TableCell>
-                <TableCell className="min-w-64 whitespace-normal break-words">{item.message}</TableCell>
-              </TableRow>)}
+              {items.map((item, index) => {
+                const connectionsHref = logConnectionsHref(item.message)
+                return (
+                  <TableRow key={`${item.timestamp}-${item.level}-${index}`}>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">
+                      <time dateTime={item.timestamp || undefined}>{formatLogTimestamp(item.timestamp)}</time>
+                    </TableCell>
+                    <TableCell><Badge variant={item.level === "error" ? "destructive" : "secondary"}>{item.level}</Badge></TableCell>
+                    <TableCell className="min-w-64 whitespace-normal break-words">{item.message}</TableCell>
+                    <TableCell>
+                      {connectionsHref ? (
+                        <Link
+                          to={connectionsHref}
+                          aria-label={`${t("observability.viewConnections")}: ${item.message}`}
+                          className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                        >
+                          <NetworkIcon data-icon="inline-start" />
+                          {t("observability.viewConnections")}
+                        </Link>
+                      ) : null}
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
             </TableBody>
           </Table>}
       </ScrollArea>

@@ -221,4 +221,29 @@ describe("ConnectionsPage", () => {
     )
   })
 
+
+  it("seeds the process group tab from view= URL", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    mockConnectionsFetch()
+    renderApp(<App />, "/observability/connections?view=process")
+
+    expect(await screen.findByRole("tab", { name: "按进程" })).toHaveAttribute("data-active")
+    expect(await screen.findByText("/usr/bin/curl")).toBeInTheDocument()
+  })
+
+  it("switches connection group tabs interactively", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    mockConnectionsFetch()
+    const user = userEvent.setup()
+    renderApp(<App />, "/observability/connections")
+
+    expect(await screen.findByText("example.com:443")).toBeInTheDocument()
+    await user.click(screen.getByRole("tab", { name: "按出口" }))
+    expect(await screen.findByRole("tab", { name: "按出口" })).toHaveAttribute("data-active")
+    expect(await screen.findByText("proxy")).toBeInTheDocument()
+    await user.click(screen.getByRole("tab", { name: "按规则" }))
+    expect(await screen.findByRole("tab", { name: "按规则" })).toHaveAttribute("data-active")
+    expect(await screen.findByText("geosite-google")).toBeInTheDocument()
+  })
+
 })

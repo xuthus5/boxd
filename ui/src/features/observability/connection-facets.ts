@@ -5,6 +5,8 @@ import type { Connection } from "@/lib/api/types"
 
 export type ConnectionFacetField = "network" | "protocol" | "outbound" | "rule" | "process"
 
+export type ConnectionView = "list" | "outbound" | "rule" | "process"
+
 export type ConnectionFacetFilters = {
   query?: string
   network?: string
@@ -12,6 +14,7 @@ export type ConnectionFacetFilters = {
   outbound?: string
   rule?: string
   process?: string
+  view?: ConnectionView
 }
 
 export type ConnectionFacetOption = {
@@ -89,6 +92,8 @@ export function connectionFiltersActive(filters: ConnectionFacetFilters): boolea
   )
 }
 
+const CONNECTION_VIEWS = new Set<ConnectionView>(["list", "outbound", "rule", "process"])
+
 export function parseConnectionSearchParams(
   params: URLSearchParams | { get(name: string): string | null },
 ): ConnectionFacetFilters {
@@ -96,6 +101,10 @@ export function parseConnectionSearchParams(
     const value = params.get(key)?.trim()
     return value ? value : undefined
   }
+  const viewRaw = read("view")
+  const view = viewRaw && CONNECTION_VIEWS.has(viewRaw as ConnectionView)
+    ? (viewRaw as ConnectionView)
+    : undefined
   return {
     query: read("q"),
     network: read("network"),
@@ -103,10 +112,11 @@ export function parseConnectionSearchParams(
     outbound: read("outbound"),
     rule: read("rule"),
     process: read("process"),
+    view,
   }
 }
 
-export function buildConnectionsHref(filters: ConnectionFacetFilters = {}): string {
+export function toConnectionSearchParams(filters: ConnectionFacetFilters = {}): URLSearchParams {
   const params = new URLSearchParams()
   const query = filters.query?.trim()
   if (query) params.set("q", query)
@@ -115,7 +125,12 @@ export function buildConnectionsHref(filters: ConnectionFacetFilters = {}): stri
   if (filters.outbound) params.set("outbound", filters.outbound)
   if (filters.rule) params.set("rule", filters.rule)
   if (filters.process) params.set("process", filters.process)
-  const qs = params.toString()
+  if (filters.view && filters.view !== "list") params.set("view", filters.view)
+  return params
+}
+
+export function buildConnectionsHref(filters: ConnectionFacetFilters = {}): string {
+  const qs = toConnectionSearchParams(filters).toString()
   return qs ? `/observability/connections?${qs}` : "/observability/connections"
 }
 
@@ -132,6 +147,85 @@ export function connectionTargetLogQuery(target: string | undefined): string {
   const match = raw.match(/^(.*):(\d+)$/)
   if (match && !match[1].includes(":")) return match[1]
   return raw
+}
+
+const IPV4_HOST_PORT = /\b((?:\d{1,3}\.){3}\d{1,3})(?::(\d{1,5}))?\b/g
+const BRACKETED_IPV6 = /\[([0-9a-fA-F:]+)\](?::(\d{1,5}))?/g
+const DOMAIN_HOST_PORT = /\b((?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,})(?::(\d{1,5}))?\b/g
+
+function isLikelyIPv4(value: string): boolean {
+  const parts = value.split(".")
+  if (parts.length !== 4) return false
+  return parts.every((part) => {
+    if (!/^\d{1,3}$/.test(part)) return false
+    const n = Number(part)
+    return n >= 0 && n <= 255
+  })
+}
+
+function isLikelyPort(value: string | undefined): boolean {
+  if (!value) return true
+  if (!/^\d{1,5}$/.test(value)) return false
+  const n = Number(value)
+  return n >= 1 && n <= 65535
+}
+
+/** Extract a connection-search host from a sing-box style log message. */
+export function logConnectionQuery(message: string | undefined): string {
+  const raw = message?.trim() ?? ""
+  if (!raw) return ""
+
+  // Prefer destination hosts from "connection to ..."; fall back to "connection from ...".
+  const connectionTo = raw.match(
+    /\b(?:inbound|outbound)\s+connection\s+to\s+(\[?[\w.:-]+\]?)/i,
+  )
+  if (connectionTo?.[1]) return connectionTargetLogQuery(connectionTo[1])
+
+  const connectionFrom = raw.match(
+    /\b(?:inbound|outbound)\s+connection\s+from\s+(\[?[\w.:-]+\]?)/i,
+  )
+  if (connectionFrom?.[1]) {
+    const host = connectionTargetLogQuery(connectionFrom[1])
+    if (host && !host.startsWith("127.") && host !== "0.0.0.0" && host !== "::1") return host
+  }
+
+  // DNS-style: "lookup example.com" / "query example.com"
+  const dnsMatch = raw.match(/\b(?:lookup|query|resolve)\s+([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b/i)
+  if (dnsMatch?.[1]) return dnsMatch[1]
+
+  // First bracketed IPv6 host
+  BRACKETED_IPV6.lastIndex = 0
+  const ipv6 = BRACKETED_IPV6.exec(raw)
+  if (ipv6?.[1] && isLikelyPort(ipv6[2])) return ipv6[1]
+
+  // First plausible domain
+  DOMAIN_HOST_PORT.lastIndex = 0
+  let domainHit: RegExpExecArray | null
+  while ((domainHit = DOMAIN_HOST_PORT.exec(raw)) !== null) {
+    const host = domainHit[1]
+    if (!isLikelyPort(domainHit[2])) continue
+    // Skip version-like tokens such as v1.2.3
+    if (/^v?\d+(\.\d+)+$/.test(host)) continue
+    return host
+  }
+
+  // First public-looking IPv4 (skip loopback/wildcard noise)
+  IPV4_HOST_PORT.lastIndex = 0
+  let ipHit: RegExpExecArray | null
+  while ((ipHit = IPV4_HOST_PORT.exec(raw)) !== null) {
+    const host = ipHit[1]
+    if (!isLikelyIPv4(host) || !isLikelyPort(ipHit[2])) continue
+    if (host.startsWith("127.") || host === "0.0.0.0") continue
+    return host
+  }
+
+  return ""
+}
+
+/** Build a connections deep-link from a log message when a host can be extracted. */
+export function logConnectionsHref(message: string | undefined): string {
+  const query = logConnectionQuery(message)
+  return query ? buildConnectionsHref({ query }) : ""
 }
 
 export type ConnectionFacetLinkField = "network" | "protocol" | "outbound" | "rule" | "process"

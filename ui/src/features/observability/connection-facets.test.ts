@@ -8,8 +8,11 @@ import {
   connectionFiltersActive,
   filterConnectionsByFacets,
   listConnectionFacets,
+  logConnectionQuery,
+  logConnectionsHref,
   matchesConnectionFacet,
   parseConnectionSearchParams,
+  toConnectionSearchParams,
 } from "@/features/observability/connection-facets"
 import type { Connection } from "@/lib/api/types"
 
@@ -61,6 +64,7 @@ describe("connection-facets", () => {
       outbound: "proxy",
       rule: undefined,
       process: "/usr/bin/curl",
+      view: undefined,
     })
     expect(buildConnectionsHref({ network: "udp", rule: "geoip-cn", process: "/usr/bin/curl" })).toBe(
       "/observability/connections?network=udp&rule=geoip-cn&process=%2Fusr%2Fbin%2Fcurl",
@@ -79,5 +83,41 @@ describe("connection-facets", () => {
     expect(facetHref("process", "/usr/bin/curl")).toBe("/observability/connections?process=%2Fusr%2Fbin%2Fcurl")
     expect(facetHref("network", "—")).toBe("")
   })
+  it("parses connection view tabs from the URL", () => {
+    expect(parseConnectionSearchParams(new URLSearchParams("view=process&network=tcp"))).toEqual({
+      query: undefined,
+      network: "tcp",
+      protocol: undefined,
+      outbound: undefined,
+      rule: undefined,
+      process: undefined,
+      view: "process",
+    })
+    expect(parseConnectionSearchParams(new URLSearchParams("view=nope")).view).toBeUndefined()
+    expect(toConnectionSearchParams({ view: "list", query: "api" }).toString()).toBe("q=api")
+    expect(buildConnectionsHref({ view: "outbound", query: "api.telegram.org" })).toBe(
+      "/observability/connections?q=api.telegram.org&view=outbound",
+    )
+  })
+
+  it("extracts connection hosts from sing-box style log messages", () => {
+    expect(logConnectionQuery(
+      "[1690779573 0ms] inbound/mixed[mixed-in]: inbound connection to api.telegram.org:443",
+    )).toBe("api.telegram.org")
+    expect(logConnectionQuery(
+      "outbound/vless[hk]: outbound connection to www.gstatic.com:443",
+    )).toBe("www.gstatic.com")
+    expect(logConnectionQuery(
+      "inbound/mixed[mixed-in]: inbound connection from 127.0.0.1:45264",
+    )).toBe("")
+    expect(logConnectionQuery("dns query api.cloudflare.com")).toBe("api.cloudflare.com")
+    expect(logConnectionQuery("route to [2001:db8::1]:443")).toBe("2001:db8::1")
+    expect(logConnectionQuery("ready v1.2.3")).toBe("")
+    expect(logConnectionsHref(
+      "outbound connection to example.com:443",
+    )).toBe("/observability/connections?q=example.com")
+    expect(logConnectionsHref("kernel ready")).toBe("")
+  })
+
 })
 

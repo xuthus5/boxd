@@ -32,7 +32,9 @@ import {
   filterConnectionsByFacets,
   listConnectionFacets,
   parseConnectionSearchParams,
+  toConnectionSearchParams,
   type ConnectionFacetFilters,
+  type ConnectionView,
 } from "@/features/observability/connection-facets"
 import { ConnectionToolbar } from "@/features/observability/connection-toolbar"
 import {
@@ -44,18 +46,6 @@ import { downloadTextFile } from "@/features/observability/log-export"
 import { useStreamBuffer } from "@/features/observability/use-stream-buffer"
 import { api } from "@/lib/api/endpoints"
 import type { ConnectionEvent } from "@/lib/api/types"
-
-function filtersToSearchParams(filters: ConnectionFacetFilters): URLSearchParams {
-  const params = new URLSearchParams()
-  const query = filters.query?.trim()
-  if (query) params.set("q", query)
-  if (filters.network) params.set("network", filters.network)
-  if (filters.protocol) params.set("protocol", filters.protocol)
-  if (filters.outbound) params.set("outbound", filters.outbound)
-  if (filters.rule) params.set("rule", filters.rule)
-  if (filters.process) params.set("process", filters.process)
-  return params
-}
 
 export function ConnectionsPage() {
   const { t } = useTranslation()
@@ -69,6 +59,7 @@ export function ConnectionsPage() {
   const outbound = filters.outbound ?? ""
   const rule = filters.rule ?? ""
   const process = filters.process ?? ""
+  const view: ConnectionView = filters.view ?? "list"
   const [closingId, setClosingId] = useState<string | "all" | null>(null)
   const [sort, setSort] = useState<ConnectionSortKey>("traffic")
   const [columns, setColumns] = useState<ConnectionColumnId[]>(() => loadConnectionColumns())
@@ -105,8 +96,14 @@ export function ConnectionsPage() {
       outbound: patch.outbound !== undefined ? patch.outbound || undefined : filters.outbound,
       rule: patch.rule !== undefined ? patch.rule || undefined : filters.rule,
       process: patch.process !== undefined ? patch.process || undefined : filters.process,
+      view: "view" in patch ? patch.view : filters.view,
     }
-    setSearchParams(filtersToSearchParams(next), { replace: true })
+    setSearchParams(toConnectionSearchParams(next), { replace: true })
+  }
+
+  const onViewChange = (value: string) => {
+    const nextView = value as ConnectionView
+    patchFilters({ view: nextView === "list" ? undefined : nextView })
   }
 
   const onExport = () => {
@@ -226,7 +223,7 @@ export function ConnectionsPage() {
             onProcessChange={(value) => patchFilters({ process: value })}
             onSortChange={setSort}
             onToggleColumn={onToggleColumn}
-            onClearFacets={() => setSearchParams(new URLSearchParams(), { replace: true })}
+            onClearFacets={() => setSearchParams(toConnectionSearchParams({ view: filters.view }), { replace: true })}
             onTogglePause={() => stream.setPaused(!stream.paused)}
             onExport={onExport}
             onCloseFiltered={closeFiltered}
@@ -234,7 +231,7 @@ export function ConnectionsPage() {
         </CardHeader>
         <CardContent>
           {connections.length > 0 ? (
-            <Tabs defaultValue="list">
+            <Tabs value={view} onValueChange={onViewChange}>
               <TabsList>
                 <TabsTrigger value="list">{t("observability.listView")}</TabsTrigger>
                 <TabsTrigger value="outbound">{t("observability.byOutbound")}</TabsTrigger>
