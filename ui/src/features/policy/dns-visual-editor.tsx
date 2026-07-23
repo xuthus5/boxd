@@ -30,7 +30,13 @@ import { DNSRuleCard } from "@/features/policy/dns-rule-card"
 import { DNSRuleDialog } from "@/features/policy/dns-rule-dialog"
 import { DNSServerCard } from "@/features/policy/dns-server-card"
 import { DNSServerDialog } from "@/features/policy/dns-server-dialog"
-import { dnsProbeInput } from "@/features/policy/dns-probe"
+import {
+  dnsProbeBatchToastTone,
+  dnsProbeInput,
+  formatDNSProbeBatchMessage,
+  mapDNSProbeBatchResults,
+  summarizeDNSProbeResults,
+} from "@/features/policy/dns-probe"
 import { dnsRules, dnsServers, setDNSRules, setDNSServers } from "@/features/policy/dns-form-model"
 import { cloneJsonObject, moveItem, type JsonObject } from "@/features/policy/policy-form-model"
 import type { PolicyVisualEditorProps } from "@/features/policy/policy-page"
@@ -100,12 +106,18 @@ function ServerSection({ object, onChange, onRulesChange, onEdit, onInstall }: {
   const batchMutation = useMutation({
     mutationFn: async () => api.runtime.probeDNSBatch(inputs, 6),
     onSuccess: (payload) => {
-      const next: Record<string, DNSProbeResult> = {}
-      for (const result of payload.results) {
-        if (result.tag) next[result.tag] = result
-      }
-      setProbeResults((prev) => ({ ...prev, ...next }))
-      toast.success(t("policy.dns.probeBatchComplete"))
+      const mapped = mapDNSProbeBatchResults(
+        inputs,
+        payload.results ?? [],
+        (input, index) => (input.tag?.trim() ? input.tag.trim() : `idx:${index}`),
+      )
+      setProbeResults((prev) => ({ ...prev, ...mapped }))
+      const summary = summarizeDNSProbeResults(payload.results)
+      const message = formatDNSProbeBatchMessage(summary, t)
+      const tone = dnsProbeBatchToastTone(summary)
+      if (tone === "error") toast.error(message)
+      else if (tone === "warning") toast.warning(message)
+      else toast.success(message)
     },
     onError: (error: Error) => toast.error(error.message),
   })
