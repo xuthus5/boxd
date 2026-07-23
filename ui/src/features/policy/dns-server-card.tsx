@@ -1,17 +1,20 @@
 import { useMutation } from "@tanstack/react-query"
-import { CopyIcon, EllipsisIcon, GaugeIcon, PencilIcon, Trash2Icon } from "lucide-react"
+import { CopyIcon, EllipsisIcon, GaugeIcon, PencilIcon, ScrollTextIcon, Trash2Icon } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
+import { Link } from "react-router-dom"
 import { toast } from "sonner"
 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { formatLatency } from "@/features/nodes/node-format"
 import { latencyBadgeVariant, latencyTone, latencyToneClass } from "@/features/nodes/latency-style"
+import { buildDNSHref } from "@/features/policy/dns-filter"
 import { dnsProbeInput, isDNSServerProbeable } from "@/features/policy/dns-probe"
+import { buildLogsHref } from "@/features/observability/log-filter-presets"
 import { inferDNSServerType, summarizeDNSServer } from "@/features/policy/dns-form-model"
 import type { JsonObject } from "@/features/policy/policy-form-model"
 import { api } from "@/lib/api/endpoints"
@@ -81,6 +84,25 @@ export function DNSServerCard({ item, onEdit, onCopy, onDelete, probeResult, onP
         <Badge>{summary.type}</Badge>
         {summary.detail ? <Badge variant="secondary" className="max-w-full truncate">{summary.detail}</Badge> : null}
       </div>
+      {typeof item.tag === "string" && item.tag ? (
+        <div className="flex flex-wrap gap-1.5">
+          <Link
+            to={buildDNSHref({ rules: item.tag })}
+            aria-label={`${t("policy.dns.viewDNSRules")}: ${item.tag}`}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+          >
+            {t("policy.dns.viewDNSRules")}
+          </Link>
+          <Link
+            to={buildLogsHref({ query: item.tag, preset: "dns" })}
+            aria-label={`${t("policy.dns.viewLogs")}: ${item.tag}`}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+          >
+            <ScrollTextIcon data-icon="inline-start" />
+            {t("policy.dns.viewLogs")}
+          </Link>
+        </div>
+      ) : null}
     </CardContent>
     <CardFooter className="justify-between gap-2"><div className="hidden gap-1 sm:flex">
       <Button variant="outline" size="icon-xs" aria-label={t("policy.dns.copyServer", { tag })} onClick={onCopy}><CopyIcon data-icon="inline-start" /></Button>

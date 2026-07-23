@@ -1,5 +1,7 @@
 /** Connection list facet helpers (network/protocol/outbound/rule/process + query). */
 
+import { buildDNSHref } from "@/features/policy/dns-filter"
+
 import type { ConnectionSortKey } from "@/features/observability/connection-export"
 import { matchesConnection } from "@/features/observability/connection-stats"
 import type { Connection } from "@/lib/api/types"
@@ -272,6 +274,19 @@ export function logConnectionQuery(message: string | undefined): string {
 export function logConnectionsHref(message: string | undefined): string {
   const query = logConnectionQuery(message)
   return query ? buildConnectionsHref({ query }) : ""
+}
+
+/** Build a DNS policy deep-link from a log message when it looks DNS-related. */
+export function logDNSHref(message: string | undefined): string {
+  const raw = message?.trim() ?? ""
+  if (!raw) return ""
+  const lower = raw.toLowerCase()
+  const dnsRelated = /\b(dns|lookup|resolve|query|fakeip|nameserver)\b/i.test(lower)
+  if (!dnsRelated) return ""
+  const host = logConnectionQuery(raw)
+  if (host) return buildDNSHref({ rules: host })
+  if (/\b(reject|block)\b/i.test(lower)) return buildDNSHref({ ruleAction: "reject" })
+  return buildDNSHref()
 }
 
 export type ConnectionFacetLinkField = "network" | "protocol" | "outbound" | "rule" | "process"

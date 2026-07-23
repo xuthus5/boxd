@@ -11,6 +11,7 @@ import {
   listScopedConnectionFacets,
   logConnectionQuery,
   logConnectionsHref,
+  logDNSHref,
   matchesConnectionFacet,
   parseConnectionSearchParams,
   summarizeConnectionFacets,
@@ -136,6 +137,9 @@ describe("connection-facets", () => {
       "outbound connection to example.com:443",
     )).toBe("/observability/connections?q=example.com")
     expect(logConnectionsHref("kernel ready")).toBe("")
+    expect(logDNSHref("dns query api.cloudflare.com")).toBe("/policy/dns?rq=api.cloudflare.com")
+    expect(logDNSHref("dns reject rule matched")).toBe("/policy/dns?raction=reject")
+    expect(logDNSHref("kernel ready")).toBe("")
   })
 
   it("parses connection sort from the URL", () => {

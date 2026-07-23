@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 import { Link, useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 
-import { NetworkIcon } from "lucide-react"
+import { GlobeIcon, NetworkIcon } from "lucide-react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -13,7 +13,7 @@ import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useAuth } from "@/features/auth/auth-context"
-import { logConnectionsHref } from "@/features/observability/connection-facets"
+import { logConnectionsHref, logDNSHref } from "@/features/observability/connection-facets"
 import {
   buildLogExportFilename,
   copyText,
@@ -189,6 +189,7 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
             ? <div className="flex flex-col gap-1.5 sm:gap-2">
               {items.map((item, index) => {
                 const connectionsHref = logConnectionsHref(item.message)
+                const dnsHref = logDNSHref(item.message)
                 return (
                   <Card key={`${item.timestamp}-${item.level}-${index}`} size="sm">
                     <CardHeader className="min-w-0 gap-1">
@@ -202,16 +203,28 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
                         {item.message}
                       </CardDescription>
                     </CardHeader>
-                    {connectionsHref ? (
-                      <CardContent>
-                        <Link
-                          to={connectionsHref}
-                          aria-label={`${t("observability.viewConnections")}: ${item.message}`}
-                          className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-                        >
-                          <NetworkIcon data-icon="inline-start" />
-                          {t("observability.viewConnections")}
-                        </Link>
+                    {connectionsHref || dnsHref ? (
+                      <CardContent className="flex flex-wrap gap-1.5">
+                        {connectionsHref ? (
+                          <Link
+                            to={connectionsHref}
+                            aria-label={`${t("observability.viewConnections")}: ${item.message}`}
+                            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+                          >
+                            <NetworkIcon data-icon="inline-start" />
+                            {t("observability.viewConnections")}
+                          </Link>
+                        ) : null}
+                        {dnsHref ? (
+                          <Link
+                            to={dnsHref}
+                            aria-label={`${t("observability.viewDNS")}: ${item.message}`}
+                            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+                          >
+                            <GlobeIcon data-icon="inline-start" />
+                            {t("observability.viewDNS")}
+                          </Link>
+                        ) : null}
                       </CardContent>
                     ) : null}
                   </Card>
@@ -228,6 +241,7 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
               <TableBody>
                 {items.map((item, index) => {
                   const connectionsHref = logConnectionsHref(item.message)
+                  const dnsHref = logDNSHref(item.message)
                   return (
                     <TableRow key={`${item.timestamp}-${item.level}-${index}`}>
                       <TableCell className="whitespace-nowrap text-muted-foreground">
@@ -236,16 +250,28 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
                       <TableCell><Badge variant={item.level === "error" ? "destructive" : "secondary"}>{item.level}</Badge></TableCell>
                       <TableCell className="min-w-64 whitespace-normal break-words">{item.message}</TableCell>
                       <TableCell>
-                        {connectionsHref ? (
-                          <Link
-                            to={connectionsHref}
-                            aria-label={`${t("observability.viewConnections")}: ${item.message}`}
-                            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-                          >
-                            <NetworkIcon data-icon="inline-start" />
-                            {t("observability.viewConnections")}
-                          </Link>
-                        ) : null}
+                        <div className="flex flex-wrap gap-1">
+                          {connectionsHref ? (
+                            <Link
+                              to={connectionsHref}
+                              aria-label={`${t("observability.viewConnections")}: ${item.message}`}
+                              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+                            >
+                              <NetworkIcon data-icon="inline-start" />
+                              {t("observability.viewConnections")}
+                            </Link>
+                          ) : null}
+                          {dnsHref ? (
+                            <Link
+                              to={dnsHref}
+                              aria-label={`${t("observability.viewDNS")}: ${item.message}`}
+                              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+                            >
+                              <GlobeIcon data-icon="inline-start" />
+                              {t("observability.viewDNS")}
+                            </Link>
+                          ) : null}
+                        </div>
                       </TableCell>
                     </TableRow>
                   )

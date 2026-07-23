@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event"
 import type { ReactElement } from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { I18nextProvider } from "react-i18next"
+import { MemoryRouter } from "react-router-dom"
 
 import { DNSServerCard } from "@/features/policy/dns-server-card"
 import { i18n } from "@/i18n"
@@ -12,7 +13,7 @@ function renderCard(ui: ReactElement) {
   return render(
     <I18nextProvider i18n={i18n}>
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })}>
-        {ui}
+        <MemoryRouter>{ui}</MemoryRouter>
       </QueryClientProvider>
     </I18nextProvider>,
   )
@@ -71,5 +72,16 @@ describe("DNSServerCard", () => {
       <DNSServerCard item={{ tag: "sys", type: "local" }} onEdit={vi.fn()} onCopy={vi.fn()} onDelete={vi.fn()} />,
     )
     expect(screen.getByRole("button", { name: /探测 DNS 服务器 sys/ })).toBeDisabled()
+  })
+
+  it("deep-links tagged servers to DNS rules and logs", () => {
+    renderCard(
+      <DNSServerCard item={{ tag: "cf", type: "udp", server: "1.1.1.1" }} onEdit={vi.fn()} onCopy={vi.fn()} onDelete={vi.fn()} />,
+    )
+    expect(screen.getByRole("link", { name: "查看 DNS 规则: cf" })).toHaveAttribute("href", "/policy/dns?rq=cf")
+    expect(screen.getByRole("link", { name: "查看日志: cf" })).toHaveAttribute(
+      "href",
+      "/observability/logs?q=cf&preset=dns",
+    )
   })
 })

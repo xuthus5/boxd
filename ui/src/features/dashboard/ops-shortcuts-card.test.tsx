@@ -19,5 +19,7 @@ describe("OpsShortcutsCard", () => {
     expect(screen.getByRole("link", { name: "出口" })).toHaveAttribute("href", "/proxy/outbounds")
     expect(screen.getByRole("link", { name: "路由" })).toHaveAttribute("href", "/policy/route")
     expect(screen.getByRole("link", { name: "DNS" })).toHaveAttribute("href", "/policy/dns")
+    expect(screen.getByRole("link", { name: "DNS 日志" })).toHaveAttribute("href", "/observability/logs?preset=dns")
+    expect(screen.getByRole("link", { name: "DNS 拦截" })).toHaveAttribute("href", "/policy/dns?raction=reject")
   })
 })

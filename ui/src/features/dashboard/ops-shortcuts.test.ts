@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import { buildNodesHref } from "@/features/nodes/nodes-filter"
 import { buildConnectionsHref } from "@/features/observability/connection-facets"
 import { buildLogsHref } from "@/features/observability/log-filter-presets"
+import { buildDNSHref } from "@/features/policy/dns-filter"
 import { buildRouteHref } from "@/features/policy/route-rule-filter"
 import { buildSubscriptionsHref } from "@/features/subscriptions/subscription-list"
 
@@ -15,5 +16,8 @@ describe("dashboard ops shortcut targets", () => {
     expect(buildSubscriptionsHref({ status: "error" })).toBe("/subscriptions?status=error")
     expect(buildNodesHref({ stability: "unstable" })).toBe("/nodes?stability=unstable")
     expect(buildRouteHref({ action: "reject" })).toBe("/policy/route?action=reject")
+    expect(buildDNSHref()).toBe("/policy/dns")
+    expect(buildDNSHref({ ruleAction: "reject" })).toBe("/policy/dns?raction=reject")
+    expect(buildLogsHref({ preset: "dns" })).toBe("/observability/logs?preset=dns")
   })
 })

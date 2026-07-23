@@ -1,13 +1,17 @@
 import { useState } from "react"
-import { ArrowDownIcon, ArrowUpIcon, CopyIcon, EllipsisIcon, PencilIcon, Trash2Icon } from "lucide-react"
+import { ActivityIcon, ArrowDownIcon, ArrowUpIcon, CopyIcon, EllipsisIcon, PencilIcon, ScrollTextIcon, Trash2Icon } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { Link } from "react-router-dom"
 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { buildConnectionsHref } from "@/features/observability/connection-facets"
+import { buildLogsHref } from "@/features/observability/log-filter-presets"
 import type { JsonObject } from "@/features/policy/policy-form-model"
+import { cn } from "@/lib/utils"
 import { routeMatchFields, summarizeRouteRule } from "@/features/policy/route-form-model"
 import { isRuleInverted } from "@/features/policy/rule-invert"
 import { Switch } from "@/components/ui/switch"
@@ -103,6 +107,28 @@ export function RouteRuleCard(props: RouteRuleCardProps) {
             ))}
             <Badge>{summary.action}</Badge>
             {isRuleInverted(item) ? <Badge variant="outline">{t("policy.route.invertOn")}</Badge> : null}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            <Link
+              to={buildLogsHref({
+                preset: summary.action.toLowerCase().includes("reject") ? "reject" : "route",
+              })}
+              aria-label={`${t("policy.route.viewLogs")}: ${number}`}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+            >
+              <ScrollTextIcon data-icon="inline-start" />
+              {t("policy.route.viewLogs")}
+            </Link>
+            <Link
+              to={typeof item.outbound === "string" && item.outbound
+                ? buildConnectionsHref({ outbound: item.outbound })
+                : buildConnectionsHref()}
+              aria-label={`${t("policy.route.viewConnections")}: ${number}`}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+            >
+              <ActivityIcon data-icon="inline-start" />
+              {t("policy.route.viewConnections")}
+            </Link>
           </div>
           {onToggleInvert ? (
             <div className="flex items-center justify-between gap-2 rounded-md border px-2.5 py-1.5">

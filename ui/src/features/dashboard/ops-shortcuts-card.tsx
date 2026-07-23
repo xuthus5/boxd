@@ -16,6 +16,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { buildNodesHref } from "@/features/nodes/nodes-filter"
 import { buildConnectionsHref } from "@/features/observability/connection-facets"
 import { buildLogsHref } from "@/features/observability/log-filter-presets"
+import { buildDNSHref } from "@/features/policy/dns-filter"
 import { buildRouteHref } from "@/features/policy/route-rule-filter"
 import { buildSubscriptionsHref } from "@/features/subscriptions/subscription-list"
 import { cn } from "@/lib/utils"
@@ -34,10 +35,12 @@ const shortcuts: Shortcut[] = [
   { labelKey: "dashboard.shortcutFailedSubs", to: buildSubscriptionsHref({ status: "error" }), icon: AlertTriangleIcon },
   { labelKey: "dashboard.shortcutUnstableNodes", to: buildNodesHref({ stability: "unstable" }), icon: NetworkIcon },
   { labelKey: "dashboard.shortcutRejectRules", to: buildRouteHref({ action: "reject" }), icon: RouteIcon },
+  { labelKey: "dashboard.shortcutDNSReject", to: buildDNSHref({ ruleAction: "reject" }), icon: ShieldXIcon },
+  { labelKey: "dashboard.shortcutDNSLogs", to: buildLogsHref({ preset: "dns" }), icon: GlobeIcon },
   { labelKey: "dashboard.shortcutNodes", to: buildNodesHref(), icon: NetworkIcon },
   { labelKey: "dashboard.shortcutOutbounds", to: "/proxy/outbounds", icon: Share2Icon },
   { labelKey: "dashboard.shortcutRoute", to: buildRouteHref(), icon: RouteIcon },
-  { labelKey: "dashboard.shortcutDNS", to: "/policy/dns", icon: GlobeIcon },
+  { labelKey: "dashboard.shortcutDNS", to: buildDNSHref(), icon: GlobeIcon },
 ]
 
 export function OpsShortcutsCard() {
