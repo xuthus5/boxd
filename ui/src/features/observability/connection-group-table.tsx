@@ -16,9 +16,9 @@ function CloseGroupButton({
   onCloseGroup,
 }: {
   group: ConnectionGroupStat
-  field: "outbound" | "rule"
+  field: "outbound" | "rule" | "process" | "process"
   busy: boolean
-  onCloseGroup: (field: "outbound" | "rule", key: string) => void
+  onCloseGroup: (field: "outbound" | "rule" | "process" | "process", key: string) => void
 }) {
   const { t } = useTranslation()
   return (
@@ -46,9 +46,9 @@ export function ConnectionGroupTable({
   emptyDescription,
 }: {
   groups: ConnectionGroupStat[]
-  field: "outbound" | "rule"
+  field: "outbound" | "rule" | "process" | "process"
   busy: boolean
-  onCloseGroup: (field: "outbound" | "rule", key: string) => void
+  onCloseGroup: (field: "outbound" | "rule" | "process" | "process", key: string) => void
   emptyTitle: string
   emptyDescription: string
 }) {

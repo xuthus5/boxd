@@ -191,4 +191,17 @@ describe("ConnectionsPage", () => {
     expect(screen.getByText("显示 1 条")).toBeInTheDocument()
   })
 
+
+  it("shows process groups for live connections", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    mockConnectionsFetch()
+    const user = userEvent.setup()
+    renderApp(<App />, "/observability/connections")
+
+    expect(await screen.findByText("example.com:443")).toBeInTheDocument()
+    await user.click(screen.getByRole("tab", { name: "按进程" }))
+    expect(await screen.findByText("/usr/bin/curl")).toBeInTheDocument()
+    expect(screen.getAllByRole("button", { name: "关闭该组" }).length).toBeGreaterThan(0)
+  })
+
 })

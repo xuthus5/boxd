@@ -37,6 +37,7 @@ import {
 import { ConnectionToolbar } from "@/features/observability/connection-toolbar"
 import {
   aggregateConnections,
+  filterConnectionsByGroup,
   summarizeConnections,
 } from "@/features/observability/connection-stats"
 import { downloadTextFile } from "@/features/observability/log-export"
@@ -84,6 +85,7 @@ export function ConnectionsPage() {
   const summary = useMemo(() => summarizeConnections(filtered), [filtered])
   const byOutbound = useMemo(() => aggregateConnections(filtered, "outbound"), [filtered])
   const byRule = useMemo(() => aggregateConnections(filtered, "rule"), [filtered])
+  const byProcess = useMemo(() => aggregateConnections(filtered, "process"), [filtered])
   const busy = closingId !== null
   const canExport = sorted.length > 0
   const sortOptions: { label: string; value: ConnectionSortKey }[] = [
@@ -129,12 +131,15 @@ export function ConnectionsPage() {
     }
   }
 
-  const closeGroup = async (field: "outbound" | "rule", key: string) => {
+  const closeGroup = async (field: "outbound" | "rule" | "process", key: string) => {
     if (key === "—") return
-    const groupFilters = field === "outbound" ? { outbound: key } : { rule: key }
     setClosingId(`group:${field}:${key}`)
     try {
-      const result = await api.stats.closeAll(groupFilters)
+      const result = field === "process"
+        ? await api.stats.closeAll({
+          ids: filterConnectionsByGroup(filtered, "process", key).map((item) => item.id),
+        })
+        : await api.stats.closeAll(field === "outbound" ? { outbound: key } : { rule: key })
       toast.success(t("observability.closedCount", { count: result.closed }))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error))
@@ -234,6 +239,7 @@ export function ConnectionsPage() {
                 <TabsTrigger value="list">{t("observability.listView")}</TabsTrigger>
                 <TabsTrigger value="outbound">{t("observability.byOutbound")}</TabsTrigger>
                 <TabsTrigger value="rule">{t("observability.byRule")}</TabsTrigger>
+                <TabsTrigger value="process">{t("observability.byProcess")}</TabsTrigger>
               </TabsList>
               <TabsContent value="list" className="mt-3">
                 <ConnectionListTable
@@ -257,6 +263,16 @@ export function ConnectionsPage() {
                 <ConnectionGroupTable
                   groups={byRule}
                   field="rule"
+                  busy={busy}
+                  onCloseGroup={closeGroup}
+                  emptyTitle={t("observability.noMatch")}
+                  emptyDescription={t("observability.noMatchDescription")}
+                />
+              </TabsContent>
+              <TabsContent value="process" className="mt-3">
+                <ConnectionGroupTable
+                  groups={byProcess}
+                  field="process"
                   busy={busy}
                   onCloseGroup={closeGroup}
                   emptyTitle={t("observability.noMatch")}

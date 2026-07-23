@@ -14,15 +14,23 @@ export function summarizeConnections(connections: Connection[]) {
   return { upload, download, outbounds }
 }
 
+function groupFieldValue(connection: Connection, field: "outbound" | "rule" | "process"): string {
+  const raw = field === "outbound"
+    ? connection.outbound
+    : field === "rule"
+      ? connection.rule
+      : connection.process
+  return (raw && raw.trim()) || "—"
+}
+
 export function aggregateConnections(
   connections: Connection[],
-  field: "outbound" | "rule",
+  field: "outbound" | "rule" | "process",
   limit = 8,
 ): ConnectionGroupStat[] {
   const buckets = new Map<string, ConnectionGroupStat>()
   for (const connection of connections) {
-    const raw = field === "outbound" ? connection.outbound : connection.rule
-    const key = (raw && raw.trim()) || "—"
+    const key = groupFieldValue(connection, field)
     const current = buckets.get(key) ?? { key, count: 0, upload: 0, download: 0 }
     current.count += 1
     current.upload += connection.upload || 0
@@ -61,12 +69,8 @@ export function connectionIds(connections: Connection[]) {
 
 export function filterConnectionsByGroup(
   connections: Connection[],
-  field: "outbound" | "rule",
+  field: "outbound" | "rule" | "process",
   key: string,
 ) {
-  return connections.filter((connection) => {
-    const raw = field === "outbound" ? connection.outbound : connection.rule
-    const value = (raw && raw.trim()) || "—"
-    return value === key
-  })
+  return connections.filter((connection) => groupFieldValue(connection, field) === key)
 }

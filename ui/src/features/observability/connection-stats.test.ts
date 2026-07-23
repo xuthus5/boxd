@@ -4,9 +4,9 @@ import { aggregateConnections, filterConnectionsByGroup, matchesConnection, summ
 import type { Connection } from "@/lib/api/types"
 
 const sample: Connection[] = [
-  { id: 1, target: "a.com:443", outbound: "proxy", rule: "geosite-google", upload: 10, download: 20, start: new Date().toISOString() },
-  { id: 2, target: "b.com:443", outbound: "proxy", rule: "geoip-cn", upload: 5, download: 5, start: new Date().toISOString() },
-  { id: 3, target: "c.com:443", outbound: "direct", rule: "geoip-cn", upload: 1, download: 2, start: new Date().toISOString() },
+  { id: 1, target: "a.com:443", outbound: "proxy", rule: "geosite-google", process: "/usr/bin/curl", upload: 10, download: 20, start: new Date().toISOString() },
+  { id: 2, target: "b.com:443", outbound: "proxy", rule: "geoip-cn", process: "/usr/bin/curl", upload: 5, download: 5, start: new Date().toISOString() },
+  { id: 3, target: "c.com:443", outbound: "direct", rule: "geoip-cn", process: "/Applications/Chrome.app", upload: 1, download: 2, start: new Date().toISOString() },
   { id: 4, target: "d.com:443", outbound: "proxy", rule: "", upload: 100, download: 200, start: new Date().toISOString() },
 ]
 
@@ -27,6 +27,13 @@ describe("connection-stats", () => {
     expect(groups.find((item) => item.key === "—")?.count).toBe(1)
   })
 
+  it("aggregates by process", () => {
+    const groups = aggregateConnections(sample, "process")
+    expect(groups.find((item) => item.key === "/usr/bin/curl")?.count).toBe(2)
+    expect(groups.find((item) => item.key === "/Applications/Chrome.app")?.count).toBe(1)
+    expect(groups.find((item) => item.key === "—")?.count).toBe(1)
+  })
+
   it("matches search haystack", () => {
     expect(matchesConnection(sample[0], "google")).toBe(true)
     expect(matchesConnection(sample[0], "direct")).toBe(false)
@@ -35,8 +42,8 @@ describe("connection-stats", () => {
   it("filters connections by outbound or rule group", () => {
     expect(filterConnectionsByGroup(sample, "outbound", "proxy")).toHaveLength(3)
     expect(filterConnectionsByGroup(sample, "rule", "—")).toHaveLength(1)
+    expect(filterConnectionsByGroup(sample, "process", "/usr/bin/curl")).toHaveLength(2)
   })
-})
 
   it("matches source and process fields", () => {
     const item = {
@@ -52,3 +59,4 @@ describe("connection-stats", () => {
     expect(matchesConnection(item, "curl")).toBe(true)
     expect(matchesConnection(item, "udp")).toBe(false)
   })
+})
