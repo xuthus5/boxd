@@ -1,19 +1,15 @@
 import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
-import { Link, useSearchParams } from "react-router-dom"
+import { useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 
-import { GlobeIcon, NetworkIcon } from "lucide-react"
-
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Badge } from "@/components/ui/badge"
-import { Button, buttonVariants } from "@/components/ui/button"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { VirtualList } from "@/components/virtual-list"
 import { useAuth } from "@/features/auth/auth-context"
-import { logConnectionsHref, logDNSHref } from "@/features/observability/connection-facets"
 import {
   buildLogExportFilename,
   copyText,
@@ -35,18 +31,16 @@ import {
   type LogThresholdParam,
 } from "@/features/observability/log-filter-presets"
 import { meetsLogThreshold, type LogThreshold } from "@/features/observability/log-level"
-import { useIsMobile } from "@/hooks/use-mobile"
+import { LogDesktopRow, LogMobileCard } from "@/features/observability/log-list-rows"
 import { StreamStatusBadge } from "@/features/observability/stream-status-badge"
 import { useStreamBuffer } from "@/features/observability/use-stream-buffer"
+import { useIsMobile } from "@/hooks/use-mobile"
+import { useVirtualWindow } from "@/hooks/use-virtual-window"
 import { usePreferences } from "@/features/preferences/preferences-provider"
 import type { LogEvent } from "@/lib/api/types"
-import { cn } from "@/lib/utils"
 
-function formatLogTimestamp(timestamp?: string) {
-  if (!timestamp) return "—"
-  const date = new Date(timestamp)
-  return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString()
-}
+const DESKTOP_ROW_HEIGHT = 52
+const MOBILE_CARD_HEIGHT = 132
 
 export function LogPanel({ path, title }: { path: string; title: string }) {
   const { t } = useTranslation()
@@ -67,14 +61,12 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
     [filter, level, minimum, stream.items],
   )
   const isMobile = useIsMobile()
-
   const exportText = useMemo(() => formatLogExport(items), [items])
   const canExport = items.length > 0
 
   const writeFilters = (next: LogSearchFilters) => {
     setSearchParams(toLogSearchParams(next), { replace: true })
   }
-
   const sharedTab = (): LogSearchFilters["tab"] => filters.tab
 
   const onCopy = async () => {
@@ -138,37 +130,39 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
     })
   }
 
-  const onClear = () => {
-    writeFilters({ tab: sharedTab() })
-  }
-
+  const onClear = () => writeFilters({ tab: sharedTab() })
   const hasActiveFilter = Boolean(filter.trim()) || minimum !== "all" || Boolean(level) || Boolean(activePreset)
 
-  return <Card size="sm">
-    <CardHeader className="gap-1.5">
-      <CardTitle className="flex flex-wrap items-center gap-2 text-base sm:text-lg">{title}<StreamStatusBadge status={stream.status} paused={stream.paused} /></CardTitle>
-      <CardDescription>{t("observability.logDescription")}</CardDescription>
-    </CardHeader>
-    <CardContent className="flex flex-col gap-2 sm:gap-3">
-      {stream.error ? <Alert variant="destructive">
-        <AlertTitle>{t("observability.streamError")}</AlertTitle>
-        <AlertDescription>{stream.error}</AlertDescription>
-      </Alert> : null}
-      <LogFilters
-        filter={filter}
-        minimum={minimum}
-        level={level}
-        levelSummary={levelSummary}
-        activePreset={activePreset}
-        onFilterChange={onFilterChange}
-        onMinimumChange={onMinimumChange}
-        onLevelChange={onLevelChange}
-        onPreset={onPreset}
-        onClear={onClear}
-      />
-      <ScrollArea className="h-[24rem] sm:h-[32rem]">
-        {items.length === 0
-          ? <Empty>
+  return (
+    <Card size="sm">
+      <CardHeader className="gap-1.5">
+        <CardTitle className="flex flex-wrap items-center gap-2 text-base sm:text-lg">
+          {title}
+          <StreamStatusBadge status={stream.status} paused={stream.paused} />
+        </CardTitle>
+        <CardDescription>{t("observability.logDescription")}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-2 sm:gap-3">
+        {stream.error ? (
+          <Alert variant="destructive">
+            <AlertTitle>{t("observability.streamError")}</AlertTitle>
+            <AlertDescription>{stream.error}</AlertDescription>
+          </Alert>
+        ) : null}
+        <LogFilters
+          filter={filter}
+          minimum={minimum}
+          level={level}
+          levelSummary={levelSummary}
+          activePreset={activePreset}
+          onFilterChange={onFilterChange}
+          onMinimumChange={onMinimumChange}
+          onLevelChange={onLevelChange}
+          onPreset={onPreset}
+          onClear={onClear}
+        />
+        {items.length === 0 ? (
+          <Empty>
             <EmptyHeader>
               <EmptyTitle>
                 {hasActiveFilter ? t("observability.noMatchLogs") : t("observability.noLogs")}
@@ -185,113 +179,90 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
               </EmptyContent>
             ) : null}
           </Empty>
-          : isMobile
-            ? <div className="flex flex-col gap-1.5 sm:gap-2">
-              {items.map((item, index) => {
-                const connectionsHref = logConnectionsHref(item.message)
-                const dnsHref = logDNSHref(item.message)
-                return (
-                  <Card key={`${item.timestamp}-${item.level}-${index}`} size="sm">
-                    <CardHeader className="min-w-0 gap-1">
-                      <CardTitle className="flex flex-wrap items-center gap-2 text-sm font-medium">
-                        <Badge variant={item.level === "error" ? "destructive" : "secondary"}>{item.level}</Badge>
-                        <time className="text-muted-foreground" dateTime={item.timestamp || undefined}>
-                          {formatLogTimestamp(item.timestamp)}
-                        </time>
-                      </CardTitle>
-                      <CardDescription className="whitespace-normal break-words text-foreground">
-                        {item.message}
-                      </CardDescription>
-                    </CardHeader>
-                    {connectionsHref || dnsHref ? (
-                      <CardContent className="flex flex-wrap gap-1.5">
-                        {connectionsHref ? (
-                          <Link
-                            to={connectionsHref}
-                            aria-label={`${t("observability.viewConnections")}: ${item.message}`}
-                            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
-                          >
-                            <NetworkIcon data-icon="inline-start" />
-                            {t("observability.viewConnections")}
-                          </Link>
-                        ) : null}
-                        {dnsHref ? (
-                          <Link
-                            to={dnsHref}
-                            aria-label={`${t("observability.viewDNS")}: ${item.message}`}
-                            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
-                          >
-                            <GlobeIcon data-icon="inline-start" />
-                            {t("observability.viewDNS")}
-                          </Link>
-                        ) : null}
-                      </CardContent>
-                    ) : null}
-                  </Card>
-                )
-              })}
-            </div>
-            : <Table>
-              <TableHeader><TableRow>
-                <TableHead>{t("observability.time")}</TableHead>
-                <TableHead>{t("dashboard.level")}</TableHead>
-                <TableHead>{t("dashboard.message")}</TableHead>
-                <TableHead className="w-28">{t("common.actions")}</TableHead>
-              </TableRow></TableHeader>
-              <TableBody>
-                {items.map((item, index) => {
-                  const connectionsHref = logConnectionsHref(item.message)
-                  const dnsHref = logDNSHref(item.message)
-                  return (
-                    <TableRow key={`${item.timestamp}-${item.level}-${index}`}>
-                      <TableCell className="whitespace-nowrap text-muted-foreground">
-                        <time dateTime={item.timestamp || undefined}>{formatLogTimestamp(item.timestamp)}</time>
-                      </TableCell>
-                      <TableCell><Badge variant={item.level === "error" ? "destructive" : "secondary"}>{item.level}</Badge></TableCell>
-                      <TableCell className="min-w-64 whitespace-normal break-words">{item.message}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {connectionsHref ? (
-                            <Link
-                              to={connectionsHref}
-                              aria-label={`${t("observability.viewConnections")}: ${item.message}`}
-                              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
-                            >
-                              <NetworkIcon data-icon="inline-start" />
-                              {t("observability.viewConnections")}
-                            </Link>
-                          ) : null}
-                          {dnsHref ? (
-                            <Link
-                              to={dnsHref}
-                              aria-label={`${t("observability.viewDNS")}: ${item.message}`}
-                              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
-                            >
-                              <GlobeIcon data-icon="inline-start" />
-                              {t("observability.viewDNS")}
-                            </Link>
-                          ) : null}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>}
-      </ScrollArea>
-    </CardContent>
-    <CardFooter className="flex flex-wrap gap-1.5 sm:gap-2">
-      <Button size="sm" className="h-8" variant="outline" onClick={() => stream.setPaused(!stream.paused)}>
-        {stream.paused ? t("observability.resume") : t("observability.pause")}
-      </Button>
-      <Button size="sm" className="h-8" variant="outline" onClick={stream.clear}>{t("observability.clear")}</Button>
-      <Button size="sm" className="h-8" variant="outline" disabled={!canExport} onClick={() => { void onCopy() }}>
-        {t("observability.copyLogs")}
-      </Button>
-      <Button size="sm" className="h-8" variant="outline" disabled={!canExport} onClick={onDownload}>
-        {t("observability.exportLogs")}
-      </Button>
-      <span className="text-xs text-muted-foreground sm:text-sm">{t("observability.shownCount", { count: items.length })}</span>
-    </CardFooter>
-  </Card>
+        ) : isMobile ? (
+          <VirtualList
+            className="h-[24rem] sm:h-[32rem]"
+            items={items}
+            itemHeight={MOBILE_CARD_HEIGHT}
+            getKey={(item, index) => `${item.timestamp}-${item.level}-${index}`}
+            aria-label={title}
+            renderItem={(item) => (
+              <div className="pb-1.5 sm:pb-2">
+                <LogMobileCard item={item} />
+              </div>
+            )}
+          />
+        ) : (
+          <LogDesktopVirtualTable items={items} title={title} />
+        )}
+      </CardContent>
+      <CardFooter className="flex flex-wrap gap-1.5 sm:gap-2">
+        <Button size="sm" className="h-8" variant="outline" onClick={() => stream.setPaused(!stream.paused)}>
+          {stream.paused ? t("observability.resume") : t("observability.pause")}
+        </Button>
+        <Button size="sm" className="h-8" variant="outline" onClick={stream.clear}>{t("observability.clear")}</Button>
+        <Button size="sm" className="h-8" variant="outline" disabled={!canExport} onClick={() => { void onCopy() }}>
+          {t("observability.copyLogs")}
+        </Button>
+        <Button size="sm" className="h-8" variant="outline" disabled={!canExport} onClick={onDownload}>
+          {t("observability.exportLogs")}
+        </Button>
+        <span className="text-xs text-muted-foreground sm:text-sm">
+          {t("observability.shownCount", { count: items.length })}
+        </span>
+      </CardFooter>
+    </Card>
+  )
+}
+
+function LogDesktopVirtualTable({ items, title }: { items: LogEvent[]; title: string }) {
+  const { t } = useTranslation()
+  const { parentRef, onScroll, window } = useVirtualWindow({
+    count: items.length,
+    itemHeight: DESKTOP_ROW_HEIGHT,
+  })
+  const slice = items.slice(window.startIndex, window.endIndex)
+  return (
+    <div
+      ref={parentRef}
+      className="h-[24rem] overflow-auto sm:h-[32rem]"
+      onScroll={onScroll}
+      role="region"
+      aria-label={title}
+    >
+      <Table>
+        <TableHeader className="sticky top-0 z-10 bg-background">
+          <TableRow>
+            <TableHead>{t("observability.time")}</TableHead>
+            <TableHead>{t("dashboard.level")}</TableHead>
+            <TableHead>{t("dashboard.message")}</TableHead>
+            <TableHead className="w-28">{t("common.actions")}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {window.startIndex > 0 ? (
+            <TableRow aria-hidden="true">
+              <td colSpan={4} style={{ height: window.offsetTop, padding: 0, border: 0 }} />
+            </TableRow>
+          ) : null}
+          {slice.map((item, offset) => {
+            const index = window.startIndex + offset
+            return <LogDesktopRow key={`${item.timestamp}-${item.level}-${index}`} item={item} />
+          })}
+          {window.endIndex < items.length ? (
+            <TableRow aria-hidden="true">
+              <td
+                colSpan={4}
+                style={{
+                  height: window.totalHeight - window.endIndex * DESKTOP_ROW_HEIGHT,
+                  padding: 0,
+                  border: 0,
+                }}
+              />
+            </TableRow>
+          ) : null}
+        </TableBody>
+      </Table>
+    </div>
+  )
 }
