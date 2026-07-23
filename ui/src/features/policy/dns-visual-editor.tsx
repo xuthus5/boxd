@@ -1,14 +1,20 @@
 import { useMutation } from "@tanstack/react-query"
 import { GaugeIcon, ListPlusIcon, ServerIcon } from "lucide-react"
-import { useState, type ReactNode } from "react"
+import { useMemo, useState, type ReactNode } from "react"
 import { useTranslation } from "react-i18next"
+import { useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { Input } from "@/components/ui/input"
-import { matchesDNSRule, matchesDNSServer } from "@/features/policy/dns-filter"
+import {
+  matchesDNSRule,
+  matchesDNSServer,
+  parseDNSSearchParams,
+  toDNSSearchParams,
+} from "@/features/policy/dns-filter"
 import { toggleRuleInvert } from "@/features/policy/rule-invert"
 import { DNSFakeIPCard, DNSGlobalCard } from "@/features/policy/dns-global-card"
 import { DNSRuleCard } from "@/features/policy/dns-rule-card"
@@ -55,10 +61,15 @@ function ServerSection({ object, onChange, onRulesChange, onEdit, onInstall }: {
   onRulesChange?: (object: JsonObject, metadata: never[]) => void; onInstall?: () => void
 }) {
   const { t } = useTranslation()
-  const [search, setSearch] = useState("")
+  const [searchParams, setSearchParams] = useSearchParams()
+  const filters = useMemo(() => parseDNSSearchParams(searchParams), [searchParams])
+  const search = filters.servers ?? ""
   const [probeResults, setProbeResults] = useState<Record<string, DNSProbeResult>>({})
   const servers = dnsServers(object)
   const normalized = search.trim().toLowerCase()
+  const writeServersQuery = (value: string) => {
+    setSearchParams(toDNSSearchParams({ servers: value, rules: filters.rules }), { replace: true })
+  }
   const visible = servers
     .map((item, index) => ({ item, index }))
     .filter(({ item }) => matchesDNSServer(item, normalized))
@@ -97,7 +108,7 @@ function ServerSection({ object, onChange, onRulesChange, onEdit, onInstall }: {
       : <>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <label className="sr-only" htmlFor="dns-servers-search">{t("policy.dns.searchServers")}</label>
-          <Input id="dns-servers-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("policy.dns.searchServersPlaceholder")} className="sm:max-w-sm" />
+          <Input id="dns-servers-search" value={search} onChange={(event) => writeServersQuery(event.target.value)} placeholder={t("policy.dns.searchServersPlaceholder")} className="sm:max-w-sm" aria-label={t("policy.dns.searchServers")} />
           {normalized ? <p className="text-sm text-muted-foreground">{t("policy.dns.searchCount", { shown: visible.length, total: servers.length })}</p> : null}
         </div>
         {visible.length === 0
@@ -119,9 +130,14 @@ function RuleSection({ object, onChange, onRulesChange, onEdit }: {
   onRulesChange?: (object: JsonObject, metadata: never[]) => void
 }) {
   const { t } = useTranslation()
-  const [search, setSearch] = useState("")
+  const [searchParams, setSearchParams] = useSearchParams()
+  const filters = useMemo(() => parseDNSSearchParams(searchParams), [searchParams])
+  const search = filters.rules ?? ""
   const rules = dnsRules(object)
   const normalized = search.trim().toLowerCase()
+  const writeRulesQuery = (value: string) => {
+    setSearchParams(toDNSSearchParams({ servers: filters.servers, rules: value }), { replace: true })
+  }
   const visible = rules
     .map((item, index) => ({ item, index }))
     .filter(({ item }) => matchesDNSRule(item, normalized))
@@ -138,7 +154,7 @@ function RuleSection({ object, onChange, onRulesChange, onEdit }: {
       : <>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <label className="sr-only" htmlFor="dns-rules-search">{t("policy.dns.searchRules")}</label>
-          <Input id="dns-rules-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("policy.dns.searchRulesPlaceholder")} className="sm:max-w-sm" />
+          <Input id="dns-rules-search" value={search} onChange={(event) => writeRulesQuery(event.target.value)} placeholder={t("policy.dns.searchRulesPlaceholder")} className="sm:max-w-sm" aria-label={t("policy.dns.searchRules")} />
           {normalized ? <p className="text-sm text-muted-foreground">{t("policy.dns.searchCount", { shown: visible.length, total: rules.length })}</p> : null}
         </div>
         {visible.length === 0

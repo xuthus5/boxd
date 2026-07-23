@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { ListPlusIcon, RouteIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -14,7 +15,11 @@ import { RouteGlobalCard } from "@/features/policy/route-global-card"
 import { cloneJsonObject, moveItem, type JsonObject } from "@/features/policy/policy-form-model"
 import type { PolicyVisualEditorProps } from "@/features/policy/policy-page"
 import { RouteRuleCard } from "@/features/policy/route-rule-card"
-import { matchesRouteRule } from "@/features/policy/route-rule-filter"
+import {
+  matchesRouteRule,
+  parseRouteSearchParams,
+  toRouteSearchParams,
+} from "@/features/policy/route-rule-filter"
 import { toggleRuleInvert } from "@/features/policy/rule-invert"
 import { RouteRuleDialog } from "@/features/policy/route-rule-dialog"
 import { RouteRuleSetCard } from "@/features/policy/route-rule-set-card"
@@ -75,9 +80,14 @@ function RuleSection({ object, metadata, metadataLoading, metadataError, onChang
   onInstall?: () => void
 }) {
   const { t } = useTranslation()
-  const [search, setSearch] = useState("")
+  const [searchParams, setSearchParams] = useSearchParams()
+  const filters = useMemo(() => parseRouteSearchParams(searchParams), [searchParams])
+  const search = filters.query ?? ""
   const rules = routeRules(object)
   const normalized = search.trim().toLowerCase()
+  const writeQuery = (value: string) => {
+    setSearchParams(toRouteSearchParams({ query: value }), { replace: true })
+  }
   const indexed = rules.map((item, index) => ({ item, index, meta: metadata[index] }))
   const visible = indexed.filter(({ item, meta }) => matchesRouteRule(item, meta, normalized))
   const update = (next: readonly JsonObject[]) => onChange(setRouteRules(object, next))
@@ -98,7 +108,7 @@ function RuleSection({ object, metadata, metadataLoading, metadataError, onChang
       : <>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <label className="sr-only" htmlFor="route-rules-search">{t("policy.route.searchRules")}</label>
-          <Input id="route-rules-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("policy.route.searchRulesPlaceholder")} className="sm:max-w-sm" />
+          <Input id="route-rules-search" value={search} onChange={(event) => writeQuery(event.target.value)} placeholder={t("policy.route.searchRulesPlaceholder")} className="sm:max-w-sm" aria-label={t("policy.route.searchRules")} />
           {normalized ? <p className="text-sm text-muted-foreground">{t("policy.route.searchRulesCount", { shown: visible.length, total: rules.length })}</p> : null}
         </div>
         {visible.length === 0

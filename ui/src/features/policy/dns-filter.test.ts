@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest"
 
-import { matchesDNSRule, matchesDNSServer } from "@/features/policy/dns-filter"
+import {
+  buildDNSHref,
+  matchesDNSRule,
+  matchesDNSServer,
+  parseDNSSearchParams,
+  toDNSSearchParams,
+} from "@/features/policy/dns-filter"
 
 describe("dns-filter", () => {
   it("matches servers by tag type and address", () => {
@@ -18,5 +24,16 @@ describe("dns-filter", () => {
     expect(matchesDNSRule(rule, "dns-remote")).toBe(true)
     expect(matchesDNSRule(rule, "route")).toBe(true)
     expect(matchesDNSRule(rule, "reject")).toBe(false)
+  })
+
+  it("parses and builds DNS deep-link query strings", () => {
+    expect(parseDNSSearchParams(new URLSearchParams("sq=remote&rq=ads"))).toEqual({
+      servers: "remote",
+      rules: "ads",
+    })
+    expect(buildDNSHref({ servers: "remote" })).toBe("/policy/dns?sq=remote")
+    expect(buildDNSHref({ rules: "ads" })).toBe("/policy/dns?rq=ads")
+    expect(buildDNSHref({})).toBe("/policy/dns")
+    expect(toDNSSearchParams({ servers: "  " }).toString()).toBe("")
   })
 })

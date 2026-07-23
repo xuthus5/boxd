@@ -39,3 +39,37 @@ export function matchesDNSRule(item: JsonObject, query: string) {
   ].join(" ").toLowerCase()
   return haystack.includes(query)
 }
+
+export type DNSSearchFilters = {
+  servers?: string
+  rules?: string
+}
+
+function readParam(params: { get(name: string): string | null }, key: string): string | undefined {
+  const value = params.get(key)?.trim()
+  return value ? value : undefined
+}
+
+export function parseDNSSearchParams(
+  params: URLSearchParams | { get(name: string): string | null },
+): DNSSearchFilters {
+  return {
+    servers: readParam(params, "sq"),
+    rules: readParam(params, "rq"),
+  }
+}
+
+export function toDNSSearchParams(filters: DNSSearchFilters = {}): URLSearchParams {
+  const params = new URLSearchParams()
+  const servers = filters.servers?.trim()
+  const rules = filters.rules?.trim()
+  if (servers) params.set("sq", servers)
+  if (rules) params.set("rq", rules)
+  return params
+}
+
+export function buildDNSHref(filters: DNSSearchFilters = {}): string {
+  const qs = toDNSSearchParams(filters).toString()
+  return qs ? `/policy/dns?${qs}` : "/policy/dns"
+}
+

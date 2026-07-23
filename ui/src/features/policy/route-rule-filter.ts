@@ -21,3 +21,27 @@ export function matchesRouteRule(
   ].join(" ").toLowerCase()
   return haystack.includes(query)
 }
+
+export type RouteSearchFilters = {
+  query?: string
+}
+
+export function parseRouteSearchParams(
+  params: URLSearchParams | { get(name: string): string | null },
+): RouteSearchFilters {
+  const value = params.get("q")?.trim()
+  return { query: value ? value : undefined }
+}
+
+export function toRouteSearchParams(filters: RouteSearchFilters = {}): URLSearchParams {
+  const params = new URLSearchParams()
+  const query = filters.query?.trim()
+  if (query) params.set("q", query)
+  return params
+}
+
+export function buildRouteHref(filters: RouteSearchFilters = {}): string {
+  const qs = toRouteSearchParams(filters).toString()
+  return qs ? `/policy/route?${qs}` : "/policy/route"
+}
+
