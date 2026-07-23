@@ -71,11 +71,11 @@ function URLTestFields({ defaults, state, setState, onReset }: URLTestFieldsProp
   const urlValue = inherit ? defaults.url : state.url
   const intervalValue = inherit ? defaults.interval : state.interval
   const toleranceValue = inherit ? String(defaults.tolerance) : state.tolerance
-  return <FieldGroup>
+  return <FieldGroup className="gap-2 sm:gap-3">
     <Field orientation="responsive">
       <FieldTitle id="subscription-urltest-policy">{t("subscriptions.urlTestPolicy")}</FieldTitle>
       <ToggleGroup
-        className="grid w-full grid-cols-3"
+        className="grid h-8 w-full grid-cols-3"
         aria-labelledby="subscription-urltest-policy"
         value={[state.policy]}
         onValueChange={(value) => {
@@ -116,6 +116,7 @@ function URLTestFields({ defaults, state, setState, onReset }: URLTestFieldsProp
         <FieldLabel htmlFor="subscription-urltest-interval">{t("settings.urlTestInterval")}</FieldLabel>
         <Input
           id="subscription-urltest-interval"
+          className="h-8"
           disabled={inherit}
           aria-invalid={isIntervalInvalid || undefined}
           placeholder={defaults.interval}
@@ -137,6 +138,7 @@ function URLTestFields({ defaults, state, setState, onReset }: URLTestFieldsProp
           type="number"
           min={0}
           max={65535}
+          className="h-8"
           disabled={inherit}
           aria-invalid={isToleranceInvalid || undefined}
           placeholder={String(defaults.tolerance)}
@@ -153,7 +155,7 @@ function URLTestFields({ defaults, state, setState, onReset }: URLTestFieldsProp
       </Field>
     </> : null}
     {!inherit ? <Field>
-      <Button type="button" variant="outline" onClick={onReset}>{t("subscriptions.resetURLTest")}</Button>
+      <Button type="button" size="sm" className="h-8" variant="outline" onClick={onReset}>{t("subscriptions.resetURLTest")}</Button>
     </Field> : null}
   </FieldGroup>
 }
@@ -189,29 +191,29 @@ export function SubscriptionDialog({ defaults, item, onClose, onSaved }: Subscri
   const resetURLTest = () => setURLTest({ policy: "inherit", url: "", interval: "", tolerance: "" })
   const isInvalid = !name || !url || interval <= 0 || isURLTestStateInvalid(urlTest)
   return <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
-    <DialogContent className="max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-lg">
+    <DialogContent className="max-h-[calc(100dvh-1rem)] min-w-0 gap-3 overflow-y-auto p-3 sm:max-h-[calc(100svh-2rem)] sm:max-w-lg sm:gap-4 sm:p-4">
       <DialogHeader>
-        <DialogTitle>{item ? t("subscriptions.edit") : t("subscriptions.add")}</DialogTitle>
+        <DialogTitle className="truncate">{item ? t("subscriptions.edit") : t("subscriptions.add")}</DialogTitle>
         <DialogDescription>{t("subscriptions.dialogDescription")}</DialogDescription>
       </DialogHeader>
-      <FieldGroup>
+      <FieldGroup className="gap-2 sm:gap-3">
         <Field>
           <FieldLabel htmlFor="subscription-name">{t("subscriptions.name")}</FieldLabel>
-          <Input id="subscription-name" value={name} onChange={(event) => setName(event.target.value)} />
+          <Input id="subscription-name" className="h-8" value={name} onChange={(event) => setName(event.target.value)} />
         </Field>
         <Field>
           <FieldLabel htmlFor="subscription-url">{t("subscriptions.subscriptionURL")}</FieldLabel>
-          <Input id="subscription-url" value={url} onChange={(event) => setURL(event.target.value)} />
+          <Input id="subscription-url" className="h-8" value={url} onChange={(event) => setURL(event.target.value)} />
         </Field>
         <Field>
           <FieldLabel htmlFor="subscription-interval">{t("subscriptions.interval")}</FieldLabel>
-          <Input id="subscription-interval" type="number" min={1} value={interval} onChange={(event) => setInterval(Number(event.target.value))} />
+          <Input id="subscription-interval" type="number" min={1} className="h-8" value={interval} onChange={(event) => setInterval(Number(event.target.value))} />
         </Field>
       </FieldGroup>
       <URLTestFields defaults={defaults} state={urlTest} setState={setURLTest} onReset={resetURLTest} />
-      <DialogFooter>
-        <Button variant="outline" onClick={onClose}>{t("common.cancel")}</Button>
-        <Button disabled={isInvalid || request.isPending} onClick={save}>{t("common.save")}</Button>
+      <DialogFooter className="gap-2">
+        <Button variant="outline" size="sm" className="h-8" onClick={onClose}>{t("common.cancel")}</Button>
+        <Button size="sm" className="h-8" disabled={isInvalid || request.isPending} onClick={save}>{t("common.save")}</Button>
       </DialogFooter>
     </DialogContent>
   </Dialog>

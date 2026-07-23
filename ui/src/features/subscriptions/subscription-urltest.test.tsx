@@ -41,6 +41,9 @@ describe("subscription URLTest overrides", () => {
     renderApp(<App />, "/subscriptions")
 
     await user.click(await screen.findByRole("button", { name: "新增订阅" }))
+    expect(screen.getByRole("dialog")).toHaveClass("p-3")
+    expect(screen.getByLabelText("名称")).toHaveClass("h-8")
+    expect(screen.getByRole("button", { name: "保存" })).toHaveClass("h-8")
     const inheritURL = screen.getByRole("combobox", { name: "URLTest 测试地址" })
     expect(inheritURL).toBeDisabled()
     expect(inheritURL).toHaveTextContent(defaults.url)
