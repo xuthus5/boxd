@@ -9,6 +9,7 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { isRuleSetAutoUpdateReady } from "@/features/settings/settings-dirty"
+import { reportSettingsRequestError } from "@/features/settings/settings-request-error-actions"
 import { api } from "@/lib/api/endpoints"
 import type { RuleSetAutoUpdate } from "@/lib/api/types"
 
@@ -29,7 +30,10 @@ export function RuleSetAutoUpdateCard({ defaults }: { defaults: RuleSetAutoUpdat
       setSaved({ enabled, interval: interval.trim() })
       toast.success(t("settings.ruleSetAutoUpdateSaved"))
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => reportSettingsRequestError(error, t, {
+      scope: "ruleset-auto-update",
+      fallback: t("settings.ruleSetAutoUpdateFailed"),
+    }),
   })
   return (
     <Card size="sm">

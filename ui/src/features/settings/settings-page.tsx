@@ -18,6 +18,7 @@ import { AccountSecurityCard } from "@/features/settings/account-security-card"
 import { URLTestDefaultsCard } from "@/features/settings/urltest-defaults-card"
 import { api } from "@/lib/api/endpoints"
 import { isTestURLReady } from "@/features/settings/settings-dirty"
+import { reportSettingsRequestError } from "@/features/settings/settings-request-error-actions"
 import { resolveInitialSpeedTestURL } from "@/lib/speed-test-urls"
 import { isHTTPURL } from "@/lib/urltest"
 import type { Language, LogThreshold, Theme } from "@/lib/storage"
@@ -95,14 +96,20 @@ function RuntimeSettingsCard({ url, enabled }: { url: string; enabled: boolean }
       setSavedURL(testURL.trim())
       toast.success(t("settings.testURLSaved"))
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => reportSettingsRequestError(error, t, {
+      scope: "test-url",
+      fallback: t("settings.testURLFailed"),
+    }),
   })
   const saveAutostart = (checked: boolean) => {
     const previous = autostart
     setAutostart(checked)
     api.settings.setAutostart(checked).then(() => toast.success(t("settings.autostartSaved"))).catch((error: Error) => {
       setAutostart(previous)
-      toast.error(error.message)
+      reportSettingsRequestError(error, t, {
+        scope: "autostart",
+        fallback: t("settings.autostartFailed"),
+      })
     })
   }
   return (

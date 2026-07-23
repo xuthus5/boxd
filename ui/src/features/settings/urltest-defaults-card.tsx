@@ -10,6 +10,7 @@ import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { isURLTestDefaultsReady } from "@/features/settings/settings-dirty"
+import { reportSettingsRequestError } from "@/features/settings/settings-request-error-actions"
 import { api } from "@/lib/api/endpoints"
 import type { URLTestDefaults } from "@/lib/api/types"
 import { isHTTPURL, isPositiveDuration, isTolerance } from "@/lib/urltest"
@@ -44,7 +45,10 @@ export function URLTestDefaultsCard({ defaults }: { defaults: URLTestDefaults })
       setSaved(input)
       toast.success(t("settings.urlTestDefaultsSaved"))
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => reportSettingsRequestError(error, t, {
+      scope: "urltest-defaults",
+      fallback: t("settings.urlTestDefaultsFailed"),
+    }),
   })
 
   return (

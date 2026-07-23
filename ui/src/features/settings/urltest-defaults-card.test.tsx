@@ -55,6 +55,12 @@ describe("URLTestDefaultsCard", () => {
     await user.clear(tolerance)
     await user.type(tolerance, "60")
     await user.click(screen.getByRole("button", { name: "保存 URLTest 默认值" }))
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("urltest save failed"))
+    await waitFor(() => expect(toast.error).toHaveBeenCalled())
+    const [message, options] = vi.mocked(toast.error).mock.calls.at(-1)!
+    expect(String(message)).toContain("urltest save failed")
+    expect(options).toEqual(expect.objectContaining({
+      description: expect.any(String),
+      action: expect.objectContaining({ label: expect.any(String) }),
+    }))
   })
 })

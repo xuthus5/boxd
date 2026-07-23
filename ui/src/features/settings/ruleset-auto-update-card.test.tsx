@@ -67,6 +67,12 @@ describe("RuleSetAutoUpdateCard", () => {
     const user = userEvent.setup()
     await user.click(screen.getByRole("switch", { name: "启用 local 规则集定时更新" }))
     await user.click(screen.getByRole("button", { name: "保存" }))
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("ruleset save failed"))
+    await waitFor(() => expect(toast.error).toHaveBeenCalled())
+    const [message, options] = vi.mocked(toast.error).mock.calls.at(-1)!
+    expect(String(message)).toContain("ruleset save failed")
+    expect(options).toEqual(expect.objectContaining({
+      description: expect.any(String),
+      action: expect.objectContaining({ label: expect.any(String) }),
+    }))
   })
 })

@@ -59,6 +59,12 @@ describe("BackupExportCard", () => {
 
     renderCard()
     await userEvent.setup().click(screen.getByRole("button", { name: "导出备份" }))
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("failed to create backup"))
+    await waitFor(() => expect(toast.error).toHaveBeenCalled())
+    const [message, options] = vi.mocked(toast.error).mock.calls.at(-1)!
+    expect(String(message)).toContain("failed to create backup")
+    expect(options).toEqual(expect.objectContaining({
+      description: expect.stringMatching(/服务内部错误|Internal server error/),
+      action: expect.objectContaining({ label: expect.stringMatching(/复制请求错误|Copy request error/) }),
+    }))
   })
 })

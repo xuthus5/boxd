@@ -20,6 +20,7 @@ import {
   validateJWTSecret,
   validatePasswordConfirmation,
 } from "@/features/settings/security-validation"
+import { reportSettingsRequestError } from "@/features/settings/settings-request-error-actions"
 import { api } from "@/lib/api/endpoints"
 
 function passwordIssueMessage(
@@ -70,7 +71,10 @@ export function AccountSecurityCard({
       toast.success(t("settings.passwordRotated"))
       auth.clear()
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => reportSettingsRequestError(error, t, {
+      scope: "password",
+      fallback: t("settings.passwordRotateFailed"),
+    }),
   })
   const rotateJWT = useMutation({
     mutationFn: () => api.settings.setJWT(secret),
@@ -79,7 +83,10 @@ export function AccountSecurityCard({
       toast.success(t("settings.jwtRotated"))
       auth.clear()
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => reportSettingsRequestError(error, t, {
+      scope: "jwt",
+      fallback: t("settings.jwtRotateFailed"),
+    }),
   })
 
   return (

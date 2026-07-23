@@ -4,6 +4,7 @@ import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { reportSettingsRequestError } from "@/features/settings/settings-request-error-actions"
 import { api } from "@/lib/api/endpoints"
 import { triggerBrowserDownload } from "@/lib/api/client"
 
@@ -16,7 +17,10 @@ export function BackupExportCard() {
       return file.filename
     },
     onSuccess: (filename) => toast.success(t("settings.backupExportSuccess", { filename })),
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => reportSettingsRequestError(error, t, {
+      scope: "backup-export",
+      fallback: t("settings.backupExportFailed"),
+    }),
   })
 
   return (
