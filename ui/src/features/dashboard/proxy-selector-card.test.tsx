@@ -4,16 +4,29 @@ import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { I18nextProvider } from "react-i18next"
+import { MemoryRouter } from "react-router-dom"
+import { toast } from "sonner"
 
 import { ProxySelectorCard } from "@/features/dashboard/proxy-selector-card"
 import { i18n } from "@/i18n"
 
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
+
 function wrap(ui: ReactElement) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
-  return render(<I18nextProvider i18n={i18n}><QueryClientProvider client={client}>{ui}</QueryClientProvider></I18nextProvider>)
+  return render(
+    <I18nextProvider i18n={i18n}>
+      <QueryClientProvider client={client}>
+        <MemoryRouter>{ui}</MemoryRouter>
+      </QueryClientProvider>
+    </I18nextProvider>,
+  )
 }
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.clearAllMocks()
+})
 
 describe("ProxySelectorCard", () => {
   it("selects a preferred proxy group member", async () => {
@@ -62,8 +75,24 @@ describe("ProxySelectorCard", () => {
     await screen.findByText("当前出口")
     expect(screen.getByRole("combobox", { name: "当前出口" })).toHaveClass("h-8")
     expect(screen.getByRole("button", { name: "测试出口延迟" })).toHaveClass("h-8")
+    expect(screen.getByRole("link", { name: "查看连接: a" })).toHaveAttribute(
+      "href",
+      "/observability/connections?outbound=a",
+    )
+    expect(screen.getByRole("link", { name: "查看日志: a" })).toHaveAttribute(
+      "href",
+      "/observability/logs?q=a",
+    )
+    expect(screen.getByRole("link", { name: "查看节点: a" })).toHaveAttribute(
+      "href",
+      "/nodes?q=a",
+    )
     await user.click(screen.getByRole("button", { name: "测试出口延迟" }))
-    expect(await screen.findByText("12 ms")).toBeInTheDocument()
+    expect((await screen.findAllByText("12 ms")).length).toBeGreaterThan(0)
+    expect(screen.getAllByText("34 ms").length).toBeGreaterThan(0)
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith("出口测速完成：2/2 成功，0 失败")
+    })
     await user.click(screen.getByRole("combobox", { name: "当前出口" }))
     expect(await screen.findByRole("option", { name: /b \(34 ms\)/ })).toBeInTheDocument()
   })

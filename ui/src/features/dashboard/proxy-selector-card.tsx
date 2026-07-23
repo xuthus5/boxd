@@ -1,28 +1,24 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useMemo, useState } from "react"
+import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
-import { toast } from "sonner"
+import { Link } from "react-router-dom"
 
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  formatDelayValue,
+  sortDelayEntries,
+  type DelayMap,
+} from "@/features/dashboard/proxy-delay"
+import { useProxySelector } from "@/features/dashboard/use-proxy-selector"
 import { formatLatency } from "@/features/nodes/node-format"
-import { api } from "@/lib/api/endpoints"
+import { buildNodesHref } from "@/features/nodes/nodes-filter"
+import { buildConnectionsHref } from "@/features/observability/connection-facets"
+import { buildLogsHref } from "@/features/observability/log-filter-presets"
 import type { OutboundGroup } from "@/lib/api/types"
-
-const preferredTags = ["proxy", "select", "GLOBAL"]
-
-function pickPrimaryGroup(groups: OutboundGroup[]) {
-  const selectors = groups.filter((group) => group.type === "selector" && group.all.length > 0)
-  if (!selectors.length) return null
-  for (const tag of preferredTags) {
-    const found = selectors.find((group) => group.tag === tag)
-    if (found) return found
-  }
-  return selectors[0]
-}
+import { cn } from "@/lib/utils"
 
 function DelayBadge({ delay, failed }: { delay?: number; failed?: boolean }) {
   const { t } = useTranslation()
@@ -31,88 +27,116 @@ function DelayBadge({ delay, failed }: { delay?: number; failed?: boolean }) {
   return <Badge variant="secondary">{formatLatency(delay)}</Badge>
 }
 
+function ProxyStatusCard({ title, description }: { title: string; description: string }) {
+  return (
+    <Card size="sm">
+      <CardHeader className="gap-1.5">
+        <CardTitle className="truncate">{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+    </Card>
+  )
+}
+
+function DelayList({ delays }: { delays: DelayMap }) {
+  const { t } = useTranslation()
+  const entries = useMemo(() => sortDelayEntries(delays), [delays])
+  if (!entries.length) return null
+  const failedLabel = t("dashboard.proxyDelayFailed")
+  return (
+    <ul className="flex max-h-36 flex-col gap-1 overflow-auto text-xs text-muted-foreground">
+      {entries.map(([tag, delay]) => (
+        <li key={tag} className="flex items-center justify-between gap-2">
+          <span className="min-w-0 truncate" title={tag}>{tag}</span>
+          <span className={cn("shrink-0 tabular-nums", delay === "error" && "text-destructive")}>
+            {formatDelayValue(delay, failedLabel)}
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function CurrentOutboundLinks({ tag }: { tag: string }) {
+  const { t } = useTranslation()
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      <Link
+        to={buildConnectionsHref({ outbound: tag })}
+        aria-label={`${t("nodes.viewConnections")}: ${tag}`}
+        className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+      >
+        {t("nodes.viewConnections")}
+      </Link>
+      <Link
+        to={buildLogsHref({ query: tag })}
+        aria-label={`${t("nodes.viewLogs")}: ${tag}`}
+        className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+      >
+        {t("nodes.viewLogs")}
+      </Link>
+      <Link
+        to={buildNodesHref({ query: tag })}
+        aria-label={`${t("observability.viewNode")}: ${tag}`}
+        className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+      >
+        {t("observability.viewNode")}
+      </Link>
+    </div>
+  )
+}
+
+function MemberSelect({
+  group,
+  members,
+  delays,
+  onSelect,
+  selecting,
+}: {
+  group: OutboundGroup
+  members: readonly string[]
+  delays: DelayMap
+  onSelect: (tag: string) => void
+  selecting: boolean
+}) {
+  const { t } = useTranslation()
+  const items = members.map((tag) => ({ label: tag, value: tag }))
+  const failedLabel = t("dashboard.proxyDelayFailed")
+  return (
+    <Select items={items} value={group.now} onValueChange={(value) => onSelect(String(value))}>
+      <SelectTrigger aria-label={t("dashboard.proxySelector")} className="h-8 w-full" disabled={selecting}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectGroup>
+          {items.map((item) => {
+            const delay = delays[item.value]
+            const suffix = delay === undefined ? "" : ` (${formatDelayValue(delay, failedLabel)})`
+            return <SelectItem key={item.value} value={item.value}>{item.label}{suffix}</SelectItem>
+          })}
+        </SelectGroup>
+      </SelectContent>
+    </Select>
+  )
+}
+
 export function ProxySelectorCard() {
   const { t } = useTranslation()
-  const client = useQueryClient()
-  const [delays, setDelays] = useState<Record<string, number | "error">>({})
-  const query = useQuery({
-    queryKey: ["nodes", "groups"],
-    queryFn: api.nodes.groups,
-    refetchInterval: 5000,
-  })
-  const group = pickPrimaryGroup(query.data?.groups ?? [])
-  const members = useMemo(() => group?.all ?? [], [group])
-
-  const selectMutation = useMutation({
-    mutationFn: (tag: string) => {
-      if (!group) throw new Error("missing group")
-      return api.nodes.select(group.tag, tag)
-    },
-    onSuccess: async () => {
-      await client.invalidateQueries({ queryKey: ["nodes", "groups"] })
-      toast.success(t("dashboard.proxySelected"))
-    },
-    onError: (error: Error) => toast.error(error.message),
-  })
-
-  const delayMutation = useMutation({
-    mutationFn: async () => {
-      if (!group) return {} as Record<string, number | "error">
-      // Prefer group URLTest when the group also supports it; otherwise probe members individually.
-      try {
-        const urlTest = await api.nodes.urlTest(group.tag)
-        const next: Record<string, number | "error"> = {}
-        for (const tag of members) {
-          const value = urlTest[tag]
-          next[tag] = typeof value === "number" ? value : "error"
-        }
-        return next
-      } catch {
-        const entries = await Promise.all(members.map(async (tag) => {
-          try {
-            const result = await api.nodes.delay(tag) as { delay?: number }
-            return [tag, typeof result.delay === "number" ? result.delay : "error"] as const
-          } catch {
-            return [tag, "error"] as const
-          }
-        }))
-        return Object.fromEntries(entries)
-      }
-    },
-    onSuccess: (next) => setDelays(next),
-    onError: (error: Error) => toast.error(error.message),
-  })
-
-  if (query.isLoading) return <Skeleton className="h-36 w-full" />
-  if (query.error) {
-    return (
-      <Card size="sm">
-        <CardHeader className="gap-1.5">
-          <CardTitle className="truncate">{t("dashboard.proxySelector")}</CardTitle>
-          <CardDescription>{query.error.message}</CardDescription>
-        </CardHeader>
-      </Card>
-    )
+  const state = useProxySelector()
+  if (state.query.isLoading) return <Skeleton className="h-36 w-full" />
+  if (state.query.error) {
+    return <ProxyStatusCard title={t("dashboard.proxySelector")} description={state.query.error.message} />
   }
-  if (!group) {
-    return (
-      <Card size="sm">
-        <CardHeader className="gap-1.5">
-          <CardTitle className="truncate">{t("dashboard.proxySelector")}</CardTitle>
-          <CardDescription>{t("dashboard.proxySelectorEmpty")}</CardDescription>
-        </CardHeader>
-      </Card>
-    )
+  if (!state.group) {
+    return <ProxyStatusCard title={t("dashboard.proxySelector")} description={t("dashboard.proxySelectorEmpty")} />
   }
-
-  const items = members.map((tag) => ({ label: tag, value: tag }))
-  const currentDelay = delays[group.now]
+  const currentDelay = state.delays[state.group.now]
   return (
     <Card size="sm">
       <CardHeader className="gap-1.5">
         <CardTitle className="flex min-w-0 flex-wrap items-center gap-2">
           <span className="truncate">{t("dashboard.proxySelector")}</span>
-          <Badge variant="outline">{group.tag}</Badge>
+          <Badge variant="outline">{state.group.tag}</Badge>
           <DelayBadge
             delay={typeof currentDelay === "number" ? currentDelay : undefined}
             failed={currentDelay === "error"}
@@ -121,37 +145,24 @@ export function ProxySelectorCard() {
         <CardDescription>{t("dashboard.proxySelectorDescription")}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-2 sm:gap-3">
-        <Select
-          items={items}
-          value={group.now}
-          onValueChange={(value) => selectMutation.mutate(String(value))}
-        >
-          <SelectTrigger aria-label={t("dashboard.proxySelector")} className="h-8 w-full" disabled={selectMutation.isPending}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              {items.map((item) => {
-                const delay = delays[item.value]
-                const suffix = delay === "error"
-                  ? ` (${t("dashboard.proxyDelayFailed")})`
-                  : typeof delay === "number"
-                    ? ` (${formatLatency(delay)})`
-                    : ""
-                return <SelectItem key={item.value} value={item.value}>{item.label}{suffix}</SelectItem>
-              })}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
+        <MemberSelect
+          group={state.group}
+          members={state.members}
+          delays={state.delays}
+          onSelect={state.select}
+          selecting={state.selecting}
+        />
         <Button
           variant="outline"
           size="sm"
           className="h-8 w-full sm:w-auto"
-          disabled={delayMutation.isPending || members.length === 0}
-          onClick={() => delayMutation.mutate()}
+          disabled={state.probing || state.members.length === 0}
+          onClick={state.probe}
         >
-          {delayMutation.isPending ? t("dashboard.proxyDelayTesting") : t("dashboard.proxyDelayTest")}
+          {state.probing ? t("dashboard.proxyDelayTesting") : t("dashboard.proxyDelayTest")}
         </Button>
+        <DelayList delays={state.delays} />
+        {state.group.now ? <CurrentOutboundLinks tag={state.group.now} /> : null}
       </CardContent>
     </Card>
   )
