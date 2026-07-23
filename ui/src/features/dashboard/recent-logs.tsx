@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { buildLogsHref } from "@/features/observability/log-filter-presets"
+import { LogCopyActions } from "@/features/observability/log-list-rows"
 import { meetsLogThreshold } from "@/features/observability/log-level"
 import { usePreferences } from "@/features/preferences/preferences-provider"
 import type { LogEvent } from "@/lib/api/types"
@@ -48,18 +49,31 @@ export function RecentLogs({ items }: { items: LogEvent[] }) {
                 <TableHead className="w-28">{t("observability.time")}</TableHead>
                 <TableHead className="w-20">{t("dashboard.level")}</TableHead>
                 <TableHead>{t("dashboard.message")}</TableHead>
+                <TableHead className="w-40">{t("common.actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {visible.map((item, index) => <TableRow className="grid grid-cols-[auto_1fr] items-center sm:table-row" key={`${item.timestamp}-${item.level}-${index}`}>
-                <TableCell className="flex min-h-9 items-center px-2 py-1 text-xs whitespace-nowrap text-muted-foreground sm:table-cell sm:p-2 sm:text-sm">
-                  <time dateTime={item.timestamp || undefined}>{formatLogTime(item.timestamp)}</time>
-                </TableCell>
-                <TableCell className="flex min-h-9 items-center justify-self-start px-2 py-1 sm:table-cell sm:p-2">
-                  <Badge variant={item.level === "error" ? "destructive" : "secondary"}>{item.level}</Badge>
-                </TableCell>
-                <TableCell className="col-span-2 block p-2 pt-1 whitespace-normal break-words sm:table-cell sm:p-2">{item.message}</TableCell>
-              </TableRow>)}
+              {visible.map((item, index) => (
+                <TableRow
+                  className="grid grid-cols-[auto_1fr] items-center sm:table-row"
+                  key={`${item.timestamp}-${item.level}-${index}`}
+                >
+                  <TableCell className="flex min-h-9 items-center px-2 py-1 text-xs whitespace-nowrap text-muted-foreground sm:table-cell sm:p-2 sm:text-sm">
+                    <time dateTime={item.timestamp || undefined}>{formatLogTime(item.timestamp)}</time>
+                  </TableCell>
+                  <TableCell className="flex min-h-9 items-center justify-self-start px-2 py-1 sm:table-cell sm:p-2">
+                    <Badge variant={item.level === "error" ? "destructive" : "secondary"}>{item.level}</Badge>
+                  </TableCell>
+                  <TableCell className="col-span-2 block p-2 pt-1 whitespace-normal break-words sm:table-cell sm:p-2">
+                    {item.message}
+                  </TableCell>
+                  <TableCell className="col-span-2 block p-2 pt-0 sm:table-cell sm:p-2">
+                    <div className="flex flex-wrap gap-1">
+                      <LogCopyActions item={item} />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>}
       </CardContent>

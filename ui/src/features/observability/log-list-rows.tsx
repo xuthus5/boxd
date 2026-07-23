@@ -26,7 +26,7 @@ function copyLogPayload(payload: string, okKey: string, failKey: string, t: (key
   )
 }
 
-function LogCopyActions({ item }: { item: LogEvent }) {
+export function LogCopyActions({ item }: { item: LogEvent }) {
   const { t } = useTranslation()
   const message = formatLogMessage(item)
   const line = formatLogLine(item)
