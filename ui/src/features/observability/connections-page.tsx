@@ -46,6 +46,7 @@ import {
 import { downloadTextFile } from "@/features/observability/log-export"
 import { StreamStatusBadge } from "@/features/observability/stream-status-badge"
 import { useStreamBuffer } from "@/features/observability/use-stream-buffer"
+import { useConnectionCloseActions } from "@/features/observability/use-connection-close-actions"
 import { api } from "@/lib/api/endpoints"
 import type { ConnectionEvent } from "@/lib/api/types"
 
@@ -57,9 +58,17 @@ export function ConnectionsPage() {
   const filters = useMemo(() => parseConnectionSearchParams(searchParams), [searchParams])
   const view: ConnectionView = filters.view ?? "list"
   const sort: ConnectionSortKey = filters.sort ?? "traffic"
-  const [closingId, setClosingId] = useState<string | "all" | null>(null)
   const [columns, setColumns] = useState<ConnectionColumnId[]>(() => loadConnectionColumns())
-  const connections = useMemo(() => stream.items.at(-1)?.list ?? [], [stream.items])
+  const liveConnections = useMemo(() => stream.items.at(-1)?.list ?? [], [stream.items])
+  const {
+    connections,
+    closingId,
+    bulkBusy,
+    closeOne,
+    closeAll,
+    closeGroup,
+    closeFiltered,
+  } = useConnectionCloseActions(liveConnections)
   const filtered = useMemo(() => filterConnectionsByFacets(connections, filters), [connections, filters])
   const facetOptions = useMemo(() => ({
     network: listConnectionFacets(connections, "network"),
@@ -73,10 +82,9 @@ export function ConnectionsPage() {
   const facetsActive = connectionFiltersActive(filters)
   const sorted = useMemo(() => sortConnections(filtered, sort), [filtered, sort])
   const summary = useMemo(() => summarizeConnections(filtered), [filtered])
-  const byOutbound = useMemo(() => aggregateConnections(filtered, "outbound"), [filtered])
-  const byRule = useMemo(() => aggregateConnections(filtered, "rule"), [filtered])
-  const byProcess = useMemo(() => aggregateConnections(filtered, "process"), [filtered])
-  const busy = closingId !== null
+  const byOutbound = useMemo(() => aggregateConnections(filtered, "outbound", 100), [filtered])
+  const byRule = useMemo(() => aggregateConnections(filtered, "rule", 100), [filtered])
+  const byProcess = useMemo(() => aggregateConnections(filtered, "process", 100), [filtered])
   const canExport = sorted.length > 0
   const sortOptions = useMemo(() => ([
     { label: t("observability.sortByTraffic"), value: "traffic" as const },
@@ -121,43 +129,6 @@ export function ConnectionsPage() {
     }
   }
 
-  const run = async (request: Promise<unknown>, message: string, id: string | "all" = "all") => {
-    setClosingId(id)
-    try {
-      await request
-      toast.success(message)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : String(error))
-    } finally {
-      setClosingId(null)
-    }
-  }
-
-  const closeGroup = async (field: "outbound" | "rule" | "process", key: string) => {
-    if (key === "—") return
-    setClosingId(`group:${field}:${key}`)
-    try {
-      const result = await api.stats.closeAll({ [field]: key })
-      toast.success(t("observability.closedCount", { count: result.closed }))
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : String(error))
-    } finally {
-      setClosingId(null)
-    }
-  }
-
-  const closeFiltered = async () => {
-    setClosingId("filtered")
-    try {
-      const result = await api.stats.closeAll({ ids: filtered.map((item) => item.id) })
-      toast.success(t("observability.closedCount", { count: result.closed }))
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : String(error))
-    } finally {
-      setClosingId(null)
-    }
-  }
-
   const onToggleColumn = (id: ConnectionColumnId, enabled: boolean) => {
     setColumns((current) => saveConnectionColumns(toggleConnectionColumn(current, id, enabled)))
   }
@@ -173,12 +144,12 @@ export function ConnectionsPage() {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold">{t("observability.connections")}</h1>
         <ConfirmAction
-          trigger={<Button size="sm" className="h-8 w-full sm:w-auto" variant="destructive" disabled={busy}><Trash2Icon data-icon="inline-start" />{t("observability.closeAll")}</Button>}
+          trigger={<Button size="sm" className="h-8 w-full sm:w-auto" variant="destructive" disabled={bulkBusy}><Trash2Icon data-icon="inline-start" />{t("observability.closeAll")}</Button>}
           title={t("observability.closeAllTitle")}
           description={t("observability.closeAllDescription")}
           confirmLabel={t("observability.confirmClose")}
           confirmVariant="destructive"
-          onConfirm={() => void run(api.stats.closeAll(), t("observability.closeAll"))}
+          onConfirm={() => void closeAll()}
         />
       </div>
       {stream.error ? <Alert variant="destructive"><AlertTitle>{t("observability.streamError")}</AlertTitle><AlertDescription>{stream.error}</AlertDescription></Alert> : null}
@@ -221,7 +192,7 @@ export function ConnectionsPage() {
             sortOptions={sortOptions}
             facetsActive={facetsActive}
             filteredCount={filtered.length}
-            busy={busy}
+            busy={bulkBusy}
             canExport={canExport}
             paused={stream.paused}
             onQueryChange={(value) => patchFilters({ query: value })}
@@ -236,7 +207,7 @@ export function ConnectionsPage() {
             onClearFacets={clearFacets}
             onTogglePause={() => stream.setPaused(!stream.paused)}
             onExport={onExport}
-            onCloseFiltered={closeFiltered}
+            onCloseFiltered={() => void closeFiltered(filtered)}
           />
         </CardHeader>
         <CardContent>
@@ -252,8 +223,8 @@ export function ConnectionsPage() {
                 <ConnectionListTable
                   connections={sorted}
                   columns={columns}
-                  busy={busy}
-                  onClose={(id) => void run(api.stats.closeConnection(id), t("observability.close"), id)}
+                  closingId={closingId}
+                  onClose={(id) => void closeOne(id)}
                   emptyActionLabel={emptyActionLabel}
                   onEmptyAction={emptyAction}
                 />
@@ -262,8 +233,8 @@ export function ConnectionsPage() {
                 <ConnectionGroupTable
                   groups={byOutbound}
                   field="outbound"
-                  busy={busy}
-                  onCloseGroup={closeGroup}
+                  closingId={closingId}
+                  onCloseGroup={(field, key) => void closeGroup(field, key, filtered)}
                   baseFilters={filters}
                   emptyTitle={t("observability.noMatch")}
                   emptyDescription={t("observability.noMatchDescription")}
@@ -275,8 +246,8 @@ export function ConnectionsPage() {
                 <ConnectionGroupTable
                   groups={byRule}
                   field="rule"
-                  busy={busy}
-                  onCloseGroup={closeGroup}
+                  closingId={closingId}
+                  onCloseGroup={(field, key) => void closeGroup(field, key, filtered)}
                   baseFilters={filters}
                   emptyTitle={t("observability.noMatch")}
                   emptyDescription={t("observability.noMatchDescription")}
@@ -288,8 +259,8 @@ export function ConnectionsPage() {
                 <ConnectionGroupTable
                   groups={byProcess}
                   field="process"
-                  busy={busy}
-                  onCloseGroup={closeGroup}
+                  closingId={closingId}
+                  onCloseGroup={(field, key) => void closeGroup(field, key, filtered)}
                   baseFilters={filters}
                   emptyTitle={t("observability.noMatch")}
                   emptyDescription={t("observability.noMatchDescription")}

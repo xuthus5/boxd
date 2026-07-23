@@ -60,3 +60,19 @@ describe("connection-stats", () => {
     expect(matchesConnection(item, "udp")).toBe(false)
   })
 })
+
+describe("aggregateConnections limit", () => {
+  it("returns more groups when limit is raised", () => {
+    const many: Connection[] = Array.from({ length: 20 }, (_, index) => ({
+      id: index + 1,
+      target: `host-${index}.example:443`,
+      outbound: `proxy-${index}`,
+      upload: index,
+      download: index,
+      start: "2026-01-01T00:00:00Z",
+    }))
+    expect(aggregateConnections(many, "outbound").length).toBe(8)
+    expect(aggregateConnections(many, "outbound", 100).length).toBe(20)
+  })
+})
+

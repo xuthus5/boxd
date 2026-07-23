@@ -10,6 +10,10 @@ import {
   type ConnectionColumnId,
 } from "@/features/observability/connection-columns"
 import {
+  isConnectionRowBusy,
+  type ClosingTarget,
+} from "@/features/observability/connection-close"
+import {
   ConnectionDesktopRow,
   ConnectionMobileCard,
 } from "@/features/observability/connection-list-rows"
@@ -23,14 +27,14 @@ const MOBILE_CARD_HEIGHT = 176
 export function ConnectionListTable({
   connections,
   columns,
-  busy,
+  closingId,
   onClose,
   emptyActionLabel,
   onEmptyAction,
 }: {
   connections: Connection[]
   columns: readonly ConnectionColumnId[]
-  busy: boolean
+  closingId: ClosingTarget
   onClose: (id: string) => void
   emptyActionLabel?: string
   onEmptyAction?: () => void
@@ -67,7 +71,7 @@ export function ConnectionListTable({
             <ConnectionMobileCard
               connection={connection}
               columns={columns}
-              busy={busy}
+              busy={isConnectionRowBusy(closingId, String(connection.id))}
               onClose={onClose}
             />
           </div>
@@ -79,7 +83,7 @@ export function ConnectionListTable({
     <ConnectionDesktopVirtualTable
       connections={connections}
       columns={columns}
-      busy={busy}
+      closingId={closingId}
       onClose={onClose}
     />
   )
@@ -88,12 +92,12 @@ export function ConnectionListTable({
 function ConnectionDesktopVirtualTable({
   connections,
   columns,
-  busy,
+  closingId,
   onClose,
 }: {
   connections: Connection[]
   columns: readonly ConnectionColumnId[]
-  busy: boolean
+  closingId: ClosingTarget
   onClose: (id: string) => void
 }) {
   const { t } = useTranslation()
@@ -130,7 +134,7 @@ function ConnectionDesktopVirtualTable({
               key={connection.id}
               connection={connection}
               columns={columns}
-              busy={busy}
+              busy={isConnectionRowBusy(closingId, String(connection.id))}
               onClose={onClose}
             />
           ))}

@@ -12,7 +12,7 @@ Single-node control plane for [sing-box](https://github.com/SagerNet/sing-box). 
 - **Proxy config**: structured inbound/outbound forms (TLS/Reality, transports), numeric field validation, list search, tag copy, ops deep-links to connections/logs/nodes, path-level save errors, plus Advanced JSON with path-level save diff
 - **Traffic policy**: route/DNS rules with search, invert toggles, denser mobile cards, DNS servers with search and health probe; rule name/description stored by boxd
 - **Nodes & subscriptions**: Clash YAML + base64 subscriptions, traffic/expiry, failed-first + retry, subscription deep-links to nodes/logs, denser mobile toolbars/cards, node search, latency color bands + history sparkline/detail chart, runtime groups, probes
-- **Observability**: kernel/app logs with copy/export, denser mobile filters, and virtualized long lists; TCP/UDP connections with source/network/inbound/process, compact toolbar, search/sort/export, outbound/rule aggregation, group drill-down/close, and virtualized long lists
+- **Observability**: kernel/app logs with copy/export, denser mobile filters, and virtualized long lists; TCP/UDP connections with source/network/inbound/process, compact toolbar, search/sort/export, optimistic close against live SSE, outbound/rule/process group views (virtualized), and group drill-down/close
 - **Advanced**: Endpoints, Experimental, full kernel JSON with path-level diff and sticky save-error jump
 - **Settings**: theme, language, and log level persisted in DB; password/JWT rotation, dirty-state save gates, probe URLs, global URLTest defaults, panel backup export
 
