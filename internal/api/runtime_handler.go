@@ -28,6 +28,8 @@ type runtimeInstance interface {
 	FlushDNS() error
 	FlushFakeIP() error
 	OutboundDelay(ctx context.Context, tag, link string, timeout time.Duration) (uint16, error)
+	ClashMode() (core.ClashModeStatus, error)
+	SetClashMode(mode string) (core.ClashModeStatus, error)
 }
 
 func NewRuntimeHandler(instance runtimeInstance) *RuntimeHandler {
@@ -178,4 +180,44 @@ func (h *RuntimeHandler) OutboundDelay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"tag": tag, "delay": delay})
+}
+
+// GetClashMode GET /api/runtime/clash-mode
+func (h *RuntimeHandler) GetClashMode(w http.ResponseWriter, r *http.Request) {
+	status, err := h.instance.ClashMode()
+	if err != nil {
+		writeClashModeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, status)
+}
+
+// SetClashMode PUT /api/runtime/clash-mode
+func (h *RuntimeHandler) SetClashMode(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Mode string `json:"mode"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, "invalid JSON body")
+		return
+	}
+	status, err := h.instance.SetClashMode(req.Mode)
+	if err != nil {
+		writeClashModeError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, status)
+}
+
+func writeClashModeError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, core.ErrNotRunning):
+		writeJSONErrorCode(w, http.StatusServiceUnavailable, model.ErrorUnavailable, err.Error())
+	case errors.Is(err, core.ErrFeatureNotEnabled):
+		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, err.Error())
+	case errors.Is(err, core.ErrInvalidMode):
+		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, err.Error())
+	default:
+		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorInternal, err.Error())
+	}
 }

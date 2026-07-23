@@ -117,11 +117,15 @@ func TestConfigHandlerRouteRuleMetadataErrors(t *testing.T) {
 func TestInstallDefaultRouteRulesAddsMetadataNames(t *testing.T) {
 	handler, manager, configPath := newRouteMetadataHandler(t, map[string]any{
 		"outbounds": []any{
-			map[string]any{"tag": "direct"}, map[string]any{"tag": "block"}, map[string]any{"tag": "proxy"},
+			map[string]any{"tag": "direct", "type": "direct"},
+			map[string]any{"tag": "block", "type": "block"},
+			map[string]any{"tag": "proxy", "type": "selector", "outbounds": []any{"direct"}},
 		},
 		"route": map[string]any{"rule_set": []any{
-			map[string]any{"tag": "loyalsoldier-direct"}, map[string]any{"tag": "geoip-cn"},
-			map[string]any{"tag": "loyalsoldier-proxy"}, map[string]any{"tag": "loyalsoldier-reject"},
+			map[string]any{"tag": "loyalsoldier-direct", "type": "local", "format": "source", "path": "rules/direct.json"},
+			map[string]any{"tag": "geoip-cn", "type": "local", "format": "source", "path": "rules/geoip-cn.json"},
+			map[string]any{"tag": "loyalsoldier-proxy", "type": "local", "format": "source", "path": "rules/proxy.json"},
+			map[string]any{"tag": "loyalsoldier-reject", "type": "local", "format": "source", "path": "rules/reject.json"},
 		}},
 	})
 	rr := httptest.NewRecorder()

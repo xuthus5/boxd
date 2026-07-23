@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/sagernet/sing-box/adapter"
@@ -17,6 +18,8 @@ var (
 	ErrFeatureNotEnabled = errors.New("feature not enabled")
 	// ErrOutboundNotFound 表示运行实例中不存在指定 tag 的出站。
 	ErrOutboundNotFound = errors.New("outbound not found")
+	// ErrInvalidMode 表示请求的 Clash 模式无效或不在可选列表中。
+	ErrInvalidMode = errors.New("invalid clash mode")
 )
 
 // FlushDNS 清空内核 DNS 缓存。内核未运行时返回 ErrNotRunning。
@@ -85,4 +88,91 @@ func (s *SBInstance) OutboundDelay(ctx context.Context, tag, link string, timeou
 	testCtx, cancel := context.WithTimeout(boxCtx, timeout)
 	defer cancel()
 	return urltest.URLTest(testCtx, link, outbound)
+}
+
+// ClashModeStatus 当前 Clash 模式及可选模式列表。
+type ClashModeStatus struct {
+	Mode     string   `json:"mode"`
+	ModeList []string `json:"mode_list"`
+}
+
+type clashModeControl interface {
+	Mode() string
+	ModeList() []string
+	SetMode(mode string)
+}
+
+// clashModeFromContext 从内核上下文解析 Clash 模式控制器；测试可替换。
+var clashModeFromContext = func(ctx context.Context) clashModeControl {
+	server := service.FromContext[adapter.ClashServer](ctx)
+	if server == nil {
+		return nil
+	}
+	setter, ok := server.(interface{ SetMode(mode string) })
+	if !ok {
+		return nil
+	}
+	return clashModeBridge{mode: server.Mode, list: server.ModeList, set: setter.SetMode}
+}
+
+type clashModeBridge struct {
+	mode func() string
+	list func() []string
+	set  func(string)
+}
+
+func (b clashModeBridge) Mode() string { return b.mode() }
+
+func (b clashModeBridge) ModeList() []string { return b.list() }
+
+func (b clashModeBridge) SetMode(mode string) { b.set(mode) }
+
+// ClashMode 返回当前 Clash 模式。内核未运行返回 ErrNotRunning；
+// 未启用 clash_api 返回 ErrFeatureNotEnabled。
+func (s *SBInstance) ClashMode() (ClashModeStatus, error) {
+	s.mu.Lock()
+	boxCtx := s.boxCtx
+	running := s.running
+	s.mu.Unlock()
+
+	if !running || boxCtx == nil {
+		return ClashModeStatus{}, ErrNotRunning
+	}
+	control := clashModeFromContext(boxCtx)
+	if control == nil {
+		return ClashModeStatus{}, ErrFeatureNotEnabled
+	}
+	return ClashModeStatus{
+		Mode:     control.Mode(),
+		ModeList: append([]string(nil), control.ModeList()...),
+	}, nil
+}
+
+// SetClashMode 切换运行时 Clash 模式（如 Rule/Global/Direct）。
+func (s *SBInstance) SetClashMode(mode string) (ClashModeStatus, error) {
+	if mode == "" {
+		return ClashModeStatus{}, fmt.Errorf("%w: mode is required", ErrInvalidMode)
+	}
+	s.mu.Lock()
+	boxCtx := s.boxCtx
+	running := s.running
+	s.mu.Unlock()
+
+	if !running || boxCtx == nil {
+		return ClashModeStatus{}, ErrNotRunning
+	}
+	control := clashModeFromContext(boxCtx)
+	if control == nil {
+		return ClashModeStatus{}, ErrFeatureNotEnabled
+	}
+	before := control.Mode()
+	control.SetMode(mode)
+	after := control.Mode()
+	if after == before && !strings.EqualFold(before, mode) {
+		return ClashModeStatus{}, fmt.Errorf("%w: %q", ErrInvalidMode, mode)
+	}
+	return ClashModeStatus{
+		Mode:     after,
+		ModeList: append([]string(nil), control.ModeList()...),
+	}, nil
 }

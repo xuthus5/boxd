@@ -151,6 +151,8 @@ func NewRouter(
 		r.Post("/gc", kernelHandler.GC)
 		r.Post("/dns/flush", runtimeHandler.FlushDNS)
 		r.Post("/fakeip/flush", runtimeHandler.FlushFakeIP)
+		r.Get("/clash-mode", runtimeHandler.GetClashMode)
+		r.Put("/clash-mode", runtimeHandler.SetClashMode)
 	})
 
 	mountStatic(r, staticFS)

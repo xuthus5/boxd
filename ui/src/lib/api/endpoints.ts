@@ -4,6 +4,7 @@ import type {
   RuleSetStatusItem,
   RuleSetUpdateResponse,
   AuthResponse,
+  ClashModeStatus,
   ConnectionEvent,
   ImportResult,
   JsonValue,
@@ -179,6 +180,8 @@ export const api = {
     gc: () => apiRequest<void>("/api/runtime/gc", json("POST")),
     flushDNS: () => apiRequest<void>("/api/runtime/dns/flush", json("POST")),
     flushFakeIP: () => apiRequest<void>("/api/runtime/fakeip/flush", json("POST")),
+    clashMode: () => apiRequest<ClashModeStatus>("/api/runtime/clash-mode"),
+    setClashMode: (mode: string) => apiRequest<ClashModeStatus>("/api/runtime/clash-mode", json("PUT", { mode })),
   },
 } satisfies Record<string, unknown>
 

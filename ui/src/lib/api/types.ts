@@ -43,6 +43,11 @@ export interface LogEvent {
   timestamp?: string
 }
 
+export interface ClashModeStatus {
+  mode: string
+  mode_list: string[]
+}
+
 export interface Connection {
   id: number
   target: string

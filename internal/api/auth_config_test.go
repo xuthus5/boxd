@@ -329,13 +329,13 @@ func TestConfigHandlerInstallDefaultRouteRules(t *testing.T) {
 		"outbounds": []any{
 			map[string]any{"tag": "direct", "type": "direct"},
 			map[string]any{"tag": "block", "type": "block"},
-			map[string]any{"tag": "proxy", "type": "selector"},
+			map[string]any{"tag": "proxy", "type": "selector", "outbounds": []any{"direct"}},
 		},
 		"route": map[string]any{
 			"rule_set": []any{
-				map[string]any{"tag": "loyalsoldier-direct", "type": "local"},
-				map[string]any{"tag": "loyalsoldier-proxy", "type": "local"},
-				map[string]any{"tag": "loyalsoldier-reject", "type": "local"},
+				map[string]any{"tag": "loyalsoldier-direct", "type": "local", "format": "source", "path": "rules/direct.json"},
+				map[string]any{"tag": "loyalsoldier-proxy", "type": "local", "format": "source", "path": "rules/proxy.json"},
+				map[string]any{"tag": "loyalsoldier-reject", "type": "local", "format": "source", "path": "rules/reject.json"},
 			},
 		},
 	})
@@ -364,13 +364,13 @@ func TestConfigHandlerInstallDefaultDNS(t *testing.T) {
 	writeConfigFile(t, configPath, map[string]any{
 		"outbounds": []any{
 			map[string]any{"tag": "direct", "type": "direct"},
-			map[string]any{"tag": "proxy", "type": "selector"},
+			map[string]any{"tag": "proxy", "type": "selector", "outbounds": []any{"direct"}},
 		},
 		"route": map[string]any{
 			"rule_set": []any{
-				map[string]any{"tag": "loyalsoldier-direct", "type": "local"},
-				map[string]any{"tag": "loyalsoldier-proxy", "type": "local"},
-				map[string]any{"tag": "loyalsoldier-reject", "type": "local"},
+				map[string]any{"tag": "loyalsoldier-direct", "type": "local", "format": "source", "path": "rules/direct.json"},
+				map[string]any{"tag": "loyalsoldier-proxy", "type": "local", "format": "source", "path": "rules/proxy.json"},
+				map[string]any{"tag": "loyalsoldier-reject", "type": "local", "format": "source", "path": "rules/reject.json"},
 			},
 		},
 	})

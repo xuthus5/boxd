@@ -13,16 +13,19 @@ import (
 )
 
 type fakeRuntimeInstance struct {
-	groups    []core.OutboundGroupInfo
-	err       error
-	called    bool
-	delays    map[string]uint16
-	testErr   error
-	dnsErr    error
-	fakeipErr error
-	delayRet  uint16
-	delayErr  error
-	delayTag  string
+	groups     []core.OutboundGroupInfo
+	err        error
+	called     bool
+	delays     map[string]uint16
+	testErr    error
+	dnsErr     error
+	fakeipErr  error
+	delayRet   uint16
+	delayErr   error
+	delayTag   string
+	clashMode  core.ClashModeStatus
+	clashErr   error
+	setModeArg string
 }
 
 func (f *fakeRuntimeInstance) OutboundGroups() []core.OutboundGroupInfo {
@@ -51,6 +54,20 @@ func (f *fakeRuntimeInstance) FlushFakeIP() error {
 func (f *fakeRuntimeInstance) OutboundDelay(ctx context.Context, tag, link string, timeout time.Duration) (uint16, error) {
 	f.delayTag = tag
 	return f.delayRet, f.delayErr
+}
+
+func (f *fakeRuntimeInstance) ClashMode() (core.ClashModeStatus, error) {
+	return f.clashMode, f.clashErr
+}
+
+func (f *fakeRuntimeInstance) SetClashMode(mode string) (core.ClashModeStatus, error) {
+	f.called = true
+	f.setModeArg = mode
+	if f.clashErr != nil {
+		return core.ClashModeStatus{}, f.clashErr
+	}
+	f.clashMode.Mode = mode
+	return f.clashMode, nil
 }
 
 func TestRuntimeHandlerOutboundGroups(t *testing.T) {
@@ -264,5 +281,56 @@ func TestRuntimeHandlerOutboundDelay(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestRuntimeHandlerClashMode(t *testing.T) {
+	inst := &fakeRuntimeInstance{
+		clashMode: core.ClashModeStatus{Mode: "Rule", ModeList: []string{"Rule", "Global", "Direct"}},
+	}
+	handler := NewRuntimeHandler(inst)
+
+	rr := httptest.NewRecorder()
+	handler.GetClashMode(rr, httptest.NewRequest(http.MethodGet, "/api/runtime/clash-mode", nil))
+	if rr.Code != http.StatusOK || !containsAll(rr.Body.String(), `"mode":"Rule"`, `"mode_list"`) {
+		t.Fatalf("get body = %d %s", rr.Code, rr.Body.String())
+	}
+
+	rr = httptest.NewRecorder()
+	handler.SetClashMode(rr, jsonRequest(http.MethodPut, "/api/runtime/clash-mode", `{"mode":"Global"}`))
+	if rr.Code != http.StatusOK || !containsAll(rr.Body.String(), `"mode":"Global"`) {
+		t.Fatalf("set body = %d %s", rr.Code, rr.Body.String())
+	}
+	if inst.setModeArg != "Global" {
+		t.Fatalf("set mode arg = %q", inst.setModeArg)
+	}
+}
+
+func TestRuntimeHandlerClashModeErrors(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+		want int
+	}{
+		{"not running", core.ErrNotRunning, http.StatusServiceUnavailable},
+		{"feature", core.ErrFeatureNotEnabled, http.StatusBadRequest},
+		{"invalid", core.ErrInvalidMode, http.StatusBadRequest},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			handler := NewRuntimeHandler(&fakeRuntimeInstance{clashErr: tt.err})
+			rr := httptest.NewRecorder()
+			handler.GetClashMode(rr, httptest.NewRequest(http.MethodGet, "/api/runtime/clash-mode", nil))
+			if rr.Code != tt.want {
+				t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+			}
+		})
+	}
+
+	handler := NewRuntimeHandler(&fakeRuntimeInstance{})
+	rr := httptest.NewRecorder()
+	handler.SetClashMode(rr, httptest.NewRequest(http.MethodPut, "/api/runtime/clash-mode", strings.NewReader("{")))
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("invalid json status = %d", rr.Code)
 	}
 }

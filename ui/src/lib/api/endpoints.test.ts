@@ -137,12 +137,13 @@ describe("api endpoint coverage", () => {
       api.settings.setTestURL("https://example.com"), api.settings.autostart(), api.settings.setAutostart(true),
       api.settings.jwt(), api.settings.setJWT("secret"), api.settings.password(),
       api.settings.changePassword("current", "new-password"), api.network.interfaces(), api.runtime.version(),
-      api.runtime.memory(), api.runtime.gc(), api.runtime.flushDNS(), api.runtime.flushFakeIP(),
+      api.runtime.memory(), api.runtime.gc(), api.runtime.flushDNS(), api.runtime.flushFakeIP(), api.runtime.clashMode(), api.runtime.setClashMode("Global"),
     ])
 
     const paths = fetchMock.mock.calls.map(([path]) => path)
     expect(paths).toContain("/api/config/raw")
     expect(paths).toContain("/api/subscriptions/refresh-all")
     expect(paths).toContain("/api/runtime/fakeip/flush")
+    expect(paths).toContain("/api/runtime/clash-mode")
   })
 })

@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { ClashModeCard } from "@/features/dashboard/clash-mode-card"
 import { ProxySelectorCard } from "@/features/dashboard/proxy-selector-card"
 import { RuntimeActions } from "@/features/dashboard/runtime-actions"
 import { RecentLogs } from "@/features/dashboard/recent-logs"
@@ -54,6 +55,7 @@ export function DashboardPage() {
       <div className="grid gap-4 lg:grid-cols-3">
         <ServiceCard status={status.data!} pending={pendingAction} onAction={(action) => serviceMutation.mutate(action)} />
         <ProxySelectorCard />
+        <ClashModeCard enabled={Boolean(status.data?.running)} />
         <Card><CardHeader><CardTitle>{t("dashboard.memory")}</CardTitle><CardDescription>{t("dashboard.memoryDescription")}</CardDescription></CardHeader><CardContent><p className="text-2xl font-semibold">{formatBytes(memory.data!.alloc)}</p></CardContent></Card>
         <Card><CardHeader><CardTitle>{t("dashboard.version")}</CardTitle><CardDescription>{t("dashboard.versionDescription")}</CardDescription></CardHeader><CardContent><p className="text-2xl font-semibold">{version.data!.kernel_version}</p></CardContent></Card>
         <TrafficChart points={points} />

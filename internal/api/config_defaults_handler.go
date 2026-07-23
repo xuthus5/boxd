@@ -50,9 +50,9 @@ func (h *ConfigHandler) InstallDefaultOutbounds(w http.ResponseWriter, r *http.R
 		writeJSONError(w, http.StatusInternalServerError, "failed to encode config")
 		return
 	}
-	status, apiErr, err := h.applyConfigBytes(body, false)
+	status, apiErr, err := h.applyConfigBytes(body, true)
 	if err != nil {
-		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorInternal, "failed to write config")
+		writeApplyConfigError(w, err)
 		return
 	}
 	writeJSONStatus(w, http.StatusOK, status, result.Installed, apiErr, map[string]any{
@@ -100,9 +100,9 @@ func (h *ConfigHandler) InstallDefaultRouteRules(w http.ResponseWriter, r *http.
 		writeJSONError(w, http.StatusInternalServerError, "failed to encode config")
 		return
 	}
-	status, apiErr, err := h.applyConfigBytes(body, false)
+	status, apiErr, err := h.applyConfigBytes(body, true)
 	if err != nil {
-		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorInternal, "failed to write config")
+		writeApplyConfigError(w, err)
 		return
 	}
 	if status != model.StatusRolledBack && h.routeMetadata != nil {
@@ -151,9 +151,9 @@ func (h *ConfigHandler) InstallDefaultDNS(w http.ResponseWriter, r *http.Request
 		writeJSONError(w, http.StatusInternalServerError, "failed to encode config")
 		return
 	}
-	status, apiErr, err := h.applyConfigBytes(body, false)
+	status, apiErr, err := h.applyConfigBytes(body, true)
 	if err != nil {
-		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorInternal, "failed to write config")
+		writeApplyConfigError(w, err)
 		return
 	}
 
@@ -218,9 +218,9 @@ func (h *ConfigHandler) InstallDefaultInbounds(w http.ResponseWriter, r *http.Re
 		writeJSONError(w, http.StatusInternalServerError, "failed to encode config")
 		return
 	}
-	status, apiErr, err := h.applyConfigBytes(body, false)
+	status, apiErr, err := h.applyConfigBytes(body, true)
 	if err != nil {
-		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorInternal, "failed to write config")
+		writeApplyConfigError(w, err)
 		return
 	}
 	writeJSONStatus(w, http.StatusOK, status, result.Installed, apiErr, map[string]any{

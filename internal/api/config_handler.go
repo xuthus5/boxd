@@ -115,6 +115,14 @@ func atomicWriteFile(path string, body []byte) error {
 	return os.Rename(tempPath, path)
 }
 
+func writeApplyConfigError(w http.ResponseWriter, err error) {
+	if errors.Is(err, ErrInvalidRuntimeConfig) {
+		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorConfigInvalidRuntime, runtimeConfigErrorMessage(err))
+		return
+	}
+	writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorInternal, "failed to write config")
+}
+
 func (h *ConfigHandler) applyConfigBytes(body []byte, shouldValidate bool) (string, *model.APIError, error) {
 	if shouldValidate {
 		if err := validateRuntimeConfig(body); err != nil {
@@ -290,9 +298,9 @@ func (h *ConfigHandler) InstallDefaultRuleSets(w http.ResponseWriter, r *http.Re
 		writeJSONError(w, http.StatusInternalServerError, "failed to encode config")
 		return
 	}
-	status, apiErr, err := h.applyConfigBytes(body, false)
+	status, apiErr, err := h.applyConfigBytes(body, true)
 	if err != nil {
-		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorInternal, "failed to write config")
+		writeApplyConfigError(w, err)
 		return
 	}
 
