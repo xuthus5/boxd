@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  configApplyErrorClipboardText,
   configApplySourceHref,
   configApplySourceKey,
   shortConfigHash,
@@ -37,3 +38,24 @@ describe("shortConfigHash", () => {
     expect(shortConfigHash("  ")).toBe("—")
   })
 })
+
+describe("configApplyErrorClipboardText", () => {
+  it("formats diagnostic payload for failed applies", () => {
+    expect(configApplyErrorClipboardText({
+      source: "raw",
+      status: "rolled_back",
+      hash: "abcdef01",
+      size: 2048,
+      error: "restart failed",
+      applied_at: "2026-07-23T12:00:00Z",
+    })).toBe([
+      "source: raw",
+      "status: rolled_back",
+      "hash: abcdef01",
+      "size: 2048",
+      "error: restart failed",
+      "at: 2026-07-23T12:00:00Z",
+    ].join("\n"))
+  })
+})
+

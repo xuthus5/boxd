@@ -1,12 +1,17 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { screen } from "@testing-library/react"
+import { screen, waitFor } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { toast } from "sonner"
 
 import { ConfigApplyTimelineCard } from "@/features/dashboard/config-apply-timeline-card"
 import { AuthProvider } from "@/features/auth/auth-context"
 import { PreferencesProvider } from "@/features/preferences/preferences-provider"
 import { sessionStore } from "@/lib/session"
 import { renderApp } from "@/test/render"
+import * as copy from "@/features/proxy/copy-tag-button"
+
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -65,11 +70,37 @@ describe("ConfigApplyTimelineCard", () => {
     expect(screen.getByText("已应用")).toBeInTheDocument()
     expect(screen.getByText("restart failed after config save")).toBeInTheDocument()
     expect(screen.getByText(/abcdef01/)).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "复制错误: 完整配置保存" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "打开来源: 完整配置保存" })).toHaveAttribute("href", "/advanced/raw")
   })
 
   it("shows load failure description", async () => {
     vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response("nope", { status: 500 }))))
     renderCard()
     expect(await screen.findByText("无法加载配置应用记录")).toBeInTheDocument()
+  })
+
+  it("copies apply error details", async () => {
+    const spy = vi.spyOn(copy, "copyText").mockResolvedValue()
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
+      events: [
+        {
+          id: "1",
+          source: "raw",
+          status: "rolled_back",
+          hash: "abcdef0123456789",
+          size: 2048,
+          error: "restart failed after config save",
+          applied_at: "2026-07-23T12:00:00Z",
+        },
+      ],
+    })))))
+    renderCard()
+    await screen.findByText("restart failed after config save")
+    await userEvent.setup().click(screen.getByRole("button", { name: "复制错误: 完整配置保存" }))
+    await waitFor(() => expect(spy).toHaveBeenCalled())
+    expect(spy.mock.calls[0][0]).toContain("restart failed after config save")
+    expect(spy.mock.calls[0][0]).toContain("source: raw")
+    expect(toast.success).toHaveBeenCalledWith("应用错误已复制")
   })
 })

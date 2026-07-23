@@ -1,17 +1,21 @@
 import { useQuery } from "@tanstack/react-query"
+import { CopyIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
+import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
-import { buttonVariants } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
+  configApplyErrorClipboardText,
   configApplySourceHref,
   configApplySourceKey,
   shortConfigHash,
 } from "@/features/dashboard/config-apply-source"
+import { copyText } from "@/features/proxy/copy-tag-button"
 import { formatRelativeTime } from "@/features/subscriptions/relative-time"
 import { api } from "@/lib/api/endpoints"
 import type { ConfigApplyEvent } from "@/lib/api/types"
@@ -28,23 +32,57 @@ function EventRow({ event, now, locale }: { event: ConfigApplyEvent; now: number
   const { t } = useTranslation()
   const rolledBack = event.status === "rolled_back"
   const relative = formatRelativeTime(event.applied_at, now, locale) || event.applied_at
+  const sourceHref = configApplySourceHref(event.source)
+  const sourceLabel = t(`dashboard.${configApplySourceKey(event.source)}`)
+
+  const copyError = () => {
+    const payload = configApplyErrorClipboardText(event)
+    if (!payload) return
+    void copyText(payload).then(
+      () => toast.success(t("dashboard.applyErrorCopied")),
+      () => toast.error(t("dashboard.applyErrorCopyFailed")),
+    )
+  }
+
+  const copyHash = () => {
+    const hash = event.hash?.trim()
+    if (!hash) return
+    void copyText(hash).then(
+      () => toast.success(t("dashboard.applyHashCopied")),
+      () => toast.error(t("dashboard.applyHashCopyFailed")),
+    )
+  }
+
   return (
-    <li className="min-w-0 rounded-md border bg-muted/30 px-2.5 py-1.5">
+    <li
+      className={cn(
+        "min-w-0 rounded-md border px-2.5 py-1.5",
+        rolledBack ? "border-destructive/40 bg-destructive/5" : "bg-muted/30",
+      )}
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium">
             <Link
-              to={configApplySourceHref(event.source)}
+              to={sourceHref}
               className="underline-offset-4 hover:underline"
-              aria-label={`${t(`dashboard.${configApplySourceKey(event.source)}`)}`}
+              aria-label={sourceLabel}
             >
-              {t(`dashboard.${configApplySourceKey(event.source)}`)}
+              {sourceLabel}
             </Link>
           </p>
           <p className="truncate text-xs text-muted-foreground" title={event.applied_at}>
             {relative}
             {" · "}
-            {shortConfigHash(event.hash)}
+            <button
+              type="button"
+              className="font-mono underline-offset-2 hover:underline"
+              onClick={copyHash}
+              aria-label={t("dashboard.copyApplyHash")}
+              title={event.hash}
+            >
+              {shortConfigHash(event.hash)}
+            </button>
             {" · "}
             {formatBytes(event.size)}
           </p>
@@ -54,9 +92,31 @@ function EventRow({ event, now, locale }: { event: ConfigApplyEvent; now: number
         </Badge>
       </div>
       {event.error ? (
-        <p className="mt-1 line-clamp-2 text-xs text-destructive" title={event.error}>
-          {event.error}
-        </p>
+        <div className="mt-1.5 flex flex-col gap-1.5">
+          <p className="line-clamp-2 text-xs text-destructive" title={event.error}>
+            {event.error}
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-7"
+              onClick={copyError}
+              aria-label={`${t("dashboard.copyApplyError")}: ${sourceLabel}`}
+            >
+              <CopyIcon data-icon="inline-start" />
+              {t("dashboard.copyApplyError")}
+            </Button>
+            <Link
+              to={sourceHref}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-7")}
+              aria-label={`${t("dashboard.openApplySource")}: ${sourceLabel}`}
+            >
+              {t("dashboard.openApplySource")}
+            </Link>
+          </div>
+        </div>
       ) : null}
     </li>
   )

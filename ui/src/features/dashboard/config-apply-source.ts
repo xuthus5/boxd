@@ -35,3 +35,23 @@ export function shortConfigHash(hash: string, length = 8): string {
   if (!value) return "—"
   return value.slice(0, length)
 }
+
+export function configApplyErrorClipboardText(event: {
+  source?: string
+  status?: string
+  hash?: string
+  size?: number
+  error?: string
+  applied_at?: string
+}): string {
+  const lines = [
+    event.source?.trim() ? `source: ${event.source.trim()}` : "",
+    event.status?.trim() ? `status: ${event.status.trim()}` : "",
+    event.hash?.trim() ? `hash: ${event.hash.trim()}` : "",
+    Number.isFinite(event.size) ? `size: ${event.size}` : "",
+    event.error?.trim() ? `error: ${event.error.trim()}` : "",
+    event.applied_at?.trim() ? `at: ${event.applied_at.trim()}` : "",
+  ].filter(Boolean)
+  return lines.join("\n")
+}
+
