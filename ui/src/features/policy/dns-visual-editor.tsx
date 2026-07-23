@@ -9,12 +9,21 @@ import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { Input } from "@/components/ui/input"
+import { DNSActionSummaryBar } from "@/features/policy/dns-action-summary"
 import {
+  dnsRuleFiltersActive,
+  dnsServerFiltersActive,
   matchesDNSRule,
+  matchesDNSRuleAction,
   matchesDNSServer,
+  matchesDNSServerType,
   parseDNSSearchParams,
+  summarizeDNSRuleActions,
+  summarizeDNSServerTypes,
   toDNSSearchParams,
+  type DNSSearchFilters,
 } from "@/features/policy/dns-filter"
+import { DNSTypeSummaryBar } from "@/features/policy/dns-type-summary"
 import { toggleRuleInvert } from "@/features/policy/rule-invert"
 import { DNSFakeIPCard, DNSGlobalCard } from "@/features/policy/dns-global-card"
 import { DNSRuleCard } from "@/features/policy/dns-rule-card"
@@ -64,15 +73,26 @@ function ServerSection({ object, onChange, onRulesChange, onEdit, onInstall }: {
   const [searchParams, setSearchParams] = useSearchParams()
   const filters = useMemo(() => parseDNSSearchParams(searchParams), [searchParams])
   const search = filters.servers ?? ""
+  const typeFilter = filters.serverType
   const [probeResults, setProbeResults] = useState<Record<string, DNSProbeResult>>({})
   const servers = dnsServers(object)
   const normalized = search.trim().toLowerCase()
+  const writeFilters = (next: DNSSearchFilters) => {
+    setSearchParams(toDNSSearchParams(next), { replace: true })
+  }
   const writeServersQuery = (value: string) => {
-    setSearchParams(toDNSSearchParams({ servers: value, rules: filters.rules }), { replace: true })
+    writeFilters({
+      servers: value,
+      rules: filters.rules,
+      serverType: typeFilter,
+      ruleAction: filters.ruleAction,
+    })
   }
   const visible = servers
     .map((item, index) => ({ item, index }))
-    .filter(({ item }) => matchesDNSServer(item, normalized))
+    .filter(({ item }) => matchesDNSServer(item, normalized) && matchesDNSServerType(item, typeFilter))
+  const typeSummary = summarizeDNSServerTypes(servers, search)
+  const facetsActive = dnsServerFiltersActive({ servers: search, serverType: typeFilter })
   const inputs = servers.flatMap((item) => {
     const input = dnsProbeInput(item)
     return input ? [input] : []
@@ -106,10 +126,13 @@ function ServerSection({ object, onChange, onRulesChange, onEdit, onInstall }: {
       ? <EmptySection title={t("policy.dns.emptyServersTitle")} description={t("policy.dns.emptyServersDescription")}
         action={t("policy.dns.addServer")} onAdd={() => onEdit(null)} />
       : <>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <label className="sr-only" htmlFor="dns-servers-search">{t("policy.dns.searchServers")}</label>
-          <Input id="dns-servers-search" value={search} onChange={(event) => writeServersQuery(event.target.value)} placeholder={t("policy.dns.searchServersPlaceholder")} className="sm:max-w-sm" aria-label={t("policy.dns.searchServers")} />
-          {normalized ? <p className="text-sm text-muted-foreground">{t("policy.dns.searchCount", { shown: visible.length, total: servers.length })}</p> : null}
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <label className="sr-only" htmlFor="dns-servers-search">{t("policy.dns.searchServers")}</label>
+            <Input id="dns-servers-search" value={search} onChange={(event) => writeServersQuery(event.target.value)} placeholder={t("policy.dns.searchServersPlaceholder")} className="sm:max-w-sm" aria-label={t("policy.dns.searchServers")} />
+            {facetsActive ? <p className="text-sm text-muted-foreground">{t("policy.dns.searchCount", { shown: visible.length, total: servers.length })}</p> : null}
+          </div>
+          <DNSTypeSummaryBar summary={typeSummary} filters={filters} onChange={writeFilters} />
         </div>
         {visible.length === 0
           ? <Empty>
@@ -118,7 +141,7 @@ function ServerSection({ object, onChange, onRulesChange, onEdit, onInstall }: {
               <EmptyDescription>{t("policy.dns.noMatchDescription")}</EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
-              <Button type="button" variant="outline" onClick={() => writeServersQuery("")}>
+              <Button type="button" variant="outline" onClick={() => writeFilters({ rules: filters.rules, ruleAction: filters.ruleAction })}>
                 {t("proxy.clearSearch")}
               </Button>
             </EmptyContent>
@@ -143,14 +166,25 @@ function RuleSection({ object, onChange, onRulesChange, onEdit }: {
   const [searchParams, setSearchParams] = useSearchParams()
   const filters = useMemo(() => parseDNSSearchParams(searchParams), [searchParams])
   const search = filters.rules ?? ""
+  const actionFilter = filters.ruleAction
   const rules = dnsRules(object)
   const normalized = search.trim().toLowerCase()
+  const writeFilters = (next: DNSSearchFilters) => {
+    setSearchParams(toDNSSearchParams(next), { replace: true })
+  }
   const writeRulesQuery = (value: string) => {
-    setSearchParams(toDNSSearchParams({ servers: filters.servers, rules: value }), { replace: true })
+    writeFilters({
+      servers: filters.servers,
+      rules: value,
+      serverType: filters.serverType,
+      ruleAction: actionFilter,
+    })
   }
   const visible = rules
     .map((item, index) => ({ item, index }))
-    .filter(({ item }) => matchesDNSRule(item, normalized))
+    .filter(({ item }) => matchesDNSRule(item, normalized) && matchesDNSRuleAction(item, actionFilter))
+  const actionSummary = summarizeDNSRuleActions(rules, search)
+  const facetsActive = dnsRuleFiltersActive({ rules: search, ruleAction: actionFilter })
   /* c8 ignore next */
   const update = (next: readonly JsonObject[]) => { const nextObject = setDNSRules(object, next); onChange(nextObject); onRulesChange?.(nextObject, []) }
   return <Card><CardHeader className="min-w-0 grid-cols-1 has-data-[slot=card-action]:grid-cols-1 sm:has-data-[slot=card-action]:grid-cols-[1fr_auto]">
@@ -162,10 +196,13 @@ function RuleSection({ object, onChange, onRulesChange, onEdit }: {
       ? <EmptySection title={t("policy.dns.emptyRulesTitle")} description={t("policy.dns.emptyRulesDescription")}
         action={t("policy.dns.addRule")} onAdd={() => onEdit(null)} />
       : <>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <label className="sr-only" htmlFor="dns-rules-search">{t("policy.dns.searchRules")}</label>
-          <Input id="dns-rules-search" value={search} onChange={(event) => writeRulesQuery(event.target.value)} placeholder={t("policy.dns.searchRulesPlaceholder")} className="sm:max-w-sm" aria-label={t("policy.dns.searchRules")} />
-          {normalized ? <p className="text-sm text-muted-foreground">{t("policy.dns.searchCount", { shown: visible.length, total: rules.length })}</p> : null}
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <label className="sr-only" htmlFor="dns-rules-search">{t("policy.dns.searchRules")}</label>
+            <Input id="dns-rules-search" value={search} onChange={(event) => writeRulesQuery(event.target.value)} placeholder={t("policy.dns.searchRulesPlaceholder")} className="sm:max-w-sm" aria-label={t("policy.dns.searchRules")} />
+            {facetsActive ? <p className="text-sm text-muted-foreground">{t("policy.dns.searchCount", { shown: visible.length, total: rules.length })}</p> : null}
+          </div>
+          <DNSActionSummaryBar summary={actionSummary} filters={filters} onChange={writeFilters} />
         </div>
         {visible.length === 0
           ? <Empty>
@@ -174,7 +211,7 @@ function RuleSection({ object, onChange, onRulesChange, onEdit }: {
               <EmptyDescription>{t("policy.dns.noMatchDescription")}</EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
-              <Button type="button" variant="outline" onClick={() => writeRulesQuery("")}>
+              <Button type="button" variant="outline" onClick={() => writeFilters({ servers: filters.servers, serverType: filters.serverType })}>
                 {t("proxy.clearSearch")}
               </Button>
             </EmptyContent>

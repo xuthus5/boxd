@@ -15,10 +15,15 @@ import { RouteGlobalCard } from "@/features/policy/route-global-card"
 import { cloneJsonObject, moveItem, type JsonObject } from "@/features/policy/policy-form-model"
 import type { PolicyVisualEditorProps } from "@/features/policy/policy-page"
 import { RouteRuleCard } from "@/features/policy/route-rule-card"
+import { RouteActionSummaryBar } from "@/features/policy/route-action-summary"
 import {
+  matchesRouteAction,
   matchesRouteRule,
   parseRouteSearchParams,
+  routeFiltersActive,
+  summarizeRouteActions,
   toRouteSearchParams,
+  type RouteSearchFilters,
 } from "@/features/policy/route-rule-filter"
 import { toggleRuleInvert } from "@/features/policy/rule-invert"
 import { RouteRuleDialog } from "@/features/policy/route-rule-dialog"
@@ -83,13 +88,21 @@ function RuleSection({ object, metadata, metadataLoading, metadataError, onChang
   const [searchParams, setSearchParams] = useSearchParams()
   const filters = useMemo(() => parseRouteSearchParams(searchParams), [searchParams])
   const search = filters.query ?? ""
+  const actionFilter = filters.action
   const rules = routeRules(object)
   const normalized = search.trim().toLowerCase()
+  const writeFilters = (next: RouteSearchFilters) => {
+    setSearchParams(toRouteSearchParams(next), { replace: true })
+  }
   const writeQuery = (value: string) => {
-    setSearchParams(toRouteSearchParams({ query: value }), { replace: true })
+    writeFilters({ query: value, action: actionFilter })
   }
   const indexed = rules.map((item, index) => ({ item, index, meta: metadata[index] }))
-  const visible = indexed.filter(({ item, meta }) => matchesRouteRule(item, meta, normalized))
+  const visible = indexed.filter(({ item, meta }) => (
+    matchesRouteRule(item, meta, normalized) && matchesRouteAction(item, actionFilter)
+  ))
+  const actionSummary = summarizeRouteActions(rules, search, metadata)
+  const facetsActive = routeFiltersActive({ query: search, action: actionFilter })
   const update = (next: readonly JsonObject[]) => onChange(setRouteRules(object, next))
   const updateBoth = (nextRules: readonly JsonObject[], nextMetadata: RouteRuleMetadata[]) => {
     const nextObject = setRouteRules(object, nextRules)
@@ -106,10 +119,13 @@ function RuleSection({ object, metadata, metadataLoading, metadataError, onChang
       ? <EmptySection title={t("policy.route.emptyRulesTitle")} description={t("policy.route.emptyRulesDescription")}
         action={t("policy.route.addRule")} onAdd={() => onEdit(null)} />
       : <>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <label className="sr-only" htmlFor="route-rules-search">{t("policy.route.searchRules")}</label>
-          <Input id="route-rules-search" value={search} onChange={(event) => writeQuery(event.target.value)} placeholder={t("policy.route.searchRulesPlaceholder")} className="sm:max-w-sm" aria-label={t("policy.route.searchRules")} />
-          {normalized ? <p className="text-sm text-muted-foreground">{t("policy.route.searchRulesCount", { shown: visible.length, total: rules.length })}</p> : null}
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <label className="sr-only" htmlFor="route-rules-search">{t("policy.route.searchRules")}</label>
+            <Input id="route-rules-search" value={search} onChange={(event) => writeQuery(event.target.value)} placeholder={t("policy.route.searchRulesPlaceholder")} className="sm:max-w-sm" aria-label={t("policy.route.searchRules")} />
+            {facetsActive ? <p className="text-sm text-muted-foreground">{t("policy.route.searchRulesCount", { shown: visible.length, total: rules.length })}</p> : null}
+          </div>
+          <RouteActionSummaryBar summary={actionSummary} filters={filters} onChange={writeFilters} />
         </div>
         {visible.length === 0
           ? <Empty>
@@ -118,7 +134,7 @@ function RuleSection({ object, metadata, metadataLoading, metadataError, onChang
               <EmptyDescription>{t("policy.route.noMatchRulesDescription")}</EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
-              <Button type="button" variant="outline" onClick={() => writeQuery("")}>
+              <Button type="button" variant="outline" onClick={() => writeFilters({})}>
                 {t("proxy.clearSearch")}
               </Button>
             </EmptyContent>

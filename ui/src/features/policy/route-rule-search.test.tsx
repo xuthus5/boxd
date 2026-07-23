@@ -18,6 +18,7 @@ function renderEditor(route = "/policy/route") {
               rules: [
                 { action: "route", outbound: "proxy", domain: ["google.com"] },
                 { action: "route", outbound: "direct", domain: ["cn.example"] },
+                { action: "reject", domain: ["ads.example"] },
               ],
             }}
             revision={0}
@@ -27,6 +28,7 @@ function renderEditor(route = "/policy/route") {
             metadata={[
               { name: "Google", description: "search" },
               { name: "CN", description: "local" },
+              { name: "Ads", description: "block" },
             ]}
             onMetadataChange={vi.fn()}
           />
@@ -42,10 +44,11 @@ describe("route rule search", () => {
     renderEditor()
     expect(screen.getByText("Google")).toBeInTheDocument()
     expect(screen.getByText("CN")).toBeInTheDocument()
+    expect(screen.getByText("Ads")).toBeInTheDocument()
     await user.type(screen.getByLabelText("搜索规则"), "google")
     expect(screen.getByText("Google")).toBeInTheDocument()
     expect(screen.queryByText("CN")).not.toBeInTheDocument()
-    expect(screen.getByText(/显示 1 \/ 2/)).toBeInTheDocument()
+    expect(screen.getByText(/显示 1 \/ 3/)).toBeInTheDocument()
   })
 
   it("seeds rule search from deep-link query params", () => {
@@ -62,6 +65,23 @@ describe("route rule search", () => {
     expect(await screen.findByText("Google")).toBeInTheDocument()
     expect(screen.getByText("CN")).toBeInTheDocument()
     expect(screen.getByLabelText("搜索规则")).toHaveValue("")
+  })
+
+  it("filters rules from clickable action summary chips", async () => {
+    const user = userEvent.setup()
+    renderEditor()
+    expect(screen.getByText(/动作分布/)).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: /reject/ }))
+    expect(screen.getByText("Ads")).toBeInTheDocument()
+    expect(screen.queryByText("Google")).not.toBeInTheDocument()
+    expect(screen.getByText(/显示 1 \/ 3/)).toBeInTheDocument()
+  })
+
+  it("seeds action facet from deep-link query params", () => {
+    renderEditor("/policy/route?action=reject")
+    expect(screen.getByText("Ads")).toBeInTheDocument()
+    expect(screen.queryByText("Google")).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /reject/ })).toHaveAttribute("aria-pressed", "true")
   })
 
 })

@@ -74,4 +74,38 @@ describe("DNS search", () => {
     vi.unstubAllGlobals()
   })
 
+  it("filters servers from clickable type summary chips", async () => {
+    const user = userEvent.setup()
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ outbounds: [] }))))
+    renderEditor()
+    expect(screen.getByText(/类型分布/)).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: /https/ }))
+    expect(screen.getByText("dns-remote")).toBeInTheDocument()
+    expect(screen.queryByText("dns-local")).not.toBeInTheDocument()
+    vi.unstubAllGlobals()
+  })
+
+  it("filters rules from clickable action summary chips", async () => {
+    const user = userEvent.setup()
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ outbounds: [] }))))
+    renderEditor()
+    expect(screen.getByText(/动作分布/)).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: /reject/ }))
+    expect(screen.getByText("ads.example")).toBeInTheDocument()
+    expect(screen.queryByText("google.com")).not.toBeInTheDocument()
+    vi.unstubAllGlobals()
+  })
+
+  it("seeds server type and rule action facets from deep-link query params", () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ outbounds: [] }))))
+    renderEditor("/policy/dns?stype=https&raction=reject")
+    expect(screen.getByText("dns-remote")).toBeInTheDocument()
+    expect(screen.queryByText("dns-local")).not.toBeInTheDocument()
+    expect(screen.getByText("ads.example")).toBeInTheDocument()
+    expect(screen.queryByText("google.com")).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /https/ })).toHaveAttribute("aria-pressed", "true")
+    expect(screen.getByRole("button", { name: /reject/ })).toHaveAttribute("aria-pressed", "true")
+    vi.unstubAllGlobals()
+  })
+
 })
