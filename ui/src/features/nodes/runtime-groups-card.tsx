@@ -29,13 +29,51 @@ function SelectorControl({ group }: { group: OutboundGroup }) {
   </Select>
 }
 
+function formatURLTestDelay(delay: number) {
+  if (!Number.isFinite(delay) || delay < 0) return "—"
+  if (delay === 0) return "0 ms"
+  return `${Math.round(delay)} ms`
+}
+
 function URLTestControl({ group }: { group: OutboundGroup }) {
   const { t } = useTranslation()
   const [delays, setDelays] = useState<Record<string, number>>({})
-  const mutation = useMutation({ mutationFn: () => api.nodes.urlTest(group.tag), onSuccess: setDelays, onError: (error: Error) => toast.error(error.message) })
-  return <div className="flex flex-col gap-2"><Button variant="outline" size="sm" disabled={mutation.isPending} onClick={() => mutation.mutate()}>{t("nodes.runURLTest", { group: group.tag })}</Button>
-    {Object.entries(delays).map(([tag, delay]) => <span key={tag} className="text-sm text-muted-foreground">{tag}: {delay} ms</span>)}
-  </div>
+  const mutation = useMutation({
+    mutationFn: () => api.nodes.urlTest(group.tag),
+    onSuccess: (next) => {
+      setDelays(next ?? {})
+      const count = Object.keys(next ?? {}).length
+      toast.success(t("nodes.urlTestDone", { count }))
+    },
+    onError: (error: Error) => toast.error(error.message),
+  })
+  const entries = Object.entries(delays).sort((left, right) => {
+    if (left[1] !== right[1]) return left[1] - right[1]
+    return left[0].localeCompare(right[0])
+  })
+  return (
+    <div className="flex flex-col gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-8"
+        disabled={mutation.isPending}
+        onClick={() => mutation.mutate()}
+      >
+        {mutation.isPending ? t("nodes.urlTestRunning") : t("nodes.runURLTest", { group: group.tag })}
+      </Button>
+      {entries.length ? (
+        <ul className="flex max-h-40 flex-col gap-1 overflow-auto text-xs text-muted-foreground">
+          {entries.map(([tag, delay]) => (
+            <li key={tag} className="flex items-center justify-between gap-2">
+              <span className="min-w-0 truncate" title={tag}>{tag}</span>
+              <span className="shrink-0 tabular-nums">{formatURLTestDelay(delay)}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  )
 }
 
 export function RuntimeGroupCard({ group, configType }: { group: OutboundGroup; configType?: string }) {

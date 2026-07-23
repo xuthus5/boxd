@@ -68,8 +68,11 @@ describe("RuntimeGroupCard", () => {
     wrap(<RuntimeGroupCard group={{ type: "urltest", tag: "auto", now: "a", all: ["a", "b"] }} />)
     const user = userEvent.setup()
     await user.click(screen.getByRole("button", { name: "运行 auto URLTest" }))
-    expect(await screen.findByText("a: 12 ms")).toBeInTheDocument()
-    expect(screen.getByText("b: 34 ms")).toBeInTheDocument()
+    expect(await screen.findByText("a")).toBeInTheDocument()
+    expect(screen.getByText("12 ms")).toBeInTheDocument()
+    expect(screen.getByText("b")).toBeInTheDocument()
+    expect(screen.getByText("34 ms")).toBeInTheDocument()
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("URLTest 完成，2 个节点"))
   })
 
   it("reports urltest failures", async () => {
@@ -78,6 +81,13 @@ describe("RuntimeGroupCard", () => {
     const user = userEvent.setup()
     await user.click(screen.getByRole("button", { name: "运行 auto URLTest" }))
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith("urltest failed"))
+  })
+
+  it("shows config vs runtime type mismatch", () => {
+    wrap(<RuntimeGroupCard group={{ type: "selector", tag: "xuthus5", now: "a", all: ["a", "b"] }} configType="urltest" />)
+    expect(screen.getByText("配置与运行时不一致")).toBeInTheDocument()
+    expect(screen.getByText("配置与运行时类型不一致")).toBeInTheDocument()
+    expect(screen.getByText(/配置为 urltest/)).toBeInTheDocument()
   })
 })
 
@@ -97,11 +107,3 @@ describe("RuntimeGroupsCard", () => {
     expect(screen.getByText("proxy")).toBeInTheDocument()
   })
 })
-
-  it("shows config vs runtime type mismatch", () => {
-    wrap(<RuntimeGroupCard group={{ type: "selector", tag: "xuthus5", now: "a", all: ["a", "b"] }} configType="urltest" />)
-    expect(screen.getByText("配置与运行时不一致")).toBeInTheDocument()
-    expect(screen.getByText("配置与运行时类型不一致")).toBeInTheDocument()
-    expect(screen.getByText(/配置为 urltest/)).toBeInTheDocument()
-  })
-
