@@ -39,6 +39,8 @@ function mockConnectionsFetch() {
             target: "cdn.example.net:443",
             outbound: "direct",
             rule: "geoip-cn",
+            network: "udp",
+            protocol: "quic",
             upload: 1,
             download: 2,
             start: new Date(Date.now() - 2000).toISOString(),
@@ -92,6 +94,28 @@ describe("ConnectionsPage", () => {
     await user.type(screen.getByLabelText("搜索连接"), "direct")
     expect(screen.queryByText("example.com:443")).not.toBeInTheDocument()
     expect(screen.getByText("cdn.example.net:443")).toBeInTheDocument()
+  })
+
+  it("filters connections by network facet and clears filters", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    mockConnectionsFetch()
+    const user = userEvent.setup()
+    renderApp(<App />, "/observability/connections")
+
+    expect(await screen.findByText("example.com:443")).toBeInTheDocument()
+    expect(screen.getByText("cdn.example.net:443")).toBeInTheDocument()
+
+    await user.click(screen.getByRole("combobox", { name: "网络" }))
+    await user.click(await screen.findByRole("option", { name: "tcp (1)" }))
+    expect(screen.getByText("example.com:443")).toBeInTheDocument()
+    expect(screen.queryByText("cdn.example.net:443")).not.toBeInTheDocument()
+    expect(screen.getByText("显示 1 条")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "关闭筛选结果" })).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "清除筛选" }))
+    expect(screen.getByText("example.com:443")).toBeInTheDocument()
+    expect(screen.getByText("cdn.example.net:443")).toBeInTheDocument()
+    expect(screen.getByText("显示 2 条")).toBeInTheDocument()
   })
 
   it("pauses the stream and toggles optional columns", async () => {
