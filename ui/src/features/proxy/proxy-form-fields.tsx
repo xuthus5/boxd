@@ -1,16 +1,21 @@
 import { useQuery } from "@tanstack/react-query"
 import { CircleHelpIcon } from "lucide-react"
-import { useCallback, useEffect, useId, useMemo, useState } from "react"
+import { useCallback, useId, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 
-import { Checkbox } from "@/components/ui/checkbox"
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { InboundUsersField } from "@/features/proxy/inbound-users-field"
+import {
+  parseFiniteNumber,
+  parseFiniteNumberList,
+} from "@/features/proxy/proxy-field-validation"
+import { ProxyJSONField } from "@/features/proxy/proxy-json-field"
+import { InterfaceMultiField, NetworkMultiField } from "@/features/proxy/proxy-multi-fields"
+import { ProxyTextField } from "@/features/proxy/proxy-text-field"
 import {
   getPath, groupFieldsBySection, type FieldSpec, type FieldTransform, type FormFieldContext, type JsonObject, setPath, visibleFields,
 } from "@/features/proxy/proxy-form-model"
@@ -193,55 +198,18 @@ function NetworkInterfaceField({ label, namespace, labelKey, revision = 0, value
   </Field>
 }
 
-function TextField({ field, label, namespace, value, onChange }: { field: FieldSpec; label: string; namespace: ProxyFormFieldsProps["namespace"]; value: string; onChange: (value: string) => void }) {
-  const id = useId()
-  const area = field.kind === "textarea" || field.kind === "list" || field.kind === "number-list"
-  const control = area
-    ? <Textarea id={id} aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} />
-    : <Input id={id} aria-label={label} type={field.kind === "number" ? "number" : "text"} value={value} onChange={(event) => onChange(event.target.value)} />
-  return <Field><FieldHeading id={id} label={label} namespace={namespace} labelKey={field.label} />{control}</Field>
-}
-
-function JSONField({ field, label, namespace, revision = 0, value, array, onChange, onFieldValidityChange }: { field: FieldSpec; label: string; namespace: ProxyFormFieldsProps["namespace"]; revision?: number; value: JsonValue | undefined; array: boolean; onChange: (value: JsonValue | undefined) => void; onFieldValidityChange?: (path: string, valid: boolean) => void }) {
-  const { t } = useTranslation()
-  const id = useId()
-  const serialized = value === undefined ? "" : JSON.stringify(value, null, 2)
-  const sourceKey = `${revision}:${serialized}`
-  const [raw, setRaw] = useState(() => serialized)
-  const [source, setSource] = useState(() => sourceKey)
-  const [invalid, setInvalid] = useState(false)
-  if (source !== sourceKey) { setSource(sourceKey); setRaw(serialized); setInvalid(false) }
-  useEffect(() => { onFieldValidityChange?.(field.path, true); return () => onFieldValidityChange?.(field.path, true) }, [field.path, onFieldValidityChange, sourceKey])
-  const update = (next: string) => {
-    setRaw(next)
-    if (!next.trim()) { setSource(`${revision}:`); setInvalid(false); onFieldValidityChange?.(field.path, true); onChange(undefined); return }
-    try {
-      const parsed: unknown = JSON.parse(next)
-      const valid = array ? Array.isArray(parsed) && parsed.every((item) => item && typeof item === "object" && !Array.isArray(item)) : Boolean(parsed && typeof parsed === "object" && !Array.isArray(parsed))
-      setInvalid(!valid)
-      onFieldValidityChange?.(field.path, valid)
-      if (valid) { setSource(`${revision}:${JSON.stringify(parsed, null, 2)}`); onChange(parsed as JsonValue) }
-    } catch {
-      setInvalid(true)
-      onFieldValidityChange?.(field.path, false)
-    }
-  }
-  return <Field data-invalid={invalid} className="sm:col-span-2">
-    <FieldHeading id={id} label={label} namespace={namespace} labelKey={field.label} />
-    <Textarea id={id} aria-label={label} aria-invalid={invalid} value={raw} onChange={(event) => update(event.target.value)} />
-    <FieldDescription>{invalid ? t(`${namespace}.invalidStructuredJSON`) : t(array ? `${namespace}.usersJSONHint` : `${namespace}.jsonObjectHint`)}</FieldDescription>
-  </Field>
-}
-
 function defaultUpdate(object: JsonObject, field: FieldSpec, raw: string) {
   if (field.kind === "list") return setPath(object, field.path, parseList(raw))
   if (field.kind === "number-list") {
-    const values = parseList(raw)
-    if (!values) return setPath(object, field.path, undefined)
-    const numbers = values.map(Number)
-    return numbers.every(Number.isFinite) ? setPath(object, field.path, numbers) : null
+    const numbers = parseFiniteNumberList(raw)
+    if (numbers === null) return null
+    return setPath(object, field.path, numbers)
   }
-  if (field.kind === "number") return setPath(object, field.path, raw === "" ? undefined : Number(raw))
+  if (field.kind === "number") {
+    const value = parseFiniteNumber(raw)
+    if (value === null) return null
+    return setPath(object, field.path, value)
+  }
   return setPath(object, field.path, raw || undefined)
 }
 
@@ -276,47 +244,6 @@ function RefSelectField({ field, label, namespace, value, context, onChange }: {
   </Field>
 }
 
-function NetworkMultiField({ label, namespace, labelKey, value, onChange }: { label: string; namespace: ProxyFormFieldsProps["namespace"]; labelKey: string; value: string[]; onChange: (value: string[] | undefined) => void }) {
-  const id = useId()
-  const options = ["tcp", "udp"]
-  const toggle = (option: string, checked: boolean) => {
-    const next = checked ? [...new Set([...value, option])] : value.filter((item) => item !== option)
-    onChange(next.length ? next : undefined)
-  }
-  return <Field className="sm:col-span-2">
-    <FieldHeading id={id} label={label} namespace={namespace} labelKey={labelKey} />
-    <div className="flex flex-wrap gap-6" role="group" aria-label={label}>
-      {options.map((option) => <Field key={option} orientation="horizontal" className="w-auto">
-        <FieldLabel>{option}</FieldLabel>
-        <Switch aria-label={`${label} ${option}`} checked={value.includes(option)} onCheckedChange={(checked) => toggle(option, checked)} />
-      </Field>)}
-    </div>
-  </Field>
-}
-
-function InterfaceMultiField({ label, namespace, labelKey, value, onChange }: { label: string; namespace: ProxyFormFieldsProps["namespace"]; labelKey: string; value: string[]; onChange: (value: string[] | undefined) => void }) {
-  const id = useId()
-  const query = useQuery({ queryKey: ["network", "interfaces"], queryFn: api.network.interfaces })
-  const interfaces = useMemo(() => query.data?.interfaces ?? [], [query.data?.interfaces])
-  const options = useMemo(() => [...new Set([...interfaces.map((item) => item.name), ...value])], [interfaces, value])
-  const toggle = (option: string, checked: boolean) => {
-    const next = checked ? [...new Set([...value, option])] : value.filter((item) => item !== option)
-    onChange(next.length ? next : undefined)
-  }
-  return <Field className="sm:col-span-2">
-    <FieldHeading id={id} label={label} namespace={namespace} labelKey={labelKey} />
-    <div className="flex flex-col gap-2" role="group" aria-label={label}>
-      {options.length === 0 ? <p className="text-sm text-muted-foreground">—</p> : options.map((option) => {
-        const meta = interfaces.find((item) => item.name === option)
-        return <label key={option} className="flex items-center gap-2 text-sm">
-          <Checkbox checked={value.includes(option)} onCheckedChange={(next) => toggle(option, next === true)} aria-label={`${label} ${option}`} />
-          <span>{meta ? interfaceLabel(meta) : option}</span>
-        </label>
-      })}
-    </div>
-  </Field>
-}
-
 function ProxyField({ field, object, namespace, revision, context, onChange, onFieldValidityChange, transformField }: Omit<ProxyFormFieldsProps, "fields"> & { field: FieldSpec }) {
   const { t } = useTranslation()
   const value = getPath(object, field.path)
@@ -336,8 +263,8 @@ function ProxyField({ field, object, namespace, revision, context, onChange, onF
   if (field.kind === "users" && namespace === "proxy.inbound") {
     return <InboundUsersField label={label} type={context?.inboundType ?? ""} value={value} onChange={(next) => onChange(setPath(object, field.path, next))} onFieldValidityChange={onFieldValidityChange} path={field.path} />
   }
-  if (field.kind === "users" || field.kind === "json-object") return <JSONField field={field} label={label} namespace={namespace} revision={revision} value={value} array={field.kind === "users"} onChange={(next) => onChange(setPath(object, field.path, next))} onFieldValidityChange={onFieldValidityChange} />
-  return <TextField field={field} label={label} namespace={namespace} value={textValue(value)} onChange={update} />
+  if (field.kind === "users" || field.kind === "json-object") return <ProxyJSONField field={field} label={label} namespace={namespace} revision={revision} value={value} array={field.kind === "users"} onChange={(next) => onChange(setPath(object, field.path, next))} onFieldValidityChange={onFieldValidityChange} />
+  return <ProxyTextField field={field} label={label} namespace={namespace} value={textValue(value)} onChange={update} onFieldValidityChange={onFieldValidityChange} />
 }
 
 export function ProxyFormFields(props: ProxyFormFieldsProps) {
