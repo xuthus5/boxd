@@ -33,10 +33,18 @@ import { DNSServerDialog } from "@/features/policy/dns-server-dialog"
 import {
   dnsProbeBatchToastTone,
   dnsProbeInput,
+  dnsProbeBatchFailureClipboardText,
   formatDNSProbeBatchMessage,
   mapDNSProbeBatchResults,
   summarizeDNSProbeResults,
 } from "@/features/policy/dns-probe"
+import {
+  classifyDNSProbeRequestError,
+  dnsProbeErrorHintKey,
+  dnsProbeRequestErrorClipboardText,
+  formatDNSProbeRequestErrorToast,
+} from "@/features/policy/dns-probe-error"
+import { copyText } from "@/features/proxy/copy-tag-button"
 import { dnsRules, dnsServers, setDNSRules, setDNSServers } from "@/features/policy/dns-form-model"
 import { cloneJsonObject, moveItem, type JsonObject } from "@/features/policy/policy-form-model"
 import type { PolicyVisualEditorProps } from "@/features/policy/policy-page"
@@ -115,11 +123,43 @@ function ServerSection({ object, onChange, onRulesChange, onEdit, onInstall }: {
       const summary = summarizeDNSProbeResults(payload.results)
       const message = formatDNSProbeBatchMessage(summary, t)
       const tone = dnsProbeBatchToastTone(summary)
-      if (tone === "error") toast.error(message)
-      else if (tone === "warning") toast.warning(message)
+      const clipboard = dnsProbeBatchFailureClipboardText(summary)
+      const options = summary.failed > 0 ? {
+        description: summary.failedSamples[0]
+          ? t("policy.dns.probeBatchFailedSamples", {
+            samples: `${summary.failedSamples[0].tag}: ${summary.failedSamples[0].error}`,
+          })
+          : undefined,
+        action: clipboard ? {
+          label: t("policy.dns.copyProbeError"),
+          onClick: () => {
+            void copyText(clipboard).then(
+              () => toast.success(t("policy.dns.probeErrorCopied")),
+              () => toast.error(t("policy.dns.probeErrorCopyFailed")),
+            )
+          },
+        } : undefined,
+      } : undefined
+      if (tone === "error") toast.error(message, options)
+      else if (tone === "warning") toast.warning(message, options)
       else toast.success(message)
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => {
+      const code = classifyDNSProbeRequestError(error)
+      const payload = dnsProbeRequestErrorClipboardText(error)
+      toast.error(formatDNSProbeRequestErrorToast(error, t, t("policy.dns.probeFailed")), {
+        description: t(dnsProbeErrorHintKey(code)),
+        action: payload ? {
+          label: t("policy.dns.copyProbeError"),
+          onClick: () => {
+            void copyText(payload).then(
+              () => toast.success(t("policy.dns.probeErrorCopied")),
+              () => toast.error(t("policy.dns.probeErrorCopyFailed")),
+            )
+          },
+        } : undefined,
+      })
+    },
   })
   /* c8 ignore next */
   const update = (next: readonly JsonObject[]) => { const nextObject = setDNSServers(object, next); onChange(nextObject); onRulesChange?.(nextObject, []) }

@@ -29,10 +29,16 @@ import { toggleRuleInvert } from "@/features/policy/rule-invert"
 import { RouteRuleDialog } from "@/features/policy/route-rule-dialog"
 import { RouteRuleSetCard } from "@/features/policy/route-rule-set-card"
 import {
+  formatRuleSetRequestErrorToast,
   formatRuleSetUpdateMessage,
+  ruleSetBatchFailureClipboardText,
+  ruleSetErrorHintKey,
+  ruleSetRequestErrorClipboardText,
+  classifyRuleSetRequestError,
   ruleSetUpdateToastTone,
   summarizeRuleSetUpdate,
 } from "@/features/policy/ruleset-update-error"
+import { copyText } from "@/features/proxy/copy-tag-button"
 import { RouteRuleSetDialog } from "@/features/policy/route-rule-set-dialog"
 import { routeRuleSets, routeRules, setRouteRuleSets, setRouteRules } from "@/features/policy/route-form-model"
 import { api } from "@/lib/api/endpoints"
@@ -173,8 +179,23 @@ function RuleSetSection({ object, onChange, onRulesChange, onEdit }: {
       const summary = summarizeRuleSetUpdate(envelope.data)
       const message = formatRuleSetUpdateMessage(summary, t)
       const tone = ruleSetUpdateToastTone(summary)
-      if (tone === "error") toast.error(message)
-      else if (tone === "warning") toast.warning(message)
+      const payload = ruleSetBatchFailureClipboardText(summary)
+      const options = summary.failed > 0 ? {
+        description: summary.failedSamples[0]
+          ? t(ruleSetErrorHintKey(summary.failedSamples[0].code))
+          : undefined,
+        action: payload ? {
+          label: t("policy.route.copyRuleSetError"),
+          onClick: () => {
+            void copyText(payload).then(
+              () => toast.success(t("policy.route.ruleSetErrorCopied")),
+              () => toast.error(t("policy.route.ruleSetErrorCopyFailed")),
+            )
+          },
+        } : undefined,
+      } : undefined
+      if (tone === "error") toast.error(message, options)
+      else if (tone === "warning") toast.warning(message, options)
       else toast.success(message)
       const next: Record<string, RuleSetUpdateResult> = {}
       for (const item of envelope.data?.results ?? []) {
@@ -184,7 +205,22 @@ function RuleSetSection({ object, onChange, onRulesChange, onEdit }: {
       await queryClient.invalidateQueries({ queryKey: ["rule-sets", "status"] })
       await queryClient.invalidateQueries({ queryKey: ["config"] })
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => {
+      const code = classifyRuleSetRequestError(error)
+      const payload = ruleSetRequestErrorClipboardText(error)
+      toast.error(formatRuleSetRequestErrorToast(error, t, t("policy.route.ruleSetUpdateFailed", { failed: 1 })), {
+        description: t(ruleSetErrorHintKey(code)),
+        action: payload ? {
+          label: t("policy.route.copyRuleSetError"),
+          onClick: () => {
+            void copyText(payload).then(
+              () => toast.success(t("policy.route.ruleSetErrorCopied")),
+              () => toast.error(t("policy.route.ruleSetErrorCopyFailed")),
+            )
+          },
+        } : undefined,
+      })
+    },
     onSettled: () => setPendingTag(null),
   })
   const update = (next: readonly JsonObject[]) => { const nextObject = setRouteRuleSets(object, next); onChange(nextObject); onRulesChange?.(nextObject, []) }

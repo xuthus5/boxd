@@ -2,11 +2,15 @@ import { describe, expect, it } from "vitest"
 
 import {
   classifyDNSProbeErrorMessage,
+  classifyDNSProbeRequestError,
   dnsProbeErrorClipboardText,
   dnsProbeErrorHintKey,
+  dnsProbeRequestErrorClipboardText,
   formatDNSProbeFailureSample,
+  formatDNSProbeRequestErrorToast,
   resolveDNSProbeErrorCode,
 } from "@/features/policy/dns-probe-error"
+import { ApiError } from "@/lib/api/client"
 
 describe("dns probe error helpers", () => {
   it("formats clipboard diagnostics", () => {
@@ -36,5 +40,17 @@ describe("dns probe error helpers", () => {
     expect(dnsProbeErrorHintKey("dns_rcode")).toBe("policy.dns.errorHintDNSRcode")
     expect(formatDNSProbeFailureSample({ error: "boom", error_code: "timeout" })).toBe("timeout: boom")
     expect(formatDNSProbeFailureSample({ error: "timeout", error_code: "timeout" })).toBe("timeout")
+  })
+
+  it("classifies request-level probe failures", () => {
+    expect(classifyDNSProbeRequestError(new ApiError("service not available", 503, "unavailable"))).toBe("unavailable")
+    expect(classifyDNSProbeRequestError(new Error("i/o timeout"))).toBe("timeout")
+    expect(dnsProbeRequestErrorClipboardText(new Error("network down"))).toContain("code: network")
+    expect(formatDNSProbeRequestErrorToast(new Error("boom"), (k) => k, "fallback")).toBe("boom")
+    expect(formatDNSProbeRequestErrorToast(
+      new ApiError("kernel offline", 503, "unavailable"),
+      (k) => k,
+      "fallback",
+    )).toBe("unavailable: kernel offline")
   })
 })

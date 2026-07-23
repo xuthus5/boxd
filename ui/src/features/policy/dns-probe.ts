@@ -162,3 +162,11 @@ export function mapDNSProbeBatchResults(
   })
   return next
 }
+
+export function dnsProbeBatchFailureClipboardText(summary: DNSProbeBatchSummary): string {
+  if (!summary.failedSamples.length) return ""
+  return summary.failedSamples.map((sample) => (
+    [`tag: ${sample.tag}`, `error: ${sample.error}`].join("\n")
+  )).join("\n---\n")
+}
+

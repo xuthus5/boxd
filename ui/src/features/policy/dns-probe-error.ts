@@ -80,3 +80,34 @@ export function formatDNSProbeFailureSample(result: Pick<DNSProbeResult, "error"
   if (!code || code === "unknown" || code === error) return error
   return `${code}: ${error}`
 }
+
+export function classifyDNSProbeRequestError(error: unknown): DNSProbeErrorCode {
+  if (error && typeof error === "object" && "code" in error) {
+    const code = String((error as { code?: string }).code || "").toLowerCase()
+    if (code === "unavailable") return "unavailable"
+    if (code === "invalid_request" || code === "invalid_input") return "invalid_input"
+    if (code === "timeout") return "timeout"
+    if (code === "unsupported") return "unsupported"
+  }
+  const message = error instanceof Error ? error.message : String(error || "")
+  return classifyDNSProbeErrorMessage(message)
+}
+
+export function dnsProbeRequestErrorClipboardText(error: unknown): string {
+  const message = error instanceof Error ? error.message.trim() : String(error || "").trim()
+  if (!message) return ""
+  const code = classifyDNSProbeRequestError(error)
+  return [`code: ${code}`, `error: ${message}`].join("\n")
+}
+
+export function formatDNSProbeRequestErrorToast(
+  error: unknown,
+  _t: (key: string, values?: Record<string, string | number>) => string,
+  fallback: string,
+): string {
+  const message = error instanceof Error && error.message.trim() ? error.message.trim() : fallback
+  const code = classifyDNSProbeRequestError(error)
+  if (!code || code === "unknown") return message
+  return `${code}: ${message}`
+}
+

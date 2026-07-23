@@ -16,6 +16,9 @@ import { buildDNSHref } from "@/features/policy/dns-filter"
 import {
   dnsProbeErrorClipboardText,
   dnsProbeErrorHintKey,
+  dnsProbeRequestErrorClipboardText,
+  formatDNSProbeRequestErrorToast,
+  classifyDNSProbeRequestError,
   resolveDNSProbeErrorCode,
 } from "@/features/policy/dns-probe-error"
 import { dnsProbeInput, isDNSServerProbeable } from "@/features/policy/dns-probe"
@@ -104,7 +107,22 @@ export function DNSServerCard({ item, onEdit, onCopy, onDelete, probeResult, onP
         })
       }
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => {
+      const code = classifyDNSProbeRequestError(error)
+      const payload = dnsProbeRequestErrorClipboardText(error)
+      toast.error(formatDNSProbeRequestErrorToast(error, t, t("policy.dns.probeFailed")), {
+        description: t(dnsProbeErrorHintKey(code)),
+        action: payload ? {
+          label: t("policy.dns.copyProbeError"),
+          onClick: () => {
+            void copyText(payload).then(
+              () => toast.success(t("policy.dns.probeErrorCopied")),
+              () => toast.error(t("policy.dns.probeErrorCopyFailed")),
+            )
+          },
+        } : undefined,
+      })
+    },
   })
   const confirmDelete = () => { setDeleting(false); onDelete() }
   return <><Card size="sm"><CardHeader className="min-w-0 gap-1.5">

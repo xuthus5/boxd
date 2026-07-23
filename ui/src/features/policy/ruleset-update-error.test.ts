@@ -2,13 +2,18 @@ import { describe, expect, it } from "vitest"
 
 import {
   classifyRuleSetErrorMessage,
+  classifyRuleSetRequestError,
+  formatRuleSetRequestErrorToast,
   formatRuleSetUpdateMessage,
   resolveRuleSetErrorCode,
+  ruleSetBatchFailureClipboardText,
   ruleSetErrorHintKey,
+  ruleSetRequestErrorClipboardText,
   ruleSetUpdateErrorClipboardText,
   ruleSetUpdateToastTone,
   summarizeRuleSetUpdate,
 } from "@/features/policy/ruleset-update-error"
+import { ApiError } from "@/lib/api/client"
 
 const t = (key: string, values?: Record<string, string | number>) => {
   if (key === "policy.route.ruleSetUpdateSuccess") return `ok ${values?.updated}`
@@ -76,4 +81,25 @@ describe("ruleset update error helpers", () => {
     ].join("\n"))
     expect(ruleSetUpdateErrorClipboardText({ tag: "geo", type: "remote", ok: true })).toBe("")
   })
+
+  it("classifies request-level update failures and batch clipboard", () => {
+    expect(classifyRuleSetRequestError(new ApiError("timeout", 504, "timeout"))).toBe("timeout")
+    expect(classifyRuleSetRequestError(new Error("connection refused"))).toBe("network")
+    expect(ruleSetRequestErrorClipboardText(new Error("boom"))).toContain("code: unknown")
+    expect(formatRuleSetRequestErrorToast(
+      new ApiError("service not available", 503, "unavailable"),
+      (k) => k,
+      "fallback",
+    )).toBe("network: service not available")
+    const summary = summarizeRuleSetUpdate({
+      updated_count: 0,
+      failed_count: 1,
+      skipped_count: 0,
+      restarted: false,
+      results: [{ tag: "geo", type: "remote", ok: false, error: "unexpected status 500", error_code: "http_status" }],
+    })
+    expect(ruleSetBatchFailureClipboardText(summary)).toContain("tag: geo")
+    expect(ruleSetBatchFailureClipboardText(summary)).toContain("code: http_status")
+  })
+
 })

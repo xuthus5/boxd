@@ -161,3 +161,41 @@ export function ruleSetUpdateErrorClipboardText(result: Pick<
   ].filter(Boolean)
   return lines.join("\n")
 }
+
+export function classifyRuleSetRequestError(error: unknown): RuleSetUpdateErrorCode {
+  if (error && typeof error === "object" && "code" in error) {
+    const code = String((error as { code?: string }).code || "").toLowerCase()
+    if (code in HINT_KEYS) return code as RuleSetUpdateErrorCode
+    if (code === "unavailable") return "network"
+    if (code === "timeout") return "timeout"
+  }
+  const message = error instanceof Error ? error.message : String(error || "")
+  return classifyRuleSetErrorMessage(message)
+}
+
+export function ruleSetRequestErrorClipboardText(error: unknown, scope = "update"): string {
+  const message = error instanceof Error ? error.message.trim() : String(error || "").trim()
+  if (!message) return ""
+  const code = classifyRuleSetRequestError(error)
+  return [`scope: ${scope}`, `code: ${code}`, `error: ${message}`].join("\n")
+}
+
+export function formatRuleSetRequestErrorToast(
+  error: unknown,
+  _t: (key: string, values?: Record<string, string | number>) => string,
+  fallback: string,
+): string {
+  const message = error instanceof Error && error.message.trim() ? error.message.trim() : fallback
+  const code = classifyRuleSetRequestError(error)
+  if (!code || code === "unknown") return message
+  return `${code}: ${message}`
+}
+
+export function ruleSetBatchFailureClipboardText(summary: RuleSetUpdateSummary): string {
+  if (!summary.failedSamples.length) return ""
+  return summary.failedSamples.map((sample) => {
+    const code = sample.code ? `code: ${sample.code}` : ""
+    return [ `tag: ${sample.tag}`, code, `error: ${sample.error}` ].filter(Boolean).join("\n")
+  }).join("\n---\n")
+}
+

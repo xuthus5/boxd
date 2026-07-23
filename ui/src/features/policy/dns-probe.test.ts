@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  dnsProbeBatchFailureClipboardText,
   dnsProbeBatchToastTone,
   dnsProbeInput,
   formatDNSProbeBatchMessage,
@@ -81,4 +82,15 @@ describe("DNS probe batch summary", () => {
     expect(mapped.cf.latency_ms).toBe(10)
     expect(mapped["idx:1"].error).toBe("timeout")
   })
+
+  it("builds batch failure clipboard text", () => {
+    const summary = summarizeDNSProbeResults([
+      { tag: "a", success: false, error: "timeout", error_code: "timeout" },
+      { tag: "b", success: true, latency_ms: 12 },
+    ])
+    expect(dnsProbeBatchFailureClipboardText(summary)).toContain("tag: a")
+    expect(dnsProbeBatchFailureClipboardText(summary)).toContain("error: timeout")
+    expect(dnsProbeBatchFailureClipboardText(summarizeDNSProbeResults([]))).toBe("")
+  })
+
 })
