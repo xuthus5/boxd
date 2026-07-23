@@ -159,6 +159,21 @@ func (h *TestHandler) ListResults(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, all)
 }
 
+// ListHistory GET /api/nodes/test-history[?tag=]
+func (h *TestHandler) ListHistory(w http.ResponseWriter, r *http.Request) {
+	tag := strings.TrimSpace(r.URL.Query().Get("tag"))
+	if tag != "" {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"tag":     tag,
+			"history": h.nodeManager.GetTestHistory(tag),
+		})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"history": h.nodeManager.GetAllTestHistory(),
+	})
+}
+
 func (h *TestHandler) tcpPing(req TestRequest) model.TestResult {
 	if h.instance == nil {
 		return model.TestResult{Error: "test service not available"}

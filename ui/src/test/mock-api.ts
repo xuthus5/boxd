@@ -29,6 +29,7 @@ const payloads: Record<string, unknown> = {
   "/api/runtime/version": { version: "dev", kernel_version: "1.13.14" },
   "/api/nodes/": [{ tag: "hk-01", type: "vless", server: "example.com", port: 443, source: "import", raw: {} }],
   "/api/nodes/test": { tag: "hk-01", test_type: "http", success: true, latency_ms: 25 },
+  "/api/nodes/test-history": { history: { "hk-01": { tcp: [{ timestamp: "2026-07-23T00:00:00Z", success: true, latency_ms: 18 }, { timestamp: "2026-07-23T00:01:00Z", success: true, latency_ms: 22 }] } } },
   "/api/runtime/dns/probe": { tag: "cf", type: "udp", success: true, latency_ms: 12 },
   "/api/runtime/dns/probe-batch": { results: [{ tag: "cf", type: "udp", success: true, latency_ms: 12 }] },
   "/api/import/link": { tag: "new-node", type: "vless", server: "new.example.com", port: 443, config: {} },

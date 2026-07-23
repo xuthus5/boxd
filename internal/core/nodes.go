@@ -2,6 +2,8 @@ package core
 
 import (
 	"encoding/json"
+	"strings"
+	"time"
 
 	"go.etcd.io/bbolt"
 
@@ -18,7 +20,7 @@ type NodeManager struct {
 
 func NewNodeManager(db *bbolt.DB) *NodeManager {
 	_ = db.Update(func(tx *bbolt.Tx) error {
-		for _, bkt := range [][]byte{nodeBucket, resultBucket} {
+		for _, bkt := range [][]byte{nodeBucket, resultBucket, historyBucket} {
 			if _, err := tx.CreateBucketIfNotExists(bkt); err != nil {
 				return err
 			}
@@ -58,6 +60,9 @@ func (m *NodeManager) Add(outbound model.Outbound) error {
 func (m *NodeManager) Delete(tag string) error {
 	return m.db.Update(func(tx *bbolt.Tx) error {
 		_ = tx.Bucket(resultBucket).Delete([]byte(tag))
+		if hb := tx.Bucket(historyBucket); hb != nil {
+			_ = hb.Delete([]byte(tag))
+		}
 		return tx.Bucket(nodeBucket).Delete([]byte(tag))
 	})
 }
@@ -85,7 +90,10 @@ type StoredResult struct {
 }
 
 func (m *NodeManager) SaveTestResult(key string, result model.TestResult) error {
-	return m.db.Update(func(tx *bbolt.Tx) error {
+	if result.Timestamp.IsZero() {
+		result.Timestamp = time.Now().UTC()
+	}
+	err := m.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(resultBucket)
 		var sr StoredResult
 		if data := b.Get([]byte(key)); data != nil {
@@ -103,6 +111,25 @@ func (m *NodeManager) SaveTestResult(key string, result model.TestResult) error 
 		}
 		return b.Put([]byte(key), data)
 	})
+	if err != nil {
+		return err
+	}
+	tag := result.Tag
+	if tag == "" {
+		// key format tag_testType
+		if i := strings.LastIndex(key, "_"); i > 0 {
+			tag = key[:i]
+		} else {
+			tag = key
+		}
+	}
+	_ = m.AppendTestHistory(tag, result.TestType, model.LatencyPoint{
+		Timestamp: result.Timestamp,
+		Success:   result.Success,
+		LatencyMs: result.LatencyMs,
+		Error:     result.Error,
+	})
+	return nil
 }
 
 func (m *NodeManager) GetAllTestResults() map[string]map[string]model.TestResult {

@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { NodeSection } from "@/features/nodes/node-section"
 import { RuntimeGroupsCard } from "@/features/nodes/runtime-groups-card"
 import { api } from "@/lib/api/endpoints"
-import type { Outbound, TestResult } from "@/lib/api/types"
+import type { LatencyPoint, Outbound, TestResult } from "@/lib/api/types"
 
 function groupSubscriptions(nodes: Outbound[]) {
   const groups = new Map<string, Outbound[]>()
@@ -32,9 +32,11 @@ function matchesQuery(node: Outbound, query: string) {
 function SubscriptionSections({
   groups,
   results,
+  history,
 }: {
   groups: Map<string, Outbound[]>
   results?: Record<string, Record<string, TestResult>>
+  history?: Record<string, Record<string, LatencyPoint[]>>
 }) {
   const { t } = useTranslation()
   const titleId = useId()
@@ -53,6 +55,7 @@ function SubscriptionSections({
               description={t("nodes.nodeCount", { count: nodes.length })}
               nodes={nodes}
               results={results}
+              history={history}
             />
           ))}
         </div>
@@ -66,12 +69,19 @@ export function NodesPage() {
   const [query, setQuery] = useState("")
   const nodesQuery = useQuery({ queryKey: ["nodes"], queryFn: api.nodes.list })
   const resultsQuery = useQuery({ queryKey: ["nodes", "results"], queryFn: api.nodes.results })
+  const historyQuery = useQuery({
+    queryKey: ["nodes", "history"],
+    queryFn: async () => {
+      const payload = await api.nodes.testHistory()
+      return (payload.history ?? {}) as Record<string, Record<string, LatencyPoint[]>>
+    },
+  })
   const nodes = nodesQuery.data ?? []
   const normalized = query.trim().toLowerCase()
   const filtered = useMemo(() => nodes.filter((node) => matchesQuery(node, normalized)), [nodes, normalized])
   const imported = filtered.filter((node) => node.source === "import")
   const subscriptions = groupSubscriptions(filtered)
-  const error = nodesQuery.error ?? resultsQuery.error
+  const error = nodesQuery.error ?? resultsQuery.error ?? historyQuery.error
 
   if (nodesQuery.isLoading) return <Skeleton className="h-64 w-full" />
   if (error) {
@@ -96,9 +106,9 @@ export function NodesPage() {
       {filtered.length === 0 && normalized
         ? <Empty><EmptyHeader><EmptyTitle>{t("nodes.noMatch")}</EmptyTitle><EmptyDescription>{t("nodes.noMatchDescription")}</EmptyDescription></EmptyHeader></Empty>
         : <>
-          <NodeSection title={t("nodes.allNodes")} description={t("nodes.allNodesDescription")} nodes={filtered} results={resultsQuery.data} />
-          <SubscriptionSections groups={subscriptions} results={resultsQuery.data} />
-          <NodeSection title={t("nodes.importedNodes")} description={t("nodes.importedNodesDescription")} nodes={imported} results={resultsQuery.data} />
+          <NodeSection title={t("nodes.allNodes")} description={t("nodes.allNodesDescription")} nodes={filtered} results={resultsQuery.data} history={historyQuery.data} />
+          <SubscriptionSections groups={subscriptions} results={resultsQuery.data} history={historyQuery.data} />
+          <NodeSection title={t("nodes.importedNodes")} description={t("nodes.importedNodesDescription")} nodes={imported} results={resultsQuery.data} history={historyQuery.data} />
         </>}
     </div>
   )

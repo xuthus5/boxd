@@ -132,6 +132,14 @@ export interface TestResult {
   success: boolean
   latency_ms?: number
   error?: string
+  timestamp?: string
+}
+
+export interface LatencyPoint {
+  timestamp: string
+  success: boolean
+  latency_ms?: number
+  error?: string
 }
 
 export interface DNSProbeInput {

@@ -24,6 +24,7 @@ import type {
   UIPreferences,
   DNSProbeInput,
   DNSProbeResult,
+  LatencyPoint,
 } from "@/lib/api/types"
 
 const json = (method: string, body?: unknown): RequestInit => ({
@@ -129,6 +130,12 @@ export const api = {
     results: async () => groupNodeTestResults(
       await apiRequest<Record<string, Record<string, TestResult>>>("/api/nodes/test-results"),
     ),
+    testHistory: (tag?: string) => {
+      const query = tag ? `?tag=${encodeURIComponent(tag)}` : ""
+      return apiRequest<{ tag?: string; history: Record<string, LatencyPoint[]> | Record<string, Record<string, LatencyPoint[]>> }>(
+        `/api/nodes/test-history${query}`,
+      )
+    },
     select: (group: string, tag: string) => apiRequest<{ selected: string }>(
       `/api/nodes/selectors/${segment(group)}/select`,
       json("POST", { tag }),

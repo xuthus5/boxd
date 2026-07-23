@@ -107,6 +107,7 @@ func NewRouter(
 		r.Post("/test", testHandler.Run)
 		r.Post("/test-batch", testHandler.RunBatch)
 		r.Get("/test-results", testHandler.ListResults)
+		r.Get("/test-history", testHandler.ListHistory)
 		r.Post("/selectors/{group}/select", runtimeHandler.SelectOutbound)
 		r.Post("/groups/{group}/urltest", runtimeHandler.URLTestDelays)
 		r.Post("/sync-config", nodesHandler.SyncToConfig)

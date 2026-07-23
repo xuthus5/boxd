@@ -101,11 +101,12 @@ type ImportResult struct {
 }
 
 type TestResult struct {
-	Tag       string  `json:"tag"`
-	TestType  string  `json:"test_type"`
-	Success   bool    `json:"success"`
-	LatencyMs float64 `json:"latency_ms,omitempty"`
-	Error     string  `json:"error,omitempty"`
+	Tag       string    `json:"tag"`
+	TestType  string    `json:"test_type"`
+	Success   bool      `json:"success"`
+	LatencyMs float64   `json:"latency_ms,omitempty"`
+	Error     string    `json:"error,omitempty"`
+	Timestamp time.Time `json:"timestamp,omitempty"`
 }
 
 // UIPreferences stores panel appearance preferences persisted in the database.
@@ -113,4 +114,12 @@ type UIPreferences struct {
 	Theme           string `json:"theme"`
 	Language        string `json:"language"`
 	MinimumLogLevel string `json:"minimumLogLevel"`
+}
+
+// LatencyPoint is one historical node probe sample.
+type LatencyPoint struct {
+	Timestamp time.Time `json:"timestamp"`
+	Success   bool      `json:"success"`
+	LatencyMs float64   `json:"latency_ms,omitempty"`
+	Error     string    `json:"error,omitempty"`
 }
