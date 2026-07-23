@@ -12,6 +12,7 @@ import { LatencyHistoryDialog } from "@/features/nodes/latency-history-dialog"
 import { formatLatency } from "@/features/nodes/node-format"
 import { LatencyHealthBar } from "@/features/nodes/latency-health-bar"
 import { LatencySparkline } from "@/features/nodes/latency-sparkline"
+import { pickNodeHistorySeries } from "@/features/nodes/nodes-filter"
 import { latencyBadgeVariant, latencyTone, latencyToneClass } from "@/features/nodes/latency-style"
 import { cn } from "@/lib/utils"
 import { nodeTestInput, nodeTestTypes, type NodeTestType } from "@/features/nodes/node-test-inputs"
@@ -61,21 +62,13 @@ function TestControls({ node }: { node: Outbound }) {
   </DropdownMenuGroup></DropdownMenuContent></DropdownMenu>
 }
 
-function pickHistorySeries(history?: Record<string, LatencyPoint[]>) {
-  if (!history) return []
-  for (const type of nodeTestTypes) {
-    const series = history[type]
-    if (series?.length) return series
-  }
-  return Object.values(history)[0] ?? []
-}
 
 export function NodeCard({ node, results, history }: { node: Outbound; results?: Record<string, TestResult>; history?: Record<string, LatencyPoint[]> }) {
   const { t } = useTranslation()
   const titleId = useId()
   const subscription = node.source === "subscription"
   const source = subscription ? node.source_name || t("nodes.subscription") : t("nodes.imported")
-  const series = pickHistorySeries(history)
+  const series = pickNodeHistorySeries(history)
   return <article aria-labelledby={titleId}><Card size="sm" className="h-full">
     <CardHeader><CardTitle><h3 id={titleId}>{node.tag}</h3></CardTitle><CardDescription>{node.server ?? "—"}:{node.port ?? "—"}</CardDescription><CardAction><div className="flex items-center gap-2"><Badge variant="outline">{node.type}</Badge><TestControls node={node} /></div></CardAction></CardHeader>
     <CardContent className="flex flex-col gap-3"><Badge variant="secondary">{source}</Badge><TestResults results={results} />

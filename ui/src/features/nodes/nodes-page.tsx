@@ -3,10 +3,18 @@ import { useId, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { NodeSection } from "@/features/nodes/node-section"
+import {
+  filterAndSortNodes,
+  nodeFiltersActive,
+  type NodeSortKey,
+  type NodeStabilityFilter,
+} from "@/features/nodes/nodes-filter"
 import { RuntimeGroupsCard } from "@/features/nodes/runtime-groups-card"
 import { api } from "@/lib/api/endpoints"
 import type { LatencyPoint, Outbound, TestResult } from "@/lib/api/types"
@@ -19,14 +27,6 @@ function groupSubscriptions(nodes: Outbound[]) {
     groups.set(name, [...(groups.get(name) ?? []), node])
   }
   return groups
-}
-
-function matchesQuery(node: Outbound, query: string) {
-  if (!query) return true
-  const haystack = [node.tag, node.type, node.server ?? "", node.source_name ?? "", String(node.port ?? "")]
-    .join(" ")
-    .toLowerCase()
-  return haystack.includes(query)
 }
 
 function SubscriptionSections({
@@ -67,6 +67,8 @@ function SubscriptionSections({
 export function NodesPage() {
   const { t } = useTranslation()
   const [query, setQuery] = useState("")
+  const [stability, setStability] = useState<NodeStabilityFilter>("")
+  const [sort, setSort] = useState<NodeSortKey>("name")
   const nodesQuery = useQuery({ queryKey: ["nodes"], queryFn: api.nodes.list })
   const resultsQuery = useQuery({ queryKey: ["nodes", "results"], queryFn: api.nodes.results })
   const historyQuery = useQuery({
@@ -76,12 +78,28 @@ export function NodesPage() {
       return (payload.history ?? {}) as Record<string, Record<string, LatencyPoint[]>>
     },
   })
-  const nodes = nodesQuery.data ?? []
-  const normalized = query.trim().toLowerCase()
-  const filtered = useMemo(() => nodes.filter((node) => matchesQuery(node, normalized)), [nodes, normalized])
+  const history = historyQuery.data
+  const filtered = useMemo(
+    () => filterAndSortNodes(nodesQuery.data ?? [], { query, stability: stability || undefined, sort }, history),
+    [history, nodesQuery.data, query, sort, stability],
+  )
   const imported = filtered.filter((node) => node.source === "import")
   const subscriptions = groupSubscriptions(filtered)
+  const facetsActive = nodeFiltersActive({ query, stability: stability || undefined })
   const error = nodesQuery.error ?? resultsQuery.error ?? historyQuery.error
+  const stabilityOptions: { label: string; value: string }[] = [
+    { label: t("nodes.filterAll"), value: "__all__" },
+    { label: t("nodes.filterStable"), value: "stable" },
+    { label: t("nodes.filterFair"), value: "fair" },
+    { label: t("nodes.filterUnstable"), value: "unstable" },
+    { label: t("nodes.filterFailed"), value: "failed" },
+    { label: t("nodes.filterUnknown"), value: "unknown" },
+  ]
+  const sortOptions: { label: string; value: NodeSortKey }[] = [
+    { label: t("nodes.sortByName"), value: "name" },
+    { label: t("nodes.sortByStability"), value: "stability" },
+    { label: t("nodes.sortByLatency"), value: "latency" },
+  ]
 
   if (nodesQuery.isLoading) return <Skeleton className="h-64 w-full" />
   if (error) {
@@ -92,23 +110,64 @@ export function NodesPage() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <h1 className="text-2xl font-semibold">{t("nodes.title")}</h1>
-        <div className="w-full sm:max-w-sm">
+        <div className="flex w-full flex-col gap-2 sm:max-w-3xl sm:flex-row sm:items-center sm:justify-end">
           <label className="sr-only" htmlFor="nodes-search">{t("nodes.search")}</label>
           <Input
             id="nodes-search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={t("nodes.searchPlaceholder")}
+            className="sm:max-w-xs"
+            aria-label={t("nodes.search")}
           />
+          <Select
+            items={stabilityOptions}
+            value={stability || "__all__"}
+            onValueChange={(value) => setStability(String(value) === "__all__" ? "" : String(value) as NodeStabilityFilter)}
+          >
+            <SelectTrigger aria-label={t("nodes.filterStability")} className="w-full sm:w-36">
+              <SelectValue placeholder={t("nodes.filterStability")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {stabilityOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+          <Select items={sortOptions} value={sort} onValueChange={(value) => setSort(String(value) as NodeSortKey)}>
+            <SelectTrigger aria-label={t("nodes.sortNodes")} className="w-full sm:w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {sortOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+          {facetsActive ? (
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setQuery("")
+                setStability("")
+              }}
+            >
+              {t("nodes.clearFilters")}
+            </Button>
+          ) : null}
         </div>
       </div>
       <RuntimeGroupsCard />
-      {filtered.length === 0 && normalized
+      {filtered.length === 0 && facetsActive
         ? <Empty><EmptyHeader><EmptyTitle>{t("nodes.noMatch")}</EmptyTitle><EmptyDescription>{t("nodes.noMatchDescription")}</EmptyDescription></EmptyHeader></Empty>
         : <>
-          <NodeSection title={t("nodes.allNodes")} description={t("nodes.allNodesDescription")} nodes={filtered} results={resultsQuery.data} history={historyQuery.data} />
-          <SubscriptionSections groups={subscriptions} results={resultsQuery.data} history={historyQuery.data} />
-          <NodeSection title={t("nodes.importedNodes")} description={t("nodes.importedNodesDescription")} nodes={imported} results={resultsQuery.data} history={historyQuery.data} />
+          <NodeSection title={t("nodes.allNodes")} description={t("nodes.allNodesDescription")} nodes={filtered} results={resultsQuery.data} history={history} />
+          <SubscriptionSections groups={subscriptions} results={resultsQuery.data} history={history} />
+          <NodeSection title={t("nodes.importedNodes")} description={t("nodes.importedNodesDescription")} nodes={imported} results={resultsQuery.data} history={history} />
         </>}
     </div>
   )
