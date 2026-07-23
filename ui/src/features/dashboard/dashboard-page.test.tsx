@@ -68,7 +68,8 @@ describe("DashboardPage", () => {
     expect(screen.getByText("1.13.14")).toBeInTheDocument()
     expect(await screen.findByText(/下载 20 B\/s/)).toBeInTheDocument()
     expect(screen.getByText("ready")).toBeInTheDocument()
-    expect(await screen.findByText("快速上手")).toBeInTheDocument()
+    // Setup checklist hides itself once all steps are complete and no subscription failures exist.
+    expect(screen.queryByText("快速上手")).not.toBeInTheDocument()
   })
 
   it("keeps the latest twenty dashboard logs", async () => {

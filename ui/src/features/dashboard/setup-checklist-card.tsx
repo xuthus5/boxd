@@ -6,12 +6,16 @@ import { Link } from "react-router-dom"
 
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useConfigQuery } from "@/features/config/config-hooks"
 import { buildSetupSteps, setupProgress, type SetupStepId } from "@/features/dashboard/setup-checklist"
+import {
+  buildSubscriptionsHref,
+  failedSubscriptionIds,
+} from "@/features/subscriptions/subscription-list"
 import { api } from "@/lib/api/endpoints"
-import type { ServiceStatus } from "@/lib/api/types"
+import type { ServiceStatus, Subscription } from "@/lib/api/types"
 import { cn } from "@/lib/utils"
 
 const labels: Record<SetupStepId, string> = {
@@ -27,6 +31,12 @@ export function SetupChecklistCard({ status }: { status?: ServiceStatus }) {
   const { t } = useTranslation()
   const config = useConfigQuery()
   const subscriptions = useQuery({ queryKey: ["subscriptions"], queryFn: api.subscriptions.list })
+  const items = useMemo(
+    () => (Array.isArray(subscriptions.data) ? subscriptions.data as Subscription[] : []),
+    [subscriptions.data],
+  )
+  const failedCount = useMemo(() => failedSubscriptionIds(items).length, [items])
+  const failedHref = buildSubscriptionsHref({ status: "error" })
 
   const steps = useMemo(
     () => buildSetupSteps({
@@ -37,11 +47,14 @@ export function SetupChecklistCard({ status }: { status?: ServiceStatus }) {
     [status, config.data, subscriptions.data],
   )
   const progress = setupProgress(steps)
+  const showChecklist = !progress.complete
+  const showFailed = failedCount > 0
 
   if (config.isLoading || subscriptions.isLoading) return <Skeleton className="h-48 w-full" />
+  if (!showChecklist && !showFailed) return null
 
   return (
-    <Card className={progress.complete ? undefined : "lg:col-span-3"}>
+    <Card className={showChecklist || showFailed ? "lg:col-span-3" : undefined}>
       <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <CardTitle>{t("dashboard.setupTitle")}</CardTitle>
@@ -51,7 +64,7 @@ export function SetupChecklistCard({ status }: { status?: ServiceStatus }) {
         </div>
         <Badge variant="secondary">{t("dashboard.setupProgress", { done: progress.done, total: progress.total })}</Badge>
       </CardHeader>
-      {!progress.complete ? (
+      {showChecklist ? (
         <CardContent>
           <ul className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
             {steps.map((step) => (
@@ -76,6 +89,19 @@ export function SetupChecklistCard({ status }: { status?: ServiceStatus }) {
             ))}
           </ul>
         </CardContent>
+      ) : null}
+      {showFailed ? (
+        <CardFooter className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-destructive">
+            {t("dashboard.failedSubscriptions", { count: failedCount })}
+          </p>
+          <Link
+            to={failedHref}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0")}
+          >
+            {t("dashboard.openFailedSubscriptions")}
+          </Link>
+        </CardFooter>
       ) : null}
     </Card>
   )
