@@ -45,7 +45,7 @@ describe("login page", () => {
     expect(sessionStore.get()?.token).toBe("token")
   })
 
-  it("shows the backend login error", async () => {
+  it("shows densified backend login errors", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
       status: "error",
       data: null,
@@ -59,6 +59,28 @@ describe("login page", () => {
     await user.type(screen.getByLabelText("密码"), "wrong")
     await user.click(screen.getByRole("button", { name: "登录" }))
 
-    expect(await screen.findByText("invalid credentials")).toBeInTheDocument()
+    expect(await screen.findByTestId("login-error")).toHaveAttribute("data-error-code", "unauthorized")
+    expect(screen.getByText("invalid credentials")).toBeInTheDocument()
+    expect(screen.getByText(/用户名或密码不正确/)).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "复制登录错误" })).toBeInTheDocument()
+  })
+
+  it("shows densified rate-limit login errors", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      status: "error",
+      data: null,
+      error: { code: "rate_limited", message: "too many login attempts" },
+      meta: null,
+    }), { status: 429 })))
+    const user = userEvent.setup()
+    renderApp(<App />, "/login")
+
+    await user.type(screen.getByLabelText("用户名"), "admin")
+    await user.type(screen.getByLabelText("密码"), "wrong")
+    await user.click(screen.getByRole("button", { name: "登录" }))
+
+    expect(await screen.findByTestId("login-error")).toHaveAttribute("data-error-code", "rate_limited")
+    expect(screen.getByText("too many login attempts")).toBeInTheDocument()
+    expect(screen.getByText(/登录尝试过于频繁/)).toBeInTheDocument()
   })
 })

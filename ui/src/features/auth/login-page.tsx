@@ -5,13 +5,14 @@ import { useTranslation } from "react-i18next"
 import { Navigate, useNavigate } from "react-router-dom"
 import { z } from "zod"
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { useAuth } from "@/features/auth/auth-context"
+import { LoginErrorAlert } from "@/features/auth/login-error-alert"
+import { loginErrorFromError, type LoginErrorState } from "@/features/auth/login-error"
 
 interface LoginValues { username: string; password: string }
 
@@ -24,18 +25,18 @@ export function LoginPage() {
   const { t } = useTranslation()
   const auth = useAuth()
   const navigate = useNavigate()
-  const [error, setError] = useState("")
+  const [error, setError] = useState<LoginErrorState | null>(null)
   const form = useForm<LoginValues>({ resolver: zodResolver(createSchema((key) => t(key))) })
 
   if (auth.session) return <Navigate to="/dashboard" replace />
 
   const submit = form.handleSubmit(async (values) => {
-    setError("")
+    setError(null)
     try {
       await auth.login(values)
       navigate("/dashboard", { replace: true })
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : t("auth.failed"))
+      setError(loginErrorFromError(reason, t("auth.failed")))
     }
   })
 
@@ -48,7 +49,7 @@ export function LoginPage() {
             <CardDescription>{t("auth.description")}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-2 sm:gap-3">
-            {error ? <Alert variant="destructive"><AlertTitle>{t("auth.failed")}</AlertTitle><AlertDescription>{error}</AlertDescription></Alert> : null}
+            <LoginErrorAlert error={error} />
             <FieldGroup className="gap-2 sm:gap-3">
               <Field data-invalid={Boolean(form.formState.errors.username)}>
                 <FieldLabel htmlFor="username">{t("auth.username")}</FieldLabel>
