@@ -33,6 +33,8 @@ describe("LogsPage", () => {
     vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(new Response(null, { status: 503 }))))
     renderApp(<App />, "/observability/logs")
     expect(await screen.findAllByText("SSE request failed with status 503")).toHaveLength(2)
+    expect(await screen.findAllByText("unavailable")).toHaveLength(2)
+    expect(screen.getAllByText("流已断开（unavailable）").length).toBeGreaterThan(0)
   })
 
   it("shows log source tabs inside the log page", async () => {

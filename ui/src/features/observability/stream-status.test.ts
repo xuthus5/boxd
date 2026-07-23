@@ -22,4 +22,11 @@ describe("streamStatus helpers", () => {
     expect(streamStatusVariant("open", false)).toBe("default")
     expect(shouldShowStreamStatus("closed", false)).toBe(false)
   })
+
+  it("surfaces closed streams with an error", () => {
+    expect(streamStatusLabelKey("closed", false, true)).toBe("observability.streamDisconnected")
+    expect(streamStatusVariant("closed", false, true)).toBe("destructive")
+    expect(shouldShowStreamStatus("closed", false, true)).toBe(true)
+    expect(streamStatusLabelKey("closed", true, true)).toBe("observability.paused")
+  })
 })

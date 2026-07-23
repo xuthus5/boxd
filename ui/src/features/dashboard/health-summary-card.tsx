@@ -13,6 +13,7 @@ import { HealthOpsAlertActions, HealthOpsAlertChips } from "@/features/dashboard
 import { buildHealthSummary, type HealthTone } from "@/features/dashboard/health-summary"
 import { useHealthOpsSignals } from "@/features/dashboard/use-health-ops-signals"
 import { buildConnectionsHref } from "@/features/observability/connection-facets"
+import { classifyStreamErrorMessage, streamErrorHintKey } from "@/features/observability/stream-error"
 import type { ConnectionEvent, ServiceStatus } from "@/lib/api/types"
 import { cn } from "@/lib/utils"
 
@@ -99,10 +100,31 @@ export function HealthSummaryCard({
           items={ops.problemNodeItems}
           total={ops.problemNodes}
         />
-        {streamStatus === "reconnecting" ? (
-          <p className="text-sm text-destructive">{t("observability.streamReconnecting")}{streamError ? ` · ${streamError}` : ""}</p>
-        ) : streamError ? (
-          <p className="text-sm text-destructive">{streamError}</p>
+        {streamStatus === "reconnecting" || streamError ? (
+          <div className="rounded-md border border-destructive/40 bg-destructive/5 px-2.5 py-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <p className="text-xs font-medium text-destructive">
+                {streamStatus === "reconnecting"
+                  ? t("observability.streamReconnecting")
+                  : t("observability.streamDisconnected")}
+              </p>
+              {streamError ? (
+                <Badge variant="outline" className="font-mono text-[10px]">
+                  {classifyStreamErrorMessage(streamError)}
+                </Badge>
+              ) : null}
+            </div>
+            {streamError ? (
+              <p className="mt-1 break-words text-sm text-destructive" title={streamError}>
+                {streamError}
+              </p>
+            ) : null}
+            {streamError ? (
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                {t(streamErrorHintKey(classifyStreamErrorMessage(streamError)))}
+              </p>
+            ) : null}
+          </div>
         ) : null}
       </CardContent>
       <CardFooter className="flex flex-wrap gap-2">

@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next"
 import { useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
@@ -32,6 +31,7 @@ import {
 } from "@/features/observability/log-filter-presets"
 import { meetsLogThreshold, type LogThreshold } from "@/features/observability/log-level"
 import { LogDesktopRow, LogMobileCard } from "@/features/observability/log-list-rows"
+import { StreamErrorAlert } from "@/features/observability/stream-error-alert"
 import { StreamStatusBadge } from "@/features/observability/stream-status-badge"
 import { useStreamBuffer } from "@/features/observability/use-stream-buffer"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -138,16 +138,18 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
       <CardHeader className="gap-1.5">
         <CardTitle className="flex flex-wrap items-center gap-2 text-base sm:text-lg">
           {title}
-          <StreamStatusBadge status={stream.status} paused={stream.paused} />
+          <StreamStatusBadge status={stream.status} paused={stream.paused} error={stream.error} />
         </CardTitle>
         <CardDescription>{t("observability.logDescription")}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-2 sm:gap-3">
         {stream.error ? (
-          <Alert variant="destructive">
-            <AlertTitle>{t("observability.streamError")}</AlertTitle>
-            <AlertDescription>{stream.error}</AlertDescription>
-          </Alert>
+          <StreamErrorAlert
+            error={stream.error}
+            path={path}
+            status={stream.status}
+            paused={stream.paused}
+          />
         ) : null}
         <LogFilters
           filter={filter}

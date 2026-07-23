@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next"
 import { useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ConfirmAction } from "@/components/confirm-action"
@@ -44,6 +43,7 @@ import {
   summarizeConnections,
 } from "@/features/observability/connection-stats"
 import { downloadTextFile } from "@/features/observability/log-export"
+import { StreamErrorAlert } from "@/features/observability/stream-error-alert"
 import { StreamStatusBadge } from "@/features/observability/stream-status-badge"
 import { useStreamBuffer } from "@/features/observability/use-stream-buffer"
 import { useConnectionCloseActions } from "@/features/observability/use-connection-close-actions"
@@ -152,7 +152,7 @@ export function ConnectionsPage() {
           onConfirm={() => void closeAll()}
         />
       </div>
-      {stream.error ? <Alert variant="destructive"><AlertTitle>{t("observability.streamError")}</AlertTitle><AlertDescription>{stream.error}</AlertDescription></Alert> : null}
+      {stream.error ? <StreamErrorAlert error={stream.error} path={api.stats.paths.connections} status={stream.status} paused={stream.paused} /> : null}
       <Card size="sm">
         <CardHeader className="gap-1.5 sm:gap-2">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -160,7 +160,7 @@ export function ConnectionsPage() {
               <CardTitle>
                 {t("observability.liveConnections")}{" "}
                 <Badge variant="secondary">{t("observability.shownCount", { count: filtered.length })}</Badge>
-                <StreamStatusBadge status={stream.status} paused={stream.paused} className="ml-2" />
+                <StreamStatusBadge status={stream.status} paused={stream.paused} error={stream.error} className="ml-2" />
               </CardTitle>
               <CardDescription>{t("observability.connectionsDescription")}</CardDescription>
             </div>

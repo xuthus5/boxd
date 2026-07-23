@@ -12,21 +12,24 @@ import { cn } from "@/lib/utils"
 export function StreamStatusBadge({
   status,
   paused,
+  error,
   className,
 }: {
   status: StreamConnectionStatus
   paused: boolean
+  error?: string
   className?: string
 }) {
   const { t } = useTranslation()
-  if (!shouldShowStreamStatus(status, paused)) return null
+  const hasError = Boolean(error?.trim())
+  if (!shouldShowStreamStatus(status, paused, hasError)) return null
   return (
     <Badge
-      variant={streamStatusVariant(status, paused)}
+      variant={streamStatusVariant(status, paused, hasError)}
       className={cn(className)}
-      data-stream-status={paused ? "paused" : status}
+      data-stream-status={paused ? "paused" : hasError && status === "closed" ? "error" : status}
     >
-      {t(streamStatusLabelKey(status, paused))}
+      {t(streamStatusLabelKey(status, paused, hasError))}
     </Badge>
   )
 }
