@@ -65,6 +65,7 @@ describe("connection-facets", () => {
       rule: undefined,
       process: "/usr/bin/curl",
       view: undefined,
+      sort: undefined,
     })
     expect(buildConnectionsHref({ network: "udp", rule: "geoip-cn", process: "/usr/bin/curl" })).toBe(
       "/observability/connections?network=udp&rule=geoip-cn&process=%2Fusr%2Fbin%2Fcurl",
@@ -92,6 +93,7 @@ describe("connection-facets", () => {
       rule: undefined,
       process: undefined,
       view: "process",
+      sort: undefined,
     })
     expect(parseConnectionSearchParams(new URLSearchParams("view=nope")).view).toBeUndefined()
     expect(toConnectionSearchParams({ view: "list", query: "api" }).toString()).toBe("q=api")
@@ -117,6 +119,15 @@ describe("connection-facets", () => {
       "outbound connection to example.com:443",
     )).toBe("/observability/connections?q=example.com")
     expect(logConnectionsHref("kernel ready")).toBe("")
+  })
+
+  it("parses connection sort from the URL", () => {
+    expect(parseConnectionSearchParams(new URLSearchParams("sort=duration")).sort).toBe("duration")
+    expect(parseConnectionSearchParams(new URLSearchParams("sort=nope")).sort).toBeUndefined()
+    expect(toConnectionSearchParams({ sort: "traffic", query: "api" }).toString()).toBe("q=api")
+    expect(buildConnectionsHref({ sort: "outbound", network: "tcp" })).toBe(
+      "/observability/connections?network=tcp&sort=outbound",
+    )
   })
 
 })

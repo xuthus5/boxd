@@ -338,4 +338,14 @@ describe("ConnectionsPage", () => {
     expect(screen.getByText("cdn.example.net:443")).toBeInTheDocument()
   })
 
+
+  it("seeds sort from the URL", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    mockConnectionsFetch()
+    renderApp(<App />, "/observability/connections?sort=target")
+
+    expect(await screen.findByText("example.com:443")).toBeInTheDocument()
+    expect(screen.getByRole("combobox", { name: "排序连接" })).toHaveTextContent("按目标")
+  })
+
 })

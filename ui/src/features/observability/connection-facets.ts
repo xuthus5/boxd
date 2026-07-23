@@ -1,5 +1,6 @@
 /** Connection list facet helpers (network/protocol/outbound/rule/process + query). */
 
+import type { ConnectionSortKey } from "@/features/observability/connection-export"
 import { matchesConnection } from "@/features/observability/connection-stats"
 import type { Connection } from "@/lib/api/types"
 
@@ -15,6 +16,7 @@ export type ConnectionFacetFilters = {
   rule?: string
   process?: string
   view?: ConnectionView
+  sort?: ConnectionSortKey
 }
 
 export type ConnectionFacetOption = {
@@ -93,6 +95,7 @@ export function connectionFiltersActive(filters: ConnectionFacetFilters): boolea
 }
 
 const CONNECTION_VIEWS = new Set<ConnectionView>(["list", "outbound", "rule", "process"])
+const CONNECTION_SORTS = new Set<ConnectionSortKey>(["traffic", "download", "upload", "duration", "target", "outbound"])
 
 export function parseConnectionSearchParams(
   params: URLSearchParams | { get(name: string): string | null },
@@ -105,6 +108,10 @@ export function parseConnectionSearchParams(
   const view = viewRaw && CONNECTION_VIEWS.has(viewRaw as ConnectionView)
     ? (viewRaw as ConnectionView)
     : undefined
+  const sortRaw = read("sort")
+  const sort = sortRaw && CONNECTION_SORTS.has(sortRaw as ConnectionSortKey)
+    ? (sortRaw as ConnectionSortKey)
+    : undefined
   return {
     query: read("q"),
     network: read("network"),
@@ -113,6 +120,7 @@ export function parseConnectionSearchParams(
     rule: read("rule"),
     process: read("process"),
     view,
+    sort,
   }
 }
 
@@ -126,6 +134,7 @@ export function toConnectionSearchParams(filters: ConnectionFacetFilters = {}): 
   if (filters.rule) params.set("rule", filters.rule)
   if (filters.process) params.set("process", filters.process)
   if (filters.view && filters.view !== "list") params.set("view", filters.view)
+  if (filters.sort && filters.sort !== "traffic") params.set("sort", filters.sort)
   return params
 }
 

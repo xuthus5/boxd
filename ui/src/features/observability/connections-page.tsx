@@ -59,8 +59,8 @@ export function ConnectionsPage() {
   const rule = filters.rule ?? ""
   const process = filters.process ?? ""
   const view: ConnectionView = filters.view ?? "list"
+  const sort: ConnectionSortKey = filters.sort ?? "traffic"
   const [closingId, setClosingId] = useState<string | "all" | null>(null)
-  const [sort, setSort] = useState<ConnectionSortKey>("traffic")
   const [columns, setColumns] = useState<ConnectionColumnId[]>(() => loadConnectionColumns())
   const snapshot = stream.items.at(-1)
   const connections = useMemo(() => snapshot?.list ?? [], [snapshot?.list])
@@ -96,8 +96,13 @@ export function ConnectionsPage() {
       rule: patch.rule !== undefined ? patch.rule || undefined : filters.rule,
       process: patch.process !== undefined ? patch.process || undefined : filters.process,
       view: "view" in patch ? patch.view : filters.view,
+      sort: "sort" in patch ? patch.sort : filters.sort,
     }
     setSearchParams(toConnectionSearchParams(next), { replace: true })
+  }
+
+  const onSortChange = (value: ConnectionSortKey) => {
+    patchFilters({ sort: value === "traffic" ? undefined : value })
   }
 
   const onViewChange = (value: string) => {
@@ -166,7 +171,7 @@ export function ConnectionsPage() {
   }
 
   const clearFacets = () => {
-    setSearchParams(toConnectionSearchParams({ view: filters.view }), { replace: true })
+    setSearchParams(toConnectionSearchParams({ view: filters.view, sort: filters.sort }), { replace: true })
   }
 
   return (
@@ -226,7 +231,7 @@ export function ConnectionsPage() {
             onOutboundChange={(value) => patchFilters({ outbound: value })}
             onRuleChange={(value) => patchFilters({ rule: value })}
             onProcessChange={(value) => patchFilters({ process: value })}
-            onSortChange={setSort}
+            onSortChange={onSortChange}
             onToggleColumn={onToggleColumn}
             onClearFacets={clearFacets}
             onTogglePause={() => stream.setPaused(!stream.paused)}
