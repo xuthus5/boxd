@@ -175,6 +175,7 @@ func newHandler(cfg *config.Config, db *bbolt.DB, settingsManager *core.Settings
 	subscriptionHandler := api.NewSubscriptionHandler(subscriptionManager, nodeManager, cfg.ConfigPath, instance)
 	nodesHandler := api.NewNodesHandler(nodeManager, subscriptionManager, cfg.ConfigPath, instance)
 	settingsHandler := api.NewSettingsHandler(settingsManager, cfg.Username)
+	backupHandler := api.NewBackupHandler(db, cfg.ConfigPath, core.Version)
 	testHandler := api.NewTestHandler(func() string {
 		u := settingsManager.Get("url_test")
 		if u == "" {
@@ -197,6 +198,7 @@ func newHandler(cfg *config.Config, db *bbolt.DB, settingsManager *core.Settings
 		nodesHandler,
 		testHandler,
 		settingsHandler,
+		backupHandler,
 		networkHandler,
 		kernelHandler,
 		runtimeHandler,

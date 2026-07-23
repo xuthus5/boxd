@@ -159,4 +159,20 @@ describe("api endpoint coverage", () => {
     await api.stats.closeAll({ process: "/usr/bin/curl" })
     expect(String(fetchMock.mock.calls[2][0])).toContain("/api/stats/connections?process=%2Fusr%2Fbin%2Fcurl")
   })
+
+  it("downloads settings backup as binary", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(new Uint8Array([1, 2]), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/gzip",
+        "Content-Disposition": 'attachment; filename="boxd-backup.tar.gz"',
+      },
+    }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const file = await api.settings.exportBackup()
+    expect(file.filename).toBe("boxd-backup.tar.gz")
+    expect(fetchMock).toHaveBeenCalledWith("/api/settings/backup", expect.objectContaining({ method: "GET" }))
+  })
+
 })

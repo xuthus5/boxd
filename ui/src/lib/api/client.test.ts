@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { ApiError, apiRequest, setUnauthorizedHandler } from "@/lib/api/client"
+import { ApiError, apiRequest, downloadBinary, setUnauthorizedHandler } from "@/lib/api/client"
 import { sessionStore } from "@/lib/session"
 
 afterEach(() => {
@@ -85,3 +85,45 @@ describe("apiRequest error handling", () => {
     expect(headers.get("Content-Type")).toBe("text/plain")
   })
 })
+
+
+describe("downloadBinary", () => {
+  it("returns blob metadata from content disposition", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    const fetchMock = vi.fn().mockResolvedValue(new Response(new Uint8Array([1, 2, 3]), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/gzip",
+        "Content-Disposition": 'attachment; filename="boxd-backup.tar.gz"',
+      },
+    }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const result = await downloadBinary("/api/settings/backup", { method: "GET" }, "fallback.tar.gz")
+    expect(result.filename).toBe("boxd-backup.tar.gz")
+    expect(result.contentType).toBe("application/gzip")
+    expect(result.blob.size).toBe(3)
+    const headers = new Headers(fetchMock.mock.calls[0][1]?.headers)
+    expect(headers.get("Authorization")).toBe("Bearer token")
+    expect(headers.get("Accept")).toContain("application/gzip")
+  })
+
+  it("throws typed errors for failed downloads", async () => {
+    const unauthorized = vi.fn()
+    setUnauthorizedHandler(unauthorized)
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      status: "error",
+      data: null,
+      error: { code: "unauthorized", message: "invalid token" },
+      meta: null,
+    }), { status: 401 })))
+
+    await expect(downloadBinary("/api/settings/backup")).rejects.toMatchObject({
+      status: 401,
+      code: "unauthorized",
+      message: "invalid token",
+    })
+    expect(unauthorized).toHaveBeenCalledOnce()
+  })
+})
+

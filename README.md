@@ -14,7 +14,7 @@ Single-node control plane for [sing-box](https://github.com/SagerNet/sing-box). 
 - **Nodes & subscriptions**: Clash YAML + base64 subscriptions, traffic/expiry, failed-first + retry, subscription deep-links to nodes/logs, denser mobile toolbars/cards, node search, latency color bands + history sparkline/detail chart, runtime groups, probes
 - **Observability**: kernel/app logs with copy/export, denser mobile filters, and virtualized long lists; TCP/UDP connections with source/network/inbound/process, compact toolbar, search/sort/export, outbound/rule aggregation, group drill-down/close, and virtualized long lists
 - **Advanced**: Endpoints, Experimental, full kernel JSON with path-level diff and sticky save-error jump
-- **Settings**: theme, language, and log level persisted in DB; password/JWT rotation, dirty-state save gates, probe URLs, global URLTest defaults
+- **Settings**: theme, language, and log level persisted in DB; password/JWT rotation, dirty-state save gates, probe URLs, global URLTest defaults, panel backup export
 
 ## Stack
 
@@ -67,13 +67,15 @@ go run ./cmd/boxd/
 3. **Inbounds / outbounds**: install mixed (1080) + TUN templates or create custom inbounds; bind subscription groups as selector/urltest, or use direct/block.
 4. **Route / DNS / Experimental**: edit rules in forms; install common defaults; one-click enable Clash API.
 5. **Dashboard**: start the kernel; switch global outbound and Clash mode; watch traffic and logs.
-6. **Settings**: theme, language, minimum log level (stored in the database), system probe URLs, kernel autostart.
+6. **Settings**: theme, language, minimum log level (stored in the database), system probe URLs, kernel autostart, backup export.
 
 ### Built-in routing helpers
 
 The route page can install common rules (sniff, hijack DNS, bypass LAN/ICMP, block QUIC/ads, CN domain/IP split, etc.). Rule-sets include Loyalsoldier text sets (local convert) and SagerNet binary sets (remote cache).
 
 ### Backup and restore
+
+Panel **Settings → Data backup** downloads the same archive (auth required). Restore stays CLI-only.
 
 ```bash
 ./bin/boxd --backup /var/backups/boxd/boxd-$(date +%F).tar.gz

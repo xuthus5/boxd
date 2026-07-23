@@ -1,4 +1,4 @@
-import { apiRequest, apiRequestEnvelope } from "@/lib/api/client"
+import { apiRequest, apiRequestEnvelope, downloadBinary } from "@/lib/api/client"
 import type {
   RuleSetAutoUpdate,
   RuleSetStatusItem,
@@ -189,6 +189,11 @@ export const api = {
     setPreferences: (input: UIPreferences) => apiRequest<UIPreferences>(
       "/api/settings/preferences",
       json("PUT", input),
+    ),
+    exportBackup: () => downloadBinary(
+      "/api/settings/backup",
+      { method: "GET" },
+      "boxd-backup.tar.gz",
     ),
   },
   network: {

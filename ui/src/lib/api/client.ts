@@ -83,3 +83,62 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}) {
   const response = await apiRequestEnvelope<T>(path, init)
   return response.data
 }
+
+export type BinaryDownload = {
+  blob: Blob
+  filename: string
+  contentType: string
+}
+
+function filenameFromDisposition(value: string | null): string {
+  if (!value) return ""
+  const utfMatch = /filename\*=UTF-8''([^;]+)/i.exec(value)
+  if (utfMatch?.[1]) {
+    try {
+      return decodeURIComponent(utfMatch[1].trim().replace(/^"|"$/g, ""))
+    } catch {
+      return utfMatch[1].trim().replace(/^"|"$/g, "")
+    }
+  }
+  const plainMatch = /filename="?([^";]+)"?/i.exec(value)
+  return plainMatch?.[1]?.trim() ?? ""
+}
+
+export async function downloadBinary(path: string, init: RequestInit = {}, fallbackName = "download.bin"): Promise<BinaryDownload> {
+  const headers = createHeaders(init)
+  headers.delete("Accept")
+  headers.set("Accept", "application/gzip, application/octet-stream, */*")
+  const response = await fetch(path, { ...init, headers })
+  if (!response.ok) {
+    let payload: unknown
+    try {
+      payload = await parseResponse(response)
+    } catch (error) {
+      if (response.status === 401) notifyUnauthorized()
+      throw error instanceof ApiError
+        ? error
+        : new ApiError(response.statusText || "Download failed", response.status)
+    }
+    const envelope = isEnvelope<unknown>(payload) ? payload : undefined
+    const error = responseError(response, payload, envelope)
+    if (response.status === 401) notifyUnauthorized()
+    throw error
+  }
+  const blob = await response.blob()
+  const filename = filenameFromDisposition(response.headers.get("Content-Disposition")) || fallbackName
+  const contentType = response.headers.get("Content-Type") || blob.type || "application/octet-stream"
+  return { blob, filename, contentType }
+}
+
+export function triggerBrowserDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement("a")
+  anchor.href = url
+  anchor.download = filename
+  anchor.rel = "noopener"
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  URL.revokeObjectURL(url)
+}
+

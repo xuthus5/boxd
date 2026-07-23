@@ -541,6 +541,7 @@ func TestNewRouterHealthWorksWithoutStaticFiles(t *testing.T) {
 		NewNodesHandler(nodeMgr, subMgr, configPath),
 		NewTestHandler(func() string { return defaultTestURL }, nodeMgr, nil),
 		NewSettingsHandler(settingsMgr),
+		NewBackupHandler(nil, configPath, "test-version"),
 		NewNetworkHandler(),
 		NewKernelHandler("test-version"),
 		NewRuntimeHandler(instance),

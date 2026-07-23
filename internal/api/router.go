@@ -21,6 +21,7 @@ func NewRouter(
 	nodesHandler *NodesHandler,
 	testHandler *TestHandler,
 	settingsHandler *SettingsHandler,
+	backupHandler *BackupHandler,
 	networkHandler *NetworkHandler,
 	kernelHandler *KernelHandler,
 	runtimeHandler *RuntimeHandler,
@@ -140,6 +141,7 @@ func NewRouter(
 		r.Put("/password", settingsHandler.ChangePassword)
 		r.Get("/preferences", settingsHandler.GetUIPreferences)
 		r.Put("/preferences", settingsHandler.SetUIPreferences)
+		r.Get("/backup", backupHandler.Export)
 	})
 
 	r.Route("/api/network", func(r chi.Router) {

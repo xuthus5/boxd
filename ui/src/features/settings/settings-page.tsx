@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { usePreferences } from "@/features/preferences/preferences-provider"
+import { BackupExportCard } from "@/features/settings/backup-export-card"
 import { RuleSetAutoUpdateCard } from "@/features/settings/ruleset-auto-update-card"
 import { AccountSecurityCard } from "@/features/settings/account-security-card"
 import { URLTestDefaultsCard } from "@/features/settings/urltest-defaults-card"
@@ -149,5 +150,5 @@ export function SettingsPage() {
   if (queries.some((query) => query.isLoading)) return <Skeleton className="h-64 w-full" />
   const error = queries.find((query) => query.error)?.error
   if (error) return <Alert variant="destructive"><AlertTitle>{t("common.loadFailed")}</AlertTitle><AlertDescription>{error.message}</AlertDescription></Alert>
-  return <div className="flex flex-col gap-3 sm:gap-4"><h1 className="text-2xl font-semibold">{t("settings.title")}</h1><div className="grid gap-3 sm:gap-4 lg:grid-cols-2"><AppearanceCard /><AccountSecurityCard defaultPassword={password.data!.defaultPassword} jwt={jwt.data!} /><RuntimeSettingsCard url={testURL.data!.url} enabled={autostart.data!.enabled} /><URLTestDefaultsCard defaults={urlTestDefaults.data!} /><RuleSetAutoUpdateCard defaults={ruleSetAuto.data!} /></div></div>
+  return <div className="flex flex-col gap-3 sm:gap-4"><h1 className="text-2xl font-semibold">{t("settings.title")}</h1><div className="grid gap-3 sm:gap-4 lg:grid-cols-2"><AppearanceCard /><AccountSecurityCard defaultPassword={password.data!.defaultPassword} jwt={jwt.data!} /><RuntimeSettingsCard url={testURL.data!.url} enabled={autostart.data!.enabled} /><URLTestDefaultsCard defaults={urlTestDefaults.data!} /><RuleSetAutoUpdateCard defaults={ruleSetAuto.data!} /><BackupExportCard /></div></div>
 }
