@@ -256,6 +256,60 @@ describe("NodesPage stability filter", () => {
     expect(within(all).getByText("hk-stable")).toBeInTheDocument()
     expect(within(all).getByText("us-unstable")).toBeInTheDocument()
   })
+
+  it("clears filters from the empty-state action", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
+      const path = typeof input === "string" ? input : input.toString()
+      if (path === "/api/nodes/") {
+        return Promise.resolve(new Response(JSON.stringify([
+          { tag: "hk-stable", type: "vless", server: "a.example.com", port: 443, source: "import" },
+          { tag: "us-unstable", type: "trojan", server: "b.example.com", port: 443, source: "import" },
+        ])))
+      }
+      if (path === "/api/nodes/test-history") {
+        return Promise.resolve(new Response(JSON.stringify({
+          history: {
+            "hk-stable": {
+              tcp: [
+                { timestamp: "1", success: true, latency_ms: 20 },
+                { timestamp: "2", success: true, latency_ms: 22 },
+                { timestamp: "3", success: true, latency_ms: 18 },
+                { timestamp: "4", success: true, latency_ms: 19 },
+              ],
+            },
+            "us-unstable": {
+              tcp: [
+                { timestamp: "1", success: false },
+                { timestamp: "2", success: false },
+                { timestamp: "3", success: true, latency_ms: 200 },
+                { timestamp: "4", success: false },
+              ],
+            },
+          },
+        })))
+      }
+      if (path === "/api/nodes/groups") return Promise.resolve(new Response(JSON.stringify({ groups: [] })))
+      if (path === "/api/nodes/test-results") return Promise.resolve(new Response(JSON.stringify({})))
+      if (path === "/api/settings/preferences") {
+        return Promise.resolve(new Response(JSON.stringify({ theme: "system", language: "zh", minimumLogLevel: "all" })))
+      }
+      if (path === "/api/settings/password") {
+        return Promise.resolve(new Response(JSON.stringify({ defaultPassword: false })))
+      }
+      return Promise.resolve(new Response(JSON.stringify({})))
+    }))
+    const user = userEvent.setup()
+    renderApp(<App />, "/nodes?q=missing-node")
+
+    expect(await screen.findByText("无匹配节点")).toBeInTheDocument()
+    const clearButtons = screen.getAllByRole("button", { name: "清除筛选" })
+    await user.click(clearButtons[clearButtons.length - 1])
+    const all = await screen.findByRole("region", { name: "所有节点" })
+    expect(within(all).getByText("hk-stable")).toBeInTheDocument()
+    expect(within(all).getByText("us-unstable")).toBeInTheDocument()
+  })
+
 })
 
 

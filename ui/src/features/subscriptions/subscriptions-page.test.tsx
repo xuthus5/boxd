@@ -112,4 +112,19 @@ describe("SubscriptionsPage deep links", () => {
     expect(screen.getByText("正常订阅")).toBeInTheDocument()
     expect(screen.getByText("失败订阅")).toBeInTheDocument()
   })
+  it("clears filters from the empty-state action", async () => {
+    mockSubs([
+      { id: "ok", name: "正常订阅", url: "https://example.com/ok", interval_min: 60, last_updated: "2026-06-01T00:00:00Z", outbounds: [] },
+      { id: "bad", name: "失败订阅", url: "https://example.com/bad", interval_min: 60, last_updated: "2026-02-01T00:00:00Z", outbounds: [], error: "timeout" },
+    ])
+    const user = userEvent.setup()
+    renderApp(<App />, "/subscriptions?q=missing-sub")
+
+    expect(await screen.findByText("无匹配订阅")).toBeInTheDocument()
+    const clearButtons = screen.getAllByRole("button", { name: "清除筛选" })
+    await user.click(clearButtons[clearButtons.length - 1])
+    expect(await screen.findByText("正常订阅")).toBeInTheDocument()
+    expect(screen.getByText("失败订阅")).toBeInTheDocument()
+  })
+
 })

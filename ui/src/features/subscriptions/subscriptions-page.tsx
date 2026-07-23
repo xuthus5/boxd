@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { ConfirmAction } from "@/components/confirm-action"
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ImportedNodesCard } from "@/features/subscriptions/imported-nodes-card"
@@ -227,7 +227,17 @@ export function SubscriptionsPage() {
                 />
               ))}
             </div>
-            : <Empty><EmptyHeader><EmptyTitle>{t("subscriptions.noMatch")}</EmptyTitle><EmptyDescription>{t("subscriptions.noMatchDescription")}</EmptyDescription></EmptyHeader></Empty>
+            : <Empty>
+              <EmptyHeader>
+                <EmptyTitle>{t("subscriptions.noMatch")}</EmptyTitle>
+                <EmptyDescription>{t("subscriptions.noMatchDescription")}</EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent>
+                <Button variant="outline" onClick={() => writeFilters({})}>
+                  {t("subscriptions.clearFilters")}
+                </Button>
+              </EmptyContent>
+            </Empty>
           : <Empty><EmptyHeader><EmptyTitle>{t("common.empty")}</EmptyTitle><EmptyDescription>{t("subscriptions.description")}</EmptyDescription></EmptyHeader></Empty>}
       </section>
       <ImportedNodesCard />

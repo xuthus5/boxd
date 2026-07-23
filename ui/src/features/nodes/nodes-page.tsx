@@ -5,7 +5,7 @@ import { useSearchParams } from "react-router-dom"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -197,7 +197,17 @@ export function NodesPage() {
       </div>
       <RuntimeGroupsCard />
       {filtered.length === 0 && facetsActive
-        ? <Empty><EmptyHeader><EmptyTitle>{t("nodes.noMatch")}</EmptyTitle><EmptyDescription>{t("nodes.noMatchDescription")}</EmptyDescription></EmptyHeader></Empty>
+        ? <Empty>
+          <EmptyHeader>
+            <EmptyTitle>{t("nodes.noMatch")}</EmptyTitle>
+            <EmptyDescription>{t("nodes.noMatchDescription")}</EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button variant="outline" onClick={() => writeFilters({ sort: filters.sort })}>
+              {t("nodes.clearFilters")}
+            </Button>
+          </EmptyContent>
+        </Empty>
         : <>
           <NodeSection title={t("nodes.allNodes")} description={t("nodes.allNodesDescription")} nodes={filtered} results={resultsQuery.data} history={history} onBatchComplete={onBatchComplete} />
           <SubscriptionSections groups={subscriptions} results={resultsQuery.data} history={history} onBatchComplete={onBatchComplete} />
