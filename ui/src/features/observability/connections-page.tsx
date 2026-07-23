@@ -32,10 +32,12 @@ import {
   filterConnectionsByFacets,
   listConnectionFacets,
   parseConnectionSearchParams,
+  summarizeConnectionFacets,
   toConnectionSearchParams,
   type ConnectionFacetFilters,
   type ConnectionView,
 } from "@/features/observability/connection-facets"
+import { ConnectionFacetSummaryBar } from "@/features/observability/connection-facet-summary"
 import { ConnectionToolbar } from "@/features/observability/connection-toolbar"
 import {
   aggregateConnections,
@@ -53,24 +55,20 @@ export function ConnectionsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const stream = useStreamBuffer<ConnectionEvent>(api.stats.paths.connections, token, 2)
   const filters = useMemo(() => parseConnectionSearchParams(searchParams), [searchParams])
-  const query = filters.query ?? ""
-  const network = filters.network ?? ""
-  const protocol = filters.protocol ?? ""
-  const outbound = filters.outbound ?? ""
-  const rule = filters.rule ?? ""
-  const process = filters.process ?? ""
   const view: ConnectionView = filters.view ?? "list"
   const sort: ConnectionSortKey = filters.sort ?? "traffic"
   const [closingId, setClosingId] = useState<string | "all" | null>(null)
   const [columns, setColumns] = useState<ConnectionColumnId[]>(() => loadConnectionColumns())
-  const snapshot = stream.items.at(-1)
-  const connections = useMemo(() => snapshot?.list ?? [], [snapshot?.list])
+  const connections = useMemo(() => stream.items.at(-1)?.list ?? [], [stream.items])
   const filtered = useMemo(() => filterConnectionsByFacets(connections, filters), [connections, filters])
-  const networkOptions = useMemo(() => listConnectionFacets(connections, "network"), [connections])
-  const protocolOptions = useMemo(() => listConnectionFacets(connections, "protocol"), [connections])
-  const outboundOptions = useMemo(() => listConnectionFacets(connections, "outbound"), [connections])
-  const ruleOptions = useMemo(() => listConnectionFacets(connections, "rule"), [connections])
-  const processOptions = useMemo(() => listConnectionFacets(connections, "process"), [connections])
+  const facetOptions = useMemo(() => ({
+    network: listConnectionFacets(connections, "network"),
+    protocol: listConnectionFacets(connections, "protocol"),
+    outbound: listConnectionFacets(connections, "outbound"),
+    rule: listConnectionFacets(connections, "rule"),
+    process: listConnectionFacets(connections, "process"),
+  }), [connections])
+  const facetSummary = useMemo(() => summarizeConnectionFacets(connections, filters), [connections, filters])
   const facetsActive = connectionFiltersActive(filters)
   const sorted = useMemo(() => sortConnections(filtered, sort), [filtered, sort])
   const summary = useMemo(() => summarizeConnections(filtered), [filtered])
@@ -79,14 +77,14 @@ export function ConnectionsPage() {
   const byProcess = useMemo(() => aggregateConnections(filtered, "process"), [filtered])
   const busy = closingId !== null
   const canExport = sorted.length > 0
-  const sortOptions: { label: string; value: ConnectionSortKey }[] = [
-    { label: t("observability.sortByTraffic"), value: "traffic" },
-    { label: t("observability.sortByDownload"), value: "download" },
-    { label: t("observability.sortByUpload"), value: "upload" },
-    { label: t("observability.sortByDuration"), value: "duration" },
-    { label: t("observability.sortByTarget"), value: "target" },
-    { label: t("observability.sortByOutbound"), value: "outbound" },
-  ]
+  const sortOptions = useMemo(() => ([
+    { label: t("observability.sortByTraffic"), value: "traffic" as const },
+    { label: t("observability.sortByDownload"), value: "download" as const },
+    { label: t("observability.sortByUpload"), value: "upload" as const },
+    { label: t("observability.sortByDuration"), value: "duration" as const },
+    { label: t("observability.sortByTarget"), value: "target" as const },
+    { label: t("observability.sortByOutbound"), value: "outbound" as const },
+  ]), [t])
 
   const patchFilters = (patch: Partial<ConnectionFacetFilters>) => {
     const next: ConnectionFacetFilters = {
@@ -137,13 +135,7 @@ export function ConnectionsPage() {
     if (key === "—") return
     setClosingId(`group:${field}:${key}`)
     try {
-      const result = await api.stats.closeAll(
-        field === "outbound"
-          ? { outbound: key }
-          : field === "rule"
-            ? { rule: key }
-            : { process: key },
-      )
+      const result = await api.stats.closeAll({ [field]: key })
       toast.success(t("observability.closedCount", { count: result.closed }))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error))
@@ -152,19 +144,16 @@ export function ConnectionsPage() {
     }
   }
 
-  const closeFiltered = () => {
-    const ids = filtered.map((item) => item.id)
-    void (async () => {
-      setClosingId("filtered")
-      try {
-        const result = await api.stats.closeAll({ ids })
-        toast.success(t("observability.closedCount", { count: result.closed }))
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : String(error))
-      } finally {
-        setClosingId(null)
-      }
-    })()
+  const closeFiltered = async () => {
+    setClosingId("filtered")
+    try {
+      const result = await api.stats.closeAll({ ids: filtered.map((item) => item.id) })
+      toast.success(t("observability.closedCount", { count: result.closed }))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error))
+    } finally {
+      setClosingId(null)
+    }
   }
 
   const onToggleColumn = (id: ConnectionColumnId, enabled: boolean) => {
@@ -174,6 +163,8 @@ export function ConnectionsPage() {
   const clearFacets = () => {
     setSearchParams(toConnectionSearchParams({ view: filters.view, sort: filters.sort }), { replace: true })
   }
+  const emptyActionLabel = facetsActive ? t("observability.clearFacets") : undefined
+  const emptyAction = facetsActive ? clearFacets : undefined
 
   return (
     <div className="flex flex-col gap-4">
@@ -206,20 +197,23 @@ export function ConnectionsPage() {
               <span>{t("observability.outboundCount", { count: summary.outbounds })}</span>
             </div>
           </div>
+          {connections.length > 0
+            ? <ConnectionFacetSummaryBar sections={facetSummary} filters={filters} onChange={patchFilters} />
+            : null}
           <ConnectionToolbar
-            query={query}
-            network={network}
-            protocol={protocol}
-            outbound={outbound}
-            rule={rule}
-            process={process}
+            query={filters.query ?? ""}
+            network={filters.network ?? ""}
+            protocol={filters.protocol ?? ""}
+            outbound={filters.outbound ?? ""}
+            rule={filters.rule ?? ""}
+            process={filters.process ?? ""}
             sort={sort}
             columns={columns}
-            networkOptions={networkOptions}
-            protocolOptions={protocolOptions}
-            outboundOptions={outboundOptions}
-            ruleOptions={ruleOptions}
-            processOptions={processOptions}
+            networkOptions={facetOptions.network}
+            protocolOptions={facetOptions.protocol}
+            outboundOptions={facetOptions.outbound}
+            ruleOptions={facetOptions.rule}
+            processOptions={facetOptions.process}
             sortOptions={sortOptions}
             facetsActive={facetsActive}
             filteredCount={filtered.length}
@@ -255,8 +249,8 @@ export function ConnectionsPage() {
                   columns={columns}
                   busy={busy}
                   onClose={(id) => void run(api.stats.closeConnection(id), t("observability.close"), id)}
-                  emptyActionLabel={facetsActive ? t("observability.clearFacets") : undefined}
-                  onEmptyAction={facetsActive ? clearFacets : undefined}
+                  emptyActionLabel={emptyActionLabel}
+                  onEmptyAction={emptyAction}
                 />
               </TabsContent>
               <TabsContent value="outbound" className="mt-3">
@@ -267,8 +261,8 @@ export function ConnectionsPage() {
                   onCloseGroup={closeGroup}
                   emptyTitle={t("observability.noMatch")}
                   emptyDescription={t("observability.noMatchDescription")}
-                  emptyActionLabel={facetsActive ? t("observability.clearFacets") : undefined}
-                  onEmptyAction={facetsActive ? clearFacets : undefined}
+                  emptyActionLabel={emptyActionLabel}
+                  onEmptyAction={emptyAction}
                 />
               </TabsContent>
               <TabsContent value="rule" className="mt-3">
@@ -279,8 +273,8 @@ export function ConnectionsPage() {
                   onCloseGroup={closeGroup}
                   emptyTitle={t("observability.noMatch")}
                   emptyDescription={t("observability.noMatchDescription")}
-                  emptyActionLabel={facetsActive ? t("observability.clearFacets") : undefined}
-                  onEmptyAction={facetsActive ? clearFacets : undefined}
+                  emptyActionLabel={emptyActionLabel}
+                  onEmptyAction={emptyAction}
                 />
               </TabsContent>
               <TabsContent value="process" className="mt-3">
@@ -291,8 +285,8 @@ export function ConnectionsPage() {
                   onCloseGroup={closeGroup}
                   emptyTitle={t("observability.noMatch")}
                   emptyDescription={t("observability.noMatchDescription")}
-                  emptyActionLabel={facetsActive ? t("observability.clearFacets") : undefined}
-                  onEmptyAction={facetsActive ? clearFacets : undefined}
+                  emptyActionLabel={emptyActionLabel}
+                  onEmptyAction={emptyAction}
                 />
               </TabsContent>
             </Tabs>

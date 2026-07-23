@@ -82,17 +82,33 @@ describe("ConnectionsPage", () => {
     expect(await screen.findByText("example.com:443")).toBeInTheDocument()
     expect(screen.getByText("显示 2 条")).toBeInTheDocument()
     expect(screen.getByText(/2 个出口/)).toBeInTheDocument()
-    expect(screen.getByText("geosite-google")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "规则: geosite-google" })).toBeInTheDocument()
     expect(screen.getByText("1s")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "关闭全部连接" })).toBeInTheDocument()
     expect(screen.getByRole("tab", { name: "按出口" })).toBeInTheDocument()
     await user.click(screen.getByRole("tab", { name: "按出口" }))
-    expect(await screen.findByText("proxy")).toBeInTheDocument()
+    expect((await screen.findAllByRole("button", { name: "关闭该组" })).length).toBeGreaterThan(0)
     expect(screen.getAllByRole("button", { name: "关闭该组" }).length).toBeGreaterThan(0)
 
     await user.click(screen.getByRole("tab", { name: "连接列表" }))
     await user.type(screen.getByLabelText("搜索连接"), "direct")
     expect(screen.queryByText("example.com:443")).not.toBeInTheDocument()
+    expect(screen.getByText("cdn.example.net:443")).toBeInTheDocument()
+  })
+
+  it("filters connections from facet summary chips", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    mockConnectionsFetch()
+    const user = userEvent.setup()
+    renderApp(<App />, "/observability/connections")
+
+    expect(await screen.findByText("example.com:443")).toBeInTheDocument()
+    expect(screen.getByText("分布概览")).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: /tcp/ }))
+    expect(screen.getByText("example.com:443")).toBeInTheDocument()
+    expect(screen.queryByText("cdn.example.net:443")).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /tcp/ })).toHaveAttribute("aria-pressed", "true")
+    await user.click(screen.getByRole("button", { name: /tcp/ }))
     expect(screen.getByText("cdn.example.net:443")).toBeInTheDocument()
   })
 
@@ -200,8 +216,8 @@ describe("ConnectionsPage", () => {
 
     expect(await screen.findByText("example.com:443")).toBeInTheDocument()
     await user.click(screen.getByRole("tab", { name: "按进程" }))
-    expect(await screen.findByText("/usr/bin/curl")).toBeInTheDocument()
-    expect(screen.getAllByRole("button", { name: "关闭该组" }).length).toBeGreaterThan(0)
+    expect((await screen.findAllByRole("button", { name: "关闭该组" })).length).toBeGreaterThan(0)
+    expect(screen.getAllByText("/usr/bin/curl").length).toBeGreaterThan(0)
   })
 
 
@@ -228,7 +244,8 @@ describe("ConnectionsPage", () => {
     renderApp(<App />, "/observability/connections?view=process")
 
     expect(await screen.findByRole("tab", { name: "按进程" })).toHaveAttribute("data-active")
-    expect(await screen.findByText("/usr/bin/curl")).toBeInTheDocument()
+    expect((await screen.findAllByRole("button", { name: "关闭该组" })).length).toBeGreaterThan(0)
+    expect(screen.getAllByText("/usr/bin/curl").length).toBeGreaterThan(0)
   })
 
   it("switches connection group tabs interactively", async () => {
@@ -240,10 +257,11 @@ describe("ConnectionsPage", () => {
     expect(await screen.findByText("example.com:443")).toBeInTheDocument()
     await user.click(screen.getByRole("tab", { name: "按出口" }))
     expect(await screen.findByRole("tab", { name: "按出口" })).toHaveAttribute("data-active")
-    expect(await screen.findByText("proxy")).toBeInTheDocument()
+    expect((await screen.findAllByRole("button", { name: "关闭该组" })).length).toBeGreaterThan(0)
+    expect(screen.getAllByText("proxy").length).toBeGreaterThan(0)
     await user.click(screen.getByRole("tab", { name: "按规则" }))
     expect(await screen.findByRole("tab", { name: "按规则" })).toHaveAttribute("data-active")
-    expect(await screen.findByText("geosite-google")).toBeInTheDocument()
+    expect(screen.getAllByText("geosite-google").length).toBeGreaterThan(0)
   })
 
 
@@ -310,7 +328,8 @@ describe("ConnectionsPage", () => {
     const user = userEvent.setup()
     renderApp(<App />, "/observability/connections?view=process")
 
-    expect(await screen.findByText("/usr/bin/curl")).toBeInTheDocument()
+    expect((await screen.findAllByRole("button", { name: "关闭该组" })).length).toBeGreaterThan(0)
+    expect(screen.getAllByText("/usr/bin/curl").length).toBeGreaterThan(0)
     await user.click(screen.getByRole("button", { name: "关闭该组" }))
     await user.click(await screen.findByRole("button", { name: "确认关闭" }))
     await waitFor(() => {

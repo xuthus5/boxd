@@ -59,6 +59,43 @@ export function listConnectionFacets(
     })
 }
 
+/** Facet options for one field, counted after applying all other filters. */
+export function listScopedConnectionFacets(
+  connections: readonly Connection[],
+  filters: ConnectionFacetFilters,
+  field: ConnectionFacetField,
+): ConnectionFacetOption[] {
+  const scoped = filterConnectionsByFacets(connections, { ...filters, [field]: undefined })
+  return listConnectionFacets(scoped, field)
+}
+
+export type ConnectionFacetSummarySection = {
+  field: ConnectionFacetField
+  options: ConnectionFacetOption[]
+}
+
+const SUMMARY_FIELDS: ConnectionFacetField[] = [
+  "network",
+  "protocol",
+  "outbound",
+  "rule",
+  "process",
+]
+
+export function summarizeConnectionFacets(
+  connections: readonly Connection[],
+  filters: ConnectionFacetFilters,
+  limit = 4,
+): ConnectionFacetSummarySection[] {
+  if (connections.length === 0) return []
+  return SUMMARY_FIELDS.flatMap((field) => {
+    const options = listScopedConnectionFacets(connections, filters, field)
+      .filter((option) => option.value !== UNKNOWN)
+      .slice(0, limit)
+    return options.length > 0 ? [{ field, options }] : []
+  })
+}
+
 export function matchesConnectionFacet(
   connection: Connection,
   field: ConnectionFacetField,

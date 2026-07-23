@@ -8,10 +8,12 @@ import {
   connectionFiltersActive,
   filterConnectionsByFacets,
   listConnectionFacets,
+  listScopedConnectionFacets,
   logConnectionQuery,
   logConnectionsHref,
   matchesConnectionFacet,
   parseConnectionSearchParams,
+  summarizeConnectionFacets,
   toConnectionSearchParams,
 } from "@/features/observability/connection-facets"
 import type { Connection } from "@/lib/api/types"
@@ -38,6 +40,21 @@ describe("connection-facets", () => {
       { value: "—", count: 1 },
     ])
     expect(listConnectionFacets(sample, "outbound")[0]).toEqual({ value: "proxy", count: 2 })
+  })
+
+  it("scopes facet counts by other active filters and summarizes top values", () => {
+    expect(listScopedConnectionFacets(sample, { network: "tcp" }, "outbound")).toEqual([
+      { value: "proxy", count: 2 },
+    ])
+    expect(listScopedConnectionFacets(sample, { network: "tcp" }, "network")).toEqual([
+      { value: "tcp", count: 2 },
+      { value: "udp", count: 1 },
+      { value: "—", count: 1 },
+    ])
+    const summary = summarizeConnectionFacets(sample, { outbound: "proxy" }, 2)
+    expect(summary.find((section) => section.field === "network")?.options.map((item) => item.value)).toEqual(["tcp"])
+    expect(summary.find((section) => section.field === "outbound")?.options.map((item) => item.value)).toEqual(["proxy", "direct"])
+    expect(summary.every((section) => section.options.every((item) => item.value !== "—"))).toBe(true)
   })
 
   it("filters by query plus network/protocol/outbound/rule facets", () => {
