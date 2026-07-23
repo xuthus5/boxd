@@ -11,11 +11,13 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { LatencyHistoryDialog } from "@/features/nodes/latency-history-dialog"
 import { formatLatency } from "@/features/nodes/node-format"
+import { nodeTestErrorClipboardText, nodeTestErrorLabel } from "@/features/nodes/node-test-error"
 import { LatencyHealthBar } from "@/features/nodes/latency-health-bar"
 import { LatencySparkline } from "@/features/nodes/latency-sparkline"
 import { pickNodeHistorySeries } from "@/features/nodes/nodes-filter"
 import { buildConnectionsHref } from "@/features/observability/connection-facets"
 import { buildLogsHref } from "@/features/observability/log-filter-presets"
+import { copyText } from "@/features/proxy/copy-tag-button"
 import { latencyBadgeVariant, latencyTone, latencyToneClass } from "@/features/nodes/latency-style"
 import { cn } from "@/lib/utils"
 import { nodeTestInput, nodeTestTypes, type NodeTestType } from "@/features/nodes/node-test-inputs"
@@ -24,10 +26,42 @@ import type { LatencyPoint, Outbound, TestResult } from "@/lib/api/types"
 
 type TestChoice = NodeTestType | "all"
 
+function copyTestError(result: TestResult, t: (key: string) => string) {
+  const payload = nodeTestErrorClipboardText(result)
+  if (!payload) return
+  void copyText(payload).then(
+    () => toast.success(t("nodes.testErrorCopied")),
+    () => toast.error(t("nodes.testErrorCopyFailed")),
+  )
+}
+
+function FailedResultBadge({ result }: { result: TestResult }) {
+  const { t } = useTranslation()
+  const label = nodeTestErrorLabel(result, t("nodes.testFailed"))
+  return (
+    <Badge
+      variant="destructive"
+      className="max-w-[10rem] cursor-pointer truncate"
+      title={label}
+      role="button"
+      tabIndex={0}
+      aria-label={`${t("nodes.copyTestError")}: ${result.test_type.toUpperCase()} ${label}`}
+      onClick={() => copyTestError(result, t)}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" && event.key !== " ") return
+        event.preventDefault()
+        copyTestError(result, t)
+      }}
+    >
+      {label}
+    </Badge>
+  )
+}
+
 function ResultBadge({ result }: { result?: TestResult }) {
   const { t } = useTranslation()
   if (!result) return <Badge variant="outline">—</Badge>
-  if (!result.success) return <Badge variant="destructive">{result.error || t("nodes.testFailed")}</Badge>
+  if (!result.success) return <FailedResultBadge result={result} />
   const tone = latencyTone(result.latency_ms, true)
   const label = result.latency_ms === undefined ? t("common.normal") : formatLatency(result.latency_ms)
   return <Badge variant={latencyBadgeVariant(tone)} className={cn(latencyToneClass(tone))}>{label}</Badge>
