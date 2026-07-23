@@ -38,7 +38,18 @@ func TestAuthResponseJSON(t *testing.T) {
 }
 
 func TestServiceStatusJSON(t *testing.T) {
-	status := ServiceStatus{Running: true, Uptime: "5m", Memory: 1024, Version: "1.0"}
+	started := time.Date(2026, 7, 23, 12, 0, 0, 0, time.UTC)
+	errAt := started.Add(time.Minute)
+	status := ServiceStatus{
+		Running:     true,
+		Uptime:      "5m",
+		Memory:      1024,
+		Version:     "1.0",
+		StartedAt:   &started,
+		ConfigPath:  "/data/config.json",
+		LastError:   "boom",
+		LastErrorAt: &errAt,
+	}
 	data, err := json.Marshal(status)
 	if err != nil {
 		t.Fatal(err)
@@ -49,6 +60,15 @@ func TestServiceStatusJSON(t *testing.T) {
 	}
 	if !decoded.Running || decoded.Uptime != "5m" || decoded.Version != "1.0" {
 		t.Error("roundtrip failed")
+	}
+	if decoded.ConfigPath != "/data/config.json" || decoded.LastError != "boom" {
+		t.Error("diagnostic fields roundtrip failed")
+	}
+	if decoded.StartedAt == nil || !decoded.StartedAt.Equal(started) {
+		t.Error("started_at roundtrip failed")
+	}
+	if decoded.LastErrorAt == nil || !decoded.LastErrorAt.Equal(errAt) {
+		t.Error("last_error_at roundtrip failed")
 	}
 }
 

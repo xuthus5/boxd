@@ -41,6 +41,17 @@ describe("KernelStatusBadge", () => {
     expect(document.querySelector('[data-kernel-status="stopped"]')).toBeInTheDocument()
   })
 
+  it("shows failed status when the last start error is present", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
+      running: false,
+      last_error: "invalid outbound",
+    })))))
+    renderBadge()
+    const link = await screen.findByRole("link", { name: "启动失败: invalid outbound" })
+    expect(link).toHaveAttribute("href", "/dashboard")
+    expect(document.querySelector('[data-kernel-status="failed"]')).toBeInTheDocument()
+  })
+
   it("shows unknown status when the request fails", async () => {
     vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
       code: "internal_error",

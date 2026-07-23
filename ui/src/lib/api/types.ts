@@ -12,6 +12,10 @@ export interface ServiceStatus {
   uptime?: string
   memory?: number
   version?: string
+  started_at?: string
+  config_path?: string
+  last_error?: string
+  last_error_at?: string
 }
 
 export interface TrafficEvent {

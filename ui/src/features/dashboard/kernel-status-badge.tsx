@@ -40,23 +40,29 @@ export function KernelStatusBadge() {
   }
 
   const running = Boolean(status.data.running)
+  const hasLastError = Boolean(status.data.last_error?.trim())
   const label = running
     ? status.data.uptime
       ? t("nav.kernelRunningWithUptime", { uptime: status.data.uptime })
       : t("dashboard.running")
-    : t("dashboard.stopped")
+    : hasLastError
+      ? t("nav.kernelFailed")
+      : t("dashboard.stopped")
+  const title = hasLastError && !running
+    ? `${label}: ${status.data.last_error}`
+    : label
 
   return (
     <Link
       to="/dashboard"
       className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-7 max-w-[14rem] px-2")}
-      aria-label={label}
-      title={label}
+      aria-label={title}
+      title={title}
     >
       <Badge
         variant={running ? "default" : "destructive"}
         className="max-w-full truncate tabular-nums"
-        data-kernel-status={running ? "running" : "stopped"}
+        data-kernel-status={running ? "running" : hasLastError ? "failed" : "stopped"}
       >
         <span
           className={cn(

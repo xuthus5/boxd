@@ -28,15 +28,17 @@ var (
 
 // SBInstance 封装 sing-box 内核实例，提供运行控制与运行时能力访问。
 type SBInstance struct {
-	mu         sync.Mutex
-	running    bool
-	configPath string
-	box        boxInstance
-	boxCtx     context.Context // box 启动使用的 context，含注册的 CacheFile 等服务
-	cancel     context.CancelFunc
-	startTime  time.Time
-	LogWriter  *LogWriter
-	Traffic    *TrafficTracker
+	mu          sync.Mutex
+	running     bool
+	configPath  string
+	box         boxInstance
+	boxCtx      context.Context // box 启动使用的 context，含注册的 CacheFile 等服务
+	cancel      context.CancelFunc
+	startTime   time.Time
+	lastError   string
+	lastErrorAt time.Time
+	LogWriter   *LogWriter
+	Traffic     *TrafficTracker
 }
 
 // OutboundGroupInfo 描述一个出站分组（selector/urltest）及其当前选中节点。
@@ -123,6 +125,7 @@ func (s *SBInstance) Start() error {
 
 	configData, err := os.ReadFile(s.configPath)
 	if err != nil {
+		s.recordStartErrorLocked(err)
 		return err
 	}
 
@@ -131,6 +134,7 @@ func (s *SBInstance) Start() error {
 	var options option.Options
 	if err := options.UnmarshalJSONContext(ctx, configData); err != nil {
 		cancel()
+		s.recordStartErrorLocked(err)
 		return err
 	}
 
@@ -141,6 +145,7 @@ func (s *SBInstance) Start() error {
 	})
 	if err != nil {
 		cancel()
+		s.recordStartErrorLocked(err)
 		return err
 	}
 
@@ -151,6 +156,7 @@ func (s *SBInstance) Start() error {
 	if err := instance.Start(); err != nil {
 		_ = instance.Close()
 		cancel()
+		s.recordStartErrorLocked(err)
 		return err
 	}
 
@@ -159,6 +165,8 @@ func (s *SBInstance) Start() error {
 	s.cancel = cancel
 	s.running = true
 	s.startTime = time.Now()
+	s.lastError = ""
+	s.lastErrorAt = time.Time{}
 	return nil
 }
 
@@ -200,13 +208,31 @@ func (s *SBInstance) Status() model.ServiceStatus {
 	defer s.mu.Unlock()
 
 	st := model.ServiceStatus{
-		Running: s.running,
-		Version: singboxconstant.Version,
+		Running:    s.running,
+		Version:    singboxconstant.Version,
+		ConfigPath: s.configPath,
 	}
 
-	if s.running {
+	if s.running && !s.startTime.IsZero() {
 		st.Uptime = time.Since(s.startTime).Round(time.Second).String()
+		startedAt := s.startTime.UTC()
+		st.StartedAt = &startedAt
+	}
+	if s.lastError != "" {
+		st.LastError = s.lastError
+		if !s.lastErrorAt.IsZero() {
+			at := s.lastErrorAt.UTC()
+			st.LastErrorAt = &at
+		}
 	}
 
 	return st
+}
+
+func (s *SBInstance) recordStartErrorLocked(err error) {
+	if err == nil {
+		return
+	}
+	s.lastError = err.Error()
+	s.lastErrorAt = time.Now().UTC()
 }

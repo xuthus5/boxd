@@ -38,7 +38,7 @@ describe("dashboard component states", () => {
     const user = userEvent.setup()
     renderApp(<ServiceCard status={{ running: false }} onAction={onAction} />)
     expect(screen.getByText("已停止")).toBeInTheDocument()
-    expect(screen.getByText("—")).toBeInTheDocument()
+    expect(screen.getAllByText("—").length).toBeGreaterThan(0)
     expect(screen.getByRole("button", { name: "停止" })).toBeDisabled()
     expect(screen.getByRole("button", { name: /重启/ })).toBeDisabled()
     await user.click(screen.getByRole("button", { name: "启动" }))
@@ -57,6 +57,28 @@ describe("dashboard component states", () => {
     expect(screen.getByRole("button", { name: "启动" })).toBeDisabled()
     expect(screen.getByRole("button", { name: "停止" })).toBeDisabled()
     expect(screen.getByRole("button", { name: /重启/ })).toBeDisabled()
+  })
+
+  it("surfaces kernel start diagnostics and error log deep-link", () => {
+    renderApp(
+      <ServiceCard
+        status={{
+          running: false,
+          config_path: "/var/lib/boxd/config.json",
+          last_error: "invalid outbound",
+          last_error_at: "2026-07-23T01:02:03.000Z",
+          version: "1.13.14",
+        }}
+        onAction={vi.fn()}
+      />,
+    )
+    expect(screen.getByText("/var/lib/boxd/config.json")).toBeInTheDocument()
+    expect(screen.getByText("invalid outbound")).toBeInTheDocument()
+    expect(screen.getByText("1.13.14")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "查看错误日志" })).toHaveAttribute(
+      "href",
+      "/observability/logs?preset=errors",
+    )
   })
 
   it("renders an empty traffic chart", () => {

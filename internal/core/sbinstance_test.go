@@ -29,6 +29,12 @@ func TestSBInstanceStatusStopAndDialWhenNotRunning(t *testing.T) {
 	if status.Version == "" {
 		t.Fatal("version should not be empty")
 	}
+	if status.ConfigPath == "" {
+		t.Fatal("config path should be reported")
+	}
+	if status.LastError != "" || status.LastErrorAt != nil || status.StartedAt != nil {
+		t.Fatalf("unexpected diagnostics: %#v", status)
+	}
 
 	if err := instance.Stop(); err != nil {
 		t.Fatal(err)
@@ -46,6 +52,10 @@ func TestSBInstanceStartErrors(t *testing.T) {
 		if err := instance.Start(); err == nil {
 			t.Fatal("expected missing config error")
 		}
+		status := instance.Status()
+		if status.LastError == "" || status.LastErrorAt == nil {
+			t.Fatalf("expected last error diagnostics, got %#v", status)
+		}
 	})
 
 	t.Run("invalid config", func(t *testing.T) {
@@ -56,6 +66,10 @@ func TestSBInstanceStartErrors(t *testing.T) {
 		instance := NewSBInstance(configPath, NewLogWriter(5))
 		if err := instance.Start(); err == nil {
 			t.Fatal("expected invalid config error")
+		}
+		status := instance.Status()
+		if status.LastError == "" || status.LastErrorAt == nil {
+			t.Fatalf("expected last error diagnostics, got %#v", status)
 		}
 	})
 }
@@ -78,6 +92,37 @@ func TestSBInstanceStatusRunningUptime(t *testing.T) {
 	}
 	if status.Uptime == "" {
 		t.Fatal("uptime should not be empty")
+	}
+	if status.StartedAt == nil || status.ConfigPath != "config.json" {
+		t.Fatalf("expected started_at/config_path, got %#v", status)
+	}
+}
+
+func TestSBInstanceClearsLastErrorOnSuccessfulStart(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "config.json")
+	if err := os.WriteFile(configPath, []byte(`{}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	fake := newFakeBox()
+	withNewBox(t, func(options box.Options) (boxInstance, error) {
+		return fake, nil
+	})
+
+	instance := NewSBInstance(configPath, NewLogWriter(5))
+	instance.lastError = "stale"
+	instance.lastErrorAt = time.Now().UTC()
+	if err := instance.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = instance.Stop() }()
+
+	status := instance.Status()
+	if status.LastError != "" || status.LastErrorAt != nil {
+		t.Fatalf("expected last error cleared, got %#v", status)
+	}
+	if status.StartedAt == nil || status.ConfigPath != configPath {
+		t.Fatalf("expected start diagnostics, got %#v", status)
 	}
 }
 
