@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { PlusIcon, WandSparklesIcon } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
@@ -12,12 +12,14 @@ import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ConfigSaveErrorAlert } from "@/features/config/config-save-error-alert"
+import { useConfigPathReveal } from "@/features/config/use-config-path-reveal"
 import { useConfigQuery, useSaveConfigMutation } from "@/features/config/config-hooks"
 import { useConfigSaveError } from "@/features/config/use-config-save-error"
 import { RuntimeGroupCard } from "@/features/nodes/runtime-groups-card"
 import { InboundCard } from "@/features/proxy/inbound-card"
 import { OutboundCard } from "@/features/proxy/outbound-card"
 import { ProxyEditorDialog } from "@/features/proxy/proxy-editor-dialog"
+import { parseProxyItemPath } from "@/features/proxy/proxy-path"
 import {
   filterProxyItems,
   parseProxySearchParams,
@@ -143,15 +145,34 @@ export function ProxyListPage({ configKey, title, addLabel }: {
   const query = useConfigQuery()
   const save = useSaveConfigMutation()
   const [editing, setEditing] = useState<Editing | null>(null)
+  const [jumpPath, setJumpPath] = useState<string | null>(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const filters = useMemo(() => parseProxySearchParams(searchParams), [searchParams])
   const search = filters.query ?? ""
   const { saveError, clearSaveError, reportError, reportRollback } = useConfigSaveError()
+  const items = useMemo(() => objects(query.data?.[configKey]), [configKey, query.data])
+  const openPath = useCallback((path: string) => {
+    const target = parseProxyItemPath(path, configKey)
+    if (!target) {
+      toast.message(t("config.pathNotFound", { path }))
+      return false
+    }
+    if (target.index < 0 || target.index >= items.length) {
+      toast.message(t("config.pathNotFound", { path }))
+      return false
+    }
+    setEditing({ index: target.index, item: items[target.index]! })
+    setJumpPath(target.relativePath)
+    return true
+  }, [configKey, items, t])
+  useConfigPathReveal((path) => openPath(path), {
+    section: configKey,
+    ready: !query.isLoading && !query.error,
+  })
   if (query.isLoading) return <Skeleton className="h-64 w-full" />
   if (query.error) {
     return <Alert variant="destructive"><AlertTitle>{t("common.loadFailed")}</AlertTitle><AlertDescription>{query.error.message}</AlertDescription></Alert>
   }
-  const items = objects(query.data?.[configKey])
   const typeFilter = filters.type
   const filteredIndexed = items
     .map((item, index) => ({ item, index }))
@@ -206,7 +227,7 @@ export function ProxyListPage({ configKey, title, addLabel }: {
           </Button>
         </div>
       </div>
-      <ConfigSaveErrorAlert error={saveError} onDismiss={clearSaveError} />
+      <ConfigSaveErrorAlert error={saveError} onDismiss={clearSaveError} onJumpToPath={(path) => { void openPath(path) }} />
       {items.length > 0 ? (
         <div className="flex flex-col gap-2">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -267,8 +288,10 @@ export function ProxyListPage({ configKey, title, addLabel }: {
           title={editing.index < 0 ? addLabel : `${t("proxy.editPrefix")} ${String(editing.item.tag ?? "")}`}
           kind={configKey}
           item={editing.item}
-          onClose={() => setEditing(null)}
+          onClose={() => { setEditing(null); setJumpPath(null) }}
           onSave={saveItem}
+          jumpPath={jumpPath}
+          onJumpPathHandled={() => setJumpPath(null)}
         />
       ) : null}
     </div>

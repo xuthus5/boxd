@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -10,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useConfigQuery } from "@/features/config/config-hooks"
-import { JsonEditor } from "@/features/config/json-editor"
+import { JsonEditor, type JsonEditorHandle } from "@/features/config/json-editor"
 import { isValidJSON } from "@/features/config/json-utils"
 import { OutboundFormFields } from "@/features/proxy/outbound-form-fields"
 import {
@@ -26,6 +27,8 @@ interface OutboundEditorDialogProps {
   item: JsonObject
   onClose: () => void
   onSave: (item: JsonObject) => void
+  jumpPath?: string | null
+  onJumpPathHandled?: () => void
 }
 
 function parseObject(value: string) {
@@ -79,6 +82,9 @@ interface FormTabsProps {
   value: string
   title: string
   revision: number
+  activeTab: string
+  onTabChange: (value: string) => void
+  editorRef: RefObject<JsonEditorHandle | null>
   onChange: (object: JsonObject) => void
   onJSONChange: (value: string) => void
   onFieldValidityChange: (path: string, valid: boolean) => void
@@ -144,7 +150,7 @@ function GroupFields({ type, object, onChange }: { type: string; object: JsonObj
   </FieldGroup>
 }
 
-function FormTabs({ object, value, title, revision, onChange, onJSONChange, onFieldValidityChange }: FormTabsProps) {
+function FormTabs({ object, value, title, revision, activeTab, onTabChange, editorRef, onChange, onJSONChange, onFieldValidityChange }: FormTabsProps) {
   const { t } = useTranslation()
   const config = useConfigQuery()
   const type = String(object.type ?? "")
@@ -157,7 +163,7 @@ function FormTabs({ object, value, title, revision, onChange, onJSONChange, onFi
     outboundTags: configTags(config.data?.outbounds, currentTag),
     dnsServerTags: dnsServerTags(config.data?.dns),
   }
-  return <Tabs defaultValue="basic" className="min-h-0 min-w-0">
+  return <Tabs value={activeTab} onValueChange={(next) => onTabChange(String(next || "basic"))} className="min-h-0 min-w-0">
     <TabsList activateOnFocus className="h-auto max-w-full justify-start overflow-x-auto overflow-y-hidden" variant="line">
       <TabsTrigger value="basic">{t("proxy.outbound.basic")}</TabsTrigger>
       {dialerTypes.has(type) ? <TabsTrigger value="dialer">{t("proxy.outbound.dialing")}</TabsTrigger> : null}
@@ -195,17 +201,19 @@ function FormTabs({ object, value, title, revision, onChange, onJSONChange, onFi
     <TabsContent value="advanced" className="pt-3 sm:pt-4">
       <Field>
         <FieldLabel className="sr-only">{t("proxy.advancedJSON")}</FieldLabel>
-        <JsonEditor value={value} onChange={onJSONChange} ariaLabel={`${title} JSON`} />
+        <JsonEditor ref={editorRef} value={value} onChange={onJSONChange} ariaLabel={`${title} JSON`} />
       </Field>
     </TabsContent>
   </Tabs>
 }
 
-export function OutboundEditorDialog({ title, item, onClose, onSave }: OutboundEditorDialogProps) {
+export function OutboundEditorDialog({ title, item, onClose, onSave, jumpPath, onJumpPathHandled }: OutboundEditorDialogProps) {
   const { t } = useTranslation()
   const [value, setValue] = useState(() => JSON.stringify(item, null, 2))
   const [revision, setRevision] = useState(0)
   const [invalidFields, setInvalidFields] = useState<Set<string>>(() => new Set())
+  const [activeTab, setActiveTab] = useState("basic")
+  const editorRef = useRef<JsonEditorHandle>(null)
   const object = parseObject(value)
   const baseInvalid = object ? collectOutboundBaseInvalid(object).length > 0 : true
   const update = (next: JsonObject) => setValue(JSON.stringify(next, null, 2))
@@ -216,6 +224,25 @@ export function OutboundEditorDialog({ title, item, onClose, onSave }: OutboundE
     else next.add(path)
     return next
   }), [])
+  useEffect(() => {
+    if (jumpPath === undefined || jumpPath === null) return
+    setActiveTab("advanced")
+    const relative = jumpPath.trim()
+    if (!relative) {
+      onJumpPathHandled?.()
+      return
+    }
+    const tryReveal = () => editorRef.current?.revealPath(relative) ?? false
+    if (tryReveal()) {
+      onJumpPathHandled?.()
+      return
+    }
+    const timer = window.setTimeout(() => {
+      if (!tryReveal()) toast.message(t("config.pathNotFound", { path: relative }))
+      onJumpPathHandled?.()
+    }, 50)
+    return () => window.clearTimeout(timer)
+  }, [jumpPath, onJumpPathHandled, t])
   return <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
     <DialogContent className="max-h-[calc(100dvh-1rem)] min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] gap-3 p-3 sm:max-h-[calc(100dvh-2rem)] sm:max-w-5xl sm:gap-4 sm:p-4">
       <DialogHeader>
@@ -229,8 +256,19 @@ export function OutboundEditorDialog({ title, item, onClose, onSave }: OutboundE
             <AlertDescription>{t("proxy.outbound.requiredDescription")}</AlertDescription>
           </Alert> : null}
           {object
-            ? <FormTabs object={object} value={value} title={title} revision={revision} onChange={update} onJSONChange={updateJSON} onFieldValidityChange={updateValidity} />
-            : <JsonEditor value={value} onChange={updateJSON} ariaLabel={`${title} JSON`} />}
+            ? <FormTabs
+              object={object}
+              value={value}
+              title={title}
+              revision={revision}
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              editorRef={editorRef}
+              onChange={update}
+              onJSONChange={updateJSON}
+              onFieldValidityChange={updateValidity}
+            />
+            : <JsonEditor ref={editorRef} value={value} onChange={updateJSON} ariaLabel={`${title} JSON`} />}
         </div>
       </div>
       <DialogFooter className="gap-2">

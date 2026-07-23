@@ -131,3 +131,55 @@ describe("proxy list deep links", () => {
   })
 })
 
+
+describe("proxy path jump", () => {
+  it("jumps save error path into inbound editor advanced JSON", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    const fetchMock = vi.fn((input: string | URL | Request, init?: RequestInit) => {
+      const path = String(typeof input === "string" ? input : input instanceof URL ? input.pathname : input.url).split("?")[0]
+      if (path === "/api/config/" && init?.method === "PUT") {
+        return Promise.resolve(new Response(JSON.stringify({
+          status: "error",
+          data: null,
+          error: { code: "config_invalid_runtime", message: "inbounds[0].listen_port: invalid" },
+          meta: {},
+        }), { status: 500 }))
+      }
+      if (path === "/api/config/" || path === "/api/config/raw") {
+        return Promise.resolve(new Response(JSON.stringify({
+          inbounds: [{ tag: "mixed-in", type: "mixed", listen: "::", listen_port: 1080 }],
+          outbounds: [],
+        })))
+      }
+      return Promise.resolve(new Response(JSON.stringify({})))
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    const user = userEvent.setup()
+    renderApp(<App />, "/proxy/inbounds")
+    await screen.findByText("mixed-in")
+    await user.click(screen.getByRole("button", { name: "删除" }))
+    await user.click(screen.getByRole("button", { name: "确认删除" }))
+    expect(await screen.findByTestId("config-save-error")).toBeInTheDocument()
+    expect(screen.getAllByText(/inbounds\[0\]\.listen_port/).length).toBeGreaterThan(0)
+    await user.click(screen.getByRole("button", { name: "跳转到路径" }))
+    expect(await screen.findByRole("dialog")).toBeInTheDocument()
+    expect(screen.getByRole("tab", { name: "高级 JSON" })).toHaveAttribute("aria-selected", "true")
+  })
+
+  it("opens outbound editor advanced JSON from path deep link", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
+      const path = String(input)
+      if (path.startsWith("/api/subscriptions/") || path.includes("/api/nodes/groups")) {
+        return Promise.resolve(new Response(JSON.stringify(path.includes("groups") ? { groups: [] } : [])))
+      }
+      return Promise.resolve(new Response(JSON.stringify({
+        inbounds: [],
+        outbounds: [{ tag: "proxy", type: "vless", server: "example.com", server_port: 443 }],
+      })))
+    }))
+    renderApp(<App />, "/proxy/outbounds?path=outbounds%5B0%5D.server")
+    expect(await screen.findByRole("dialog")).toBeInTheDocument()
+    expect(screen.getByRole("tab", { name: "高级 JSON" })).toHaveAttribute("aria-selected", "true")
+  })
+})

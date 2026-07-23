@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -9,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useConfigQuery } from "@/features/config/config-hooks"
-import { JsonEditor } from "@/features/config/json-editor"
+import { JsonEditor, type JsonEditorHandle } from "@/features/config/json-editor"
 import { isValidJSON } from "@/features/config/json-utils"
 import { InboundFormFields } from "@/features/proxy/inbound-form-fields"
 import {
@@ -24,6 +25,8 @@ interface InboundEditorDialogProps {
   item: JsonObject
   onClose: () => void
   onSave: (item: JsonObject) => void
+  jumpPath?: string | null
+  onJumpPathHandled?: () => void
 }
 
 function parseObject(value: string) {
@@ -70,12 +73,18 @@ interface FormTabsProps {
   value: string
   title: string
   revision: number
+  activeTab: string
+  onTabChange: (value: string) => void
+  editorRef: RefObject<JsonEditorHandle | null>
   onChange: (object: JsonObject) => void
   onJSONChange: (value: string) => void
   onFieldValidityChange: (path: string, valid: boolean) => void
 }
 
-function FormTabs({ object, value, title, revision, onChange, onJSONChange, onFieldValidityChange }: FormTabsProps) {
+function FormTabs({
+  object, value, title, revision, activeTab, onTabChange, editorRef,
+  onChange, onJSONChange, onFieldValidityChange,
+}: FormTabsProps) {
   const { t } = useTranslation()
   const config = useConfigQuery()
   const type = String(object.type ?? "")
@@ -90,7 +99,7 @@ function FormTabs({ object, value, title, revision, onChange, onJSONChange, onFi
     outboundTags: configTags(config.data?.outbounds, currentTag),
     dnsServerTags: dnsServerTags(config.data?.dns),
   }
-  return <Tabs defaultValue="basic" className="min-h-0 min-w-0">
+  return <Tabs value={activeTab} onValueChange={(next) => onTabChange(String(next || "basic"))} className="min-h-0 min-w-0">
     <TabsList activateOnFocus className="h-auto max-w-full justify-start overflow-x-auto overflow-y-hidden" variant="line">
       <TabsTrigger value="basic">{t("proxy.inbound.basic")}</TabsTrigger>
       <TabsTrigger value="listen">{t(type === "tun" ? "proxy.inbound.tun" : "proxy.inbound.listenAndConnection")}</TabsTrigger>
@@ -104,27 +113,61 @@ function FormTabs({ object, value, title, revision, onChange, onJSONChange, onFi
     <TabsContent value="protocol" className="pt-3 sm:pt-4" keepMounted><InboundFormFields fields={protocolFields(type)} object={object} type={type} revision={revision} context={context} onChange={onChange} onFieldValidityChange={onFieldValidityChange} /></TabsContent>
     {hasTLS ? <TabsContent value="tls" className="pt-3 sm:pt-4"><InboundFormFields fields={tlsFields} object={object} type={type} context={context} onChange={onChange} /></TabsContent> : null}
     {hasTransport ? <TabsContent value="transport" className="pt-3 sm:pt-4" keepMounted><InboundFormFields fields={[...(transportTypes.has(type) ? transportTypeFields(transportType) : []), ...(multiplexTypes.has(type) ? multiplexFields : [])]} object={object} type={type} revision={revision} context={context} onChange={onChange} onFieldValidityChange={onFieldValidityChange} /></TabsContent> : null}
-    <TabsContent value="advanced" className="pt-3 sm:pt-4"><Field><FieldLabel className="sr-only">{t("proxy.advancedJSON")}</FieldLabel><JsonEditor value={value} onChange={onJSONChange} ariaLabel={`${title} JSON`} /></Field></TabsContent>
+    <TabsContent value="advanced" className="pt-3 sm:pt-4"><Field><FieldLabel className="sr-only">{t("proxy.advancedJSON")}</FieldLabel><JsonEditor ref={editorRef} value={value} onChange={onJSONChange} ariaLabel={`${title} JSON`} /></Field></TabsContent>
   </Tabs>
 }
 
-export function InboundEditorDialog({ title, item, onClose, onSave }: InboundEditorDialogProps) {
+export function InboundEditorDialog({ title, item, onClose, onSave, jumpPath, onJumpPathHandled }: InboundEditorDialogProps) {
   const { t } = useTranslation()
   const [value, setValue] = useState(() => JSON.stringify(item, null, 2))
   const [revision, setRevision] = useState(0)
   const [invalidFields, setInvalidFields] = useState<Set<string>>(() => new Set())
+  const [activeTab, setActiveTab] = useState("basic")
+  const editorRef = useRef<JsonEditorHandle>(null)
   const object = parseObject(value)
   const baseInvalid = object ? collectInboundBaseInvalid(object).length > 0 : true
   const update = (next: JsonObject) => setValue(JSON.stringify(next, null, 2))
   const updateJSON = (next: string) => { setValue(next); setRevision((current) => current + 1) }
   const updateValidity = useCallback((path: string, valid: boolean) => setInvalidFields((current) => { const next = new Set(current); if (valid) next.delete(path); else next.add(path); return next }), [])
+  useEffect(() => {
+    if (jumpPath === undefined || jumpPath === null) return
+    setActiveTab("advanced")
+    const relative = jumpPath.trim()
+    if (!relative) {
+      onJumpPathHandled?.()
+      return
+    }
+    const tryReveal = () => editorRef.current?.revealPath(relative) ?? false
+    if (tryReveal()) {
+      onJumpPathHandled?.()
+      return
+    }
+    const timer = window.setTimeout(() => {
+      if (!tryReveal()) toast.message(t("config.pathNotFound", { path: relative }))
+      onJumpPathHandled?.()
+    }, 50)
+    return () => window.clearTimeout(timer)
+  }, [jumpPath, onJumpPathHandled, t])
   return <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
     <DialogContent className="max-h-[calc(100dvh-1rem)] min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] gap-3 p-3 sm:max-h-[calc(100dvh-2rem)] sm:max-w-5xl sm:gap-4 sm:p-4">
       <DialogHeader><DialogTitle className="truncate">{title}</DialogTitle><DialogDescription>{t("proxy.inbound.editorDescription")}</DialogDescription></DialogHeader>
       <div className="min-h-0 overflow-y-auto pr-1">
         <div className="flex flex-col gap-2 sm:gap-3">
           {baseInvalid ? <Alert variant="destructive"><AlertTitle>{t("proxy.inbound.requiredTitle")}</AlertTitle><AlertDescription>{t("proxy.inbound.requiredDescription")}</AlertDescription></Alert> : null}
-          {object ? <FormTabs object={object} value={value} title={title} revision={revision} onChange={update} onJSONChange={updateJSON} onFieldValidityChange={updateValidity} /> : <JsonEditor value={value} onChange={updateJSON} ariaLabel={`${title} JSON`} />}
+          {object
+            ? <FormTabs
+              object={object}
+              value={value}
+              title={title}
+              revision={revision}
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              editorRef={editorRef}
+              onChange={update}
+              onJSONChange={updateJSON}
+              onFieldValidityChange={updateValidity}
+            />
+            : <JsonEditor ref={editorRef} value={value} onChange={updateJSON} ariaLabel={`${title} JSON`} />}
         </div>
       </div>
       <DialogFooter className="gap-2"><Button variant="outline" size="sm" className="h-8" onClick={onClose}>{t("common.cancel")}</Button><Button size="sm" className="h-8" disabled={!object || baseInvalid || invalidFields.size > 0} onClick={() => { if (object) onSave(object) }}>{t("common.save")}</Button></DialogFooter>

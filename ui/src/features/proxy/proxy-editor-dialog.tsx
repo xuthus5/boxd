@@ -10,9 +10,33 @@ interface ProxyEditorDialogProps {
   item: JsonObject
   onClose: () => void
   onSave: (item: JsonObject) => void
+  jumpPath?: string | null
+  onJumpPathHandled?: () => void
 }
 
-export function ProxyEditorDialog({ title, kind, item, onClose, onSave }: ProxyEditorDialogProps) {
-  if (kind === "inbounds") return <InboundEditorDialog title={title} item={item} onClose={onClose} onSave={onSave} />
-  return <OutboundEditorDialog title={title} item={item} onClose={onClose} onSave={onSave} />
+export function ProxyEditorDialog({
+  title, kind, item, onClose, onSave, jumpPath, onJumpPathHandled,
+}: ProxyEditorDialogProps) {
+  if (kind === "inbounds") {
+    return (
+      <InboundEditorDialog
+        title={title}
+        item={item}
+        onClose={onClose}
+        onSave={onSave}
+        jumpPath={jumpPath}
+        onJumpPathHandled={onJumpPathHandled}
+      />
+    )
+  }
+  return (
+    <OutboundEditorDialog
+      title={title}
+      item={item}
+      onClose={onClose}
+      onSave={onSave}
+      jumpPath={jumpPath}
+      onJumpPathHandled={onJumpPathHandled}
+    />
+  )
 }
