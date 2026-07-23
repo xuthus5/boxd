@@ -39,7 +39,6 @@ import {
 import { ConnectionToolbar } from "@/features/observability/connection-toolbar"
 import {
   aggregateConnections,
-  filterConnectionsByGroup,
   summarizeConnections,
 } from "@/features/observability/connection-stats"
 import { downloadTextFile } from "@/features/observability/log-export"
@@ -132,11 +131,13 @@ export function ConnectionsPage() {
     if (key === "—") return
     setClosingId(`group:${field}:${key}`)
     try {
-      const result = field === "process"
-        ? await api.stats.closeAll({
-          ids: filterConnectionsByGroup(filtered, "process", key).map((item) => item.id),
-        })
-        : await api.stats.closeAll(field === "outbound" ? { outbound: key } : { rule: key })
+      const result = await api.stats.closeAll(
+        field === "outbound"
+          ? { outbound: key }
+          : field === "rule"
+            ? { rule: key }
+            : { process: key },
+      )
       toast.success(t("observability.closedCount", { count: result.closed }))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error))

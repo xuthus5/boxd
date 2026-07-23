@@ -555,6 +555,12 @@ func (f *fakeStatsInstance) CloseConnectionsByRule(rule string) int {
 	}
 	return f.closeCount
 }
+func (f *fakeStatsInstance) CloseConnectionsByProcess(process string) int {
+	if process == "" {
+		return 0
+	}
+	return f.closeCount
+}
 
 func (f *fakeStatsInstance) CloseConnectionsByIDs(ids []int64) int {
 	if len(ids) == 0 {
@@ -705,6 +711,32 @@ func TestStatsHandlerCloseConnectionsFiltered(t *testing.T) {
 	handler.CloseAllConnections(rr, req)
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("both filters status = %d", rr.Code)
+	}
+}
+
+func TestStatsHandlerCloseConnectionsByProcess(t *testing.T) {
+	fake := &fakeStatsInstance{closeCount: 4}
+	handler := NewStatsHandler(nil, nil, fake)
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, "/api/stats/connections?process=/usr/bin/curl", nil)
+	handler.CloseAllConnections(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	envelope := decodeEnvelope(t, rr)
+	data, ok := envelope.Data.(map[string]any)
+	if !ok {
+		t.Fatalf("data = %#v", envelope.Data)
+	}
+	if data["closed"] != float64(4) || data["process"] != "/usr/bin/curl" {
+		t.Fatalf("data = %#v", data)
+	}
+
+	rr = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodDelete, "/api/stats/connections?process=/usr/bin/curl&outbound=proxy", nil)
+	handler.CloseAllConnections(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("mixed process filters status = %d", rr.Code)
 	}
 }
 

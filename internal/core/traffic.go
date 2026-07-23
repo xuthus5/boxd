@@ -107,6 +107,13 @@ func (t *TrafficTracker) CloseConnsByRule(rule string) int {
 	})
 }
 
+// CloseConnsByProcess closes connections matched by the process path/name.
+func (t *TrafficTracker) CloseConnsByProcess(process string) int {
+	return t.CloseConnsWhere(func(tc *trafficConnInternal) bool {
+		return tc.process == process
+	})
+}
+
 func (t *TrafficTracker) newTrackedConnection(metadata adapter.InboundContext, matchedRule adapter.Rule, matchOutbound adapter.Outbound) *trafficConnInternal {
 	id := t.nextID.Add(1)
 	network := connectionNetwork(metadata)

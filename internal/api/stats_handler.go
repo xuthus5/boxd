@@ -18,6 +18,7 @@ type statsInstance interface {
 	CloseAllConnections() int
 	CloseConnectionsByOutbound(outbound string) int
 	CloseConnectionsByRule(rule string) int
+	CloseConnectionsByProcess(process string) int
 	CloseConnectionsByIDs(ids []int64) int
 }
 

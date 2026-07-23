@@ -64,7 +64,7 @@ func (h *StatsHandler) CloseConnection(w http.ResponseWriter, r *http.Request) {
 }
 
 // CloseAllConnections DELETE /api/stats/connections
-// Optional query filters: outbound, rule, ids. Filters are mutually exclusive.
+// Optional query filters: outbound, rule, process, ids. Filters are mutually exclusive.
 func (h *StatsHandler) CloseAllConnections(w http.ResponseWriter, r *http.Request) {
 	if h.instance == nil {
 		writeJSONErrorCode(w, http.StatusServiceUnavailable, model.ErrorUnavailable, "service not available")
@@ -72,6 +72,7 @@ func (h *StatsHandler) CloseAllConnections(w http.ResponseWriter, r *http.Reques
 	}
 	outbound := strings.TrimSpace(r.URL.Query().Get("outbound"))
 	rule := strings.TrimSpace(r.URL.Query().Get("rule"))
+	process := strings.TrimSpace(r.URL.Query().Get("process"))
 	idsRaw := strings.TrimSpace(r.URL.Query().Get("ids"))
 	filters := 0
 	if outbound != "" {
@@ -80,11 +81,14 @@ func (h *StatsHandler) CloseAllConnections(w http.ResponseWriter, r *http.Reques
 	if rule != "" {
 		filters++
 	}
+	if process != "" {
+		filters++
+	}
 	if idsRaw != "" {
 		filters++
 	}
 	if filters > 1 {
-		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, "specify only one of outbound, rule, or ids")
+		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, "specify only one of outbound, rule, process, or ids")
 		return
 	}
 	var count int
@@ -93,6 +97,8 @@ func (h *StatsHandler) CloseAllConnections(w http.ResponseWriter, r *http.Reques
 		count = h.instance.CloseConnectionsByOutbound(outbound)
 	case rule != "":
 		count = h.instance.CloseConnectionsByRule(rule)
+	case process != "":
+		count = h.instance.CloseConnectionsByProcess(process)
 	case idsRaw != "":
 		ids, err := parseConnectionIDs(idsRaw)
 		if err != nil {
@@ -107,5 +113,5 @@ func (h *StatsHandler) CloseAllConnections(w http.ResponseWriter, r *http.Reques
 	default:
 		count = h.instance.CloseAllConnections()
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"closed": count, "outbound": outbound, "rule": rule, "ids": idsRaw})
+	writeJSON(w, http.StatusOK, map[string]any{"closed": count, "outbound": outbound, "rule": rule, "process": process, "ids": idsRaw})
 }

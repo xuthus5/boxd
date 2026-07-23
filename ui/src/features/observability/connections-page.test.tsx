@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react"
+import { screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
@@ -258,6 +258,69 @@ describe("ConnectionsPage", () => {
       "href",
       "/observability/connections?process=%2Fusr%2Fbin%2Fcurl",
     )
+  })
+
+
+  it("closes process group via process filter", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    const encoder = new TextEncoder()
+    const body = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+          active_connections: 1,
+          list: [{
+            id: 1,
+            target: "example.com:443",
+            outbound: "proxy",
+            rule: "geosite-google",
+            network: "tcp",
+            process: "/usr/bin/curl",
+            upload: 10,
+            download: 20,
+            start: new Date(Date.now() - 1000).toISOString(),
+          }],
+        })}\n\n`))
+        controller.close()
+      },
+    })
+    const fetchMock = vi.fn((input: string | URL | Request, init?: RequestInit) => {
+      const raw = typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url
+      const path = raw.split("?")[0]
+      if (path.endsWith("/api/stats/connections") && (!init || !init.method || init.method === "GET")) {
+        return Promise.resolve(new Response(body, { headers: { "Content-Type": "text/event-stream" } }))
+      }
+      if (path.endsWith("/api/stats/connections") && init?.method === "DELETE") {
+        return Promise.resolve(new Response(JSON.stringify({ status: "ok", data: { closed: 1 }, error: null, meta: null })))
+      }
+      if (path.endsWith("/api/settings/preferences")) {
+        return Promise.resolve(new Response(JSON.stringify({
+          theme: "system", language: "zh", minimumLogLevel: "all",
+        })))
+      }
+      if (path.endsWith("/api/settings/password")) {
+        return Promise.resolve(new Response(JSON.stringify({ defaultPassword: false })))
+      }
+      return Promise.resolve(new Response(JSON.stringify({})))
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    const user = userEvent.setup()
+    renderApp(<App />, "/observability/connections?view=process")
+
+    expect(await screen.findByText("/usr/bin/curl")).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "关闭该组" }))
+    await user.click(await screen.findByRole("button", { name: "确认关闭" }))
+    await waitFor(() => {
+      const deleted = fetchMock.mock.calls.some(([input, init]) => {
+        const url = String(input)
+        return url.includes("/api/stats/connections?process=") && (init as RequestInit | undefined)?.method === "DELETE"
+      })
+      expect(deleted).toBe(true)
+    })
+    expect(await screen.findByText(/已关闭/)).toBeInTheDocument()
   })
 
 })

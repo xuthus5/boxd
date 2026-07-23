@@ -406,6 +406,35 @@ func TestTrafficTrackerCloseConnsByIDs(t *testing.T) {
 	}
 }
 
+func TestTrafficTrackerCloseConnsByProcess(t *testing.T) {
+	tracker := NewTrafficTracker()
+	left1, right1 := net.Pipe()
+	left2, right2 := net.Pipe()
+	left3, right3 := net.Pipe()
+	defer left1.Close()
+	defer right1.Close()
+	defer left2.Close()
+	defer right2.Close()
+	defer left3.Close()
+	defer right3.Close()
+
+	if n := tracker.CloseConnsByProcess("/usr/bin/curl"); n != 0 {
+		t.Fatalf("empty process close = %d", n)
+	}
+
+	tracker.connections.Store(int64(1), &trafficConnInternal{id: 1, process: "/usr/bin/curl", closer: left1.Close})
+	tracker.connections.Store(int64(2), &trafficConnInternal{id: 2, process: "/usr/bin/curl", closer: left2.Close})
+	tracker.connections.Store(int64(3), &trafficConnInternal{id: 3, process: "/Applications/Chrome.app", closer: left3.Close})
+
+	if n := tracker.CloseConnsByProcess("/usr/bin/curl"); n != 2 {
+		t.Fatalf("close by process = %d, want 2", n)
+	}
+	conns := tracker.Connections()
+	if len(conns) != 1 || conns[0].Process != "/Applications/Chrome.app" {
+		t.Fatalf("remaining = %#v", conns)
+	}
+}
+
 func TestTrafficTrackerConnectionMetadata(t *testing.T) {
 	tracker := NewTrafficTracker()
 	left, right := net.Pipe()

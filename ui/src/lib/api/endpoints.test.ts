@@ -155,5 +155,7 @@ describe("api endpoint coverage", () => {
     expect(String(fetchMock.mock.calls[0][0])).toContain("/api/stats/connections?outbound=proxy")
     await api.stats.closeAll({ ids: [1, 2, 3] })
     expect(String(fetchMock.mock.calls[1][0])).toContain("/api/stats/connections?ids=1%2C2%2C3")
+    await api.stats.closeAll({ process: "/usr/bin/curl" })
+    expect(String(fetchMock.mock.calls[2][0])).toContain("/api/stats/connections?process=%2Fusr%2Fbin%2Fcurl")
   })
 })
