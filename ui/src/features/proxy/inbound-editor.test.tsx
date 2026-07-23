@@ -114,6 +114,8 @@ describe("inbound editor", () => {
   it("requires an inbound type before saving", () => {
     renderEditor(<InboundEditorDialog title="新增" item={{}} onClose={vi.fn()} onSave={vi.fn()} />)
     expect(screen.getByRole("button", { name: "保存" })).toBeDisabled()
+    expect(screen.getByText("缺少必填字段")).toBeInTheDocument()
+    expect(screen.getByText("请补全类型、Tag 与监听端口等基础必填项。")).toBeInTheDocument()
   })
 
   it("blocks saving while a structured field contains invalid JSON", async () => {
@@ -132,10 +134,13 @@ describe("inbound editor", () => {
   it("requires inbound base fields before saving", async () => {
     renderEditor(<InboundEditorDialog title="新增" item={{ type: "mixed" }} onClose={vi.fn()} onSave={vi.fn()} />)
     expect(screen.getByRole("button", { name: "保存" })).toBeDisabled()
+    expect(screen.getByText("缺少必填字段")).toBeInTheDocument()
+    expect(screen.getByText("请补全类型、Tag 与监听端口等基础必填项。")).toBeInTheDocument()
     expect(screen.getByText("请填写 Tag。")).toBeInTheDocument()
     expect(screen.getByText("请填写 1-65535 的端口。")).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText("Tag"), { target: { value: "mixed-in" } })
     fireEvent.change(screen.getByLabelText("监听端口"), { target: { value: "1080" } })
     expect(screen.getByRole("button", { name: "保存" })).toBeEnabled()
+    expect(screen.queryByText("缺少必填字段")).not.toBeInTheDocument()
   })
 })

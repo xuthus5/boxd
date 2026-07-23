@@ -223,9 +223,15 @@ export function OutboundEditorDialog({ title, item, onClose, onSave }: OutboundE
         <DialogDescription>{t("proxy.outbound.editorDescription")}</DialogDescription>
       </DialogHeader>
       <div className="min-h-0 overflow-y-auto pr-1">
-        {object
-          ? <FormTabs object={object} value={value} title={title} revision={revision} onChange={update} onJSONChange={updateJSON} onFieldValidityChange={updateValidity} />
-          : <JsonEditor value={value} onChange={updateJSON} ariaLabel={`${title} JSON`} />}
+        <div className="flex flex-col gap-4">
+          {baseInvalid ? <Alert variant="destructive">
+            <AlertTitle>{t("proxy.outbound.requiredTitle")}</AlertTitle>
+            <AlertDescription>{t("proxy.outbound.requiredDescription")}</AlertDescription>
+          </Alert> : null}
+          {object
+            ? <FormTabs object={object} value={value} title={title} revision={revision} onChange={update} onJSONChange={updateJSON} onFieldValidityChange={updateValidity} />
+            : <JsonEditor value={value} onChange={updateJSON} ariaLabel={`${title} JSON`} />}
+        </div>
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onClose}>{t("common.cancel")}</Button>
