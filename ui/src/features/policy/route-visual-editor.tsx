@@ -15,6 +15,7 @@ import { cloneJsonObject, moveItem, type JsonObject } from "@/features/policy/po
 import type { PolicyVisualEditorProps } from "@/features/policy/policy-page"
 import { RouteRuleCard } from "@/features/policy/route-rule-card"
 import { matchesRouteRule } from "@/features/policy/route-rule-filter"
+import { toggleRuleInvert } from "@/features/policy/rule-invert"
 import { RouteRuleDialog } from "@/features/policy/route-rule-dialog"
 import { RouteRuleSetCard } from "@/features/policy/route-rule-set-card"
 import { RouteRuleSetDialog } from "@/features/policy/route-rule-set-dialog"
@@ -107,7 +108,8 @@ function RuleSection({ object, metadata, metadataLoading, metadataError, onChang
             onCopy={() => updateBoth(insertCopy(rules, index), insertMetadataCopy(metadata, index))}
             onMoveUp={() => updateBoth(moveItem(rules, index, -1), moveItem(metadata, index, -1))}
             onMoveDown={() => updateBoth(moveItem(rules, index, 1), moveItem(metadata, index, 1))}
-            onDelete={() => updateBoth(rules.filter((_, itemIndex) => itemIndex !== index), metadata.filter((_, itemIndex) => itemIndex !== index))} />)}</div>}
+            onDelete={() => updateBoth(rules.filter((_, itemIndex) => itemIndex !== index), metadata.filter((_, itemIndex) => itemIndex !== index))}
+            onToggleInvert={() => updateBoth(rules.map((rule, ruleIndex) => ruleIndex === index ? toggleRuleInvert(rule) : rule), metadata)} />)}</div>}
       </>}
     </CardContent><CardFooter><p className="text-muted-foreground">{t("policy.route.rulesCount", { count: rules.length })}</p></CardFooter></Card>
 }

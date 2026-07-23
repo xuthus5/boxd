@@ -7,6 +7,7 @@ import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader,
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { Input } from "@/components/ui/input"
 import { matchesDNSRule, matchesDNSServer } from "@/features/policy/dns-filter"
+import { toggleRuleInvert } from "@/features/policy/rule-invert"
 import { DNSFakeIPCard, DNSGlobalCard } from "@/features/policy/dns-global-card"
 import { DNSRuleCard } from "@/features/policy/dns-rule-card"
 import { DNSRuleDialog } from "@/features/policy/dns-rule-dialog"
@@ -110,7 +111,8 @@ function RuleSection({ object, onChange, onRulesChange, onEdit }: {
             onCopy={() => update(insertCopy(rules, index))}
             onMoveUp={() => update(moveItem(rules, index, -1))}
             onMoveDown={() => update(moveItem(rules, index, 1))}
-            onDelete={() => update(rules.filter((_, itemIndex) => itemIndex !== index))} />)}</div>}
+            onDelete={() => update(rules.filter((_, itemIndex) => itemIndex !== index))}
+            onToggleInvert={() => update(rules.map((rule, ruleIndex) => ruleIndex === index ? toggleRuleInvert(rule) : rule))} />)}</div>}
       </>}</CardContent>
     <CardFooter><p className="text-muted-foreground">{t("policy.dns.rulesCount", { count: rules.length })}</p></CardFooter></Card>
 }

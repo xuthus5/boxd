@@ -15,6 +15,7 @@ import {
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { diffConfig, formatConfigDiffSummary } from "@/features/config/config-diff"
 import { useConfigQuery, useSaveConfigMutation } from "@/features/config/config-hooks"
 import { JsonEditor } from "@/features/config/json-editor"
 import {
@@ -160,6 +161,16 @@ function PolicyEditor({
   const { t } = useTranslation()
   const editor = usePolicyEditorState(initialSection)
   const structureValid = Boolean(editor.object && isPolicySectionStructureValid(section, editor.object))
+  const initialObject = isJsonObject(initialSection) ? initialSection : {}
+  const diffSummary = editor.object
+    ? formatConfigDiffSummary(diffConfig(initialObject, editor.object), {
+      added: t("policy.diffAdded"),
+      removed: t("policy.diffRemoved"),
+      changed: t("policy.diffChanged"),
+      none: t("policy.diffNone"),
+      more: t("policy.diffMore"),
+    })
+    : t("policy.diffNone")
   const savePolicy = () => {
     if (editor.object) onSave(editor.object)
   }
@@ -193,11 +204,14 @@ function PolicyEditor({
           onGlobalSave={section === "route" || section === "dns" ? saveGlobal : undefined}
         />
       </CardContent>
-      <CardFooter className="flex-wrap justify-end gap-2">
-        {!installInVisual ? <Button variant="outline" onClick={onInstall}>{installLabel}</Button> : null}
-        {!installInVisual ? <Button disabled={!editor.object || !structureValid || editor.invalidFields.size > 0} onClick={savePolicy}>
-          {t("policy.save")}
-        </Button> : null}
+      <CardFooter className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
+        {!installInVisual ? <p className="text-sm text-muted-foreground" data-testid="policy-diff-summary">{diffSummary}</p> : <span />}
+        <div className="flex flex-wrap justify-end gap-2">
+          {!installInVisual ? <Button variant="outline" onClick={onInstall}>{installLabel}</Button> : null}
+          {!installInVisual ? <Button disabled={!editor.object || !structureValid || editor.invalidFields.size > 0} onClick={savePolicy}>
+            {t("policy.save")}
+          </Button> : null}
+        </div>
       </CardFooter>
     </Card>
   )

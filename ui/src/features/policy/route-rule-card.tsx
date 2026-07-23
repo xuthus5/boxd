@@ -9,6 +9,8 @@ import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader,
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import type { JsonObject } from "@/features/policy/policy-form-model"
 import { routeMatchFields, summarizeRouteRule } from "@/features/policy/route-form-model"
+import { isRuleInverted } from "@/features/policy/rule-invert"
+import { Switch } from "@/components/ui/switch"
 import type { RouteRuleMetadata } from "@/lib/api/types"
 
 interface RouteRuleCardProps {
@@ -22,6 +24,7 @@ interface RouteRuleCardProps {
   onMoveUp: () => void
   onMoveDown: () => void
   onDelete: () => void
+  onToggleInvert?: () => void
 }
 
 function DesktopActions({ index, first, last, onCopy, onMoveUp, onMoveDown, onDelete }: Omit<RouteRuleCardProps, "item" | "onEdit">) {
@@ -51,7 +54,7 @@ function MobileActions(props: Omit<RouteRuleCardProps, "item" | "onEdit">) {
 
 export function RouteRuleCard(props: RouteRuleCardProps) {
   const { t } = useTranslation()
-  const { index, item, metadata, first, last, onEdit, onCopy, onMoveUp, onMoveDown, onDelete } = props
+  const { index, item, metadata, first, last, onEdit, onCopy, onMoveUp, onMoveDown, onDelete, onToggleInvert } = props
   const [deleting, setDeleting] = useState(false)
   const number = index + 1
   const matchLabels = new Map<string, string>(
@@ -67,10 +70,26 @@ export function RouteRuleCard(props: RouteRuleCardProps) {
       <CardHeader className="min-w-0"><CardTitle>{title}</CardTitle><CardDescription>{description}</CardDescription>
         <CardAction><Button variant="outline" size="xs" aria-label={t("policy.route.editRule", { index: number })} onClick={onEdit}><PencilIcon data-icon="inline-start" />{t("policy.route.edit")}</Button></CardAction>
       </CardHeader>
-      <CardContent><div className="flex flex-wrap gap-2">
-        {summary.matches.slice(0, 3).map((match, matchIndex) => <Badge key={`${match}:${matchIndex}`} variant="secondary">{match}</Badge>)}
-        <Badge>{summary.action}</Badge>
-      </div></CardContent>
+      <CardContent className="flex flex-col gap-3">
+        <div className="flex flex-wrap gap-2">
+          {summary.matches.slice(0, 3).map((match, matchIndex) => <Badge key={`${match}:${matchIndex}`} variant="secondary">{match}</Badge>)}
+          <Badge>{summary.action}</Badge>
+          {isRuleInverted(item) ? <Badge variant="outline">{t("policy.route.invertOn")}</Badge> : null}
+        </div>
+        {onToggleInvert ? (
+          <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">{t("policy.route.invert")}</p>
+              <p className="truncate text-xs text-muted-foreground">{t("policy.route.invertQuick")}</p>
+            </div>
+            <Switch
+              checked={isRuleInverted(item)}
+              aria-label={t("policy.route.invertRule", { index: number })}
+              onCheckedChange={() => onToggleInvert()}
+            />
+          </div>
+        ) : null}
+      </CardContent>
       <CardFooter className="justify-between gap-2">
         <DesktopActions index={index} first={first} last={last} onCopy={onCopy} onMoveUp={onMoveUp} onMoveDown={onMoveDown} onDelete={() => setDeleting(true)} />
         <MobileActions index={index} first={first} last={last} onCopy={onCopy} onMoveUp={onMoveUp} onMoveDown={onMoveDown} onDelete={() => setDeleting(true)} />

@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { dnsRuleMatchFields, summarizeDNSRule } from "@/features/policy/dns-form-model"
+import { isRuleInverted } from "@/features/policy/rule-invert"
+import { Switch } from "@/components/ui/switch"
 import type { JsonObject } from "@/features/policy/policy-form-model"
 
 interface DNSRuleCardProps {
@@ -20,6 +22,7 @@ interface DNSRuleCardProps {
   onMoveUp: () => void
   onMoveDown: () => void
   onDelete: () => void
+  onToggleInvert?: () => void
 }
 
 function DesktopActions(props: Omit<DNSRuleCardProps, "item" | "onEdit">) {
@@ -50,7 +53,7 @@ function MobileActions(props: Omit<DNSRuleCardProps, "item" | "onEdit">) {
 
 export function DNSRuleCard(props: DNSRuleCardProps) {
   const { t } = useTranslation()
-  const { index, item, first, last, onEdit, onCopy, onMoveUp, onMoveDown, onDelete } = props
+  const { index, item, first, last, onEdit, onCopy, onMoveUp, onMoveDown, onDelete, onToggleInvert } = props
   const [deleting, setDeleting] = useState(false)
   const number = index + 1
   const matchLabels = new Map<string, string>(
@@ -66,9 +69,26 @@ export function DNSRuleCard(props: DNSRuleCardProps) {
       <Button variant="outline" size="xs" aria-label={t("policy.dns.editRule", { index: number })} onClick={onEdit}>
         <PencilIcon data-icon="inline-start" />{t("policy.dns.edit")}
       </Button></CardAction></CardHeader>
-    <CardContent><div className="flex flex-wrap gap-2">
-      {summary.matches.slice(0, 4).map((match, matchIndex) => <Badge key={`${match}:${matchIndex}`} variant="secondary">{match}</Badge>)}
-      <Badge>{summary.action}</Badge></div></CardContent>
+    <CardContent className="flex flex-col gap-3">
+      <div className="flex flex-wrap gap-2">
+        {summary.matches.slice(0, 4).map((match, matchIndex) => <Badge key={`${match}:${matchIndex}`} variant="secondary">{match}</Badge>)}
+        <Badge>{summary.action}</Badge>
+        {isRuleInverted(item) ? <Badge variant="outline">{t("policy.dns.invertOn")}</Badge> : null}
+      </div>
+      {onToggleInvert ? (
+        <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium">{t("policy.dns.invert")}</p>
+            <p className="truncate text-xs text-muted-foreground">{t("policy.dns.invertQuick")}</p>
+          </div>
+          <Switch
+            checked={isRuleInverted(item)}
+            aria-label={t("policy.dns.invertRule", { index: number })}
+            onCheckedChange={() => onToggleInvert()}
+          />
+        </div>
+      ) : null}
+    </CardContent>
     <CardFooter className="justify-between gap-2"><DesktopActions index={index} first={first} last={last}
       onCopy={onCopy} onMoveUp={onMoveUp} onMoveDown={onMoveDown} onDelete={() => setDeleting(true)} />
       <MobileActions index={index} first={first} last={last} onCopy={onCopy} onMoveUp={onMoveUp}

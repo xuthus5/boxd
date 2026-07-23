@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { formatLatency } from "@/features/nodes/node-format"
+import { latencyBadgeVariant, latencyTone, latencyToneClass } from "@/features/nodes/latency-style"
+import { cn } from "@/lib/utils"
 import { nodeTestInput, nodeTestTypes, type NodeTestType } from "@/features/nodes/node-test-inputs"
 import { api } from "@/lib/api/endpoints"
 import type { Outbound, TestResult } from "@/lib/api/types"
@@ -19,7 +21,9 @@ function ResultBadge({ result }: { result?: TestResult }) {
   const { t } = useTranslation()
   if (!result) return <Badge variant="outline">—</Badge>
   if (!result.success) return <Badge variant="destructive">{result.error || t("nodes.testFailed")}</Badge>
-  return <Badge variant="secondary">{result.latency_ms === undefined ? t("common.normal") : formatLatency(result.latency_ms)}</Badge>
+  const tone = latencyTone(result.latency_ms, true)
+  const label = result.latency_ms === undefined ? t("common.normal") : formatLatency(result.latency_ms)
+  return <Badge variant={latencyBadgeVariant(tone)} className={cn(latencyToneClass(tone))}>{label}</Badge>
 }
 
 function TestResults({ results }: { results?: Record<string, TestResult> }) {
