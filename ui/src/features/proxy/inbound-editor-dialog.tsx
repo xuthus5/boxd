@@ -44,7 +44,7 @@ function BaseFields({ object, onChange }: { object: JsonObject; onChange: (objec
   return <FieldGroup className="grid gap-4 sm:grid-cols-2">
     <Field data-invalid={invalid.has("tag") || undefined}>
       <FieldLabel htmlFor="inbound-tag">Tag</FieldLabel>
-      <Input id="inbound-tag" aria-invalid={invalid.has("tag") || undefined} value={String(object.tag ?? "")} onChange={(event) => onChange({ ...object, tag: event.target.value || undefined })} />
+      <Input id="inbound-tag" aria-invalid={invalid.has("tag") || undefined} value={String(object.tag ?? "")} onChange={(event) => { const next = { ...object }; const tag = event.target.value.trim(); if (tag) next.tag = tag; else delete next.tag; onChange(next) }} />
       {invalid.has("tag") ? <FieldDescription>{t("proxy.inbound.requiredTag")}</FieldDescription> : null}
     </Field>
     <Field data-invalid={invalid.has("type") || undefined}>
