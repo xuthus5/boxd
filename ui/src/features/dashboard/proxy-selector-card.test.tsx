@@ -10,7 +10,7 @@ import { toast } from "sonner"
 import { ProxySelectorCard } from "@/features/dashboard/proxy-selector-card"
 import { i18n } from "@/i18n"
 
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }))
 
 function wrap(ui: ReactElement) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
@@ -91,7 +91,7 @@ describe("ProxySelectorCard", () => {
     expect((await screen.findAllByText("12 ms")).length).toBeGreaterThan(0)
     expect(screen.getAllByText("34 ms").length).toBeGreaterThan(0)
     await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledWith("出口测速完成：2/2 成功，0 失败")
+      expect(toast.success).toHaveBeenCalledWith(expect.stringContaining("出口测速完成：2/2 成功，0 失败"))
     })
     await user.click(screen.getByRole("combobox", { name: "当前出口" }))
     expect(await screen.findByRole("option", { name: /b \(34 ms\)/ })).toBeInTheDocument()

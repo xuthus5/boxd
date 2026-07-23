@@ -8,10 +8,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
+  delayErrorHintKey,
+  delayFailureClipboardText,
   formatDelayValue,
+  isDelayFailure,
   sortDelayEntries,
   type DelayMap,
 } from "@/features/dashboard/proxy-delay"
+import { copyText } from "@/features/proxy/copy-tag-button"
+import { toast } from "sonner"
 import { useProxySelector } from "@/features/dashboard/use-proxy-selector"
 import { formatLatency } from "@/features/nodes/node-format"
 import { buildNodesHref } from "@/features/nodes/nodes-filter"
@@ -20,11 +25,23 @@ import { buildLogsHref } from "@/features/observability/log-filter-presets"
 import type { OutboundGroup } from "@/lib/api/types"
 import { cn } from "@/lib/utils"
 
-function DelayBadge({ delay, failed }: { delay?: number; failed?: boolean }) {
+function DelayBadge({ value }: { value?: DelayMap[string] }) {
   const { t } = useTranslation()
-  if (failed) return <Badge variant="destructive">{t("dashboard.proxyDelayFailed")}</Badge>
-  if (delay === undefined) return <Badge variant="outline">—</Badge>
-  return <Badge variant="secondary">{formatLatency(delay)}</Badge>
+  if (isDelayFailure(value)) {
+    const label = formatDelayValue(value, t("dashboard.proxyDelayFailed"))
+    return (
+      <Badge
+        variant="destructive"
+        className="max-w-[10rem] truncate"
+        title={`${label}
+${t(delayErrorHintKey(value.code))}`}
+      >
+        {label}
+      </Badge>
+    )
+  }
+  if (value === undefined) return <Badge variant="outline">—</Badge>
+  return <Badge variant="secondary">{formatLatency(value)}</Badge>
 }
 
 function ProxyStatusCard({ title, description }: { title: string; description: string }) {
@@ -45,14 +62,39 @@ function DelayList({ delays }: { delays: DelayMap }) {
   const failedLabel = t("dashboard.proxyDelayFailed")
   return (
     <ul className="flex max-h-36 flex-col gap-1 overflow-auto text-xs text-muted-foreground">
-      {entries.map(([tag, delay]) => (
-        <li key={tag} className="flex items-center justify-between gap-2">
-          <span className="min-w-0 truncate" title={tag}>{tag}</span>
-          <span className={cn("shrink-0 tabular-nums", delay === "error" && "text-destructive")}>
-            {formatDelayValue(delay, failedLabel)}
-          </span>
-        </li>
-      ))}
+      {entries.map(([tag, delay]) => {
+        const failed = isDelayFailure(delay)
+        const label = formatDelayValue(delay, failedLabel)
+        const title = failed
+          ? `${label}
+${t(delayErrorHintKey(delay.code))}`
+          : tag
+        return (
+          <li key={tag} className="flex items-center justify-between gap-2">
+            <span className="min-w-0 truncate" title={tag}>{tag}</span>
+            {failed ? (
+              <button
+                type="button"
+                className="max-w-[12rem] shrink-0 truncate text-left tabular-nums text-destructive underline-offset-2 hover:underline"
+                title={title}
+                aria-label={`${t("dashboard.copyProxyDelayError")}: ${tag} ${label}`}
+                onClick={() => {
+                  const payload = delayFailureClipboardText(tag, delay)
+                  if (!payload) return
+                  void copyText(payload).then(
+                    () => toast.success(t("dashboard.proxyDelayErrorCopied")),
+                    () => toast.error(t("dashboard.proxyDelayErrorCopyFailed")),
+                  )
+                }}
+              >
+                {label}
+              </button>
+            ) : (
+              <span className="shrink-0 tabular-nums">{label}</span>
+            )}
+          </li>
+        )
+      })}
     </ul>
   )
 }
@@ -137,10 +179,7 @@ export function ProxySelectorCard() {
         <CardTitle className="flex min-w-0 flex-wrap items-center gap-2">
           <span className="truncate">{t("dashboard.proxySelector")}</span>
           <Badge variant="outline">{state.group.tag}</Badge>
-          <DelayBadge
-            delay={typeof currentDelay === "number" ? currentDelay : undefined}
-            failed={currentDelay === "error"}
-          />
+          <DelayBadge value={currentDelay} />
         </CardTitle>
         <CardDescription>{t("dashboard.proxySelectorDescription")}</CardDescription>
       </CardHeader>

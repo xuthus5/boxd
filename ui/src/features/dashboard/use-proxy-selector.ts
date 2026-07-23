@@ -3,7 +3,14 @@ import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
-import { measureGroupDelays, pickPrimaryGroup, summarizeDelays, type DelayMap } from "@/features/dashboard/proxy-delay"
+import {
+  delayBatchToastTone,
+  formatDelayBatchMessage,
+  measureGroupDelays,
+  pickPrimaryGroup,
+  summarizeDelays,
+  type DelayMap,
+} from "@/features/dashboard/proxy-delay"
 import { api } from "@/lib/api/endpoints"
 
 export function useProxySelector() {
@@ -29,7 +36,11 @@ export function useProxySelector() {
     onSuccess: (next) => {
       setDelays(next)
       const summary = summarizeDelays(next)
-      toast.success(t("dashboard.proxyDelayDone", { ok: summary.ok, failed: summary.failed, total: summary.total }))
+      const message = formatDelayBatchMessage(summary, t)
+      const tone = delayBatchToastTone(summary)
+      if (tone === "error") toast.error(message)
+      else if (tone === "warning") toast.warning(message)
+      else toast.success(message)
     },
     onError: (error: Error) => toast.error(error.message),
   })

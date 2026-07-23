@@ -10,7 +10,7 @@ import { toast } from "sonner"
 import { RuntimeGroupCard, RuntimeGroupsCard } from "@/features/nodes/runtime-groups-card"
 import { i18n } from "@/i18n"
 
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }))
 
 function wrap(ui: ReactElement) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
@@ -72,7 +72,7 @@ describe("RuntimeGroupCard", () => {
     expect(screen.getByText("12 ms")).toBeInTheDocument()
     expect(screen.getByText("b")).toBeInTheDocument()
     expect(screen.getByText("34 ms")).toBeInTheDocument()
-    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("URLTest 完成，2 个节点"))
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith(expect.stringContaining("URLTest：2/2 成功，0 失败")))
   })
 
   it("reports urltest failures", async () => {

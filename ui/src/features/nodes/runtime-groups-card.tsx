@@ -11,6 +11,12 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { buildConnectionsHref } from "@/features/observability/connection-facets"
 import { buildLogsHref } from "@/features/observability/log-filter-presets"
+import {
+  delayBatchToastTone,
+  formatDelayBatchMessage,
+  summarizeDelays,
+  type DelayMap,
+} from "@/features/dashboard/proxy-delay"
 import { api } from "@/lib/api/endpoints"
 import { cn } from "@/lib/utils"
 import type { OutboundGroup } from "@/lib/api/types"
@@ -41,9 +47,34 @@ function URLTestControl({ group }: { group: OutboundGroup }) {
   const mutation = useMutation({
     mutationFn: () => api.nodes.urlTest(group.tag),
     onSuccess: (next) => {
-      setDelays(next ?? {})
-      const count = Object.keys(next ?? {}).length
-      toast.success(t("nodes.urlTestDone", { count }))
+      const map = next ?? {}
+      setDelays(map)
+      const delayMap: DelayMap = {}
+      for (const tag of group.all) {
+        const value = map[tag]
+        if (typeof value === "number" && Number.isFinite(value)) delayMap[tag] = value
+        else delayMap[tag] = { failed: true, error: "no response", code: "no_response" }
+      }
+      // keep raw numeric map for display of returned delays; overlay missing members as absent
+      const summary = summarizeDelays(delayMap)
+      const message = formatDelayBatchMessage(summary, (key, values) => {
+        if (key === "dashboard.proxyDelayDone") {
+          return t("nodes.urlTestSummary", {
+            ok: values?.ok ?? 0,
+            failed: values?.failed ?? 0,
+            total: values?.total ?? 0,
+          })
+        }
+        if (key === "dashboard.proxyDelayAvg") return t("nodes.urlTestAvg", values)
+        if (key === "dashboard.proxyDelayBest") return t("nodes.urlTestBest", values)
+        if (key === "dashboard.proxyDelayWorst") return t("nodes.urlTestWorst", values)
+        if (key === "dashboard.proxyDelayFailedSamples") return t("nodes.urlTestFailedSamples", values)
+        return t(key, values)
+      })
+      const tone = delayBatchToastTone(summary)
+      if (tone === "error") toast.error(message)
+      else if (tone === "warning") toast.warning(message)
+      else toast.success(message)
     },
     onError: (error: Error) => toast.error(error.message),
   })
