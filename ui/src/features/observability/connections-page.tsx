@@ -180,8 +180,8 @@ export function ConnectionsPage() {
         />
       </div>
       {stream.error ? <Alert variant="destructive"><AlertTitle>{t("observability.streamError")}</AlertTitle><AlertDescription>{stream.error}</AlertDescription></Alert> : null}
-      <Card>
-        <CardHeader className="gap-2 sm:gap-3">
+      <Card size="sm">
+        <CardHeader className="gap-1.5 sm:gap-2">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle>

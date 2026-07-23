@@ -96,6 +96,7 @@ describe("endpoints page", () => {
     await user.click(editor)
     await user.keyboard("{Control>}a{/Control}{Backspace}")
     await user.paste("{}")
+    expect(screen.getByRole("button", { name: "保存配置" })).toHaveClass("h-8")
     expect(screen.getByRole("button", { name: "保存配置" })).toBeDisabled()
   })
 })

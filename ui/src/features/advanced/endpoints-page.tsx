@@ -49,18 +49,18 @@ function EndpointsEditor({ initial, onSave }: {
   const canSave = Boolean(editor.items && structureValid)
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle role="heading" aria-level={1}>{t("pages.endpoints")}</CardTitle>
+    <Card size="sm">
+      <CardHeader className="gap-1.5">
+        <CardTitle role="heading" aria-level={1} className="truncate">{t("pages.endpoints")}</CardTitle>
         <CardDescription>{t("advanced.endpointsDescription")}</CardDescription>
       </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="visual" className="min-w-0">
-          <TabsList activateOnFocus className="max-w-full">
+      <CardContent className="flex flex-col gap-2 sm:gap-3">
+        <Tabs defaultValue="visual" className="min-h-0 min-w-0">
+          <TabsList activateOnFocus className="h-auto max-w-full justify-start overflow-x-auto overflow-y-hidden" variant="line">
             <TabsTrigger value="visual">{t("advanced.visualTab")}</TabsTrigger>
             <TabsTrigger value="json">{t("advanced.advancedTab")}</TabsTrigger>
           </TabsList>
-          <TabsContent value="visual">
+          <TabsContent value="visual" className="pt-3 sm:pt-4">
             {editor.items && structureValid
               ? <EndpointsVisualEditor items={editor.items} onChange={editor.updateItems} />
               : (
@@ -70,8 +70,8 @@ function EndpointsEditor({ initial, onSave }: {
                 </Alert>
               )}
           </TabsContent>
-          <TabsContent value="json">
-            <FieldGroup>
+          <TabsContent value="json" className="pt-3 sm:pt-4">
+            <FieldGroup className="gap-2 sm:gap-3">
               <Field>
                 <FieldLabel className="sr-only">{t("advanced.endpointsJSON")}</FieldLabel>
                 <JsonEditor value={editor.value} onChange={editor.updateJSON} ariaLabel={t("advanced.endpointsJSON")} />
@@ -82,6 +82,8 @@ function EndpointsEditor({ initial, onSave }: {
       </CardContent>
       <CardFooter className="flex-wrap justify-end gap-2">
         <Button
+          size="sm"
+          className="h-8 w-full sm:w-auto"
           disabled={!canSave}
           onClick={() => editor.items && onSave(prepareEndpoints(editor.items))}
         >

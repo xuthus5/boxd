@@ -235,18 +235,28 @@ export function ProxyListPage({ configKey, title, addLabel }: {
             />
           )
         ) : (
-          <Card>
-            <CardHeader><CardTitle>{t("proxy.noMatch")}</CardTitle><CardDescription>{t("proxy.noMatchDescription")}</CardDescription></CardHeader>
-            <CardContent><Button variant="outline" onClick={() => writeFilters({})}>{t("proxy.clearSearch")}</Button></CardContent>
+          <Card size="sm">
+            <CardHeader className="gap-1.5">
+              <CardTitle className="truncate">{t("proxy.noMatch")}</CardTitle>
+              <CardDescription>{t("proxy.noMatchDescription")}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button variant="outline" size="sm" className="h-8" onClick={() => writeFilters({})}>{t("proxy.clearSearch")}</Button>
+            </CardContent>
           </Card>
         )
       ) : (
-        <Card>
-          <CardHeader><CardTitle>{title}{t("proxy.listSuffix")}</CardTitle><CardDescription>{t("proxy.description")}</CardDescription></CardHeader>
+        <Card size="sm">
+          <CardHeader className="gap-1.5">
+            <CardTitle className="truncate">{title}{t("proxy.listSuffix")}</CardTitle>
+            <CardDescription>{t("proxy.description")}</CardDescription>
+          </CardHeader>
           <CardContent>
             <Empty>
               <EmptyHeader><EmptyTitle>{t("proxy.empty")}</EmptyTitle><EmptyDescription>{t("proxy.emptyDescription")}</EmptyDescription></EmptyHeader>
-              <EmptyContent><Button onClick={() => setEditing({ index: -1, item: {} })}>{addLabel}</Button></EmptyContent>
+              <EmptyContent>
+                <Button size="sm" className="h-8" onClick={() => setEditing({ index: -1, item: {} })}>{addLabel}</Button>
+              </EmptyContent>
             </Empty>
           </CardContent>
         </Card>

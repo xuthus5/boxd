@@ -51,7 +51,7 @@ describe("PolicyPage editor shell", () => {
     const tabs = screen.getAllByRole("tab")
     expect(tabs.map((tab) => tab.textContent)).toEqual(["可视化配置", "高级 JSON"])
     expect(tabs[0]).toHaveAttribute("aria-selected", "true")
-    expect(tabs[0].closest('[data-slot="tabs-list"]')).not.toHaveClass("overflow-x-auto")
+    expect(tabs[0].closest('[data-slot="tabs-list"]')).toHaveClass("overflow-x-auto")
   })
 
   it("disables saving when advanced JSON is not an object", async () => {

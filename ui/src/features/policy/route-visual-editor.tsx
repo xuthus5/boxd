@@ -108,7 +108,7 @@ function RuleSection({ object, metadata, metadataLoading, metadataError, onChang
     const nextObject = setRouteRules(object, nextRules)
     update(nextRules); onMetadataChange(nextMetadata); onRulesChange?.(nextObject, nextMetadata)
   }
-  return <Card><CardHeader className="min-w-0 grid-cols-1 has-data-[slot=card-action]:grid-cols-1 sm:has-data-[slot=card-action]:grid-cols-[1fr_auto]">
+  return <Card size="sm"><CardHeader className="min-w-0 grid-cols-1 has-data-[slot=card-action]:grid-cols-1 sm:has-data-[slot=card-action]:grid-cols-[1fr_auto]">
     <CardTitle>{t("policy.route.rulesTitle")}</CardTitle><CardDescription>{t("policy.route.rulesDescription")}</CardDescription>
     <CardAction className="col-start-1 row-start-auto w-full justify-self-start sm:col-start-2 sm:row-start-1 sm:w-auto sm:justify-self-end">
       <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto"><Button variant="outline" size="sm" className="h-8" onClick={onInstall}>{t("policy.installRoute")}</Button><Button size="sm" className="h-8" onClick={() => onEdit(null)}><ListPlusIcon data-icon="inline-start" />{t("policy.route.addRule")}</Button></div>
@@ -181,7 +181,7 @@ function RuleSetSection({ object, onChange, onRulesChange, onEdit }: {
     const tag = typeof item.tag === "string" ? item.tag : ""
     return statusByTag.get(tag)?.updatable
   }).length
-  return <Card><CardHeader className="min-w-0 grid-cols-1 has-data-[slot=card-action]:grid-cols-1 sm:has-data-[slot=card-action]:grid-cols-[1fr_auto]">
+  return <Card size="sm"><CardHeader className="min-w-0 grid-cols-1 has-data-[slot=card-action]:grid-cols-1 sm:has-data-[slot=card-action]:grid-cols-[1fr_auto]">
     <CardTitle>{t("policy.route.ruleSetsTitle")}</CardTitle><CardDescription>{t("policy.route.ruleSetsDescription")}</CardDescription>
     <CardAction className="col-start-1 row-start-auto w-full justify-self-start sm:col-start-2 sm:row-start-1 sm:w-auto sm:justify-self-end">
       <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
@@ -222,7 +222,7 @@ export function RouteVisualEditor(props: RouteVisualEditorProps): React.ReactNod
     onRulesChange?.(next, selection.kind === "rule" ? replaceOrAppend(metadata, selection.index, nextMetadata ?? emptyMetadata()) : metadata)
     setSelection(null)
   }
-  return <div className="flex min-w-0 flex-col gap-4">
+  return <div className="flex min-w-0 flex-col gap-2 sm:gap-3">
     <RouteGlobalCard {...props} outbounds={props.outbounds} />
     <RuleSection object={object} metadata={metadata} metadataLoading={props.metadataLoading} metadataError={props.metadataError}
       onChange={onChange} onMetadataChange={onMetadataChange} onRulesChange={onRulesChange} onEdit={editRule} onInstall={props.onInstall} />

@@ -21,9 +21,9 @@ export function DNSGlobalCard(props: PolicyVisualEditorProps) {
   const context = useMemo(() => ({
     dnsServerTags: policyDNSServerTags(config.data?.dns ?? props.object),
   }), [config.data?.dns, props.object])
-  return <Card>
-    <CardHeader>
-      <CardTitle>{t("policy.dns.globalTitle")}</CardTitle>
+  return <Card size="sm">
+    <CardHeader className="gap-1.5">
+      <CardTitle className="truncate">{t("policy.dns.globalTitle")}</CardTitle>
       <CardDescription>{t("policy.dns.globalDescription")}</CardDescription>
     </CardHeader>
     <CardContent>
@@ -41,16 +41,16 @@ export function DNSGlobalCard(props: PolicyVisualEditorProps) {
     <CardFooter className="flex-wrap justify-between gap-2">
       <p className="text-muted-foreground">{t("policy.dns.globalFooter")}</p>
       {/* c8 ignore next */}
-      <Button onClick={() => props.onGlobalSave?.(props.object)}>{t("policy.save")}</Button>
+      <Button size="sm" className="h-8" onClick={() => props.onGlobalSave?.(props.object)}>{t("policy.save")}</Button>
     </CardFooter>
   </Card>
 }
 
 export function DNSFakeIPCard(props: PolicyVisualEditorProps) {
   const { t } = useTranslation()
-  return <Card>
-    <CardHeader>
-      <CardTitle>{t("policy.dns.fakeIPTitle")}</CardTitle>
+  return <Card size="sm">
+    <CardHeader className="gap-1.5">
+      <CardTitle className="truncate">{t("policy.dns.fakeIPTitle")}</CardTitle>
       <CardDescription>{t("policy.dns.fakeIPDescription")}</CardDescription>
     </CardHeader>
     <CardContent>

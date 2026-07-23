@@ -144,8 +144,8 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
 
   const hasActiveFilter = Boolean(filter.trim()) || minimum !== "all" || Boolean(level) || Boolean(activePreset)
 
-  return <Card>
-    <CardHeader className="gap-2">
+  return <Card size="sm">
+    <CardHeader className="gap-1.5">
       <CardTitle className="flex flex-wrap items-center gap-2 text-base sm:text-lg">{title}<StreamStatusBadge status={stream.status} paused={stream.paused} /></CardTitle>
       <CardDescription>{t("observability.logDescription")}</CardDescription>
     </CardHeader>

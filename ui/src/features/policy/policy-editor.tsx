@@ -108,7 +108,7 @@ function PolicyEditorTabs({
   const structureValid = Boolean(object && isPolicySectionStructureValid(section, object))
   return (
     <Tabs defaultValue="visual" className="min-w-0">
-      <TabsList activateOnFocus className="max-w-full">
+      <TabsList activateOnFocus className="h-auto max-w-full justify-start overflow-x-auto overflow-y-hidden" variant="line">
         <TabsTrigger value="visual">{t("policy.visualTab")}</TabsTrigger>
         <TabsTrigger value="json">{t("policy.advancedTab")}</TabsTrigger>
       </TabsList>

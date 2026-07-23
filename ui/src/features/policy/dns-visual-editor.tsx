@@ -111,7 +111,7 @@ function ServerSection({ object, onChange, onRulesChange, onEdit, onInstall }: {
   })
   /* c8 ignore next */
   const update = (next: readonly JsonObject[]) => { const nextObject = setDNSServers(object, next); onChange(nextObject); onRulesChange?.(nextObject, []) }
-  return <Card><CardHeader className="min-w-0 grid-cols-1 has-data-[slot=card-action]:grid-cols-1 sm:has-data-[slot=card-action]:grid-cols-[1fr_auto]">
+  return <Card size="sm"><CardHeader className="min-w-0 grid-cols-1 has-data-[slot=card-action]:grid-cols-1 sm:has-data-[slot=card-action]:grid-cols-[1fr_auto]">
     <CardTitle>{t("policy.dns.serversTitle")}</CardTitle><CardDescription>{t("policy.dns.serversDescription")}</CardDescription>
     <CardAction className="col-start-1 row-start-auto w-full justify-self-start sm:col-start-2 sm:row-start-1 sm:w-auto sm:justify-self-end">
       <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
@@ -187,7 +187,7 @@ function RuleSection({ object, onChange, onRulesChange, onEdit }: {
   const facetsActive = dnsRuleFiltersActive({ rules: search, ruleAction: actionFilter })
   /* c8 ignore next */
   const update = (next: readonly JsonObject[]) => { const nextObject = setDNSRules(object, next); onChange(nextObject); onRulesChange?.(nextObject, []) }
-  return <Card><CardHeader className="min-w-0 grid-cols-1 has-data-[slot=card-action]:grid-cols-1 sm:has-data-[slot=card-action]:grid-cols-[1fr_auto]">
+  return <Card size="sm"><CardHeader className="min-w-0 grid-cols-1 has-data-[slot=card-action]:grid-cols-1 sm:has-data-[slot=card-action]:grid-cols-[1fr_auto]">
     <CardTitle>{t("policy.dns.rulesTitle")}</CardTitle><CardDescription>{t("policy.dns.rulesDescription")}</CardDescription>
     <CardAction className="col-start-1 row-start-auto w-full justify-self-start sm:col-start-2 sm:row-start-1 sm:w-auto sm:justify-self-end">
       <Button className="h-8 w-full sm:w-auto" onClick={() => onEdit(null)}><ListPlusIcon data-icon="inline-start" />{t("policy.dns.addRule")}</Button>
@@ -245,7 +245,7 @@ export function DNSVisualEditor(props: PolicyVisualEditorProps): ReactNode {
     setSelection(null)
   }
   const serverTags = dnsServers(object).flatMap((server) => typeof server.tag === "string" && server.tag ? [server.tag] : [])
-  return <div className="flex min-w-0 flex-col gap-4"><DNSGlobalCard {...props} /><DNSFakeIPCard {...props} />
+  return <div className="flex min-w-0 flex-col gap-2 sm:gap-3"><DNSGlobalCard {...props} /><DNSFakeIPCard {...props} />
     <ServerSection object={object} onChange={onChange} onRulesChange={props.onRulesChange} onEdit={editServer} onInstall={props.onInstall} />
     <RuleSection object={object} onChange={onChange} onRulesChange={props.onRulesChange} onEdit={editRule} />
     {selection?.kind === "server" ? <DNSServerDialog key={`${selection.index}:${JSON.stringify(selection.item)}`} open

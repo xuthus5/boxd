@@ -63,9 +63,9 @@ export function RouteGlobalCard({
     outboundTags: outboundTags(outbounds).length ? outboundTags(outbounds) : policyConfigTags(config.data?.outbounds),
     dnsServerTags: policyDNSServerTags(config.data?.dns),
   }), [config.data?.dns, config.data?.outbounds, outbounds])
-  return <Card>
-    <CardHeader>
-      <CardTitle>{t("policy.route.globalTitle")}</CardTitle>
+  return <Card size="sm">
+    <CardHeader className="gap-1.5">
+      <CardTitle className="truncate">{t("policy.route.globalTitle")}</CardTitle>
       <CardDescription>{t("policy.route.globalDescription")}</CardDescription>
     </CardHeader>
     <CardContent>
@@ -84,7 +84,7 @@ export function RouteGlobalCard({
     <CardFooter className="flex-wrap justify-between gap-2">
       <p className="text-muted-foreground">{t("policy.route.globalFooter")}</p>
       {/* c8 ignore next */}
-      <Button onClick={() => onGlobalSave?.(object)}>{t("policy.save")}</Button>
+      <Button size="sm" className="h-8" onClick={() => onGlobalSave?.(object)}>{t("policy.save")}</Button>
     </CardFooter>
   </Card>
 }
