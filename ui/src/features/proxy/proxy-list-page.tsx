@@ -19,10 +19,14 @@ import { InboundCard } from "@/features/proxy/inbound-card"
 import { OutboundCard } from "@/features/proxy/outbound-card"
 import { ProxyEditorDialog } from "@/features/proxy/proxy-editor-dialog"
 import {
-  matchesProxyItem,
+  filterProxyItems,
   parseProxySearchParams,
+  proxyFiltersActive,
+  summarizeProxyTypes,
   toProxySearchParams,
+  type ProxyListFilters,
 } from "@/features/proxy/proxy-filter"
+import { ProxyTypeSummaryBar } from "@/features/proxy/proxy-type-summary"
 import { api } from "@/lib/api/endpoints"
 import type { JsonValue, OutboundGroup, Subscription } from "@/lib/api/types"
 
@@ -148,10 +152,17 @@ export function ProxyListPage({ configKey, title, addLabel }: {
     return <Alert variant="destructive"><AlertTitle>{t("common.loadFailed")}</AlertTitle><AlertDescription>{query.error.message}</AlertDescription></Alert>
   }
   const items = objects(query.data?.[configKey])
-  const normalized = search.trim().toLowerCase()
-  const filtered = items.map((item, index) => ({ item, index })).filter(({ item }) => matchesProxyItem(item, normalized))
+  const typeFilter = filters.type
+  const filteredIndexed = items
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => filterProxyItems([item], { query: search, type: typeFilter }).length > 0)
+  const typeSummary = summarizeProxyTypes(items, search)
+  const facetsActive = proxyFiltersActive({ query: search, type: typeFilter })
+  const writeFilters = (next: ProxyListFilters) => {
+    setSearchParams(toProxySearchParams(next), { replace: true })
+  }
   const writeQuery = (queryValue: string) => {
-    setSearchParams(toProxySearchParams({ query: queryValue }), { replace: true })
+    writeFilters({ query: queryValue, type: typeFilter })
   }
   const persist = (nextItems: JsonObject[]) => {
     clearSaveError()
@@ -197,17 +208,20 @@ export function ProxyListPage({ configKey, title, addLabel }: {
       </div>
       <ConfigSaveErrorAlert error={saveError} onDismiss={clearSaveError} />
       {items.length > 0 ? (
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <label className="sr-only" htmlFor={`proxy-search-${configKey}`}>{t("proxy.search")}</label>
-          <Input id={`proxy-search-${configKey}`} value={search} onChange={(event) => writeQuery(event.target.value)} placeholder={t("proxy.searchPlaceholder")} className="sm:max-w-sm" aria-label={t("proxy.search")} />
-          {normalized ? <p className="text-sm text-muted-foreground">{t("proxy.searchCount", { shown: filtered.length, total: items.length })}</p> : null}
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <label className="sr-only" htmlFor={`proxy-search-${configKey}`}>{t("proxy.search")}</label>
+            <Input id={`proxy-search-${configKey}`} value={search} onChange={(event) => writeQuery(event.target.value)} placeholder={t("proxy.searchPlaceholder")} className="sm:max-w-sm" aria-label={t("proxy.search")} />
+            {facetsActive ? <p className="text-sm text-muted-foreground">{t("proxy.searchCount", { shown: filteredIndexed.length, total: items.length })}</p> : null}
+          </div>
+          <ProxyTypeSummaryBar summary={typeSummary} filters={filters} onChange={writeFilters} />
         </div>
       ) : null}
       {items.length > 0 ? (
-        filtered.length > 0 ? (
+        filteredIndexed.length > 0 ? (
           configKey === "inbounds" ? (
             <InboundCards
-              items={filtered}
+              items={filteredIndexed}
               busy={save.isPending}
               onEdit={(index) => setEditing({ index, item: items[index] })}
               onDelete={(index) => persist(items.filter((_, itemIndex) => itemIndex !== index))}
@@ -215,7 +229,7 @@ export function ProxyListPage({ configKey, title, addLabel }: {
             />
           ) : (
             <OutboundCards
-              items={filtered}
+              items={filteredIndexed}
               onEdit={(index) => setEditing({ index, item: items[index] })}
               onDelete={(index) => persist(items.filter((_, itemIndex) => itemIndex !== index))}
             />
@@ -223,7 +237,7 @@ export function ProxyListPage({ configKey, title, addLabel }: {
         ) : (
           <Card>
             <CardHeader><CardTitle>{t("proxy.noMatch")}</CardTitle><CardDescription>{t("proxy.noMatchDescription")}</CardDescription></CardHeader>
-            <CardContent><Button variant="outline" onClick={() => writeQuery("")}>{t("proxy.clearSearch")}</Button></CardContent>
+            <CardContent><Button variant="outline" onClick={() => writeFilters({})}>{t("proxy.clearSearch")}</Button></CardContent>
           </Card>
         )
       ) : (
