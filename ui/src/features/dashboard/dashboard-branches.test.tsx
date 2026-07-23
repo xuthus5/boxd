@@ -92,6 +92,23 @@ describe("dashboard component states", () => {
     copySpy.mockRestore()
   })
 
+  it("shows recovered last start error while kernel is running", () => {
+    renderApp(
+      <ServiceCard
+        status={{
+          running: true,
+          uptime: "2m",
+          last_error: "invalid outbound",
+          last_error_at: "2026-07-23T01:02:03.000Z",
+        }}
+        onAction={vi.fn()}
+      />,
+    )
+    expect(screen.getByText("上次启动错误（已恢复）")).toBeInTheDocument()
+    expect(screen.getByText("invalid outbound")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "停止" })).toBeEnabled()
+  })
+
   it("renders an empty traffic chart", () => {
     renderApp(<TrafficChart points={[]} />)
     expect(screen.getByText(/上传 0 B/)).toBeInTheDocument()

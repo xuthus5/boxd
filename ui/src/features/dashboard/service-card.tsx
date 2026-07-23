@@ -149,9 +149,25 @@ export function ServiceCard({ status, pending, onAction }: ServiceCardProps) {
           />
         </div>
         {lastError ? (
-          <div className="rounded-md border border-destructive/40 bg-destructive/5 px-2.5 py-1.5">
+          <div
+            className={cn(
+              "rounded-md border px-2.5 py-1.5",
+              status.running
+                ? "border-border bg-muted/30"
+                : "border-destructive/40 bg-destructive/5",
+            )}
+          >
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs font-medium text-destructive">{t("dashboard.serviceLastError")}</p>
+              <p
+                className={cn(
+                  "text-xs font-medium",
+                  status.running ? "text-muted-foreground" : "text-destructive",
+                )}
+              >
+                {status.running
+                  ? t("dashboard.serviceLastErrorRecovered")
+                  : t("dashboard.serviceLastError")}
+              </p>
               <div className="flex items-center gap-1.5">
                 {lastErrorAt ? (
                   <p className="text-xs text-muted-foreground tabular-nums">{lastErrorAt}</p>
@@ -160,7 +176,10 @@ export function ServiceCard({ status, pending, onAction }: ServiceCardProps) {
                   type="button"
                   variant="ghost"
                   size="xs"
-                  className="h-6 shrink-0 px-1.5 text-destructive"
+                  className={cn(
+                    "h-6 shrink-0 px-1.5",
+                    status.running ? "text-muted-foreground" : "text-destructive",
+                  )}
                   aria-label={t("dashboard.copyLastError")}
                   onClick={() => {
                     void copyText(lastError).then(
@@ -173,7 +192,13 @@ export function ServiceCard({ status, pending, onAction }: ServiceCardProps) {
                 </Button>
               </div>
             </div>
-            <p className="mt-1 break-words text-sm text-destructive" title={lastError}>
+            <p
+              className={cn(
+                "mt-1 break-words text-sm",
+                status.running ? "text-foreground" : "text-destructive",
+              )}
+              title={lastError}
+            >
               {lastError}
             </p>
             <Link
