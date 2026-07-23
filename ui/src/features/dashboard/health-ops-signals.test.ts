@@ -72,6 +72,7 @@ describe("health-ops-signals", () => {
     const empty = buildHealthOpsSignals({})
     expect(empty).toEqual({
       failedSubscriptions: 0,
+      failedSubscriptionItems: [],
       unstableNodes: 0,
       failedNodes: 0,
       problemNodes: 0,
@@ -87,6 +88,7 @@ describe("health-ops-signals", () => {
       },
     })
     expect(signals.failedSubscriptions).toBe(1)
+    expect(signals.failedSubscriptionItems.map((item) => item.id)).toEqual(["bad"])
     expect(signals.unstableNodes).toBe(1)
     expect(signals.failedNodes).toBe(1)
     expect(signals.problemNodes).toBe(2)

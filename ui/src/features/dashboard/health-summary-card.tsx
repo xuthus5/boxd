@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatBytes } from "@/features/dashboard/format"
+import { FailedSubscriptionsPreview } from "@/features/dashboard/failed-subscriptions-preview"
 import { HealthOpsAlertActions, HealthOpsAlertChips } from "@/features/dashboard/health-ops-alerts"
 import { buildHealthSummary, type HealthTone } from "@/features/dashboard/health-summary"
 import { useHealthOpsSignals } from "@/features/dashboard/use-health-ops-signals"
@@ -89,6 +90,10 @@ export function HealthSummaryCard({
           </p>
         </div>
         <HealthOpsAlertChips signals={ops} />
+        <FailedSubscriptionsPreview
+          items={ops.failedSubscriptionItems}
+          total={ops.failedSubscriptions}
+        />
         {streamStatus === "reconnecting" ? (
           <p className="text-sm text-destructive">{t("observability.streamReconnecting")}{streamError ? ` · ${streamError}` : ""}</p>
         ) : streamError ? (
