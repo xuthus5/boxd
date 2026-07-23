@@ -92,5 +92,8 @@ describe("dashboard component states", () => {
     expect(screen.getByText("2 条活跃连接")).toBeInTheDocument()
     expect(screen.getByText("正常")).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "查看连接" })).toHaveAttribute("href", "/observability/connections")
+    expect(screen.getByRole("link", { name: "TCP 1" })).toHaveAttribute("href", "/observability/connections?network=tcp")
+    expect(screen.getByRole("link", { name: "UDP 1" })).toHaveAttribute("href", "/observability/connections?network=udp")
+    expect(screen.getByRole("link", { name: "proxy" })).toHaveAttribute("href", "/observability/connections?outbound=proxy")
   })
 })

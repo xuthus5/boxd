@@ -1,14 +1,16 @@
-/** Network/protocol facet helpers for the live connections list. */
+/** Connection list facet helpers (network/protocol/outbound/rule + query). */
 
 import { matchesConnection } from "@/features/observability/connection-stats"
 import type { Connection } from "@/lib/api/types"
 
-export type ConnectionFacetField = "network" | "protocol"
+export type ConnectionFacetField = "network" | "protocol" | "outbound" | "rule"
 
 export type ConnectionFacetFilters = {
   query?: string
   network?: string
   protocol?: string
+  outbound?: string
+  rule?: string
 }
 
 export type ConnectionFacetOption = {
@@ -19,7 +21,13 @@ export type ConnectionFacetOption = {
 const UNKNOWN = "—"
 
 export function connectionFacetValue(connection: Connection, field: ConnectionFacetField): string {
-  const raw = field === "network" ? connection.network : connection.protocol
+  const raw = field === "network"
+    ? connection.network
+    : field === "protocol"
+      ? connection.protocol
+      : field === "outbound"
+        ? connection.outbound
+        : connection.rule
   const value = raw?.trim()
   return value ? value : UNKNOWN
 }
@@ -61,9 +69,45 @@ export function filterConnectionsByFacets(
     matchesConnection(connection, query)
     && matchesConnectionFacet(connection, "network", filters.network)
     && matchesConnectionFacet(connection, "protocol", filters.protocol)
+    && matchesConnectionFacet(connection, "outbound", filters.outbound)
+    && matchesConnectionFacet(connection, "rule", filters.rule)
   ))
 }
 
 export function connectionFiltersActive(filters: ConnectionFacetFilters): boolean {
-  return Boolean(filters.query?.trim() || filters.network || filters.protocol)
+  return Boolean(
+    filters.query?.trim()
+    || filters.network
+    || filters.protocol
+    || filters.outbound
+    || filters.rule,
+  )
+}
+
+export function parseConnectionSearchParams(
+  params: URLSearchParams | { get(name: string): string | null },
+): ConnectionFacetFilters {
+  const read = (key: string) => {
+    const value = params.get(key)?.trim()
+    return value ? value : undefined
+  }
+  return {
+    query: read("q"),
+    network: read("network"),
+    protocol: read("protocol"),
+    outbound: read("outbound"),
+    rule: read("rule"),
+  }
+}
+
+export function buildConnectionsHref(filters: ConnectionFacetFilters = {}): string {
+  const params = new URLSearchParams()
+  const query = filters.query?.trim()
+  if (query) params.set("q", query)
+  if (filters.network) params.set("network", filters.network)
+  if (filters.protocol) params.set("protocol", filters.protocol)
+  if (filters.outbound) params.set("outbound", filters.outbound)
+  if (filters.rule) params.set("rule", filters.rule)
+  const qs = params.toString()
+  return qs ? `/observability/connections?${qs}` : "/observability/connections"
 }

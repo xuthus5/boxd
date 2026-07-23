@@ -153,4 +153,15 @@ describe("ConnectionsPage", () => {
     expect(await screen.findByText("目标已复制")).toBeInTheDocument()
     copySpy.mockRestore()
   })
+
+  it("applies deep-link facets from the URL", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    mockConnectionsFetch()
+    renderApp(<App />, "/observability/connections?network=tcp&outbound=proxy")
+
+    expect(await screen.findByText("example.com:443")).toBeInTheDocument()
+    expect(screen.queryByText("cdn.example.net:443")).not.toBeInTheDocument()
+    expect(screen.getByText("显示 1 条")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "清除筛选" })).toBeInTheDocument()
+  })
 })

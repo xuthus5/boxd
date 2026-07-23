@@ -1,5 +1,5 @@
 import { ActivityIcon } from "lucide-react"
-import { useMemo } from "react"
+import { useMemo, type ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 
@@ -8,6 +8,7 @@ import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatBytes } from "@/features/dashboard/format"
 import { buildHealthSummary, type HealthTone } from "@/features/dashboard/health-summary"
+import { buildConnectionsHref } from "@/features/observability/connection-facets"
 import type { ConnectionEvent, ServiceStatus } from "@/lib/api/types"
 import { cn } from "@/lib/utils"
 
@@ -25,6 +26,11 @@ function toneLabelKey(tone: HealthTone) {
   return "dashboard.healthIdle"
 }
 
+function DeepLink({ to, children, className }: { to: string; children: ReactNode; className?: string }) {
+  if (!to) return <span className={className}>{children}</span>
+  return <Link to={to} className={cn("underline-offset-4 hover:underline", className)}>{children}</Link>
+}
+
 export function HealthSummaryCard({
   snapshot,
   status,
@@ -36,6 +42,14 @@ export function HealthSummaryCard({
 }) {
   const { t } = useTranslation()
   const summary = useMemo(() => buildHealthSummary(snapshot, status), [snapshot, status])
+  const topOutboundHref = summary.topOutbound && summary.topOutbound !== "—"
+    ? buildConnectionsHref({ outbound: summary.topOutbound })
+    : ""
+  const topRuleHref = summary.topRule && summary.topRule !== "—"
+    ? buildConnectionsHref({ rule: summary.topRule })
+    : ""
+  const tcpHref = summary.tcp > 0 ? buildConnectionsHref({ network: "tcp" }) : ""
+  const udpHref = summary.udp > 0 ? buildConnectionsHref({ network: "udp" }) : ""
   return (
     <Card>
       <CardHeader>
@@ -54,9 +68,20 @@ export function HealthSummaryCard({
           <p>{t("dashboard.upload")}: {formatBytes(summary.upload)}</p>
           <p>{t("dashboard.download")}: {formatBytes(summary.download)}</p>
           <p>{t("dashboard.healthOutbounds", { count: summary.outbounds })}</p>
-          <p>{t("dashboard.healthNetworks", { tcp: summary.tcp, udp: summary.udp })}</p>
-          <p className="truncate" title={summary.topOutbound}>{t("dashboard.healthTopOutbound")}: {summary.topOutbound}</p>
-          <p className="truncate" title={summary.topRule}>{t("dashboard.healthTopRule")}: {summary.topRule}</p>
+          <p>
+            {t("dashboard.healthNetworksPrefix")}{" "}
+            <DeepLink to={tcpHref}>TCP {summary.tcp}</DeepLink>
+            {" · "}
+            <DeepLink to={udpHref}>UDP {summary.udp}</DeepLink>
+          </p>
+          <p className="truncate" title={summary.topOutbound}>
+            {t("dashboard.healthTopOutbound")}:{" "}
+            <DeepLink to={topOutboundHref}>{summary.topOutbound}</DeepLink>
+          </p>
+          <p className="truncate" title={summary.topRule}>
+            {t("dashboard.healthTopRule")}:{" "}
+            <DeepLink to={topRuleHref}>{summary.topRule}</DeepLink>
+          </p>
         </div>
         {streamError ? <p className="text-sm text-destructive">{streamError}</p> : null}
       </CardContent>

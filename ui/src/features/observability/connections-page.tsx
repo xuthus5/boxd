@@ -1,6 +1,7 @@
 import { Trash2Icon } from "lucide-react"
 import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -30,6 +31,8 @@ import {
   connectionFiltersActive,
   filterConnectionsByFacets,
   listConnectionFacets,
+  parseConnectionSearchParams,
+  type ConnectionFacetFilters,
 } from "@/features/observability/connection-facets"
 import { ConnectionToolbar } from "@/features/observability/connection-toolbar"
 import {
@@ -41,25 +44,39 @@ import { useStreamBuffer } from "@/features/observability/use-stream-buffer"
 import { api } from "@/lib/api/endpoints"
 import type { ConnectionEvent } from "@/lib/api/types"
 
+function filtersToSearchParams(filters: ConnectionFacetFilters): URLSearchParams {
+  const params = new URLSearchParams()
+  const query = filters.query?.trim()
+  if (query) params.set("q", query)
+  if (filters.network) params.set("network", filters.network)
+  if (filters.protocol) params.set("protocol", filters.protocol)
+  if (filters.outbound) params.set("outbound", filters.outbound)
+  if (filters.rule) params.set("rule", filters.rule)
+  return params
+}
+
 export function ConnectionsPage() {
   const { t } = useTranslation()
   const token = useAuth().session!.token
+  const [searchParams, setSearchParams] = useSearchParams()
   const stream = useStreamBuffer<ConnectionEvent>(api.stats.paths.connections, token, 2)
+  const filters = useMemo(() => parseConnectionSearchParams(searchParams), [searchParams])
+  const query = filters.query ?? ""
+  const network = filters.network ?? ""
+  const protocol = filters.protocol ?? ""
+  const outbound = filters.outbound ?? ""
+  const rule = filters.rule ?? ""
   const [closingId, setClosingId] = useState<string | "all" | null>(null)
-  const [query, setQuery] = useState("")
-  const [network, setNetwork] = useState("")
-  const [protocol, setProtocol] = useState("")
   const [sort, setSort] = useState<ConnectionSortKey>("traffic")
   const [columns, setColumns] = useState<ConnectionColumnId[]>(() => loadConnectionColumns())
   const snapshot = stream.items.at(-1)
   const connections = useMemo(() => snapshot?.list ?? [], [snapshot?.list])
-  const filtered = useMemo(
-    () => filterConnectionsByFacets(connections, { query, network: network || undefined, protocol: protocol || undefined }),
-    [connections, network, protocol, query],
-  )
+  const filtered = useMemo(() => filterConnectionsByFacets(connections, filters), [connections, filters])
   const networkOptions = useMemo(() => listConnectionFacets(connections, "network"), [connections])
   const protocolOptions = useMemo(() => listConnectionFacets(connections, "protocol"), [connections])
-  const facetsActive = connectionFiltersActive({ query, network: network || undefined, protocol: protocol || undefined })
+  const outboundOptions = useMemo(() => listConnectionFacets(connections, "outbound"), [connections])
+  const ruleOptions = useMemo(() => listConnectionFacets(connections, "rule"), [connections])
+  const facetsActive = connectionFiltersActive(filters)
   const sorted = useMemo(() => sortConnections(filtered, sort), [filtered, sort])
   const summary = useMemo(() => summarizeConnections(filtered), [filtered])
   const byOutbound = useMemo(() => aggregateConnections(filtered, "outbound"), [filtered])
@@ -74,6 +91,17 @@ export function ConnectionsPage() {
     { label: t("observability.sortByTarget"), value: "target" },
     { label: t("observability.sortByOutbound"), value: "outbound" },
   ]
+
+  const patchFilters = (patch: Partial<ConnectionFacetFilters>) => {
+    const next: ConnectionFacetFilters = {
+      query: patch.query !== undefined ? patch.query : filters.query,
+      network: patch.network !== undefined ? patch.network || undefined : filters.network,
+      protocol: patch.protocol !== undefined ? patch.protocol || undefined : filters.protocol,
+      outbound: patch.outbound !== undefined ? patch.outbound || undefined : filters.outbound,
+      rule: patch.rule !== undefined ? patch.rule || undefined : filters.rule,
+    }
+    setSearchParams(filtersToSearchParams(next), { replace: true })
+  }
 
   const onExport = () => {
     if (!canExport) return
@@ -99,10 +127,10 @@ export function ConnectionsPage() {
 
   const closeGroup = async (field: "outbound" | "rule", key: string) => {
     if (key === "—") return
-    const filters = field === "outbound" ? { outbound: key } : { rule: key }
+    const groupFilters = field === "outbound" ? { outbound: key } : { rule: key }
     setClosingId(`group:${field}:${key}`)
     try {
-      const result = await api.stats.closeAll(filters)
+      const result = await api.stats.closeAll(groupFilters)
       toast.success(t("observability.closedCount", { count: result.closed }))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error))
@@ -165,26 +193,28 @@ export function ConnectionsPage() {
             query={query}
             network={network}
             protocol={protocol}
+            outbound={outbound}
+            rule={rule}
             sort={sort}
             columns={columns}
             networkOptions={networkOptions}
             protocolOptions={protocolOptions}
+            outboundOptions={outboundOptions}
+            ruleOptions={ruleOptions}
             sortOptions={sortOptions}
             facetsActive={facetsActive}
             filteredCount={filtered.length}
             busy={busy}
             canExport={canExport}
             paused={stream.paused}
-            onQueryChange={setQuery}
-            onNetworkChange={setNetwork}
-            onProtocolChange={setProtocol}
+            onQueryChange={(value) => patchFilters({ query: value })}
+            onNetworkChange={(value) => patchFilters({ network: value })}
+            onProtocolChange={(value) => patchFilters({ protocol: value })}
+            onOutboundChange={(value) => patchFilters({ outbound: value })}
+            onRuleChange={(value) => patchFilters({ rule: value })}
             onSortChange={setSort}
             onToggleColumn={onToggleColumn}
-            onClearFacets={() => {
-              setQuery("")
-              setNetwork("")
-              setProtocol("")
-            }}
+            onClearFacets={() => setSearchParams(new URLSearchParams(), { replace: true })}
             onTogglePause={() => stream.setPaused(!stream.paused)}
             onExport={onExport}
             onCloseFiltered={closeFiltered}
