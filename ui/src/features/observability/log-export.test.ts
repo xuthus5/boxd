@@ -6,6 +6,7 @@ import {
   downloadTextFile,
   formatLogExport,
   formatLogLine,
+  formatLogMessage,
 } from "@/features/observability/log-export"
 
 describe("log-export", () => {
@@ -68,4 +69,9 @@ describe("log-export", () => {
       URL.revokeObjectURL = originalRevoke
     }
   })
+  it("formats message-only clipboard text", () => {
+    expect(formatLogMessage({ timestamp: "t", level: "info", message: " hello " })).toBe("hello")
+    expect(formatLogMessage({ message: "" })).toBe("")
+  })
+
 })

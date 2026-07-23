@@ -7,6 +7,10 @@ export function formatLogLine(item: LogEvent): string {
   return `${time}\t${level}\t${message}`
 }
 
+export function formatLogMessage(item: LogEvent): string {
+  return (item.message ?? "").trim()
+}
+
 export function formatLogExport(items: readonly LogEvent[]): string {
   return items.map(formatLogLine).join("\n")
 }
