@@ -148,9 +148,12 @@ describe("api endpoint coverage", () => {
   })
 
   it("builds filtered connection close query", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: "ok", data: { closed: 2 }, error: null, meta: null })))
+    const payload = { status: "ok", data: { closed: 2 }, error: null, meta: null }
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify(payload))))
     vi.stubGlobal("fetch", fetchMock)
     await api.stats.closeAll({ outbound: "proxy" })
     expect(String(fetchMock.mock.calls[0][0])).toContain("/api/stats/connections?outbound=proxy")
+    await api.stats.closeAll({ ids: [1, 2, 3] })
+    expect(String(fetchMock.mock.calls[1][0])).toContain("/api/stats/connections?ids=1%2C2%2C3")
   })
 })

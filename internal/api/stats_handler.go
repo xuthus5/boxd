@@ -5,15 +5,10 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
-	chi "github.com/go-chi/chi/v5"
-
 	"github.com/xuthus5/boxd/internal/core"
-	"github.com/xuthus5/boxd/internal/model"
 )
 
 // statsInstance 抽取 StatsHandler 所需的运行时能力，便于测试注入。
@@ -23,6 +18,7 @@ type statsInstance interface {
 	CloseAllConnections() int
 	CloseConnectionsByOutbound(outbound string) int
 	CloseConnectionsByRule(rule string) int
+	CloseConnectionsByIDs(ids []int64) int
 }
 
 type StatsHandler struct {
@@ -122,50 +118,6 @@ func (h *StatsHandler) TrafficHistory(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"points": points,
 	})
-}
-
-// CloseConnection DELETE /api/stats/connections/{id}
-func (h *StatsHandler) CloseConnection(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, "invalid connection id")
-		return
-	}
-	if h.instance == nil {
-		writeJSONErrorCode(w, http.StatusServiceUnavailable, model.ErrorUnavailable, "service not available")
-		return
-	}
-	if !h.instance.CloseConnection(id) {
-		writeJSONErrorCode(w, http.StatusNotFound, model.ErrorNotFound, "connection not found")
-		return
-	}
-	writeJSONWithMeta(w, http.StatusOK, nil, map[string]int64{"closed_id": id})
-}
-
-// CloseAllConnections DELETE /api/stats/connections
-// Optional query filters: outbound, rule. When both empty, closes all.
-func (h *StatsHandler) CloseAllConnections(w http.ResponseWriter, r *http.Request) {
-	if h.instance == nil {
-		writeJSONErrorCode(w, http.StatusServiceUnavailable, model.ErrorUnavailable, "service not available")
-		return
-	}
-	outbound := strings.TrimSpace(r.URL.Query().Get("outbound"))
-	rule := strings.TrimSpace(r.URL.Query().Get("rule"))
-	if outbound != "" && rule != "" {
-		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, "specify either outbound or rule, not both")
-		return
-	}
-	var count int
-	switch {
-	case outbound != "":
-		count = h.instance.CloseConnectionsByOutbound(outbound)
-	case rule != "":
-		count = h.instance.CloseConnectionsByRule(rule)
-	default:
-		count = h.instance.CloseAllConnections()
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"closed": count, "outbound": outbound, "rule": rule})
 }
 
 func (h *StatsHandler) TrafficSSE(w http.ResponseWriter, r *http.Request) {

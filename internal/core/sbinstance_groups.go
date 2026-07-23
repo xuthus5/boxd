@@ -162,3 +162,14 @@ func (s *SBInstance) CloseConnectionsByRule(rule string) int {
 	}
 	return traffic.CloseConnsByRule(rule)
 }
+
+// CloseConnectionsByIDs closes active connections matching the given IDs.
+func (s *SBInstance) CloseConnectionsByIDs(ids []int64) int {
+	s.mu.Lock()
+	traffic := s.Traffic
+	s.mu.Unlock()
+	if traffic == nil {
+		return 0
+	}
+	return traffic.CloseConnsByIDs(ids)
+}

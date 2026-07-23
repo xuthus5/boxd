@@ -374,6 +374,38 @@ func TestTrafficTrackerCloseConnsByOutboundAndRule(t *testing.T) {
 	}
 }
 
+func TestTrafficTrackerCloseConnsByIDs(t *testing.T) {
+	tracker := NewTrafficTracker()
+	left1, right1 := net.Pipe()
+	left2, right2 := net.Pipe()
+	left3, right3 := net.Pipe()
+	defer left1.Close()
+	defer right1.Close()
+	defer left2.Close()
+	defer right2.Close()
+	defer left3.Close()
+	defer right3.Close()
+
+	if n := tracker.CloseConnsByIDs(nil); n != 0 {
+		t.Fatalf("nil ids = %d", n)
+	}
+	if n := tracker.CloseConnsByIDs([]int64{0, -1}); n != 0 {
+		t.Fatalf("invalid ids = %d", n)
+	}
+
+	tracker.connections.Store(int64(1), &trafficConnInternal{id: 1, outbound: "proxy", closer: left1.Close})
+	tracker.connections.Store(int64(2), &trafficConnInternal{id: 2, outbound: "direct", closer: left2.Close})
+	tracker.connections.Store(int64(3), &trafficConnInternal{id: 3, outbound: "proxy", closer: left3.Close})
+
+	if n := tracker.CloseConnsByIDs([]int64{1, 3, 3, 9}); n != 2 {
+		t.Fatalf("close by ids = %d, want 2", n)
+	}
+	conns := tracker.Connections()
+	if len(conns) != 1 || conns[0].ID != 2 {
+		t.Fatalf("remaining = %#v", conns)
+	}
+}
+
 func TestTrafficTrackerConnectionMetadata(t *testing.T) {
 	tracker := NewTrafficTracker()
 	left, right := net.Pipe()

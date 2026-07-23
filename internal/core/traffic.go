@@ -73,6 +73,26 @@ func (t *TrafficTracker) CloseConnsWhere(pred func(*trafficConnInternal) bool) i
 	return count
 }
 
+// CloseConnsByIDs closes connections whose IDs are listed.
+func (t *TrafficTracker) CloseConnsByIDs(ids []int64) int {
+	if len(ids) == 0 {
+		return 0
+	}
+	wanted := make(map[int64]struct{}, len(ids))
+	for _, id := range ids {
+		if id > 0 {
+			wanted[id] = struct{}{}
+		}
+	}
+	if len(wanted) == 0 {
+		return 0
+	}
+	return t.CloseConnsWhere(func(tc *trafficConnInternal) bool {
+		_, ok := wanted[tc.id]
+		return ok
+	})
+}
+
 // CloseConnsByOutbound closes connections for the given outbound tag.
 func (t *TrafficTracker) CloseConnsByOutbound(outbound string) int {
 	return t.CloseConnsWhere(func(tc *trafficConnInternal) bool {

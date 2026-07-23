@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -555,6 +556,13 @@ func (f *fakeStatsInstance) CloseConnectionsByRule(rule string) int {
 	return f.closeCount
 }
 
+func (f *fakeStatsInstance) CloseConnectionsByIDs(ids []int64) int {
+	if len(ids) == 0 {
+		return 0
+	}
+	return f.closeCount
+}
+
 func TestStatsHandlerCloseConnection(t *testing.T) {
 	tests := []struct {
 		name string
@@ -697,5 +705,68 @@ func TestStatsHandlerCloseConnectionsFiltered(t *testing.T) {
 	handler.CloseAllConnections(rr, req)
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("both filters status = %d", rr.Code)
+	}
+}
+
+func TestStatsHandlerCloseConnectionsByIDs(t *testing.T) {
+	fake := &fakeStatsInstance{closeCount: 2}
+	handler := NewStatsHandler(nil, nil, fake)
+
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, "/api/stats/connections?ids=1,2,2,3", nil)
+	handler.CloseAllConnections(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	envelope := decodeEnvelope(t, rr)
+	data, ok := envelope.Data.(map[string]any)
+	if !ok {
+		t.Fatalf("data = %#v", envelope.Data)
+	}
+	if data["closed"] != float64(2) || data["ids"] != "1,2,2,3" {
+		t.Fatalf("data = %#v", data)
+	}
+
+	rr = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodDelete, "/api/stats/connections?ids=abc", nil)
+	handler.CloseAllConnections(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("invalid ids status = %d", rr.Code)
+	}
+
+	rr = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodDelete, "/api/stats/connections?ids=1&outbound=proxy", nil)
+	handler.CloseAllConnections(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("mixed filters status = %d", rr.Code)
+	}
+}
+
+func TestParseConnectionIDs(t *testing.T) {
+	ids, err := parseConnectionIDs("1, 2,2, 3")
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if len(ids) != 3 || ids[0] != 1 || ids[1] != 2 || ids[2] != 3 {
+		t.Fatalf("ids = %#v", ids)
+	}
+	if _, err := parseConnectionIDs("0"); err == nil {
+		t.Fatal("expected invalid zero id")
+	}
+	if _, err := parseConnectionIDs(""); err != nil {
+		t.Fatalf("empty err = %v", err)
+	}
+	parts := make([]string, 0, maxCloseConnectionIDs+1)
+	for i := 1; i <= maxCloseConnectionIDs+1; i++ {
+		parts = append(parts, strconv.Itoa(i))
+	}
+	if _, err := parseConnectionIDs(strings.Join(parts, ",")); err == nil {
+		t.Fatal("expected too many ids error")
+	}
+	rr := httptest.NewRecorder()
+	handler := NewStatsHandler(nil, nil, &fakeStatsInstance{closeCount: 1})
+	handler.CloseAllConnections(rr, httptest.NewRequest(http.MethodDelete, "/api/stats/connections?ids=,,,", nil))
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("blank ids query status = %d", rr.Code)
 	}
 }

@@ -90,12 +90,13 @@ export const api = {
   },
   stats: {
     history: () => apiRequest<{ points: TrafficHistoryPoint[] }>("/api/stats/traffic/history"),
-    closeAll: (filters?: { outbound?: string; rule?: string }) => {
+    closeAll: (filters?: { outbound?: string; rule?: string; ids?: string[] | number[] }) => {
       const query = new URLSearchParams()
       if (filters?.outbound) query.set("outbound", filters.outbound)
       if (filters?.rule) query.set("rule", filters.rule)
+      if (filters?.ids?.length) query.set("ids", filters.ids.map(String).join(","))
       const suffix = query.size ? `?${query}` : ""
-      return apiRequest<{ closed: number; outbound?: string; rule?: string }>(`/api/stats/connections${suffix}`, json("DELETE"))
+      return apiRequest<{ closed: number; outbound?: string; rule?: string; ids?: string }>(`/api/stats/connections${suffix}`, json("DELETE"))
     },
     closeConnection: (id: string) => apiRequest<void>(`/api/stats/connections/${segment(id)}`, json("DELETE")),
     paths: {

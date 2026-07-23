@@ -491,6 +491,34 @@ func TestCloseConnectionsOnStoppedInstance(t *testing.T) {
 	}
 }
 
+func TestCloseConnectionsByIDsWiring(t *testing.T) {
+	selector := &fakeSelectorOutbound{tag: "proxy", outType: "selector", all: []string{"a", "b"}, now: "a"}
+	instance := startInstanceWithBox(t, newSelectorFakeBox(selector))
+
+	l1, r1 := net.Pipe()
+	l2, r2 := net.Pipe()
+	defer func() { _ = r1.Close(); _ = r2.Close() }()
+	_ = instance.Traffic.RoutedConnection(context.Background(), l1, adapter.InboundContext{Destination: M.ParseSocksaddr("a.example:443")}, nil, fakeOutbound{tag: "proxy"})
+	_ = instance.Traffic.RoutedConnection(context.Background(), l2, adapter.InboundContext{Destination: M.ParseSocksaddr("b.example:443")}, nil, fakeOutbound{tag: "direct"})
+
+	if n := instance.CloseConnectionsByIDs([]int64{1}); n != 1 {
+		t.Fatalf("CloseConnectionsByIDs = %d, want 1", n)
+	}
+	if n := instance.CloseConnectionsByIDs([]int64{1, 2}); n != 1 {
+		t.Fatalf("second CloseConnectionsByIDs = %d, want 1", n)
+	}
+	if n := instance.CloseConnectionsByIDs(nil); n != 0 {
+		t.Fatalf("nil ids = %d", n)
+	}
+}
+
+func TestCloseConnectionsByIDsOnStoppedInstance(t *testing.T) {
+	instance := &SBInstance{}
+	if n := instance.CloseConnectionsByIDs([]int64{1}); n != 0 {
+		t.Fatalf("stopped CloseConnectionsByIDs = %d", n)
+	}
+}
+
 // ---- T5: URLTest 分组延迟 ----
 
 type fakeURLTestOutbound struct {

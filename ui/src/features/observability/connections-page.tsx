@@ -207,12 +207,18 @@ export function ConnectionsPage() {
                 confirmLabel={t("observability.confirmClose")}
                 confirmVariant="destructive"
                 onConfirm={() => {
-                  const ids = filtered.map((item) => String(item.id))
-                  void run(
-                    Promise.all(ids.map((id) => api.stats.closeConnection(id))),
-                    t("observability.closedCount", { count: ids.length }),
-                    "filtered",
-                  )
+                  const ids = filtered.map((item) => item.id)
+                  void (async () => {
+                    setClosingId("filtered")
+                    try {
+                      const result = await api.stats.closeAll({ ids })
+                      toast.success(t("observability.closedCount", { count: result.closed }))
+                    } catch (error) {
+                      toast.error(error instanceof Error ? error.message : String(error))
+                    } finally {
+                      setClosingId(null)
+                    }
+                  })()
                 }}
               />
             ) : null}
