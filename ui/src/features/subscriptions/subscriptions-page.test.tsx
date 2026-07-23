@@ -1,4 +1,5 @@
 import { screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import App from "@/App"
@@ -67,5 +68,48 @@ describe("SubscriptionsPage", () => {
     expect(newer.compareDocumentPosition(older) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.getByRole("button", { name: /重试失败/ })).toBeInTheDocument()
     expect(screen.getByText("timeout")).toBeInTheDocument()
+  })
+})
+
+
+describe("SubscriptionsPage deep links", () => {
+  function mockSubs(items: unknown[]) {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
+      const path = typeof input === "string" ? input : input.toString()
+      const data = path.endsWith("/urltest-defaults")
+        ? { enabled: true, url: "https://www.gstatic.com/generate_204", interval: "3m", tolerance: 50 }
+        : path.endsWith("/nodes/") ? [] : items
+      return Promise.resolve(new Response(JSON.stringify(data)))
+    }))
+  }
+
+  it("seeds filters from deep-link query params", async () => {
+    mockSubs([
+      { id: "ok", name: "正常订阅", url: "https://example.com/ok", interval_min: 60, last_updated: "2026-06-01T00:00:00Z", outbounds: [] },
+      { id: "bad", name: "失败订阅", url: "https://example.com/bad", interval_min: 60, last_updated: "2026-02-01T00:00:00Z", outbounds: [], error: "timeout" },
+    ])
+    renderApp(<App />, "/subscriptions?status=error&q=失败")
+    expect(await screen.findByLabelText("搜索订阅")).toHaveValue("失败")
+    expect(screen.getByRole("button", { name: "仅失败" })).toHaveAttribute("aria-pressed", "true")
+    expect(screen.getByText("失败订阅")).toBeInTheDocument()
+    expect(screen.queryByText("正常订阅")).not.toBeInTheDocument()
+  })
+
+  it("updates URL filters from the toolbar", async () => {
+    mockSubs([
+      { id: "ok", name: "正常订阅", url: "https://example.com/ok", interval_min: 60, last_updated: "2026-06-01T00:00:00Z", outbounds: [] },
+      { id: "bad", name: "失败订阅", url: "https://example.com/bad", interval_min: 60, last_updated: "2026-02-01T00:00:00Z", outbounds: [], error: "timeout" },
+    ])
+    const user = userEvent.setup()
+    renderApp(<App />, "/subscriptions")
+    await screen.findByText("正常订阅")
+    await user.click(screen.getByRole("button", { name: "仅失败" }))
+    expect(screen.getByText("失败订阅")).toBeInTheDocument()
+    expect(screen.queryByText("正常订阅")).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "清除筛选" })).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "清除筛选" }))
+    expect(screen.getByText("正常订阅")).toBeInTheDocument()
+    expect(screen.getByText("失败订阅")).toBeInTheDocument()
   })
 })

@@ -41,3 +41,42 @@ export function filterSubscriptions(
 export function failedSubscriptionIds(items: Subscription[]) {
   return items.filter((item) => Boolean(item.error)).map((item) => item.id)
 }
+
+export type SubscriptionListFilters = {
+  query?: string
+  status?: SubscriptionFilter
+}
+
+const STATUS_VALUES = new Set<SubscriptionFilter>(["all", "error", "ok"])
+
+function readParam(params: { get(name: string): string | null }, key: string): string | undefined {
+  const value = params.get(key)?.trim()
+  return value ? value : undefined
+}
+
+export function parseSubscriptionSearchParams(
+  params: URLSearchParams | { get(name: string): string | null },
+): SubscriptionListFilters {
+  const query = readParam(params, "q")
+  const statusRaw = readParam(params, "status") as SubscriptionFilter | undefined
+  const status = statusRaw && STATUS_VALUES.has(statusRaw) ? statusRaw : undefined
+  return { query, status }
+}
+
+export function toSubscriptionSearchParams(filters: SubscriptionListFilters = {}): URLSearchParams {
+  const params = new URLSearchParams()
+  const query = filters.query?.trim()
+  if (query) params.set("q", query)
+  if (filters.status && filters.status !== "all") params.set("status", filters.status)
+  return params
+}
+
+export function buildSubscriptionsHref(filters: SubscriptionListFilters = {}): string {
+  const qs = toSubscriptionSearchParams(filters).toString()
+  return qs ? `/subscriptions?${qs}` : "/subscriptions"
+}
+
+export function subscriptionFiltersActive(filters: SubscriptionListFilters): boolean {
+  return Boolean(filters.query?.trim() || (filters.status && filters.status !== "all"))
+}
+

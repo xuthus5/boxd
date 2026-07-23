@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  buildSubscriptionsHref,
   failedSubscriptionIds,
   filterSubscriptions,
   matchesSubscription,
+  parseSubscriptionSearchParams,
   sortSubscriptions,
+  subscriptionFiltersActive,
+  toSubscriptionSearchParams,
 } from "@/features/subscriptions/subscription-list"
 import type { Subscription } from "@/lib/api/types"
 
@@ -29,5 +33,21 @@ describe("subscription-list", () => {
 
   it("lists failed ids", () => {
     expect(failedSubscriptionIds(sample)).toEqual(["a", "c"])
+  })
+
+  it("parses and builds subscription deep-link query strings", () => {
+    expect(parseSubscriptionSearchParams(new URLSearchParams("q=主&status=error"))).toEqual({
+      query: "主",
+      status: "error",
+    })
+    expect(parseSubscriptionSearchParams(new URLSearchParams("status=nope"))).toEqual({
+      query: undefined,
+      status: undefined,
+    })
+    expect(buildSubscriptionsHref({ status: "error" })).toBe("/subscriptions?status=error")
+    expect(buildSubscriptionsHref({ status: "all", query: "  " })).toBe("/subscriptions")
+    expect(toSubscriptionSearchParams({ query: "hk", status: "ok" }).toString()).toBe("q=hk&status=ok")
+    expect(subscriptionFiltersActive({ status: "error" })).toBe(true)
+    expect(subscriptionFiltersActive({})).toBe(false)
   })
 })

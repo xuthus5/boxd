@@ -2,6 +2,7 @@ import { PlusIcon, RefreshCcwIcon, Trash2Icon } from "lucide-react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useId, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -18,7 +19,11 @@ import { formatRelativeTime } from "@/features/subscriptions/relative-time"
 import {
   failedSubscriptionIds,
   filterSubscriptions,
+  parseSubscriptionSearchParams,
+  subscriptionFiltersActive,
+  toSubscriptionSearchParams,
   type SubscriptionFilter,
+  type SubscriptionListFilters,
 } from "@/features/subscriptions/subscription-list"
 import { SubscriptionTrafficBadges } from "@/features/subscriptions/subscription-traffic"
 import { api } from "@/lib/api/endpoints"
@@ -85,9 +90,14 @@ export function SubscriptionsPage() {
   const client = useQueryClient()
   const listTitleId = useId()
   const [editing, setEditing] = useState<Subscription | "new" | null>(null)
-  const [search, setSearch] = useState("")
-  const [status, setStatus] = useState<SubscriptionFilter>("all")
+  const [searchParams, setSearchParams] = useSearchParams()
+  const filters = useMemo(() => parseSubscriptionSearchParams(searchParams), [searchParams])
+  const search = filters.query ?? ""
+  const status = (filters.status ?? "all") as SubscriptionFilter
   const [retrying, setRetrying] = useState(false)
+  const writeFilters = (next: SubscriptionListFilters) => {
+    setSearchParams(toSubscriptionSearchParams(next), { replace: true })
+  }
   const query = useQuery({ queryKey: ["subscriptions"], queryFn: api.subscriptions.list })
   const defaults = useQuery({ queryKey: ["settings", "urltest-defaults"], queryFn: api.settings.urlTestDefaults })
   const refresh = () => Promise.all([
@@ -116,6 +126,7 @@ export function SubscriptionsPage() {
 
   const retryFailed = async () => {
     if (!failedIds.length) return
+    writeFilters({ query: filters.query, status: "error" })
     setRetrying(true)
     let ok = 0
     let failed = 0
@@ -167,9 +178,10 @@ export function SubscriptionsPage() {
             <Input
               id="subscriptions-search"
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => writeFilters({ query: event.target.value, status: filters.status })}
               placeholder={t("subscriptions.searchPlaceholder")}
               className="sm:max-w-sm"
+              aria-label={t("subscriptions.search")}
             />
             <div className="flex flex-wrap gap-2">
               {([
@@ -181,11 +193,24 @@ export function SubscriptionsPage() {
                   key={value}
                   size="sm"
                   variant={status === value ? "default" : "outline"}
-                  onClick={() => setStatus(value)}
+                  aria-pressed={status === value}
+                  onClick={() => writeFilters({
+                    query: filters.query,
+                    status: value === "all" ? undefined : value,
+                  })}
                 >
                   {label}
                 </Button>
               ))}
+              {subscriptionFiltersActive(filters) ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => writeFilters({})}
+                >
+                  {t("subscriptions.clearFilters")}
+                </Button>
+              ) : null}
             </div>
           </div>
         ) : null}
