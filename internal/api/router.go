@@ -151,6 +151,8 @@ func NewRouter(
 		r.Get("/memory", kernelHandler.Memory)
 		r.Post("/gc", kernelHandler.GC)
 		r.Post("/dns/flush", runtimeHandler.FlushDNS)
+		r.Post("/dns/probe", runtimeHandler.ProbeDNS)
+		r.Post("/dns/probe-batch", runtimeHandler.ProbeDNSBatch)
 		r.Post("/fakeip/flush", runtimeHandler.FlushFakeIP)
 		r.Get("/clash-mode", runtimeHandler.GetClashMode)
 		r.Put("/clash-mode", runtimeHandler.SetClashMode)

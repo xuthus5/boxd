@@ -29,6 +29,8 @@ const payloads: Record<string, unknown> = {
   "/api/runtime/version": { version: "dev", kernel_version: "1.13.14" },
   "/api/nodes/": [{ tag: "hk-01", type: "vless", server: "example.com", port: 443, source: "import", raw: {} }],
   "/api/nodes/test": { tag: "hk-01", test_type: "http", success: true, latency_ms: 25 },
+  "/api/runtime/dns/probe": { tag: "cf", type: "udp", success: true, latency_ms: 12 },
+  "/api/runtime/dns/probe-batch": { results: [{ tag: "cf", type: "udp", success: true, latency_ms: 12 }] },
   "/api/import/link": { tag: "new-node", type: "vless", server: "new.example.com", port: 443, config: {} },
   "/api/subscriptions/": [{ id: "sub-1", name: "主订阅", url: "https://example.com/sub", interval_min: 60, last_updated: "2026-01-01T00:00:00Z", outbounds: [] }],
   "/api/settings/password": { defaultPassword: false },

@@ -22,6 +22,8 @@ import type {
   VersionInfo,
   NetworkInterfaceInfo,
   UIPreferences,
+  DNSProbeInput,
+  DNSProbeResult,
 } from "@/lib/api/types"
 
 const json = (method: string, body?: unknown): RequestInit => ({
@@ -186,6 +188,11 @@ export const api = {
     memory: () => apiRequest<MemoryStats>("/api/runtime/memory"),
     gc: () => apiRequest<void>("/api/runtime/gc", json("POST")),
     flushDNS: () => apiRequest<void>("/api/runtime/dns/flush", json("POST")),
+    probeDNS: (input: DNSProbeInput) => apiRequest<DNSProbeResult>("/api/runtime/dns/probe", json("POST", input)),
+    probeDNSBatch: (items: DNSProbeInput[], concurrency = 8) => apiRequest<{ results: DNSProbeResult[] }>(
+      "/api/runtime/dns/probe-batch",
+      json("POST", { items, concurrency }),
+    ),
     flushFakeIP: () => apiRequest<void>("/api/runtime/fakeip/flush", json("POST")),
     clashMode: () => apiRequest<ClashModeStatus>("/api/runtime/clash-mode"),
     setClashMode: (mode: string) => apiRequest<ClashModeStatus>("/api/runtime/clash-mode", json("PUT", { mode })),

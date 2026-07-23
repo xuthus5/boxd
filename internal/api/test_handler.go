@@ -138,11 +138,13 @@ func (h *TestHandler) RunBatch(w http.ResponseWriter, r *http.Request) {
 
 var defaultBatchConcurrency = 8
 
-func firstNonEmpty(a, b string) string {
-	if a != "" {
-		return a
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
 	}
-	return b
+	return ""
 }
 
 func nonEmpty(a, fallback string) string {

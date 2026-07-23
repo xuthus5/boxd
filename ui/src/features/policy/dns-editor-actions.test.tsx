@@ -89,7 +89,7 @@ describe("DNS mobile secondary actions", () => {
   it("runs server copy and delete from the DropdownMenu", async () => {
     const onCopy = vi.fn()
     const onDelete = vi.fn()
-    renderApp(<DNSServerCard item={{ tag: "dns", address: "local" }} onEdit={vi.fn()} onCopy={onCopy} onDelete={onDelete} />)
+    renderEditor(<DNSServerCard item={{ tag: "dns", address: "local" }} onEdit={vi.fn()} onCopy={onCopy} onDelete={onDelete} />)
     await userEvent.click(screen.getByRole("button", { name: "更多 DNS 服务器 dns" }))
     await userEvent.click(await screen.findByRole("menuitem", { name: "复制" }))
     expect(onCopy).toHaveBeenCalledOnce()

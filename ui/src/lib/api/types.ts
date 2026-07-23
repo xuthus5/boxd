@@ -134,6 +134,26 @@ export interface TestResult {
   error?: string
 }
 
+export interface DNSProbeInput {
+  tag?: string
+  type?: string
+  server?: string
+  server_port?: number
+  address?: string
+  domain?: string
+  path?: string
+}
+
+export interface DNSProbeResult {
+  tag: string
+  type?: string
+  success: boolean
+  latency_ms?: number
+  error?: string
+  domain?: string
+  answers?: string[]
+}
+
 export interface ApiErrorBody {
   code: string
   message: string
