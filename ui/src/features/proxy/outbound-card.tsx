@@ -1,13 +1,18 @@
-import { PencilIcon, Trash2Icon } from "lucide-react"
+import { ActivityIcon, PencilIcon, ScrollTextIcon, Trash2Icon } from "lucide-react"
 import { useId } from "react"
 import { useTranslation } from "react-i18next"
+import { Link } from "react-router-dom"
 
 import { ConfirmAction } from "@/components/confirm-action"
 import { CopyTagButton } from "@/features/proxy/copy-tag-button"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { buildConnectionsHref } from "@/features/observability/connection-facets"
+import { buildLogsHref } from "@/features/observability/log-filter-presets"
+import { buildNodesHref } from "@/features/nodes/nodes-filter"
 import type { JsonValue } from "@/lib/api/types"
+import { cn } from "@/lib/utils"
 
 type JsonObject = Record<string, JsonValue>
 
@@ -59,6 +64,33 @@ export function OutboundCard({ item, onEdit, onDelete }: { item: JsonObject; onE
             <p className="truncate text-xs text-muted-foreground sm:text-sm">
               {t("proxy.outbound.detourSummary", { detour: text(item.detour) })}
             </p>
+          ) : null}
+          {tag !== "—" ? (
+            <div className="flex flex-wrap gap-1.5">
+              <Link
+                to={buildConnectionsHref({ outbound: tag })}
+                aria-label={`${t("proxy.viewConnections")}: ${tag}`}
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+              >
+                <ActivityIcon data-icon="inline-start" />
+                {t("proxy.viewConnections")}
+              </Link>
+              <Link
+                to={buildNodesHref({ query: tag })}
+                aria-label={`${t("proxy.viewNode")}: ${tag}`}
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+              >
+                {t("proxy.viewNode")}
+              </Link>
+              <Link
+                to={buildLogsHref({ query: tag })}
+                aria-label={`${t("proxy.viewLogs")}: ${tag}`}
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+              >
+                <ScrollTextIcon data-icon="inline-start" />
+                {t("proxy.viewLogs")}
+              </Link>
+            </div>
           ) : null}
         </CardContent>
         <CardFooter className="justify-end">

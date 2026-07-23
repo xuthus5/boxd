@@ -4,6 +4,7 @@ import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { I18nextProvider } from "react-i18next"
+import { MemoryRouter } from "react-router-dom"
 import { toast } from "sonner"
 
 import { RuntimeGroupCard, RuntimeGroupsCard } from "@/features/nodes/runtime-groups-card"
@@ -13,7 +14,7 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
 function wrap(ui: ReactElement) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
-  return render(<I18nextProvider i18n={i18n}><QueryClientProvider client={client}>{ui}</QueryClientProvider></I18nextProvider>)
+  return render(<I18nextProvider i18n={i18n}><QueryClientProvider client={client}><MemoryRouter>{ui}</MemoryRouter></QueryClientProvider></I18nextProvider>)
 }
 
 afterEach(() => {
@@ -39,6 +40,18 @@ describe("RuntimeGroupCard", () => {
     await user.click(screen.getByRole("combobox", { name: "proxy" }))
     await user.click(await screen.findByRole("option", { name: "b" }))
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/nodes/selectors/proxy/select"), expect.objectContaining({ method: "POST" })))
+  })
+
+  it("deep-links current member to connections and logs", () => {
+    wrap(<RuntimeGroupCard group={{ type: "selector", tag: "proxy", now: "a", all: ["a", "b"] }} />)
+    expect(screen.getByRole("link", { name: "查看连接: a" })).toHaveAttribute(
+      "href",
+      "/observability/connections?outbound=a",
+    )
+    expect(screen.getByRole("link", { name: "查看日志: a" })).toHaveAttribute(
+      "href",
+      "/observability/logs?q=a",
+    )
   })
 
   it("reports selector selection errors", async () => {
