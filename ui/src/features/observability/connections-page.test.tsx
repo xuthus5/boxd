@@ -323,4 +323,19 @@ describe("ConnectionsPage", () => {
     expect(await screen.findByText(/已关闭/)).toBeInTheDocument()
   })
 
+
+  it("clears facets from the empty-state action", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    mockConnectionsFetch()
+    const user = userEvent.setup()
+    renderApp(<App />, "/observability/connections?network=udp&q=missing-host")
+
+    expect(await screen.findByText("无匹配连接")).toBeInTheDocument()
+    const clearButtons = screen.getAllByRole("button", { name: "清除筛选" })
+    expect(clearButtons.length).toBeGreaterThan(1)
+    await user.click(clearButtons[clearButtons.length - 1])
+    expect(await screen.findByText("example.com:443")).toBeInTheDocument()
+    expect(screen.getByText("cdn.example.net:443")).toBeInTheDocument()
+  })
+
 })

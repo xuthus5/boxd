@@ -165,6 +165,10 @@ export function ConnectionsPage() {
     setColumns((current) => saveConnectionColumns(toggleConnectionColumn(current, id, enabled)))
   }
 
+  const clearFacets = () => {
+    setSearchParams(toConnectionSearchParams({ view: filters.view }), { replace: true })
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -224,7 +228,7 @@ export function ConnectionsPage() {
             onProcessChange={(value) => patchFilters({ process: value })}
             onSortChange={setSort}
             onToggleColumn={onToggleColumn}
-            onClearFacets={() => setSearchParams(toConnectionSearchParams({ view: filters.view }), { replace: true })}
+            onClearFacets={clearFacets}
             onTogglePause={() => stream.setPaused(!stream.paused)}
             onExport={onExport}
             onCloseFiltered={closeFiltered}
@@ -245,6 +249,8 @@ export function ConnectionsPage() {
                   columns={columns}
                   busy={busy}
                   onClose={(id) => void run(api.stats.closeConnection(id), t("observability.close"), id)}
+                  emptyActionLabel={facetsActive ? t("observability.clearFacets") : undefined}
+                  onEmptyAction={facetsActive ? clearFacets : undefined}
                 />
               </TabsContent>
               <TabsContent value="outbound" className="mt-3">
@@ -255,6 +261,8 @@ export function ConnectionsPage() {
                   onCloseGroup={closeGroup}
                   emptyTitle={t("observability.noMatch")}
                   emptyDescription={t("observability.noMatchDescription")}
+                  emptyActionLabel={facetsActive ? t("observability.clearFacets") : undefined}
+                  onEmptyAction={facetsActive ? clearFacets : undefined}
                 />
               </TabsContent>
               <TabsContent value="rule" className="mt-3">
@@ -265,6 +273,8 @@ export function ConnectionsPage() {
                   onCloseGroup={closeGroup}
                   emptyTitle={t("observability.noMatch")}
                   emptyDescription={t("observability.noMatchDescription")}
+                  emptyActionLabel={facetsActive ? t("observability.clearFacets") : undefined}
+                  onEmptyAction={facetsActive ? clearFacets : undefined}
                 />
               </TabsContent>
               <TabsContent value="process" className="mt-3">
@@ -275,6 +285,8 @@ export function ConnectionsPage() {
                   onCloseGroup={closeGroup}
                   emptyTitle={t("observability.noMatch")}
                   emptyDescription={t("observability.noMatchDescription")}
+                  emptyActionLabel={facetsActive ? t("observability.clearFacets") : undefined}
+                  onEmptyAction={facetsActive ? clearFacets : undefined}
                 />
               </TabsContent>
             </Tabs>

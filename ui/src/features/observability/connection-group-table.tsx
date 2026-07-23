@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ConfirmAction } from "@/components/confirm-action"
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { formatBytes } from "@/features/dashboard/format"
 import type { ConnectionGroupStat } from "@/features/observability/connection-stats"
@@ -16,9 +16,9 @@ function CloseGroupButton({
   onCloseGroup,
 }: {
   group: ConnectionGroupStat
-  field: "outbound" | "rule" | "process" | "process"
+  field: "outbound" | "rule" | "process"
   busy: boolean
-  onCloseGroup: (field: "outbound" | "rule" | "process" | "process", key: string) => void
+  onCloseGroup: (field: "outbound" | "rule" | "process", key: string) => void
 }) {
   const { t } = useTranslation()
   return (
@@ -44,13 +44,17 @@ export function ConnectionGroupTable({
   onCloseGroup,
   emptyTitle,
   emptyDescription,
+  emptyActionLabel,
+  onEmptyAction,
 }: {
   groups: ConnectionGroupStat[]
-  field: "outbound" | "rule" | "process" | "process"
+  field: "outbound" | "rule" | "process"
   busy: boolean
-  onCloseGroup: (field: "outbound" | "rule" | "process" | "process", key: string) => void
+  onCloseGroup: (field: "outbound" | "rule" | "process", key: string) => void
   emptyTitle: string
   emptyDescription: string
+  emptyActionLabel?: string
+  onEmptyAction?: () => void
 }) {
   const { t } = useTranslation()
   const isMobile = useIsMobile()
@@ -61,6 +65,13 @@ export function ConnectionGroupTable({
           <EmptyTitle>{emptyTitle}</EmptyTitle>
           <EmptyDescription>{emptyDescription}</EmptyDescription>
         </EmptyHeader>
+        {emptyActionLabel && onEmptyAction ? (
+          <EmptyContent>
+            <Button type="button" variant="outline" onClick={onEmptyAction}>
+              {emptyActionLabel}
+            </Button>
+          </EmptyContent>
+        ) : null}
       </Empty>
     )
   }

@@ -9,7 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -192,6 +192,8 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
     writeFilters({ tab: sharedTab() })
   }
 
+  const hasActiveFilter = Boolean(filter.trim()) || minimum !== "all" || Boolean(activePreset)
+
   return <Card>
     <CardHeader>
       <CardTitle>{title}</CardTitle>
@@ -213,7 +215,23 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
       />
       <ScrollArea className="h-[32rem]">
         {items.length === 0
-          ? <Empty><EmptyHeader><EmptyTitle>{t("observability.noLogs")}</EmptyTitle><EmptyDescription>{t("observability.waitLogs")}</EmptyDescription></EmptyHeader></Empty>
+          ? <Empty>
+            <EmptyHeader>
+              <EmptyTitle>
+                {hasActiveFilter ? t("observability.noMatchLogs") : t("observability.noLogs")}
+              </EmptyTitle>
+              <EmptyDescription>
+                {hasActiveFilter ? t("observability.noMatchLogsDescription") : t("observability.waitLogs")}
+              </EmptyDescription>
+            </EmptyHeader>
+            {hasActiveFilter ? (
+              <EmptyContent>
+                <Button type="button" variant="outline" onClick={onClear}>
+                  {t("observability.clearLogFilter")}
+                </Button>
+              </EmptyContent>
+            ) : null}
+          </Empty>
           : <Table>
             <TableHeader><TableRow>
               <TableHead>{t("observability.time")}</TableHead>

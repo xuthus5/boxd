@@ -101,6 +101,40 @@ describe("LogsPage", () => {
   })
 
 
+
+  it("clears log filters from empty-state action", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
+      const raw = typeof input === "string" ? input : input instanceof URL ? input.pathname : new URL(input.url).pathname
+      const path = raw.split("?")[0]
+      if (path.endsWith("/api/stats/logs") || path.endsWith("/api/stats/app-logs")) {
+        return Promise.resolve(sse({
+          level: "info",
+          message: "kernel ready",
+          timestamp: "2026-01-01T00:00:00Z",
+        }))
+      }
+      if (path.endsWith("/api/settings/preferences")) {
+        return Promise.resolve(new Response(JSON.stringify({
+          theme: "system", language: "zh", minimumLogLevel: "all",
+        })))
+      }
+      if (path.endsWith("/api/settings/password")) {
+        return Promise.resolve(new Response(JSON.stringify({ defaultPassword: false })))
+      }
+      return Promise.resolve(new Response(JSON.stringify({})))
+    }))
+    const user = userEvent.setup()
+    renderApp(<App />, "/observability/logs?q=missing-token")
+
+    const panel = await screen.findByRole("tabpanel")
+    expect(await within(panel).findByText("无匹配日志")).toBeInTheDocument()
+    // Toolbar clear + empty-state clear can both exist; use the empty-state (last) action.
+    const clearButtons = within(panel).getAllByRole("button", { name: "清除过滤" })
+    await user.click(clearButtons[clearButtons.length - 1])
+    expect(await within(panel).findByText("kernel ready")).toBeInTheDocument()
+  })
+
 })
 
 

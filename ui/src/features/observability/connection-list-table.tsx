@@ -5,7 +5,7 @@ import { toast } from "sonner"
 
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
   CONNECTION_COLUMNS,
@@ -156,11 +156,15 @@ export function ConnectionListTable({
   columns,
   busy,
   onClose,
+  emptyActionLabel,
+  onEmptyAction,
 }: {
   connections: Connection[]
   columns: readonly ConnectionColumnId[]
   busy: boolean
   onClose: (id: string) => void
+  emptyActionLabel?: string
+  onEmptyAction?: () => void
 }) {
   const { t } = useTranslation()
   const isMobile = useIsMobile()
@@ -171,6 +175,13 @@ export function ConnectionListTable({
           <EmptyTitle>{t("observability.noMatch")}</EmptyTitle>
           <EmptyDescription>{t("observability.noMatchDescription")}</EmptyDescription>
         </EmptyHeader>
+        {emptyActionLabel && onEmptyAction ? (
+          <EmptyContent>
+            <Button type="button" variant="outline" onClick={onEmptyAction}>
+              {emptyActionLabel}
+            </Button>
+          </EmptyContent>
+        ) : null}
       </Empty>
     )
   }
