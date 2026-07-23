@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/xuthus5/boxd/internal/core"
@@ -349,5 +350,14 @@ func TestInstallDefaultInboundsNilInstaller(t *testing.T) {
 	handler.InstallDefaultInbounds(rr, httptest.NewRequest(http.MethodPost, "/api/config/inbounds/defaults", nil))
 	if rr.Code != http.StatusNotImplemented {
 		t.Fatalf("status = %d path=%s", rr.Code, path)
+	}
+}
+
+func TestRestartFailureMessage(t *testing.T) {
+	if got := restartFailureMessage(errors.New("listen tcp :1080: bind")); !strings.Contains(got, "bind") {
+		t.Fatalf("got %q", got)
+	}
+	if got := restartFailureMessage(errors.New("  ")); got != "restart failed after config save" {
+		t.Fatalf("empty detail = %q", got)
 	}
 }

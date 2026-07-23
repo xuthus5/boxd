@@ -64,6 +64,8 @@ describe("ConnectionsPage", () => {
     renderApp(<App />, "/observability/connections")
 
     expect(await screen.findByText("example.com:443")).toBeInTheDocument()
+    expect(screen.getByText("显示 2 条")).toBeInTheDocument()
+    expect(screen.getByText(/2 个出口/)).toBeInTheDocument()
     expect(screen.getByText("geosite-google")).toBeInTheDocument()
     expect(screen.getByText("1s")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "关闭全部连接" })).toBeInTheDocument()

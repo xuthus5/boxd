@@ -15,6 +15,7 @@ import { InboundCard } from "@/features/proxy/inbound-card"
 import { OutboundCard } from "@/features/proxy/outbound-card"
 import { RuntimeGroupCard } from "@/features/nodes/runtime-groups-card"
 import { api } from "@/lib/api/endpoints"
+import { rolledBackMessage } from "@/lib/api/status"
 import type { JsonValue, OutboundGroup, Subscription } from "@/lib/api/types"
 
 type JsonObject = Record<string, JsonValue>
@@ -79,7 +80,7 @@ export function ProxyListPage({ configKey, title, addLabel }: { configKey: "inbo
   if (query.error) return <Alert variant="destructive"><AlertTitle>{t("common.loadFailed")}</AlertTitle><AlertDescription>{query.error.message}</AlertDescription></Alert>
   const items = objects(query.data?.[configKey])
   const persist = (nextItems: JsonObject[]) => save.mutate({ ...query.data!, [configKey]: nextItems }, {
-    onSuccess: (response) => response.status === "rolled_back" ? toast.error(t("proxy.rolledBack")) : toast.success(t("proxy.saved")),
+    onSuccess: (response) => response.status === "rolled_back" ? toast.error(rolledBackMessage(response, t("proxy.rolledBack"))) : toast.success(t("proxy.saved")),
     onError: (error) => toast.error(error.message),
   })
   const saveItem = (item: JsonObject) => {

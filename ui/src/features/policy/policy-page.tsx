@@ -25,6 +25,7 @@ import {
 } from "@/features/policy/policy-form-model"
 import type { APIEnvelope, JsonValue } from "@/lib/api/types"
 import { api } from "@/lib/api/endpoints"
+import { rolledBackMessage } from "@/lib/api/status"
 
 export interface PolicyVisualEditorProps {
   object: JsonObject
@@ -227,7 +228,7 @@ export function PolicyPage({
   const persist = (object: JsonObject) => save.mutate({ ...query.data!, [section]: object }, {
     onSuccess: async (response) => {
       if (response.status === "rolled_back") {
-        toast.error(t("policy.rolledBack"))
+        toast.error(rolledBackMessage(response, t("policy.rolledBack")))
         return
       }
       try {
@@ -242,7 +243,7 @@ export function PolicyPage({
   })
   const installDefaults = () => install()
     .then((response) => {
-      if (response.status === "rolled_back") throw new Error(t("policy.rolledBack"))
+      if (response.status === "rolled_back") throw new Error(rolledBackMessage(response, t("policy.rolledBack")))
       return query.refetch()
     })
     .then(() => afterInstall?.())
@@ -257,7 +258,7 @@ export function PolicyPage({
       : { ...(object.servers === undefined ? {} : { servers: object.servers }), ...(object.rules === undefined ? {} : { rules: object.rules }) }
     save.mutate({ ...query.data!, [section]: { ...current, ...preserved } }, {
       onSuccess: async (response) => {
-        if (response.status === "rolled_back") { toast.error(t("policy.rolledBack")); return }
+        if (response.status === "rolled_back") { toast.error(rolledBackMessage(response, t("policy.rolledBack"))); return }
         try {
           if (metadata.length) await api.config.updateRouteRuleMetadata(metadata)
           toast.success(t("proxy.saved"))

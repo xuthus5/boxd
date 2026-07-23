@@ -24,6 +24,14 @@ function formatDuration(start: string) {
   return `${Math.floor(milliseconds / 1000)}s`
 }
 
+
+function summarizeConnections(connections: Connection[]) {
+  const upload = connections.reduce((sum, item) => sum + (item.upload || 0), 0)
+  const download = connections.reduce((sum, item) => sum + (item.download || 0), 0)
+  const outbounds = new Set(connections.map((item) => item.outbound).filter(Boolean)).size
+  return { upload, download, outbounds }
+}
+
 function matchesConnection(connection: Connection, query: string) {
   if (!query) return true
   const haystack = [
@@ -48,6 +56,7 @@ export function ConnectionsPage() {
     () => connections.filter((connection) => matchesConnection(connection, normalized)),
     [connections, normalized],
   )
+  const summary = useMemo(() => summarizeConnections(filtered), [filtered])
   const action = async (request: Promise<unknown>, message: string, id: string | "all" = "all") => {
     setClosingId(id)
     try {
@@ -80,6 +89,14 @@ export function ConnectionsPage() {
             <div>
               <CardTitle>{t("observability.liveConnections")} <Badge variant="secondary">{snapshot?.active_connections ?? 0}</Badge></CardTitle>
               <CardDescription>{t("observability.connectionsDescription")}</CardDescription>
+              {connections.length > 0 ? (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Badge variant="outline">{t("observability.shownCount", { count: filtered.length })}</Badge>
+                  <Badge variant="outline">{t("dashboard.upload")}: {formatBytes(summary.upload)}</Badge>
+                  <Badge variant="outline">{t("dashboard.download")}: {formatBytes(summary.download)}</Badge>
+                  <Badge variant="outline">{t("observability.outboundCount", { count: summary.outbounds })}</Badge>
+                </div>
+              ) : null}
             </div>
             <div className="w-full sm:max-w-sm">
               <label className="sr-only" htmlFor="connections-search">{t("observability.searchConnections")}</label>

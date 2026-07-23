@@ -136,6 +136,9 @@ func TestConfigHandlerJSONAndRaw(t *testing.T) {
 	if rr.Code != http.StatusOK || envelope.Status != model.StatusRolledBack {
 		t.Fatalf("restart failure response = %d %s", rr.Code, rr.Body.String())
 	}
+	if envelope.Error == nil || !strings.Contains(envelope.Error.Message, "restart failed") {
+		t.Fatalf("expected restart detail, got %#v", envelope.Error)
+	}
 	cfg := decodeConfigFile(t, configPath)
 	logCfg := cfg["log"].(map[string]any)
 	if logCfg["level"] != "debug" {

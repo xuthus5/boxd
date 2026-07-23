@@ -75,6 +75,14 @@ func runtimeConfigErrorMessage(err error) string {
 	return "invalid sing-box config"
 }
 
+func restartFailureMessage(err error) string {
+	detail := strings.TrimSpace(err.Error())
+	if detail == "" {
+		return "restart failed after config save"
+	}
+	return "restart failed after config save: " + detail
+}
+
 func atomicWriteFile(path string, body []byte) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return err
@@ -128,32 +136,32 @@ func (h *ConfigHandler) applyConfigBytes(body []byte, shouldValidate bool) (stri
 		return model.StatusOK, nil, nil
 	}
 
-	if err := h.instance.Restart(); err == nil {
+	restartErr := h.instance.Restart()
+	if restartErr == nil {
 		return model.StatusOK, nil, nil
-	} else {
-		slog.Error("auto-restart after config save failed", "err", err)
-
-		var rollbackErr error
-		if previousExists {
-			rollbackErr = atomicWriteFile(h.configPath, previousBody)
-		} else {
-			rollbackErr = os.Remove(h.configPath)
-			if errors.Is(rollbackErr, os.ErrNotExist) {
-				rollbackErr = nil
-			}
-		}
-		if rollbackErr != nil {
-			return "", nil, rollbackErr
-		}
-		if restartRollbackErr := h.instance.Restart(); restartRollbackErr != nil {
-			return "", nil, restartRollbackErr
-		}
-
-		return model.StatusRolledBack, &model.APIError{
-			Code:    model.ErrorConfigRestartFailed,
-			Message: "restart failed after config save",
-		}, nil
 	}
+	slog.Error("auto-restart after config save failed", "err", restartErr)
+
+	var rollbackErr error
+	if previousExists {
+		rollbackErr = atomicWriteFile(h.configPath, previousBody)
+	} else {
+		rollbackErr = os.Remove(h.configPath)
+		if errors.Is(rollbackErr, os.ErrNotExist) {
+			rollbackErr = nil
+		}
+	}
+	if rollbackErr != nil {
+		return "", nil, rollbackErr
+	}
+	if restartRollbackErr := h.instance.Restart(); restartRollbackErr != nil {
+		return "", nil, restartRollbackErr
+	}
+
+	return model.StatusRolledBack, &model.APIError{
+		Code:    model.ErrorConfigRestartFailed,
+		Message: restartFailureMessage(restartErr),
+	}, nil
 }
 
 func (h *ConfigHandler) GetConfig(w http.ResponseWriter, r *http.Request) {

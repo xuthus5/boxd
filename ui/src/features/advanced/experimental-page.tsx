@@ -19,6 +19,7 @@ import { ExperimentalVisualEditor } from "@/features/advanced/experimental-visua
 import { useConfigQuery, useSaveConfigMutation } from "@/features/config/config-hooks"
 import { JsonEditor } from "@/features/config/json-editor"
 import { isJsonObject, type JsonObject } from "@/features/policy/policy-form-model"
+import { rolledBackMessage } from "@/lib/api/status"
 import type { JsonValue } from "@/lib/api/types"
 
 function parseExperimentalObject(value: string): JsonObject | null {
@@ -130,7 +131,7 @@ export function ExperimentalPage() {
         { ...query.data!, experimental: object },
         {
           onSuccess: (response) => response.status === "rolled_back"
-            ? toast.error(t("advanced.rolledBack"))
+            ? toast.error(rolledBackMessage(response, t("advanced.rolledBack")))
             : toast.success(t("advanced.saved")),
           onError: (error) => toast.error(error.message),
         },

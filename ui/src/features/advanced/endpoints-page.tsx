@@ -19,6 +19,7 @@ import { EndpointsVisualEditor } from "@/features/advanced/endpoints-visual-edit
 import { useConfigQuery, useSaveConfigMutation } from "@/features/config/config-hooks"
 import { JsonEditor } from "@/features/config/json-editor"
 import { type JsonObject } from "@/features/policy/policy-form-model"
+import { rolledBackMessage } from "@/lib/api/status"
 import type { JsonValue } from "@/lib/api/types"
 
 function parseEndpoints(value: string): JsonObject[] | null {
@@ -113,7 +114,7 @@ export function EndpointsPage() {
         { ...query.data!, endpoints: items },
         {
           onSuccess: (response) => response.status === "rolled_back"
-            ? toast.error(t("advanced.rolledBack"))
+            ? toast.error(rolledBackMessage(response, t("advanced.rolledBack")))
             : toast.success(t("advanced.saved")),
           onError: (error) => toast.error(error.message),
         },

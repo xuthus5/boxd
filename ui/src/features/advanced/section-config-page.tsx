@@ -11,6 +11,7 @@ import { useConfigQuery, useSaveConfigMutation } from "@/features/config/config-
 import { JsonEditor } from "@/features/config/json-editor"
 import { isValidJSON } from "@/features/config/json-utils"
 import type { JsonValue } from "@/lib/api/types"
+import { rolledBackMessage } from "@/lib/api/status"
 
 function SectionEditor({ initial, onSave }: { initial: JsonValue; onSave: (value: JsonValue) => void }) {
   const { t } = useTranslation()
@@ -24,6 +25,6 @@ export function SectionConfigPage({ section, title, description }: { section: st
   const save = useSaveConfigMutation()
   if (query.isLoading) return <Skeleton className="h-64 w-full" />
   if (query.error) return <Alert variant="destructive"><AlertTitle>{t("common.loadFailed")}</AlertTitle><AlertDescription>{query.error.message}</AlertDescription></Alert>
-  const persist = (value: JsonValue) => save.mutate({ ...query.data!, [section]: value }, { onSuccess: (response) => response.status === "rolled_back" ? toast.error(t("advanced.rolledBack")) : toast.success(t("advanced.saved")), onError: (error) => toast.error(error.message) })
+  const persist = (value: JsonValue) => save.mutate({ ...query.data!, [section]: value }, { onSuccess: (response) => response.status === "rolled_back" ? toast.error(rolledBackMessage(response, t("advanced.rolledBack"))) : toast.success(t("advanced.saved")), onError: (error) => toast.error(error.message) })
   return <Card><CardHeader><CardTitle role="heading" aria-level={1}>{title}</CardTitle><CardDescription>{description}</CardDescription></CardHeader><CardContent><SectionEditor key={JSON.stringify(query.data?.[section] ?? (section === "endpoints" ? [] : {}))} initial={query.data?.[section] ?? (section === "endpoints" ? [] : {})} onSave={persist} /></CardContent></Card>
 }
