@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  buildNodesHref,
   filterAndSortNodes,
   matchesNodeQuery,
   matchesNodeStability,
   nodeFiltersActive,
   nodeLatencyHealth,
+  parseNodeSearchParams,
   pickNodeHistorySeries,
   sortNodes,
+  toNodeSearchParams,
 } from "@/features/nodes/nodes-filter"
 import type { LatencyPoint, Outbound } from "@/lib/api/types"
 
@@ -75,5 +78,21 @@ describe("nodes-filter", () => {
     expect(sortNodes(nodes, "stability", history).map((node) => node.tag)).toEqual(["hk-01", "jp-core", "us-edge"])
     expect(sortNodes(nodes, "latency", history).map((node) => node.tag)).toEqual(["hk-01", "jp-core", "us-edge"])
     expect(sortNodes(nodes, "name", history).map((node) => node.tag)).toEqual(["hk-01", "jp-core", "us-edge"])
+  })
+
+  it("parses and builds node list deep-link query strings", () => {
+    expect(parseNodeSearchParams(new URLSearchParams("q=hk&stability=stable&sort=latency"))).toEqual({
+      query: "hk",
+      stability: "stable",
+      sort: "latency",
+    })
+    expect(parseNodeSearchParams(new URLSearchParams("stability=nope&sort=bogus"))).toEqual({
+      query: undefined,
+      stability: undefined,
+      sort: undefined,
+    })
+    expect(buildNodesHref({ query: "hk", sort: "stability" })).toBe("/nodes?q=hk&sort=stability")
+    expect(buildNodesHref({ sort: "name" })).toBe("/nodes")
+    expect(toNodeSearchParams({ stability: "failed" }).get("stability")).toBe("failed")
   })
 })

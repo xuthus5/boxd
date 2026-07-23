@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
-import { useId, useMemo, useState } from "react"
+import { useId, useMemo } from "react"
 import { useTranslation } from "react-i18next"
+import { useSearchParams } from "react-router-dom"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -12,6 +13,9 @@ import { NodeSection } from "@/features/nodes/node-section"
 import {
   filterAndSortNodes,
   nodeFiltersActive,
+  parseNodeSearchParams,
+  toNodeSearchParams,
+  type NodeListFilters,
   type NodeSortKey,
   type NodeStabilityFilter,
 } from "@/features/nodes/nodes-filter"
@@ -33,10 +37,12 @@ function SubscriptionSections({
   groups,
   results,
   history,
+  onBatchComplete,
 }: {
   groups: Map<string, Outbound[]>
   results?: Record<string, Record<string, TestResult>>
   history?: Record<string, Record<string, LatencyPoint[]>>
+  onBatchComplete?: () => void
 }) {
   const { t } = useTranslation()
   const titleId = useId()
@@ -56,6 +62,7 @@ function SubscriptionSections({
               nodes={nodes}
               results={results}
               history={history}
+              onBatchComplete={onBatchComplete}
             />
           ))}
         </div>
@@ -66,9 +73,11 @@ function SubscriptionSections({
 
 export function NodesPage() {
   const { t } = useTranslation()
-  const [query, setQuery] = useState("")
-  const [stability, setStability] = useState<NodeStabilityFilter>("")
-  const [sort, setSort] = useState<NodeSortKey>("name")
+  const [searchParams, setSearchParams] = useSearchParams()
+  const filters = useMemo(() => parseNodeSearchParams(searchParams), [searchParams])
+  const query = filters.query ?? ""
+  const stability = (filters.stability ?? "") as NodeStabilityFilter
+  const sort = filters.sort ?? "name"
   const nodesQuery = useQuery({ queryKey: ["nodes"], queryFn: api.nodes.list })
   const resultsQuery = useQuery({ queryKey: ["nodes", "results"], queryFn: api.nodes.results })
   const historyQuery = useQuery({
@@ -101,6 +110,18 @@ export function NodesPage() {
     { label: t("nodes.sortByLatency"), value: "latency" },
   ]
 
+  const writeFilters = (next: NodeListFilters) => {
+    setSearchParams(toNodeSearchParams(next), { replace: true })
+  }
+
+  const onBatchComplete = () => {
+    writeFilters({
+      query: filters.query,
+      stability: filters.stability,
+      sort: "stability",
+    })
+  }
+
   if (nodesQuery.isLoading) return <Skeleton className="h-64 w-full" />
   if (error) {
     return <Alert variant="destructive"><AlertTitle>{t("common.loadFailed")}</AlertTitle><AlertDescription>{error.message}</AlertDescription></Alert>
@@ -115,7 +136,11 @@ export function NodesPage() {
           <Input
             id="nodes-search"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => writeFilters({
+              query: event.target.value,
+              stability: filters.stability,
+              sort: filters.sort,
+            })}
             placeholder={t("nodes.searchPlaceholder")}
             className="sm:max-w-xs"
             aria-label={t("nodes.search")}
@@ -123,7 +148,11 @@ export function NodesPage() {
           <Select
             items={stabilityOptions}
             value={stability || "__all__"}
-            onValueChange={(value) => setStability(String(value) === "__all__" ? "" : String(value) as NodeStabilityFilter)}
+            onValueChange={(value) => writeFilters({
+              query: filters.query,
+              stability: String(value) === "__all__" ? undefined : String(value) as NodeStabilityFilter,
+              sort: filters.sort,
+            })}
           >
             <SelectTrigger aria-label={t("nodes.filterStability")} className="w-full sm:w-36">
               <SelectValue placeholder={t("nodes.filterStability")} />
@@ -136,7 +165,15 @@ export function NodesPage() {
               </SelectGroup>
             </SelectContent>
           </Select>
-          <Select items={sortOptions} value={sort} onValueChange={(value) => setSort(String(value) as NodeSortKey)}>
+          <Select
+            items={sortOptions}
+            value={sort}
+            onValueChange={(value) => writeFilters({
+              query: filters.query,
+              stability: filters.stability,
+              sort: String(value) as NodeSortKey,
+            })}
+          >
             <SelectTrigger aria-label={t("nodes.sortNodes")} className="w-full sm:w-40">
               <SelectValue />
             </SelectTrigger>
@@ -151,10 +188,7 @@ export function NodesPage() {
           {facetsActive ? (
             <Button
               variant="ghost"
-              onClick={() => {
-                setQuery("")
-                setStability("")
-              }}
+              onClick={() => writeFilters({ sort: filters.sort })}
             >
               {t("nodes.clearFilters")}
             </Button>
@@ -165,9 +199,9 @@ export function NodesPage() {
       {filtered.length === 0 && facetsActive
         ? <Empty><EmptyHeader><EmptyTitle>{t("nodes.noMatch")}</EmptyTitle><EmptyDescription>{t("nodes.noMatchDescription")}</EmptyDescription></EmptyHeader></Empty>
         : <>
-          <NodeSection title={t("nodes.allNodes")} description={t("nodes.allNodesDescription")} nodes={filtered} results={resultsQuery.data} history={history} />
-          <SubscriptionSections groups={subscriptions} results={resultsQuery.data} history={history} />
-          <NodeSection title={t("nodes.importedNodes")} description={t("nodes.importedNodesDescription")} nodes={imported} results={resultsQuery.data} history={history} />
+          <NodeSection title={t("nodes.allNodes")} description={t("nodes.allNodesDescription")} nodes={filtered} results={resultsQuery.data} history={history} onBatchComplete={onBatchComplete} />
+          <SubscriptionSections groups={subscriptions} results={resultsQuery.data} history={history} onBatchComplete={onBatchComplete} />
+          <NodeSection title={t("nodes.importedNodes")} description={t("nodes.importedNodesDescription")} nodes={imported} results={resultsQuery.data} history={history} onBatchComplete={onBatchComplete} />
         </>}
     </div>
   )

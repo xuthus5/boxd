@@ -19,20 +19,34 @@ interface Props {
   nodes: Outbound[]
   results?: Record<string, Record<string, TestResult>>
   history?: Record<string, Record<string, LatencyPoint[]>>
+  onBatchComplete?: () => void
 }
 
-export function NodeSection({ title, description, nodes, results, history }: Props) {
+export function NodeSection({ title, description, nodes, results, history, onBatchComplete }: Props) {
   const { t } = useTranslation()
   const titleId = useId()
   const client = useQueryClient()
   const inputs = nodeTestInputs(nodes)
   const mutation = useMutation({
     mutationFn: () => api.nodes.testBatch(inputs, groupTestConcurrency),
-    onSuccess: () => { void client.invalidateQueries({ queryKey: ["nodes", "results"] }); void client.invalidateQueries({ queryKey: ["nodes", "history"] }); toast.success(t("nodes.batchComplete")) },
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["nodes", "results"] })
+      void client.invalidateQueries({ queryKey: ["nodes", "history"] })
+      toast.success(t("nodes.batchComplete"))
+      onBatchComplete?.()
+    },
     onError: (error: Error) => toast.error(error.message),
   })
   return <section aria-labelledby={titleId} className="flex flex-col gap-3">
-    <div className="flex items-start justify-between gap-3"><div className="min-w-0"><h2 id={titleId} className="text-lg font-medium">{title}</h2><p className="text-sm text-muted-foreground">{description}</p></div><Button variant="outline" size="sm" disabled={!inputs.length || mutation.isPending} onClick={() => mutation.mutate()}><GaugeIcon data-icon="inline-start" />{t("nodes.batch")}</Button></div>
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <h2 id={titleId} className="text-lg font-medium">{title}</h2>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+      <Button variant="outline" size="sm" disabled={!inputs.length || mutation.isPending} onClick={() => mutation.mutate()}>
+        <GaugeIcon data-icon="inline-start" />{t("nodes.batch")}
+      </Button>
+    </div>
     {nodes.length ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {nodes.map((node) => <NodeCard key={node.tag} node={node} results={results?.[node.tag]} history={history?.[node.tag]} />)}
     </div> : <Empty><EmptyHeader><EmptyTitle>{t("nodes.empty")}</EmptyTitle><EmptyDescription>{t("nodes.emptyDescription")}</EmptyDescription></EmptyHeader></Empty>}

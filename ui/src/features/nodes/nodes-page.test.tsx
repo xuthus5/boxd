@@ -257,3 +257,78 @@ describe("NodesPage stability filter", () => {
     expect(within(all).getByText("us-unstable")).toBeInTheDocument()
   })
 })
+
+
+describe("NodesPage deep links", () => {
+  it("seeds filters from deep-link query params", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
+      const path = typeof input === "string" ? input : input.toString()
+      if (path === "/api/nodes/") {
+        return Promise.resolve(new Response(JSON.stringify([
+          { tag: "hk-stable", type: "vless", server: "a.example.com", port: 443, source: "import" },
+          { tag: "us-unstable", type: "trojan", server: "b.example.com", port: 443, source: "import" },
+        ])))
+      }
+      if (path === "/api/nodes/test-history") {
+        return Promise.resolve(new Response(JSON.stringify({
+          history: {
+            "hk-stable": {
+              tcp: [
+                { timestamp: "1", success: true, latency_ms: 20 },
+                { timestamp: "2", success: true, latency_ms: 22 },
+                { timestamp: "3", success: true, latency_ms: 18 },
+                { timestamp: "4", success: true, latency_ms: 19 },
+              ],
+            },
+            "us-unstable": {
+              tcp: [
+                { timestamp: "1", success: false },
+                { timestamp: "2", success: false },
+                { timestamp: "3", success: true, latency_ms: 200 },
+                { timestamp: "4", success: false },
+              ],
+            },
+          },
+        })))
+      }
+      if (path === "/api/nodes/groups") return Promise.resolve(new Response(JSON.stringify({ groups: [] })))
+      if (path === "/api/nodes/test-results") return Promise.resolve(new Response(JSON.stringify({})))
+      if (path === "/api/settings/preferences") {
+        return Promise.resolve(new Response(JSON.stringify({ theme: "system", language: "zh", minimumLogLevel: "all" })))
+      }
+      if (path === "/api/settings/password") {
+        return Promise.resolve(new Response(JSON.stringify({ defaultPassword: false })))
+      }
+      return Promise.resolve(new Response(JSON.stringify({})))
+    }))
+    renderApp(<App />, "/nodes?q=hk&stability=stable&sort=latency")
+    expect(await screen.findByLabelText("搜索节点")).toHaveValue("hk")
+    expect(screen.getByRole("combobox", { name: "稳定性" })).toHaveTextContent("稳定")
+    expect(screen.getByRole("combobox", { name: "排序节点" })).toHaveTextContent("按延迟")
+    const all = await screen.findByRole("region", { name: "所有节点" })
+    expect(within(all).getByText("hk-stable")).toBeInTheDocument()
+    expect(within(all).queryByText("us-unstable")).not.toBeInTheDocument()
+  })
+
+  it("switches sort to stability after bulk speed test", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    const fetchMock = vi.fn((input: string | URL | Request) => {
+      const path = typeof input === "string" ? input : input.toString()
+      const body = path === "/api/nodes/" ? [
+        { tag: "hk-1", type: "vless", server: "hk.example", port: 443, source: "subscription", source_name: "主订阅" },
+      ] : path === "/api/nodes/test-batch" ? { results: [] } : path === "/api/nodes/groups" ? { groups: [] } : {}
+      return Promise.resolve(new Response(JSON.stringify(body)))
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    const user = userEvent.setup()
+    renderApp(<App />, "/nodes")
+    const all = await screen.findByRole("region", { name: "所有节点" })
+    expect(screen.getByRole("combobox", { name: "排序节点" })).toHaveTextContent("按名称")
+    await user.click(within(all).getByRole("button", { name: "批量测速" }))
+    await waitFor(() => {
+      expect(screen.getByRole("combobox", { name: "排序节点" })).toHaveTextContent("按稳定性")
+    })
+  })
+})
+

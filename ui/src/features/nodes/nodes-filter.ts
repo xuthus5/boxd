@@ -127,3 +127,37 @@ export function filterAndSortNodes(
 export function nodeFiltersActive(filters: NodeListFilters): boolean {
   return Boolean(filters.query?.trim() || filters.stability)
 }
+
+const STABILITY_VALUES = new Set<NodeStabilityFilter>(["stable", "fair", "unstable", "failed", "unknown"])
+const SORT_VALUES = new Set<NodeSortKey>(["name", "stability", "latency"])
+
+function readParam(params: { get(name: string): string | null }, key: string): string | undefined {
+  const value = params.get(key)?.trim()
+  return value ? value : undefined
+}
+
+export function parseNodeSearchParams(
+  params: URLSearchParams | { get(name: string): string | null },
+): NodeListFilters {
+  const query = readParam(params, "q")
+  const stabilityRaw = readParam(params, "stability") as NodeStabilityFilter | undefined
+  const stability = stabilityRaw && STABILITY_VALUES.has(stabilityRaw) ? stabilityRaw : undefined
+  const sortRaw = readParam(params, "sort") as NodeSortKey | undefined
+  const sort = sortRaw && SORT_VALUES.has(sortRaw) ? sortRaw : undefined
+  return { query, stability, sort }
+}
+
+export function toNodeSearchParams(filters: NodeListFilters = {}): URLSearchParams {
+  const params = new URLSearchParams()
+  const query = filters.query?.trim()
+  if (query) params.set("q", query)
+  if (filters.stability) params.set("stability", filters.stability)
+  if (filters.sort && filters.sort !== "name") params.set("sort", filters.sort)
+  return params
+}
+
+export function buildNodesHref(filters: NodeListFilters = {}): string {
+  const qs = toNodeSearchParams(filters).toString()
+  return qs ? `/nodes?${qs}` : "/nodes"
+}
+
