@@ -278,3 +278,22 @@ export async function measureGroupDelays(groupTag: string, members: readonly str
     return probeMemberDelays(members)
   }
 }
+
+export function delayRequestErrorClipboardText(error: unknown, scope = "delay"): string {
+  const failure = delayFailureFromError(error)
+  return [`scope: ${scope}`, failure.code ? `code: ${failure.code}` : "", `error: ${failure.error}`].filter(Boolean).join("\n")
+}
+
+export function formatDelayRequestErrorToast(error: unknown, fallback = "delay test failed"): string {
+  const failure = delayFailureFromError(error)
+  const message = failure.error || fallback
+  return !failure.code || failure.code === "unknown" ? message : `${failure.code}: ${message}`
+}
+
+export function delayBatchFailureClipboardText(summary: DelayBatchSummary): string {
+  if (!summary.failedSamples.length) return ""
+  return summary.failedSamples
+    .map((sample) => [`tag: ${sample.tag}`, sample.code ? `code: ${sample.code}` : "", `error: ${sample.error}`].filter(Boolean).join("\n"))
+    .join("\n---\n")
+}
+

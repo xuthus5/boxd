@@ -16,6 +16,9 @@ import {
   nodeTestErrorHintKey,
   nodeTestErrorLabel,
   resolveNodeTestErrorCode,
+  classifyNodeTestRequestError,
+  formatNodeTestRequestErrorToast,
+  nodeTestRequestErrorClipboardText,
 } from "@/features/nodes/node-test-error"
 import { LatencyHealthBar } from "@/features/nodes/latency-health-bar"
 import { LatencySparkline } from "@/features/nodes/latency-sparkline"
@@ -101,7 +104,22 @@ function TestControls({ node }: { node: Outbound }) {
       void client.invalidateQueries({ queryKey: ["nodes", "results"] })
       void client.invalidateQueries({ queryKey: ["nodes", "history"] })
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => {
+      const code = classifyNodeTestRequestError(error)
+      const payload = nodeTestRequestErrorClipboardText(error, node.tag)
+      toast.error(formatNodeTestRequestErrorToast(error, t("nodes.testFailed")), {
+        description: t(nodeTestErrorHintKey(code)),
+        action: payload ? {
+          label: t("nodes.copyTestError"),
+          onClick: () => {
+            void copyText(payload).then(
+              () => toast.success(t("nodes.testErrorCopied")),
+              () => toast.error(t("nodes.testErrorCopyFailed")),
+            )
+          },
+        } : undefined,
+      })
+    },
   })
   return (
     <DropdownMenu>

@@ -3,6 +3,9 @@ import { describe, expect, it } from "vitest"
 import { ApiError } from "@/lib/api/client"
 import {
   classifyDelayErrorMessage,
+  delayRequestErrorClipboardText,
+  formatDelayRequestErrorToast,
+  delayBatchFailureClipboardText,
   delayBatchToastTone,
   delayFailureFromError,
   formatDelayBatchMessage,
@@ -75,4 +78,15 @@ describe("proxy-delay helpers", () => {
     expect(delayBatchToastTone(summary)).toBe("warning")
     expect(delayBatchToastTone({ total: 1, ok: 0, failed: 1, failedSamples: [] })).toBe("error")
   })
+  it("formats request-level delay diagnostics", () => {
+    const err = new Error("service not available")
+    expect(formatDelayRequestErrorToast(err)).toContain("service not available")
+    expect(delayRequestErrorClipboardText(err, "proxy-delay")).toContain("scope: proxy-delay")
+    const summary = summarizeDelays({
+      a: { failed: true, error: "timeout", code: "timeout" },
+      b: 12,
+    })
+    expect(delayBatchFailureClipboardText(summary)).toContain("tag: a")
+  })
+
 })

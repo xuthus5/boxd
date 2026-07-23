@@ -60,7 +60,15 @@ describe("RuntimeGroupCard", () => {
     const user = userEvent.setup()
     await user.click(screen.getByRole("combobox", { name: "proxy" }))
     await user.click(await screen.findByRole("option", { name: "b" }))
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("select failed"))
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalled()
+      const [message, options] = vi.mocked(toast.error).mock.calls[0]
+      expect(String(message)).toContain("select failed")
+      expect(options).toEqual(expect.objectContaining({
+        description: expect.any(String),
+        action: expect.objectContaining({ label: expect.any(String) }),
+      }))
+    })
   })
 
   it("runs urltest and renders delays", async () => {
@@ -80,7 +88,15 @@ describe("RuntimeGroupCard", () => {
     wrap(<RuntimeGroupCard group={{ type: "urltest", tag: "auto", now: "a", all: ["a"] }} />)
     const user = userEvent.setup()
     await user.click(screen.getByRole("button", { name: "运行 auto URLTest" }))
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("urltest failed"))
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalled()
+      const [message, options] = vi.mocked(toast.error).mock.calls[0]
+      expect(String(message)).toContain("urltest failed")
+      expect(options).toEqual(expect.objectContaining({
+        description: expect.any(String),
+        action: expect.objectContaining({ label: expect.any(String) }),
+      }))
+    })
   })
 
   it("shows config vs runtime type mismatch", () => {

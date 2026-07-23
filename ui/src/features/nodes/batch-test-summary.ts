@@ -115,3 +115,13 @@ export function batchTestToastTone(summary: BatchTestSummary): "success" | "warn
   if (summary.failed > 0) return "warning"
   return "success"
 }
+
+export function batchTestFailureClipboardText(summary: BatchTestSummary): string {
+  if (!summary.failedSamples.length) return ""
+  return summary.failedSamples.map((sample) => ([
+    `tag: ${sample.tag}`,
+    sample.testType ? `test: ${sample.testType}` : "",
+    `error: ${sample.error}`,
+  ].filter(Boolean).join("\n"))).join("\n---\n")
+}
+

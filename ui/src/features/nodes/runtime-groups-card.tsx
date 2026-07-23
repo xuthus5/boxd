@@ -12,21 +12,49 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { buildConnectionsHref } from "@/features/observability/connection-facets"
 import { buildLogsHref } from "@/features/observability/log-filter-presets"
 import {
+  delayBatchFailureClipboardText,
   delayBatchToastTone,
+  delayErrorHintKey,
+  delayFailureFromError,
+  delayRequestErrorClipboardText,
   formatDelayBatchMessage,
+  formatDelayRequestErrorToast,
   summarizeDelays,
   type DelayMap,
 } from "@/features/dashboard/proxy-delay"
+import {
+  classifyNodeRequestError,
+  formatNodeRequestErrorToast,
+  nodeRequestErrorClipboardText,
+  nodeRequestErrorHintKey,
+} from "@/features/nodes/node-request-error"
+import { copyText } from "@/features/proxy/copy-tag-button"
 import { api } from "@/lib/api/endpoints"
 import { cn } from "@/lib/utils"
 import type { OutboundGroup } from "@/lib/api/types"
 
 function SelectorControl({ group }: { group: OutboundGroup }) {
+  const { t } = useTranslation()
   const client = useQueryClient()
   const mutation = useMutation({
     mutationFn: (tag: string) => api.nodes.select(group.tag, tag),
     onSuccess: () => client.invalidateQueries({ queryKey: ["nodes", "groups"] }),
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => {
+      const code = classifyNodeRequestError(error)
+      const payload = nodeRequestErrorClipboardText(error, { scope: "select", group: group.tag })
+      toast.error(formatNodeRequestErrorToast(error, t("nodes.selectFailed")), {
+        description: t(nodeRequestErrorHintKey(code)),
+        action: payload ? {
+          label: t("nodes.copyRequestError"),
+          onClick: () => {
+            void copyText(payload).then(
+              () => toast.success(t("nodes.requestErrorCopied")),
+              () => toast.error(t("nodes.requestErrorCopyFailed")),
+            )
+          },
+        } : undefined,
+      })
+    },
   })
   const items = group.all.map((tag) => ({ label: tag, value: tag }))
   return <Select items={items} value={group.now} onValueChange={(value) => mutation.mutate(String(value))}>
@@ -72,11 +100,38 @@ function URLTestControl({ group }: { group: OutboundGroup }) {
         return t(key, values)
       })
       const tone = delayBatchToastTone(summary)
-      if (tone === "error") toast.error(message)
-      else if (tone === "warning") toast.warning(message)
+      const clipboard = delayBatchFailureClipboardText(summary)
+      const options = summary.failed > 0 ? {
+        description: t(delayErrorHintKey(summary.failedSamples[0]?.code)),
+        action: clipboard ? {
+          label: t("dashboard.copyProxyDelayError"),
+          onClick: () => {
+            void copyText(clipboard).then(
+              () => toast.success(t("dashboard.proxyDelayErrorCopied")),
+              () => toast.error(t("dashboard.proxyDelayErrorCopyFailed")),
+            )
+          },
+        } : undefined,
+      } : undefined
+      if (tone === "error") toast.error(message, options)
+      else if (tone === "warning") toast.warning(message, options)
       else toast.success(message)
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => {
+      const payload = delayRequestErrorClipboardText(error, "urltest")
+      toast.error(formatDelayRequestErrorToast(error, t("nodes.urlTestFailed")), {
+        description: t(delayErrorHintKey(delayFailureFromError(error).code)),
+        action: payload ? {
+          label: t("dashboard.copyProxyDelayError"),
+          onClick: () => {
+            void copyText(payload).then(
+              () => toast.success(t("dashboard.proxyDelayErrorCopied")),
+              () => toast.error(t("dashboard.proxyDelayErrorCopyFailed")),
+            )
+          },
+        } : undefined,
+      })
+    },
   })
   const entries = Object.entries(delays).sort((left, right) => {
     if (left[1] !== right[1]) return left[1] - right[1]

@@ -8,20 +8,50 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import {
+  classifyNodeRequestError,
+  formatNodeRequestErrorToast,
+  nodeRequestErrorClipboardText,
+  nodeRequestErrorHintKey,
+} from "@/features/nodes/node-request-error"
+import { copyText } from "@/features/proxy/copy-tag-button"
 import { api } from "@/lib/api/endpoints"
 import type { ImportResult } from "@/lib/api/types"
 
 interface Props { onClose: () => void; onSaved: () => void }
 
+
+function reportNodeRequestError(
+  error: unknown,
+  t: (key: string, values?: Record<string, string | number>) => string,
+  scope: string,
+  fallback: string,
+) {
+  const code = classifyNodeRequestError(error)
+  const payload = nodeRequestErrorClipboardText(error, { scope })
+  toast.error(formatNodeRequestErrorToast(error, fallback), {
+    description: t(nodeRequestErrorHintKey(code)),
+    action: payload ? {
+      label: t("nodes.copyRequestError"),
+      onClick: () => {
+        void copyText(payload).then(
+          () => toast.success(t("nodes.requestErrorCopied")),
+          () => toast.error(t("nodes.requestErrorCopyFailed")),
+        )
+      },
+    } : undefined,
+  })
+}
+
 export function NodeImportDialog({ onClose, onSaved }: Props) {
   const { t } = useTranslation()
   const [link, setLink] = useState("")
   const [preview, setPreview] = useState<ImportResult | null>(null)
-  const parse = useMutation({ mutationFn: () => api.import.link(link), onSuccess: setPreview, onError: (error: Error) => toast.error(error.message) })
+  const parse = useMutation({ mutationFn: () => api.import.link(link), onSuccess: setPreview, onError: (error: Error) => reportNodeRequestError(error, t, "import-parse", t("nodes.importFailed")) })
   const save = useMutation({
     mutationFn: () => api.import.save({ tag: preview!.tag, type: preview!.type, server: preview!.server, port: preview!.port, config: preview!.config }).then(() => api.nodes.sync()),
     onSuccess: () => { toast.success(t("nodes.saved")); onSaved() },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => reportNodeRequestError(error, t, "import-save", t("nodes.saveFailed")),
   })
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>

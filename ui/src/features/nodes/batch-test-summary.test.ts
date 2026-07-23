@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  batchTestFailureClipboardText,
   batchTestToastTone,
   formatBatchTestToastMessage,
   summarizeBatchTestResults,
@@ -75,4 +76,14 @@ describe("summarizeBatchTestResults", () => {
     ]))).toBe("success")
     expect(formatBatchTestToastMessage(summarizeBatchTestResults([]), t)).toBe("batch done")
   })
+  it("builds batch failure clipboard text", () => {
+    const summary = summarizeBatchTestResults([
+      { tag: "a", test_type: "tcp", success: false, error: "timeout", error_code: "timeout" },
+      { tag: "b", test_type: "tcp", success: true, latency_ms: 10 },
+    ])
+    expect(batchTestFailureClipboardText(summary)).toContain("tag: a")
+    expect(batchTestFailureClipboardText(summary)).toContain("error: timeout")
+    expect(batchTestFailureClipboardText(summarizeBatchTestResults([]))).toBe("")
+  })
+
 })

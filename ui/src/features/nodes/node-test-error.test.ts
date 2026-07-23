@@ -2,12 +2,16 @@ import { describe, expect, it } from "vitest"
 
 import {
   classifyNodeTestErrorMessage,
+  classifyNodeTestRequestError,
   formatNodeTestFailureSample,
+  formatNodeTestRequestErrorToast,
   nodeTestErrorClipboardText,
   nodeTestErrorHintKey,
   nodeTestErrorLabel,
+  nodeTestRequestErrorClipboardText,
   resolveNodeTestErrorCode,
 } from "@/features/nodes/node-test-error"
+import { ApiError } from "@/lib/api/client"
 
 describe("node test error helpers", () => {
   it("formats failed probe diagnostics with code", () => {
@@ -53,4 +57,12 @@ describe("node test error helpers", () => {
     expect(formatNodeTestFailureSample({ error: "timeout", error_code: "timeout" })).toBe("timeout")
     expect(formatNodeTestFailureSample({ error: "weird" })).toBe("weird")
   })
+  it("classifies request-level test failures", () => {
+    expect(classifyNodeTestRequestError(new ApiError("service not available", 503, "unavailable"))).toBe("unavailable")
+    expect(classifyNodeTestRequestError(new Error("i/o timeout"))).toBe("timeout")
+    expect(nodeTestRequestErrorClipboardText(new Error("network down"), "hk")).toContain("tag: hk")
+    expect(formatNodeTestRequestErrorToast(new ApiError("kernel offline", 503, "unavailable"), "fallback"))
+      .toBe("unavailable: kernel offline")
+  })
+
 })

@@ -11,6 +11,13 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { JsonEditor } from "@/features/config/json-editor"
 import { isValidJSON } from "@/features/config/json-utils"
+import {
+  classifyNodeRequestError,
+  formatNodeRequestErrorToast,
+  nodeRequestErrorClipboardText,
+  nodeRequestErrorHintKey,
+} from "@/features/nodes/node-request-error"
+import { copyText } from "@/features/proxy/copy-tag-button"
 import { api } from "@/lib/api/endpoints"
 import type { JsonValue, Outbound } from "@/lib/api/types"
 
@@ -32,7 +39,22 @@ function NodeEditorForm({ node, originalTag, onSaved }: { node: Outbound; origin
   const save = useMutation({
     mutationFn: () => api.nodes.update(originalTag, { tag, type, server, port: Number(port), config: parsed! }).then(() => api.nodes.sync()),
     onSuccess: () => { toast.success(t("nodes.updated")); onSaved() },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => {
+      const code = classifyNodeRequestError(error)
+      const payload = nodeRequestErrorClipboardText(error, { scope: "node-edit", tag: node.tag })
+      toast.error(formatNodeRequestErrorToast(error, t("nodes.saveFailed")), {
+        description: t(nodeRequestErrorHintKey(code)),
+        action: payload ? {
+          label: t("nodes.copyRequestError"),
+          onClick: () => {
+            void copyText(payload).then(
+              () => toast.success(t("nodes.requestErrorCopied")),
+              () => toast.error(t("nodes.requestErrorCopyFailed")),
+            )
+          },
+        } : undefined,
+      })
+    },
   })
   return (
     <div className="flex flex-col gap-2 sm:gap-3">

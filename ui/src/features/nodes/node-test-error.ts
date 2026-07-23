@@ -1,3 +1,4 @@
+import { ApiError } from "@/lib/api/client"
 import type { TestResult } from "@/lib/api/types"
 
 export type NodeTestErrorCode =
@@ -90,3 +91,34 @@ export function formatNodeTestFailureSample(result: Pick<TestResult, "error" | "
   if (!code || code === "unknown" || code === error) return error
   return `${code}: ${error}`
 }
+
+export function classifyNodeTestRequestError(error: unknown): NodeTestErrorCode {
+  if (error instanceof ApiError) {
+    const code = error.code?.toLowerCase() || ""
+    if (code === "unavailable") return "unavailable"
+    if (code === "invalid_request" || code === "invalid_input") return "invalid_input"
+    if (code === "timeout") return "timeout"
+    if (code === "unsupported") return "unsupported"
+  }
+  const message = error instanceof Error ? error.message : String(error || "")
+  return classifyNodeTestErrorMessage(message)
+}
+
+export function nodeTestRequestErrorClipboardText(error: unknown, tag?: string): string {
+  const message = error instanceof Error ? error.message.trim() : String(error || "").trim()
+  if (!message) return ""
+  const code = classifyNodeTestRequestError(error)
+  return [
+    tag?.trim() ? `tag: ${tag.trim()}` : "",
+    `code: ${code}`,
+    `error: ${message}`,
+  ].filter(Boolean).join("\n")
+}
+
+export function formatNodeTestRequestErrorToast(error: unknown, fallback: string): string {
+  const message = error instanceof Error && error.message.trim() ? error.message.trim() : fallback
+  const code = classifyNodeTestRequestError(error)
+  if (!code || code === "unknown") return message
+  return `${code}: ${message}`
+}
+

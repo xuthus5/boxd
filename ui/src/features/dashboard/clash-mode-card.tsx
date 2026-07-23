@@ -7,6 +7,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Skeleton } from "@/components/ui/skeleton"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { ApiError } from "@/lib/api/client"
+import {
+  classifyNodeRequestError,
+  formatNodeRequestErrorToast,
+  nodeRequestErrorClipboardText,
+  nodeRequestErrorHintKey,
+} from "@/features/nodes/node-request-error"
+import { copyText } from "@/features/proxy/copy-tag-button"
 import { api } from "@/lib/api/endpoints"
 
 export function ClashModeCard({ enabled }: { enabled: boolean }) {
@@ -25,7 +32,22 @@ export function ClashModeCard({ enabled }: { enabled: boolean }) {
       queryClient.setQueryData(["clash-mode"], status)
       toast.success(t("dashboard.clashModeUpdated", { mode: status.mode }))
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => {
+      const code = classifyNodeRequestError(error)
+      const payload = nodeRequestErrorClipboardText(error, { scope: "clash-mode" })
+      toast.error(formatNodeRequestErrorToast(error, t("dashboard.clashModeFailed")), {
+        description: t(nodeRequestErrorHintKey(code)),
+        action: payload ? {
+          label: t("nodes.copyRequestError"),
+          onClick: () => {
+            void copyText(payload).then(
+              () => toast.success(t("nodes.requestErrorCopied")),
+              () => toast.error(t("nodes.requestErrorCopyFailed")),
+            )
+          },
+        } : undefined,
+      })
+    },
   })
 
   if (!enabled) {

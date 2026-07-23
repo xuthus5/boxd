@@ -7,10 +7,18 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import {
+  batchTestFailureClipboardText,
   batchTestToastTone,
   formatBatchTestToastMessage,
   summarizeBatchTestResults,
 } from "@/features/nodes/batch-test-summary"
+import {
+  classifyNodeTestRequestError,
+  formatNodeTestRequestErrorToast,
+  nodeTestErrorHintKey,
+  nodeTestRequestErrorClipboardText,
+} from "@/features/nodes/node-test-error"
+import { copyText } from "@/features/proxy/copy-tag-button"
 import { NodeCard } from "@/features/nodes/node-card"
 import { nodeTestInputs } from "@/features/nodes/node-test-inputs"
 import { api } from "@/lib/api/endpoints"
@@ -34,8 +42,25 @@ function publishBatchToast(
   const summary = summarizeBatchTestResults(results)
   const message = formatBatchTestToastMessage(summary, t)
   const tone = batchTestToastTone(summary)
-  if (tone === "error") toast.error(message)
-  else if (tone === "warning") toast.warning(message)
+  const clipboard = batchTestFailureClipboardText(summary)
+  const options = summary.failed > 0 ? {
+    description: summary.failedSamples[0]
+      ? t("nodes.batchFailedSamples", {
+        samples: `${summary.failedSamples[0].tag}/${summary.failedSamples[0].testType}: ${summary.failedSamples[0].error}`,
+      })
+      : undefined,
+    action: clipboard ? {
+      label: t("nodes.copyTestError"),
+      onClick: () => {
+        void copyText(clipboard).then(
+          () => toast.success(t("nodes.testErrorCopied")),
+          () => toast.error(t("nodes.testErrorCopyFailed")),
+        )
+      },
+    } : undefined,
+  } : undefined
+  if (tone === "error") toast.error(message, options)
+  else if (tone === "warning") toast.warning(message, options)
   else toast.success(message)
 }
 
@@ -52,7 +77,22 @@ export function NodeSection({ title, description, nodes, results, history, onBat
       publishBatchToast(payload.results, t)
       onBatchComplete?.()
     },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => {
+      const code = classifyNodeTestRequestError(error)
+      const payload = nodeTestRequestErrorClipboardText(error)
+      toast.error(formatNodeTestRequestErrorToast(error, t("nodes.testFailed")), {
+        description: t(nodeTestErrorHintKey(code)),
+        action: payload ? {
+          label: t("nodes.copyTestError"),
+          onClick: () => {
+            void copyText(payload).then(
+              () => toast.success(t("nodes.testErrorCopied")),
+              () => toast.error(t("nodes.testErrorCopyFailed")),
+            )
+          },
+        } : undefined,
+      })
+    },
   })
   return (
     <section aria-labelledby={titleId} className="flex flex-col gap-2.5 sm:gap-3">
