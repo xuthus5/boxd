@@ -1,6 +1,8 @@
 import { useTranslation } from "react-i18next"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
@@ -9,6 +11,7 @@ import {
   type ConnectionColumnId,
 } from "@/features/observability/connection-columns"
 import { formatBytes } from "@/features/dashboard/format"
+import { useIsMobile } from "@/hooks/use-mobile"
 import type { Connection } from "@/lib/api/types"
 
 function formatDuration(start: string) {
@@ -55,6 +58,61 @@ function titleFor(connection: Connection, id: ConnectionColumnId): string | unde
   return undefined
 }
 
+function MetaChip({ label, value }: { label: string; value: string }) {
+  if (!value || value === "—") return null
+  return <Badge variant="outline" className="max-w-full truncate font-normal" title={value}>{label}: {value}</Badge>
+}
+
+function ConnectionMobileCard({
+  connection,
+  columns,
+  busy,
+  onClose,
+}: {
+  connection: Connection
+  columns: readonly ConnectionColumnId[]
+  busy: boolean
+  onClose: (id: string) => void
+}) {
+  const { t } = useTranslation()
+  const id = String(connection.id)
+  const duration = formatDuration(connection.start)
+  const show = (column: ConnectionColumnId) => connectionColumnVisible(columns, column)
+  return (
+    <Card size="sm">
+      <CardHeader className="min-w-0">
+        <CardTitle className="truncate" title={connection.target || undefined}>
+          {connection.target || "—"}
+        </CardTitle>
+        <CardDescription className="truncate">
+          {show("outbound") ? (connection.outbound || "—") : null}
+          {show("outbound") && show("rule") ? " · " : null}
+          {show("rule") ? (connection.rule || "—") : null}
+        </CardDescription>
+        <CardAction>
+          <Button size="sm" variant="destructive" disabled={busy} onClick={() => onClose(id)}>
+            {t("observability.close")}
+          </Button>
+        </CardAction>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-2">
+        <div className="flex flex-wrap gap-1.5">
+          {show("network") ? <MetaChip label={t("observability.network")} value={connection.network || "—"} /> : null}
+          {show("protocol") ? <MetaChip label={t("observability.protocol")} value={connection.protocol || "—"} /> : null}
+          {show("inbound") ? <MetaChip label={t("observability.inbound")} value={connection.inbound || "—"} /> : null}
+          {show("source") ? <MetaChip label={t("observability.source")} value={connection.source || "—"} /> : null}
+          {show("process") ? <MetaChip label={t("observability.process")} value={connection.process || "—"} /> : null}
+        </div>
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          {show("upload") ? <span>{t("dashboard.upload")}: {formatBytes(connection.upload)}</span> : null}
+          {show("download") ? <span>{t("dashboard.download")}: {formatBytes(connection.download)}</span> : null}
+          {show("duration") ? <span>{t("observability.duration")}: {duration}</span> : null}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 export function ConnectionListTable({
   connections,
   columns,
@@ -67,6 +125,7 @@ export function ConnectionListTable({
   onClose: (id: string) => void
 }) {
   const { t } = useTranslation()
+  const isMobile = useIsMobile()
   if (connections.length === 0) {
     return (
       <Empty>
@@ -75,6 +134,21 @@ export function ConnectionListTable({
           <EmptyDescription>{t("observability.noMatchDescription")}</EmptyDescription>
         </EmptyHeader>
       </Empty>
+    )
+  }
+  if (isMobile) {
+    return (
+      <div className="flex flex-col gap-2">
+        {connections.map((connection) => (
+          <ConnectionMobileCard
+            key={connection.id}
+            connection={connection}
+            columns={columns}
+            busy={busy}
+            onClose={onClose}
+          />
+        ))}
+      </div>
     )
   }
   const visible = CONNECTION_COLUMNS.filter((column) => connectionColumnVisible(columns, column.id))
