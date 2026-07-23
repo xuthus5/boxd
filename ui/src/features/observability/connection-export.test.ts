@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   buildConnectionExportFilename,
   compareConnections,
+  formatConnectionClipboardText,
   formatConnectionExport,
   formatConnectionLine,
   sortConnections,
@@ -50,3 +51,21 @@ describe("connection-export", () => {
       .toBe("boxd-connections-2026-07-23T01-02-03-004Z.log")
   })
 })
+
+  it("formats clipboard diagnostics", () => {
+    const text = formatConnectionClipboardText({
+      id: 9,
+      target: "api.example.com:443",
+      outbound: "proxy",
+      rule: "geosite-google",
+      network: "tcp",
+      upload: 1,
+      download: 2,
+      start: "2026-07-24T00:00:00Z",
+    })
+    expect(text).toContain("id: 9")
+    expect(text).toContain("target: api.example.com:443")
+    expect(text).toContain("outbound: proxy")
+    expect(text).toContain("rule: geosite-google")
+  })
+

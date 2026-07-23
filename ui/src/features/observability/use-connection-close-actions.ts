@@ -4,6 +4,7 @@ import { toast } from "sonner"
 
 import {
   filterSuppressedConnections,
+  formatClosedScopeMessage,
   groupClosingKey,
   isBenignCloseMiss,
   isBulkClosing,
@@ -45,11 +46,12 @@ export function useConnectionCloseActions(liveConnections: Connection[]) {
   }
 
   const closeOne = async (id: string) => {
+    const target = connections.find((item) => String(item.id) === id)?.target
     setClosingId(id)
     markSuppressed([id])
     try {
       await api.stats.closeConnection(id)
-      toast.success(t("observability.closedOne"))
+      toast.success(formatClosedScopeMessage("one", t, { target }))
     } catch (error) {
       if (isBenignCloseMiss(error)) toast.success(t("observability.closedAlready"))
       else {
@@ -67,7 +69,7 @@ export function useConnectionCloseActions(liveConnections: Connection[]) {
     markSuppressed(ids)
     try {
       const result = await api.stats.closeAll()
-      toast.success(t("observability.closedCount", { count: result.closed }))
+      toast.success(formatClosedScopeMessage("all", t, { count: result.closed }))
     } catch (error) {
       restoreSuppressed(ids)
       toast.error(error instanceof Error ? error.message : String(error))
@@ -87,7 +89,7 @@ export function useConnectionCloseActions(liveConnections: Connection[]) {
     markSuppressed(groupIds)
     try {
       const result = await api.stats.closeAll({ [field]: key })
-      toast.success(t("observability.closedCount", { count: result.closed }))
+      toast.success(formatClosedScopeMessage("group", t, { group: key, count: result.closed }))
     } catch (error) {
       restoreSuppressed(groupIds)
       toast.error(error instanceof Error ? error.message : String(error))
@@ -102,7 +104,7 @@ export function useConnectionCloseActions(liveConnections: Connection[]) {
     markSuppressed(ids)
     try {
       const result = await api.stats.closeAll({ ids })
-      toast.success(t("observability.closedCount", { count: result.closed }))
+      toast.success(formatClosedScopeMessage("filtered", t, { count: result.closed }))
     } catch (error) {
       restoreSuppressed(ids)
       toast.error(error instanceof Error ? error.message : String(error))

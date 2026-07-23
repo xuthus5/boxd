@@ -65,3 +65,27 @@ export function isBenignCloseMiss(error: unknown): boolean {
 export function groupClosingKey(field: "outbound" | "rule" | "process", key: string): string {
   return `group:${field}:${key}`
 }
+
+export type CloseScope = "one" | "all" | "filtered" | "group"
+
+export function formatClosedScopeMessage(
+  scope: CloseScope,
+  t: (key: string, values?: Record<string, string | number>) => string,
+  options: { count?: number; target?: string; group?: string } = {},
+): string {
+  if (scope === "one") {
+    const target = options.target?.trim()
+    if (target) return t("observability.closedOneTarget", { target })
+    return t("observability.closedOne")
+  }
+  if (scope === "all") {
+    return t("observability.closedAllDone", { count: options.count ?? 0 })
+  }
+  if (scope === "filtered") {
+    return t("observability.closedFilteredDone", { count: options.count ?? 0 })
+  }
+  return t("observability.closeGroupDoneCount", {
+    group: options.group ?? "—",
+    count: options.count ?? 0,
+  })
+}

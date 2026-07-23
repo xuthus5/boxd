@@ -64,3 +64,22 @@ export function buildConnectionExportFilename(now = new Date()): string {
   const stamp = now.toISOString().replace(/[:.]/g, "-")
   return `boxd-connections-${stamp}.log`
 }
+
+/** 连接诊断剪贴板文本，便于排障粘贴。 */
+export function formatConnectionClipboardText(item: Connection): string {
+  const lines = [
+    `id: ${item.id}`,
+    item.target?.trim() ? `target: ${item.target.trim()}` : "",
+    item.outbound?.trim() ? `outbound: ${item.outbound.trim()}` : "",
+    item.rule?.trim() ? `rule: ${item.rule.trim()}` : "",
+    item.network?.trim() ? `network: ${item.network.trim()}` : "",
+    item.source?.trim() ? `source: ${item.source.trim()}` : "",
+    item.inbound?.trim() ? `inbound: ${item.inbound.trim()}` : "",
+    item.protocol?.trim() ? `protocol: ${item.protocol.trim()}` : "",
+    item.process?.trim() ? `process: ${item.process.trim()}` : "",
+    `upload: ${item.upload || 0}`,
+    `download: ${item.download || 0}`,
+    item.start?.trim() ? `start: ${item.start.trim()}` : "",
+  ].filter(Boolean)
+  return lines.join("\n")
+}

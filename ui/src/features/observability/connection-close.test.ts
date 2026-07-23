@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import { ApiError } from "@/lib/api/client"
 import {
   filterSuppressedConnections,
+  formatClosedScopeMessage,
   isBenignCloseMiss,
   isBulkClosing,
   isConnectionRowBusy,
@@ -44,3 +45,20 @@ describe("connection close helpers", () => {
     expect(isBenignCloseMiss(new Error("x"))).toBe(false)
   })
 })
+
+  it("formats densified close messages", () => {
+    const t = (key: string, values?: Record<string, string | number>) => {
+      if (key === "observability.closedOneTarget") return `closed ${values?.target}`
+      if (key === "observability.closedOne") return "closed one"
+      if (key === "observability.closedAllDone") return `closed all ${values?.count}`
+      if (key === "observability.closedFilteredDone") return `closed filtered ${values?.count}`
+      if (key === "observability.closeGroupDoneCount") return `closed group ${values?.group} ${values?.count}`
+      return key
+    }
+    expect(formatClosedScopeMessage("one", t, { target: "a.com:443" })).toBe("closed a.com:443")
+    expect(formatClosedScopeMessage("one", t)).toBe("closed one")
+    expect(formatClosedScopeMessage("all", t, { count: 3 })).toBe("closed all 3")
+    expect(formatClosedScopeMessage("filtered", t, { count: 2 })).toBe("closed filtered 2")
+    expect(formatClosedScopeMessage("group", t, { group: "proxy", count: 4 })).toBe("closed group proxy 4")
+  })
+

@@ -13,6 +13,7 @@ import {
   type ConnectionColumnId,
 } from "@/features/observability/connection-columns"
 import { FacetLink, MetaChip } from "@/features/observability/connection-facet-links"
+import { formatConnectionClipboardText } from "@/features/observability/connection-export"
 import {
   cellValue,
   formatDuration,
@@ -24,6 +25,15 @@ import {
 import { copyText } from "@/features/proxy/copy-tag-button"
 import type { Connection } from "@/lib/api/types"
 import { cn } from "@/lib/utils"
+
+function copyConnectionDiagnostics(connection: Connection, t: (key: string) => string) {
+  const payload = formatConnectionClipboardText(connection)
+  if (!payload) return
+  void copyText(payload).then(
+    () => toast.success(t("observability.connectionCopied")),
+    () => toast.error(t("observability.connectionCopyFailed")),
+  )
+}
 
 export function ConnectionMobileCard({
   connection,
@@ -103,7 +113,19 @@ export function ConnectionMobileCard({
               {t("observability.viewRule")}
             </Link>
           ) : null}
-          <Button size="sm" className="h-8" variant="destructive" disabled={busy} onClick={() => onClose(id)}>
+                  <Button
+          type="button"
+          size="sm"
+          className="h-8"
+          variant="outline"
+          aria-label={`${t("observability.copyConnection")}: ${connection.target || id}`}
+          onClick={() => copyConnectionDiagnostics(connection, t)}
+        >
+          <CopyIcon data-icon="inline-start" />
+          {t("observability.copyConnection")}
+        </Button>
+        <Button size="sm" className="h-8" variant="destructive" disabled={busy} onClick={() => onClose(id)}>
+
             {t("observability.close")}
           </Button>
         </CardAction>
@@ -178,7 +200,19 @@ export function ConnectionDesktopRow({
                     {t("observability.viewRule")}
                   </Link>
                 ) : null}
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-8"
+                  variant="outline"
+                  aria-label={`${t("observability.copyConnection")}: ${connection.target || id}`}
+                  onClick={() => copyConnectionDiagnostics(connection, t)}
+                >
+                  <CopyIcon data-icon="inline-start" />
+                  {t("observability.copyConnection")}
+                </Button>
                 <Button size="sm" className="h-8" variant="destructive" disabled={busy} onClick={() => onClose(id)}>
+
                   {t("observability.close")}
                 </Button>
               </div>
