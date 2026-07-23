@@ -72,6 +72,7 @@ export const api = {
       apiRequest<RuleSetAutoUpdate>("/api/config/rule-sets/auto-update", json("PUT", input)),
     installOutbounds: () => apiRequestEnvelope<JsonValue>("/api/config/outbounds/defaults", json("POST")),
     installInbounds: () => apiRequestEnvelope<JsonValue>("/api/config/inbounds/defaults", json("POST")),
+    installExperimental: () => apiRequestEnvelope<JsonValue>("/api/config/experimental/defaults", json("POST")),
     installRoute: () => apiRequestEnvelope<JsonValue>("/api/config/route/defaults", json("POST")),
     getRouteRuleMetadata: () => apiRequest<RouteRuleMetadata[]>("/api/config/route/rule-metadata"),
     updateRouteRuleMetadata: (metadata: RouteRuleMetadata[]) => apiRequest<RouteRuleMetadata[]>(

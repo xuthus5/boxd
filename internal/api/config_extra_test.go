@@ -361,3 +361,31 @@ func TestRestartFailureMessage(t *testing.T) {
 		t.Fatalf("empty detail = %q", got)
 	}
 }
+
+func TestInstallDefaultExperimentalSuccess(t *testing.T) {
+	handler, _ := newConfigHandlerWithFile(t)
+	rr := httptest.NewRecorder()
+	handler.InstallDefaultExperimental(rr, httptest.NewRequest(http.MethodPost, "/api/config/experimental/defaults", nil))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestInstallDefaultExperimentalConfigNotFound(t *testing.T) {
+	handler := NewConfigHandler(filepath.Join(t.TempDir(), "missing.json"), nil, nil, nil, nil, nil)
+	rr := httptest.NewRecorder()
+	handler.InstallDefaultExperimental(rr, httptest.NewRequest(http.MethodPost, "/api/config/experimental/defaults", nil))
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("status = %d", rr.Code)
+	}
+}
+
+func TestInstallDefaultExperimentalNilInstaller(t *testing.T) {
+	handler, _ := newConfigHandlerWithFile(t)
+	handler.experimentalInstaller = nil
+	rr := httptest.NewRecorder()
+	handler.InstallDefaultExperimental(rr, httptest.NewRequest(http.MethodPost, "/api/config/experimental/defaults", nil))
+	if rr.Code != http.StatusNotImplemented {
+		t.Fatalf("status = %d", rr.Code)
+	}
+}

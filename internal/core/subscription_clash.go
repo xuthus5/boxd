@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	yaml "gopkg.in/yaml.v3"
@@ -44,169 +43,33 @@ func clashProxyToOutbound(proxy map[string]any) (*model.Outbound, error) {
 	if name == "" {
 		name = fmt.Sprintf("%s-%s-%d", typ, server, port)
 	}
-
-	var config map[string]any
-	switch typ {
-	case "ss", "shadowsocks":
-		config = map[string]any{
-			"type":        "shadowsocks",
-			"server":      server,
-			"server_port": port,
-			"method":      firstString(proxy, "cipher", "method"),
-			"password":    asString(proxy["password"]),
-		}
-		typ = "shadowsocks"
-	case "trojan":
-		config = map[string]any{
-			"type":        "trojan",
-			"server":      server,
-			"server_port": port,
-			"password":    asString(proxy["password"]),
-		}
-		if sni := firstString(proxy, "sni", "servername"); sni != "" {
-			config["tls"] = map[string]any{"enabled": true, "server_name": sni}
-		}
-	case "vmess":
-		config = map[string]any{
-			"type":        "vmess",
-			"server":      server,
-			"server_port": port,
-			"uuid":        firstString(proxy, "uuid", "id"),
-			"alter_id":    asInt(proxy["alterId"]),
-			"security":    firstString(proxy, "cipher", "security"),
-		}
-		if network := firstString(proxy, "network", "net"); network != "" {
-			config["transport"] = map[string]any{"type": network}
-		}
-		if asBool(proxy["tls"]) || firstString(proxy, "tls") == "tls" {
-			tls := map[string]any{"enabled": true}
-			if sni := firstString(proxy, "servername", "sni"); sni != "" {
-				tls["server_name"] = sni
-			}
-			config["tls"] = tls
-		}
-	case "vless":
-		config = map[string]any{
-			"type":        "vless",
-			"server":      server,
-			"server_port": port,
-			"uuid":        firstString(proxy, "uuid", "id"),
-		}
-		if flow := asString(proxy["flow"]); flow != "" {
-			config["flow"] = flow
-		}
-		if network := firstString(proxy, "network", "net"); network != "" {
-			config["transport"] = map[string]any{"type": network}
-		}
-		if asBool(proxy["tls"]) || firstString(proxy, "tls") != "" || firstString(proxy, "sni", "servername") != "" {
-			tls := map[string]any{"enabled": true}
-			if sni := firstString(proxy, "servername", "sni"); sni != "" {
-				tls["server_name"] = sni
-			}
-			if reality, ok := proxy["reality-opts"].(map[string]any); ok {
-				tls["reality"] = map[string]any{
-					"enabled":    true,
-					"public_key": firstString(reality, "public-key", "public_key"),
-					"short_id":   firstString(reality, "short-id", "short_id"),
-				}
-			}
-			config["tls"] = tls
-		}
-	case "hysteria2", "hy2":
-		config = map[string]any{
-			"type":        "hysteria2",
-			"server":      server,
-			"server_port": port,
-			"password":    firstString(proxy, "password", "auth"),
-		}
-		if sni := firstString(proxy, "sni", "servername"); sni != "" {
-			config["tls"] = map[string]any{"enabled": true, "server_name": sni}
-		}
-		typ = "hysteria2"
-	case "tuic":
-		config = map[string]any{
-			"type":        "tuic",
-			"server":      server,
-			"server_port": port,
-			"uuid":        asString(proxy["uuid"]),
-			"password":    asString(proxy["password"]),
-		}
-		if sni := firstString(proxy, "sni", "servername"); sni != "" {
-			config["tls"] = map[string]any{"enabled": true, "server_name": sni}
-		}
-	default:
-		return nil, fmt.Errorf("unsupported clash type %s", typ)
+	config, outType, err := buildClashConfig(typ, proxy, server, port)
+	if err != nil {
+		return nil, err
 	}
 	config["tag"] = name
-	return &model.Outbound{
-		Tag:    name,
-		Type:   typ,
-		Server: server,
-		Port:   port,
-		Raw:    config,
-	}, nil
+	return &model.Outbound{Tag: name, Type: outType, Server: server, Port: port, Raw: config}, nil
 }
 
-func asString(value any) string {
-	switch v := value.(type) {
-	case string:
-		return v
-	case fmt.Stringer:
-		return v.String()
-	case int:
-		return strconv.Itoa(v)
-	case int64:
-		return strconv.FormatInt(v, 10)
-	case float64:
-		return strconv.FormatInt(int64(v), 10)
-	case bool:
-		if v {
-			return "true"
-		}
-		return "false"
+func buildClashConfig(typ string, proxy map[string]any, server string, port int) (map[string]any, string, error) {
+	switch typ {
+	case "ss", "shadowsocks":
+		return clashShadowsocks(proxy, server, port), "shadowsocks", nil
+	case "trojan":
+		return clashTrojan(proxy, server, port), "trojan", nil
+	case "vmess":
+		return clashVMess(proxy, server, port), "vmess", nil
+	case "vless":
+		return clashVLESS(proxy, server, port), "vless", nil
+	case "hysteria2", "hy2":
+		return clashHysteria2(proxy, server, port), "hysteria2", nil
+	case "tuic":
+		return clashTUIC(proxy, server, port), "tuic", nil
+	case "http":
+		return clashHTTP(proxy, server, port), "http", nil
+	case "socks", "socks5":
+		return clashSocks(proxy, server, port), "socks", nil
 	default:
-		return ""
+		return nil, "", fmt.Errorf("unsupported clash type %s", typ)
 	}
-}
-
-func firstString(values map[string]any, keys ...string) string {
-	for _, key := range keys {
-		if value := strings.TrimSpace(asString(values[key])); value != "" {
-			return value
-		}
-	}
-	return ""
-}
-
-func asInt(value any) int {
-	switch v := value.(type) {
-	case int:
-		return v
-	case int64:
-		return int(v)
-	case float64:
-		return int(v)
-	case string:
-		n, _ := strconv.Atoi(strings.TrimSpace(v))
-		return n
-	default:
-		return 0
-	}
-}
-
-func asBool(value any) bool {
-	switch v := value.(type) {
-	case bool:
-		return v
-	case string:
-		switch strings.ToLower(strings.TrimSpace(v)) {
-		case "1", "true", "yes", "on":
-			return true
-		}
-	case int:
-		return v != 0
-	case float64:
-		return v != 0
-	}
-	return false
 }

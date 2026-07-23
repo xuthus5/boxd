@@ -136,3 +136,177 @@ func TestClashHelpers(t *testing.T) {
 		t.Fatal("firstString")
 	}
 }
+
+func TestClashProxyTransportAndExtraTypes(t *testing.T) {
+	cases := []struct {
+		name  string
+		in    map[string]any
+		typ   string
+		check func(t *testing.T, raw map[string]any)
+	}{
+		{
+			name: "vless-ws-reality",
+			in: map[string]any{
+				"name": "vless-ws", "type": "vless", "server": "1.1.1.1", "port": 443,
+				"uuid": "u", "network": "ws", "tls": true, "servername": "example.com",
+				"ws-opts":      map[string]any{"path": "/ws", "headers": map[string]any{"Host": "example.com"}},
+				"reality-opts": map[string]any{"public-key": "pk", "short-id": "sid"},
+			},
+			typ: "vless",
+			check: func(t *testing.T, raw map[string]any) {
+				transport := raw["transport"].(map[string]any)
+				if transport["type"] != "ws" || transport["path"] != "/ws" {
+					t.Fatalf("transport = %#v", transport)
+				}
+				tls := raw["tls"].(map[string]any)
+				if tls["reality"] == nil {
+					t.Fatalf("tls = %#v", tls)
+				}
+			},
+		},
+		{
+			name: "socks5",
+			in: map[string]any{
+				"name": "socks-1", "type": "socks5", "server": "2.2.2.2", "port": 1080,
+				"username": "u", "password": "p",
+			},
+			typ: "socks",
+			check: func(t *testing.T, raw map[string]any) {
+				if raw["username"] != "u" || raw["version"] != "5" {
+					t.Fatalf("raw = %#v", raw)
+				}
+			},
+		},
+		{
+			name: "http",
+			in: map[string]any{
+				"name": "http-1", "type": "http", "server": "3.3.3.3", "port": 8080,
+				"username": "u", "password": "p", "tls": true, "sni": "http.example",
+			},
+			typ: "http",
+			check: func(t *testing.T, raw map[string]any) {
+				if raw["tls"] == nil {
+					t.Fatalf("tls missing: %#v", raw)
+				}
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			out, err := clashProxyToOutbound(tt.in)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if out.Type != tt.typ {
+				t.Fatalf("type = %s want %s", out.Type, tt.typ)
+			}
+			raw, ok := out.Raw.(map[string]any)
+			if !ok {
+				t.Fatalf("raw type = %T", out.Raw)
+			}
+			tt.check(t, raw)
+		})
+	}
+}
+
+func TestClashHelpersExtra(t *testing.T) {
+	if got := asStringSlice([]string{"a", "b"}); len(got) != 2 || got[0] != "a" {
+		t.Fatalf("string slice = %#v", got)
+	}
+	if got := asStringSlice([]any{"x", 1, ""}); len(got) != 2 || got[1] != "1" {
+		t.Fatalf("any slice = %#v", got)
+	}
+	if got := asStringSlice("solo"); len(got) != 1 || got[0] != "solo" {
+		t.Fatalf("string = %#v", got)
+	}
+	if got := asStringSlice(""); got != nil {
+		t.Fatalf("empty string = %#v", got)
+	}
+	if got := asStringSlice(12); got != nil {
+		t.Fatalf("unsupported = %#v", got)
+	}
+}
+
+func TestClashShadowsocksPluginAndTransports(t *testing.T) {
+	ss, err := clashProxyToOutbound(map[string]any{
+		"name": "ss-plugin", "type": "ss", "server": "1.1.1.1", "port": 8388,
+		"cipher": "aes-128-gcm", "password": "p",
+		"plugin": "v2ray-plugin", "plugin-opts": "mode=websocket",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := ss.Raw.(map[string]any)
+	if raw["plugin"] != "v2ray-plugin" || raw["plugin_opts"] != "mode=websocket" {
+		t.Fatalf("plugin raw = %#v", raw)
+	}
+
+	ssMap, err := clashProxyToOutbound(map[string]any{
+		"name": "ss-plugin-map", "type": "shadowsocks", "server": "1.1.1.1", "port": 8388,
+		"cipher": "aes-128-gcm", "password": "p",
+		"plugin": "obfs", "plugin-opts": map[string]any{"mode": "http"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ssMap.Raw.(map[string]any)["plugin_opts"].(map[string]any)["mode"] != "http" {
+		t.Fatalf("plugin map = %#v", ssMap.Raw)
+	}
+
+	grpcOut, err := clashProxyToOutbound(map[string]any{
+		"name": "vmess-grpc", "type": "vmess", "server": "1.1.1.1", "port": 443,
+		"uuid": "u", "network": "grpc", "grpc-service-name": "GunService",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	transport := grpcOut.Raw.(map[string]any)["transport"].(map[string]any)
+	if transport["type"] != "grpc" || transport["service_name"] != "GunService" {
+		t.Fatalf("grpc transport = %#v", transport)
+	}
+
+	h2, err := clashProxyToOutbound(map[string]any{
+		"name": "vmess-h2", "type": "vmess", "server": "1.1.1.1", "port": 443,
+		"uuid": "u", "network": "h2", "path": "/h2", "host": "h2.example",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	h2t := h2.Raw.(map[string]any)["transport"].(map[string]any)
+	if h2t["path"] != "/h2" {
+		t.Fatalf("h2 transport = %#v", h2t)
+	}
+}
+
+func TestClashHysteria2AndTUICExtras(t *testing.T) {
+	hy, err := clashProxyToOutbound(map[string]any{
+		"name": "hy2", "type": "hy2", "server": "1.1.1.1", "port": 443,
+		"password": "p", "up": 100, "down": 200, "obfs": "salamander", "obfs-password": "op",
+		"sni": "hy.example", "skip-cert-verify": true, "alpn": []any{"h3"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := hy.Raw.(map[string]any)
+	if raw["up_mbps"] != 100 || raw["down_mbps"] != 200 {
+		t.Fatalf("bandwidth = %#v", raw)
+	}
+	if raw["obfs"] == nil {
+		t.Fatalf("obfs missing %#v", raw)
+	}
+	tls := raw["tls"].(map[string]any)
+	if tls["insecure"] != true || tls["server_name"] != "hy.example" {
+		t.Fatalf("tls = %#v", tls)
+	}
+
+	tuic, err := clashProxyToOutbound(map[string]any{
+		"name": "tuic2", "type": "tuic", "server": "2.2.2.2", "port": 443,
+		"uuid": "u", "password": "p", "congestion-controller": "bbr", "sni": "tuic.example",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tuic.Raw.(map[string]any)["congestion_control"] != "bbr" {
+		t.Fatalf("tuic = %#v", tuic.Raw)
+	}
+}

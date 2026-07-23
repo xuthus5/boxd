@@ -22,14 +22,15 @@ import (
 var ErrInvalidRuntimeConfig = errors.New("invalid sing-box config")
 
 type ConfigHandler struct {
-	configPath        string
-	instance          restartableInstance
-	ruleSetInstaller  core.RuleSetDefaultsInstaller
-	outboundInstaller core.OutboundDefaultsInstaller
-	inboundInstaller  core.InboundDefaultsInstaller
-	routeInstaller    core.RouteDefaultsInstaller
-	dnsInstaller      core.DNSDefaultsInstaller
-	routeMetadata     *core.RouteRuleMetadataManager
+	configPath            string
+	instance              restartableInstance
+	ruleSetInstaller      core.RuleSetDefaultsInstaller
+	outboundInstaller     core.OutboundDefaultsInstaller
+	inboundInstaller      core.InboundDefaultsInstaller
+	routeInstaller        core.RouteDefaultsInstaller
+	dnsInstaller          core.DNSDefaultsInstaller
+	experimentalInstaller core.ExperimentalDefaultsInstaller
+	routeMetadata         *core.RouteRuleMetadataManager
 }
 
 type restartableInstance interface {
@@ -38,13 +39,14 @@ type restartableInstance interface {
 
 func NewConfigHandler(configPath string, instance restartableInstance, ruleSetInstaller core.RuleSetDefaultsInstaller, outboundInstaller core.OutboundDefaultsInstaller, routeInstaller core.RouteDefaultsInstaller, dnsInstaller core.DNSDefaultsInstaller, routeMetadata ...*core.RouteRuleMetadataManager) *ConfigHandler {
 	handler := &ConfigHandler{
-		configPath:        configPath,
-		instance:          instance,
-		ruleSetInstaller:  ruleSetInstaller,
-		outboundInstaller: outboundInstaller,
-		inboundInstaller:  core.NewDefaultInboundsInstaller(),
-		routeInstaller:    routeInstaller,
-		dnsInstaller:      dnsInstaller,
+		configPath:            configPath,
+		instance:              instance,
+		ruleSetInstaller:      ruleSetInstaller,
+		outboundInstaller:     outboundInstaller,
+		inboundInstaller:      core.NewDefaultInboundsInstaller(),
+		routeInstaller:        routeInstaller,
+		dnsInstaller:          dnsInstaller,
+		experimentalInstaller: core.NewDefaultExperimentalInstaller(),
 	}
 	if len(routeMetadata) > 0 {
 		handler.routeMetadata = routeMetadata[0]

@@ -228,3 +228,47 @@ func (h *ConfigHandler) InstallDefaultInbounds(w http.ResponseWriter, r *http.Re
 		"rolled_back":     status == model.StatusRolledBack,
 	})
 }
+
+func (h *ConfigHandler) InstallDefaultExperimental(w http.ResponseWriter, r *http.Request) {
+	if h.experimentalInstaller == nil {
+		writeJSONError(w, http.StatusNotImplemented, "default experimental installer is not configured")
+		return
+	}
+
+	data, err := os.ReadFile(h.configPath)
+	if err != nil {
+		writeJSONError(w, http.StatusNotFound, "config not found")
+		return
+	}
+
+	var cfg map[string]any
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "invalid JSON in config")
+		return
+	}
+	if cfg == nil {
+		cfg = map[string]any{}
+	}
+
+	result, err := h.experimentalInstaller.Install(cfg)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	cfg["experimental"] = result.Experimental
+
+	body, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "failed to encode config")
+		return
+	}
+	status, apiErr, err := h.applyConfigBytes(body, true)
+	if err != nil {
+		writeApplyConfigError(w, err)
+		return
+	}
+	writeJSONStatus(w, http.StatusOK, status, result.Installed, apiErr, map[string]any{
+		"installed_count": len(result.Installed),
+		"rolled_back":     status == model.StatusRolledBack,
+	})
+}

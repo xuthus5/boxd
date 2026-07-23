@@ -11,11 +11,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/features/auth/auth-context"
 import { formatBytes } from "@/features/dashboard/format"
+import {
+  aggregateConnections,
+  matchesConnection,
+  summarizeConnections,
+  type ConnectionGroupStat,
+} from "@/features/observability/connection-stats"
 import { useStreamBuffer } from "@/features/observability/use-stream-buffer"
 import { api } from "@/lib/api/endpoints"
-import type { Connection, ConnectionEvent } from "@/lib/api/types"
+import type { ConnectionEvent } from "@/lib/api/types"
 
 function formatDuration(start: string) {
   const startedAt = new Date(start).getTime()
@@ -24,23 +31,41 @@ function formatDuration(start: string) {
   return `${Math.floor(milliseconds / 1000)}s`
 }
 
-
-function summarizeConnections(connections: Connection[]) {
-  const upload = connections.reduce((sum, item) => sum + (item.upload || 0), 0)
-  const download = connections.reduce((sum, item) => sum + (item.download || 0), 0)
-  const outbounds = new Set(connections.map((item) => item.outbound).filter(Boolean)).size
-  return { upload, download, outbounds }
-}
-
-function matchesConnection(connection: Connection, query: string) {
-  if (!query) return true
-  const haystack = [
-    connection.target,
-    connection.outbound,
-    connection.rule ?? "",
-    String(connection.id),
-  ].join(" ").toLowerCase()
-  return haystack.includes(query)
+function GroupStatsTable({
+  groups,
+  emptyTitle,
+  emptyDescription,
+}: {
+  groups: ConnectionGroupStat[]
+  emptyTitle: string
+  emptyDescription: string
+}) {
+  const { t } = useTranslation()
+  if (groups.length === 0) {
+    return <Empty><EmptyHeader><EmptyTitle>{emptyTitle}</EmptyTitle><EmptyDescription>{emptyDescription}</EmptyDescription></EmptyHeader></Empty>
+  }
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>{t("observability.group")}</TableHead>
+          <TableHead>{t("observability.count")}</TableHead>
+          <TableHead>{t("dashboard.upload")}</TableHead>
+          <TableHead>{t("dashboard.download")}</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {groups.map((group) => (
+          <TableRow key={group.key}>
+            <TableCell className="max-w-[14rem] truncate" title={group.key}>{group.key}</TableCell>
+            <TableCell>{group.count}</TableCell>
+            <TableCell>{formatBytes(group.upload)}</TableCell>
+            <TableCell>{formatBytes(group.download)}</TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  )
 }
 
 export function ConnectionsPage() {
@@ -57,6 +82,8 @@ export function ConnectionsPage() {
     [connections, normalized],
   )
   const summary = useMemo(() => summarizeConnections(filtered), [filtered])
+  const byOutbound = useMemo(() => aggregateConnections(filtered, "outbound"), [filtered])
+  const byRule = useMemo(() => aggregateConnections(filtered, "rule"), [filtered])
   const action = async (request: Promise<unknown>, message: string, id: string | "all" = "all") => {
     setClosingId(id)
     try {
@@ -109,44 +136,69 @@ export function ConnectionsPage() {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          {connections.length === 0
-            ? <Empty><EmptyHeader><EmptyTitle>{t("observability.noConnections")}</EmptyTitle><EmptyDescription>{t("observability.noConnectionsDescription")}</EmptyDescription></EmptyHeader></Empty>
-            : filtered.length === 0
-              ? <Empty><EmptyHeader><EmptyTitle>{t("observability.noMatch")}</EmptyTitle><EmptyDescription>{t("observability.noMatchDescription")}</EmptyDescription></EmptyHeader></Empty>
-              : <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t("observability.target")}</TableHead>
-                    <TableHead>{t("observability.outbound")}</TableHead>
-                    <TableHead>{t("observability.rule")}</TableHead>
-                    <TableHead>{t("dashboard.upload")}</TableHead>
-                    <TableHead>{t("dashboard.download")}</TableHead>
-                    <TableHead>{t("observability.duration")}</TableHead>
-                    <TableHead>{t("common.actions")}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map((connection) => {
-                    const id = String(connection.id)
-                    return (
-                      <TableRow key={connection.id}>
-                        <TableCell className="max-w-[12rem] truncate" title={connection.target}>{connection.target}</TableCell>
-                        <TableCell>{connection.outbound}</TableCell>
-                        <TableCell className="max-w-[10rem] truncate" title={connection.rule || undefined}>{connection.rule || "—"}</TableCell>
-                        <TableCell>{formatBytes(connection.upload)}</TableCell>
-                        <TableCell>{formatBytes(connection.download)}</TableCell>
-                        <TableCell>{formatDuration(connection.start)}</TableCell>
-                        <TableCell>
-                          <Button size="sm" variant="destructive" disabled={closingId !== null} onClick={() => { void action(api.stats.closeConnection(id), t("observability.close"), id) }}>
-                            {t("observability.close")}
-                          </Button>
-                        </TableCell>
+        <CardContent className="flex flex-col gap-4">
+          {connections.length > 0 ? (
+            <Tabs defaultValue="list">
+              <TabsList>
+                <TabsTrigger value="list">{t("observability.listView")}</TabsTrigger>
+                <TabsTrigger value="outbound">{t("observability.byOutbound")}</TabsTrigger>
+                <TabsTrigger value="rule">{t("observability.byRule")}</TabsTrigger>
+              </TabsList>
+              <TabsContent value="list" className="mt-3">
+                {filtered.length === 0
+                  ? <Empty><EmptyHeader><EmptyTitle>{t("observability.noMatch")}</EmptyTitle><EmptyDescription>{t("observability.noMatchDescription")}</EmptyDescription></EmptyHeader></Empty>
+                  : <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t("observability.target")}</TableHead>
+                        <TableHead>{t("observability.outbound")}</TableHead>
+                        <TableHead>{t("observability.rule")}</TableHead>
+                        <TableHead>{t("dashboard.upload")}</TableHead>
+                        <TableHead>{t("dashboard.download")}</TableHead>
+                        <TableHead>{t("observability.duration")}</TableHead>
+                        <TableHead>{t("common.actions")}</TableHead>
                       </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>}
+                    </TableHeader>
+                    <TableBody>
+                      {filtered.map((connection) => {
+                        const id = String(connection.id)
+                        return (
+                          <TableRow key={connection.id}>
+                            <TableCell className="max-w-[12rem] truncate" title={connection.target}>{connection.target}</TableCell>
+                            <TableCell>{connection.outbound}</TableCell>
+                            <TableCell className="max-w-[10rem] truncate" title={connection.rule || undefined}>{connection.rule || "—"}</TableCell>
+                            <TableCell>{formatBytes(connection.upload)}</TableCell>
+                            <TableCell>{formatBytes(connection.download)}</TableCell>
+                            <TableCell>{formatDuration(connection.start)}</TableCell>
+                            <TableCell>
+                              <Button size="sm" variant="destructive" disabled={closingId !== null} onClick={() => { void action(api.stats.closeConnection(id), t("observability.close"), id) }}>
+                                {t("observability.close")}
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>}
+              </TabsContent>
+              <TabsContent value="outbound" className="mt-3">
+                <GroupStatsTable
+                  groups={byOutbound}
+                  emptyTitle={t("observability.noMatch")}
+                  emptyDescription={t("observability.noMatchDescription")}
+                />
+              </TabsContent>
+              <TabsContent value="rule" className="mt-3">
+                <GroupStatsTable
+                  groups={byRule}
+                  emptyTitle={t("observability.noMatch")}
+                  emptyDescription={t("observability.noMatchDescription")}
+                />
+              </TabsContent>
+            </Tabs>
+          ) : (
+            <Empty><EmptyHeader><EmptyTitle>{t("observability.noConnections")}</EmptyTitle><EmptyDescription>{t("observability.noConnectionsDescription")}</EmptyDescription></EmptyHeader></Empty>
+          )}
         </CardContent>
       </Card>
     </div>

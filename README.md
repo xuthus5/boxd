@@ -12,7 +12,7 @@ Single-node control plane for [sing-box](https://github.com/SagerNet/sing-box). 
 - **Proxy config**: structured inbound/outbound forms (TLS/Reality, transports), plus Advanced JSON
 - **Traffic policy**: route rules and rule-sets, DNS servers and rules; rule name/description stored by boxd
 - **Nodes & subscriptions**: Clash YAML + base64 subscriptions, traffic/expiry, node search, runtime groups, probes
-- **Observability**: kernel/app logs, active connections with rule and search
+- **Observability**: kernel/app logs, active connections with search and outbound/rule aggregation
 - **Advanced**: Endpoints, Experimental, full kernel JSON
 - **Settings**: theme, language, and log level persisted in DB; password/JWT rotation, probe URLs, global URLTest defaults
 
@@ -65,7 +65,7 @@ go run ./cmd/boxd/
 1. Sign in and rotate the admin password.
 2. **Subscriptions / nodes**: add a subscription URL or import a single node; configure URLTest (inherit global defaults when needed).
 3. **Inbounds / outbounds**: install mixed (1080) + TUN templates or create custom inbounds; bind subscription groups as selector/urltest, or use direct/block.
-4. **Route / DNS**: edit rules in forms; install common default rules and rule-sets when useful.
+4. **Route / DNS / Experimental**: edit rules in forms; install common defaults; one-click enable Clash API.
 5. **Dashboard**: start the kernel; switch global outbound and Clash mode; watch traffic and logs.
 6. **Settings**: theme, language, minimum log level (stored in the database), system probe URLs, kernel autostart.
 

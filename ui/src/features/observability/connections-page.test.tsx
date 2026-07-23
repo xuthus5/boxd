@@ -69,7 +69,11 @@ describe("ConnectionsPage", () => {
     expect(screen.getByText("geosite-google")).toBeInTheDocument()
     expect(screen.getByText("1s")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "关闭全部连接" })).toBeInTheDocument()
+    expect(screen.getByRole("tab", { name: "按出口" })).toBeInTheDocument()
+    await user.click(screen.getByRole("tab", { name: "按出口" }))
+    expect(await screen.findByText("proxy")).toBeInTheDocument()
 
+    await user.click(screen.getByRole("tab", { name: "连接列表" }))
     await user.type(screen.getByLabelText("搜索连接"), "direct")
     expect(screen.queryByText("example.com:443")).not.toBeInTheDocument()
     expect(screen.getByText("cdn.example.net:443")).toBeInTheDocument()

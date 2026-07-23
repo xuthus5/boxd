@@ -67,6 +67,7 @@ func NewRouter(
 		r.Post("/outbounds/defaults", configHandler.InstallDefaultOutbounds)
 		r.Post("/inbounds/defaults", configHandler.InstallDefaultInbounds)
 		r.Post("/route/defaults", configHandler.InstallDefaultRouteRules)
+		r.Post("/experimental/defaults", configHandler.InstallDefaultExperimental)
 		r.Get("/route/rule-metadata", configHandler.GetRouteRuleMetadata)
 		r.Put("/route/rule-metadata", configHandler.UpdateRouteRuleMetadata)
 	})

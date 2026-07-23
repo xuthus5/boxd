@@ -19,6 +19,7 @@ import { ExperimentalVisualEditor } from "@/features/advanced/experimental-visua
 import { useConfigQuery, useSaveConfigMutation } from "@/features/config/config-hooks"
 import { JsonEditor } from "@/features/config/json-editor"
 import { isJsonObject, type JsonObject } from "@/features/policy/policy-form-model"
+import { api } from "@/lib/api/endpoints"
 import { rolledBackMessage } from "@/lib/api/status"
 import type { JsonValue } from "@/lib/api/types"
 
@@ -53,9 +54,11 @@ function useExperimentalEditorState(initial: JsonValue | undefined) {
   return { value, revision, invalidFields, object, updateObject, updateJSON, updateFieldValidity }
 }
 
-function ExperimentalEditor({ initial, onSave }: {
+function ExperimentalEditor({ initial, onSave, onInstallClashAPI, installing }: {
   initial: JsonValue | undefined
   onSave: (object: JsonObject) => void
+  onInstallClashAPI: () => void
+  installing: boolean
 }) {
   const { t } = useTranslation()
   const editor = useExperimentalEditorState(initial)
@@ -99,7 +102,10 @@ function ExperimentalEditor({ initial, onSave }: {
           </TabsContent>
         </Tabs>
       </CardContent>
-      <CardFooter className="flex-wrap justify-end gap-2">
+      <CardFooter className="flex-wrap justify-between gap-2">
+        <Button variant="outline" disabled={installing} onClick={onInstallClashAPI}>
+          {t("advanced.installClashAPI")}
+        </Button>
         <Button
           disabled={!canSave}
           onClick={() => editor.object && onSave(prepareExperimentalObject(editor.object))}
@@ -115,6 +121,7 @@ export function ExperimentalPage() {
   const { t } = useTranslation()
   const query = useConfigQuery()
   const save = useSaveConfigMutation()
+  const [installing, setInstalling] = useState(false)
   if (query.isLoading) return <Skeleton className="h-64 w-full" />
   if (query.error) {
     return <Alert variant="destructive">
@@ -123,10 +130,25 @@ export function ExperimentalPage() {
     </Alert>
   }
   const initial = query.data?.experimental
+  const installClashAPI = () => {
+    setInstalling(true)
+    api.config.installExperimental()
+      .then((response) => {
+        if (response.status === "rolled_back") {
+          toast.error(rolledBackMessage(response, t("advanced.rolledBack")))
+          return
+        }
+        return query.refetch().then(() => toast.success(t("advanced.clashAPIInstalled")))
+      })
+      .catch((error: Error) => toast.error(error.message))
+      .finally(() => setInstalling(false))
+  }
   return (
     <ExperimentalEditor
       key={JSON.stringify(initial ?? {})}
       initial={initial}
+      installing={installing}
+      onInstallClashAPI={installClashAPI}
       onSave={(object) => save.mutate(
         { ...query.data!, experimental: object },
         {
