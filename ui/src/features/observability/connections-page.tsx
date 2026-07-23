@@ -42,6 +42,7 @@ import {
   aggregateConnections,
   summarizeConnections,
 } from "@/features/observability/connection-stats"
+import { reportExportError } from "@/features/observability/export-error-actions"
 import { downloadTextFile } from "@/features/observability/log-export"
 import { StreamErrorAlert } from "@/features/observability/stream-error-alert"
 import { StreamStatusBadge } from "@/features/observability/stream-status-badge"
@@ -121,11 +122,18 @@ export function ConnectionsPage() {
 
   const onExport = () => {
     if (!canExport) return
+    const filename = buildConnectionExportFilename()
     try {
-      downloadTextFile(buildConnectionExportFilename(), formatConnectionExport(sorted))
+      downloadTextFile(filename, formatConnectionExport(sorted))
       toast.success(t("observability.connectionsExported", { count: sorted.length }))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t("observability.connectionsExportFailed"))
+      reportExportError(error, t, {
+        scope: "connections",
+        kind: "export",
+        count: sorted.length,
+        filename,
+        fallback: t("observability.connectionsExportFailed"),
+      })
     }
   }
 

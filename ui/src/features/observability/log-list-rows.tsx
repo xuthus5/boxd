@@ -8,6 +8,7 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { TableCell, TableRow } from "@/components/ui/table"
 import { logConnectionsHref, logDNSHref } from "@/features/observability/connection-facets"
+import { reportExportError } from "@/features/observability/export-error-actions"
 import { copyText, formatLogLine, formatLogMessage } from "@/features/observability/log-export"
 import type { LogEvent } from "@/lib/api/types"
 import { cn } from "@/lib/utils"
@@ -22,7 +23,11 @@ function copyLogPayload(payload: string, okKey: string, failKey: string, t: (key
   if (!payload) return
   void copyText(payload).then(
     () => toast.success(t(okKey)),
-    () => toast.error(t(failKey)),
+    (error: unknown) => reportExportError(error, t, {
+      scope: "logs",
+      kind: "copy-line",
+      fallback: t(failKey),
+    }),
   )
 }
 

@@ -15,6 +15,7 @@ import {
   downloadTextFile,
   formatLogExport,
 } from "@/features/observability/log-export"
+import { reportExportError } from "@/features/observability/export-error-actions"
 import { LogFilters } from "@/features/observability/log-filters"
 import {
   applyLogPreset,
@@ -75,17 +76,29 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
       await copyText(exportText)
       toast.success(t("observability.logsCopied", { count: items.length }))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t("observability.logsCopyFailed"))
+      reportExportError(error, t, {
+        scope: "logs",
+        kind: "copy",
+        count: items.length,
+        fallback: t("observability.logsCopyFailed"),
+      })
     }
   }
 
   const onDownload = () => {
     if (!canExport) return
+    const filename = buildLogExportFilename(title)
     try {
-      downloadTextFile(buildLogExportFilename(title), exportText)
+      downloadTextFile(filename, exportText)
       toast.success(t("observability.logsExported", { count: items.length }))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t("observability.logsExportFailed"))
+      reportExportError(error, t, {
+        scope: "logs",
+        kind: "export",
+        count: items.length,
+        filename,
+        fallback: t("observability.logsExportFailed"),
+      })
     }
   }
 

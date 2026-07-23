@@ -14,6 +14,7 @@ import {
 } from "@/features/observability/connection-columns"
 import { FacetLink, MetaChip } from "@/features/observability/connection-facet-links"
 import { formatConnectionClipboardText } from "@/features/observability/connection-export"
+import { reportExportError } from "@/features/observability/export-error-actions"
 import {
   cellValue,
   formatDuration,
@@ -31,7 +32,11 @@ function copyConnectionDiagnostics(connection: Connection, t: (key: string) => s
   if (!payload) return
   void copyText(payload).then(
     () => toast.success(t("observability.connectionCopied")),
-    () => toast.error(t("observability.connectionCopyFailed")),
+    (error: unknown) => reportExportError(error, t, {
+      scope: "connections",
+      kind: "copy-connection",
+      fallback: t("observability.connectionCopyFailed"),
+    }),
   )
 }
 
@@ -65,7 +70,11 @@ export function ConnectionMobileCard({
               onClick={() => {
                 void copyText(connection.target!).then(
                   () => toast.success(t("observability.targetCopied")),
-                  () => toast.error(t("observability.targetCopyFailed")),
+                  (error: unknown) => reportExportError(error, t, {
+                    scope: "connections",
+                    kind: "copy-target",
+                    fallback: t("observability.targetCopyFailed"),
+                  }),
                 )
               }}
             >
@@ -234,7 +243,11 @@ export function ConnectionDesktopRow({
                   onClick={() => {
                     void copyText(connection.target!).then(
                       () => toast.success(t("observability.targetCopied")),
-                      () => toast.error(t("observability.targetCopyFailed")),
+                      (error: unknown) => reportExportError(error, t, {
+                    scope: "connections",
+                    kind: "copy-target",
+                    fallback: t("observability.targetCopyFailed"),
+                  }),
                     )
                   }}
                 >
