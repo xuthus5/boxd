@@ -66,18 +66,18 @@ function ExperimentalEditor({ initial, onSave, onInstallClashAPI, installing }: 
   const canSave = Boolean(editor.object && structureValid && editor.invalidFields.size === 0)
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle role="heading" aria-level={1}>{t("pages.experimental")}</CardTitle>
+    <Card size="sm">
+      <CardHeader className="gap-1.5">
+        <CardTitle role="heading" aria-level={1} className="truncate">{t("pages.experimental")}</CardTitle>
         <CardDescription>{t("advanced.experimentalDescription")}</CardDescription>
       </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="visual" className="min-w-0">
-          <TabsList activateOnFocus className="max-w-full">
+      <CardContent className="flex flex-col gap-2 sm:gap-3">
+        <Tabs defaultValue="visual" className="min-h-0 min-w-0">
+          <TabsList activateOnFocus className="h-auto max-w-full justify-start overflow-x-auto overflow-y-hidden" variant="line">
             <TabsTrigger value="visual">{t("advanced.visualTab")}</TabsTrigger>
             <TabsTrigger value="json">{t("advanced.advancedTab")}</TabsTrigger>
           </TabsList>
-          <TabsContent value="visual">
+          <TabsContent value="visual" className="pt-3 sm:pt-4">
             {editor.object && structureValid
               ? <ExperimentalVisualEditor
                   object={editor.object}
@@ -92,8 +92,8 @@ function ExperimentalEditor({ initial, onSave, onInstallClashAPI, installing }: 
                 </Alert>
                 : null}
           </TabsContent>
-          <TabsContent value="json">
-            <FieldGroup>
+          <TabsContent value="json" className="pt-3 sm:pt-4">
+            <FieldGroup className="gap-2 sm:gap-3">
               <Field>
                 <FieldLabel className="sr-only">{t("advanced.experimentalJSON")}</FieldLabel>
                 <JsonEditor value={editor.value} onChange={editor.updateJSON} ariaLabel={t("advanced.experimentalJSON")} />
@@ -102,11 +102,13 @@ function ExperimentalEditor({ initial, onSave, onInstallClashAPI, installing }: 
           </TabsContent>
         </Tabs>
       </CardContent>
-      <CardFooter className="flex-wrap justify-between gap-2">
-        <Button variant="outline" disabled={installing} onClick={onInstallClashAPI}>
+      <CardFooter className="flex flex-col-reverse flex-wrap justify-between gap-2 sm:flex-row">
+        <Button variant="outline" size="sm" className="h-8 w-full sm:w-auto" disabled={installing} onClick={onInstallClashAPI}>
           {t("advanced.installClashAPI")}
         </Button>
         <Button
+          size="sm"
+          className="h-8 w-full sm:w-auto"
           disabled={!canSave}
           onClick={() => editor.object && onSave(prepareExperimentalObject(editor.object))}
         >

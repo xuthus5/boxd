@@ -18,6 +18,9 @@ describe("dashboard interactions", () => {
     await screen.findByText("运行中")
 
     expect(screen.getByRole("button", { name: "启动" })).toBeDisabled()
+    for (const name of ["GC", "清理 DNS", "清理 FakeIP"]) {
+      expect(screen.getByRole("button", { name })).toHaveClass("h-8")
+    }
     for (const name of ["停止", "重启", "GC", "清理 DNS", "清理 FakeIP"]) {
       await user.click(screen.getByRole("button", { name }))
       if (name === "停止" || name === "重启") {

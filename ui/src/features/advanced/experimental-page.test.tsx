@@ -49,6 +49,8 @@ describe("experimental page", () => {
     expect(screen.getByText("缓存文件")).toBeInTheDocument()
     expect(screen.getByText("Clash API")).toBeInTheDocument()
     expect(screen.getByText("V2Ray API")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "保存配置" })).toHaveClass("h-8")
+    expect(screen.getByRole("button", { name: "启用 Clash API" })).toHaveClass("h-8")
   })
 
   it("saves experimental changes from the visual form", async () => {

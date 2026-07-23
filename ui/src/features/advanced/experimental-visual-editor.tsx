@@ -49,7 +49,7 @@ export function ExperimentalVisualEditor({
   ] as const
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-2 sm:gap-3">
       {cards.map((card) => (
         <Card key={card.key}>
           <CardHeader>

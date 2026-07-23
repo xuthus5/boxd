@@ -56,7 +56,7 @@ function RawEditor({ initial }: { initial: SingBoxConfig }) {
     })
   }
   return (
-    <FieldGroup>
+    <FieldGroup className="gap-2 sm:gap-3">
       <Field>
         <FieldLabel className="sr-only">{t("advanced.rawJSON")}</FieldLabel>
         <JsonEditor ref={editorRef} value={value} onChange={setValue} ariaLabel={t("advanced.rawJSON")} />
@@ -67,12 +67,12 @@ function RawEditor({ initial }: { initial: SingBoxConfig }) {
         onJumpToPath={reveal}
       />
       <ConfigDiffPanel items={diffItems} onSelectPath={reveal} />
-      <Field orientation="horizontal">
-        <Button variant="outline" onClick={() => { setValue(JSON.stringify(initial, null, 2)); clearSaveError() }}>
+      <Field orientation="horizontal" className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <Button variant="outline" size="sm" className="h-8 w-full sm:w-auto" onClick={() => { setValue(JSON.stringify(initial, null, 2)); clearSaveError() }}>
           {t("advanced.reset")}
         </Button>
         <ConfirmAction
-          trigger={<Button disabled={!valid || save.isPending}>{t("advanced.saveRaw")}</Button>}
+          trigger={<Button size="sm" className="h-8 w-full sm:w-auto" disabled={!valid || save.isPending}>{t("advanced.saveRaw")}</Button>}
           title={t("advanced.overwriteTitle")}
           description={`${t("advanced.overwriteDescription")}
 ${diffSummary}`}
@@ -89,5 +89,15 @@ export function RawConfigPage() {
   const query = useRawConfigQuery()
   if (query.isLoading) return <Skeleton className="h-64 w-full" />
   if (query.error) return <Alert variant="destructive"><AlertTitle>{t("common.loadFailed")}</AlertTitle><AlertDescription>{query.error.message}</AlertDescription></Alert>
-  return <Card><CardHeader><CardTitle role="heading" aria-level={1}>{t("pages.rawConfig")}</CardTitle><CardDescription>{t("advanced.rawDescription")}</CardDescription></CardHeader><CardContent><RawEditor key={JSON.stringify(query.data)} initial={query.data!} /></CardContent></Card>
+  return (
+    <Card size="sm">
+      <CardHeader className="gap-1.5">
+        <CardTitle role="heading" aria-level={1} className="truncate">{t("pages.rawConfig")}</CardTitle>
+        <CardDescription>{t("advanced.rawDescription")}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-2 sm:gap-3">
+        <RawEditor key={JSON.stringify(query.data)} initial={query.data!} />
+      </CardContent>
+    </Card>
+  )
 }
