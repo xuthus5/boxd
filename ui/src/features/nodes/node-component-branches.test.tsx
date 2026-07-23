@@ -133,4 +133,30 @@ describe("node fallback and runtime branches", () => {
     expect(within(card).getByText("—", { selector: "dd *" })).toBeInTheDocument()
   })
 
+  it("deep-links from node cards to connections and logs", async () => {
+    authenticate()
+    vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
+      const path = typeof input === "string" ? input : input.toString()
+      if (path === "/api/nodes/") {
+        return Promise.resolve(new Response(JSON.stringify([
+          { tag: "hk-1", type: "vless", server: "1.1.1.1", port: 443, source: "import" },
+        ])))
+      }
+      if (path === "/api/nodes/groups") return Promise.resolve(new Response(JSON.stringify({ groups: [] })))
+      if (path === "/api/nodes/test-results") return Promise.resolve(new Response(JSON.stringify({})))
+      return Promise.resolve(new Response("{}"))
+    }))
+    renderApp(<App />, "/nodes")
+    const all = await screen.findByRole("region", { name: "所有节点" })
+    const card = within(all).getByRole("article", { name: "hk-1" })
+    expect(within(card).getByRole("link", { name: "查看连接: hk-1" })).toHaveAttribute(
+      "href",
+      "/observability/connections?outbound=hk-1",
+    )
+    expect(within(card).getByRole("link", { name: "查看日志: hk-1" })).toHaveAttribute(
+      "href",
+      "/observability/logs?q=hk-1",
+    )
+  })
+
 })

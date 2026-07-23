@@ -196,6 +196,16 @@ describe("ConnectionsPage", () => {
     )
   })
 
+  it("deep-links connection outbounds to the nodes page", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    mockConnectionsFetch()
+    renderApp(<App />, "/observability/connections")
+
+    expect(await screen.findByText("example.com:443")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "查看节点: proxy" })).toHaveAttribute("href", "/nodes?q=proxy")
+    expect(screen.getByRole("link", { name: "查看节点: direct" })).toHaveAttribute("href", "/nodes?q=direct")
+  })
+
 
   it("filters connections by process facet from the URL", async () => {
     sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })

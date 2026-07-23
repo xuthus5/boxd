@@ -1,4 +1,4 @@
-import { CopyIcon, ScrollTextIcon } from "lucide-react"
+import { CopyIcon, NetworkIcon, ScrollTextIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 import { toast } from "sonner"
@@ -7,68 +7,24 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { formatBytes } from "@/features/dashboard/format"
 import {
   CONNECTION_COLUMNS,
   connectionColumnVisible,
   type ConnectionColumnId,
 } from "@/features/observability/connection-columns"
-import { formatBytes } from "@/features/dashboard/format"
-import { connectionTargetLogQuery } from "@/features/observability/connection-facets"
 import { FacetLink, MetaChip } from "@/features/observability/connection-facet-links"
-import { buildLogsHref } from "@/features/observability/log-filter-presets"
+import {
+  cellValue,
+  formatDuration,
+  nodeHref,
+  targetLogsHref,
+  titleFor,
+} from "@/features/observability/connection-list-helpers"
 import { copyText } from "@/features/proxy/copy-tag-button"
 import { useIsMobile } from "@/hooks/use-mobile"
 import type { Connection } from "@/lib/api/types"
 import { cn } from "@/lib/utils"
-
-function targetLogsHref(target?: string) {
-  const query = connectionTargetLogQuery(target)
-  return query ? buildLogsHref({ query }) : ""
-}
-
-function formatDuration(start: string) {
-  const startedAt = new Date(start).getTime()
-  if (!Number.isFinite(startedAt)) return "—"
-  return `${Math.floor(Math.max(0, Date.now() - startedAt) / 1000)}s`
-}
-
-function cellValue(connection: Connection, id: ConnectionColumnId, duration: string): string {
-  switch (id) {
-    case "target":
-      return connection.target || "—"
-    case "source":
-      return connection.source || "—"
-    case "network":
-      return connection.network || "—"
-    case "inbound":
-      return connection.inbound || "—"
-    case "outbound":
-      return connection.outbound || "—"
-    case "rule":
-      return connection.rule || "—"
-    case "protocol":
-      return connection.protocol || "—"
-    case "process":
-      return connection.process || "—"
-    case "upload":
-      return formatBytes(connection.upload)
-    case "download":
-      return formatBytes(connection.download)
-    case "duration":
-      return duration
-    default:
-      return "—"
-  }
-}
-
-function titleFor(connection: Connection, id: ConnectionColumnId): string | undefined {
-  if (id === "target") return connection.target || undefined
-  if (id === "source") return connection.source || undefined
-  if (id === "inbound") return connection.inbound || undefined
-  if (id === "rule") return connection.rule || undefined
-  if (id === "process") return connection.process || undefined
-  return undefined
-}
 
 function ConnectionMobileCard({
   connection,
@@ -122,13 +78,23 @@ function ConnectionMobileCard({
             <Link
               to={targetLogsHref(connection.target)}
               aria-label={`${t("observability.viewTargetLogs")}: ${connection.target}`}
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
             >
               <ScrollTextIcon data-icon="inline-start" />
               {t("observability.viewTargetLogs")}
             </Link>
           ) : null}
-          <Button size="sm" variant="destructive" disabled={busy} onClick={() => onClose(id)}>
+          {nodeHref(connection.outbound) ? (
+            <Link
+              to={nodeHref(connection.outbound)}
+              aria-label={`${t("observability.viewNode")}: ${connection.outbound}`}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+            >
+              <NetworkIcon data-icon="inline-start" />
+              {t("observability.viewNode")}
+            </Link>
+          ) : null}
+          <Button size="sm" className="h-8" variant="destructive" disabled={busy} onClick={() => onClose(id)}>
             {t("observability.close")}
           </Button>
         </CardAction>
@@ -225,13 +191,23 @@ export function ConnectionListTable({
                           <Link
                             to={targetLogsHref(connection.target)}
                             aria-label={`${t("observability.viewTargetLogs")}: ${connection.target}`}
-                            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
                           >
                             <ScrollTextIcon data-icon="inline-start" />
                             {t("observability.viewTargetLogs")}
                           </Link>
                         ) : null}
-                        <Button size="sm" variant="destructive" disabled={busy} onClick={() => onClose(id)}>
+                        {nodeHref(connection.outbound) ? (
+                          <Link
+                            to={nodeHref(connection.outbound)}
+                            aria-label={`${t("observability.viewNode")}: ${connection.outbound}`}
+                            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+                          >
+                            <NetworkIcon data-icon="inline-start" />
+                            {t("observability.viewNode")}
+                          </Link>
+                        ) : null}
+                        <Button size="sm" className="h-8" variant="destructive" disabled={busy} onClick={() => onClose(id)}>
                           {t("observability.close")}
                         </Button>
                       </div>

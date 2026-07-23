@@ -1,11 +1,12 @@
-import { GaugeIcon } from "lucide-react"
+import { ActivityIcon, GaugeIcon, ScrollTextIcon } from "lucide-react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useId } from "react"
 import { useTranslation } from "react-i18next"
+import { Link } from "react-router-dom"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { LatencyHistoryDialog } from "@/features/nodes/latency-history-dialog"
@@ -13,6 +14,8 @@ import { formatLatency } from "@/features/nodes/node-format"
 import { LatencyHealthBar } from "@/features/nodes/latency-health-bar"
 import { LatencySparkline } from "@/features/nodes/latency-sparkline"
 import { pickNodeHistorySeries } from "@/features/nodes/nodes-filter"
+import { buildConnectionsHref } from "@/features/observability/connection-facets"
+import { buildLogsHref } from "@/features/observability/log-filter-presets"
 import { latencyBadgeVariant, latencyTone, latencyToneClass } from "@/features/nodes/latency-style"
 import { cn } from "@/lib/utils"
 import { nodeTestInput, nodeTestTypes, type NodeTestType } from "@/features/nodes/node-test-inputs"
@@ -108,6 +111,24 @@ export function NodeCard({
         <CardContent className="flex flex-col gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge variant="secondary" className="max-w-full truncate">{source}</Badge>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            <Link
+              to={buildConnectionsHref({ outbound: node.tag })}
+              aria-label={`${t("nodes.viewConnections")}: ${node.tag}`}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+            >
+              <ActivityIcon data-icon="inline-start" />
+              {t("nodes.viewConnections")}
+            </Link>
+            <Link
+              to={buildLogsHref({ query: node.tag })}
+              aria-label={`${t("nodes.viewLogs")}: ${node.tag}`}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+            >
+              <ScrollTextIcon data-icon="inline-start" />
+              {t("nodes.viewLogs")}
+            </Link>
           </div>
           <TestResults results={results} />
           <div className="space-y-1">
