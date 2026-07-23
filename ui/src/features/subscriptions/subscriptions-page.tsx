@@ -35,6 +35,7 @@ function urlTestStatus(item: Subscription, t: (key: string) => string) {
 
 function SubscriptionItem({ item, onEdit, onRefresh, onDelete }: ItemProps) {
   const { t, i18n } = useTranslation()
+  const [mountedAt] = useState(() => Date.now())
   return (
     <article aria-label={item.name}>
       <Card size="sm" className={item.error ? "border-destructive/40" : undefined}>
@@ -46,7 +47,7 @@ function SubscriptionItem({ item, onEdit, onRefresh, onDelete }: ItemProps) {
         <CardContent className="flex flex-col gap-2">
           <span className="text-sm text-muted-foreground" title={item.last_updated ? new Date(item.last_updated).toLocaleString() : undefined}>
             {item.last_updated && !Number.isNaN(Date.parse(item.last_updated))
-              ? t("subscriptions.updatedRelative", { time: formatRelativeTime(item.last_updated, Date.now(), i18n.language) })
+              ? t("subscriptions.updatedRelative", { time: formatRelativeTime(item.last_updated, mountedAt, i18n.language) })
               : t("subscriptions.neverUpdated")}
           </span>
           <div className="flex flex-wrap gap-2">

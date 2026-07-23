@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { LatencyHistoryDialog } from "@/features/nodes/latency-history-dialog"
 import { formatLatency } from "@/features/nodes/node-format"
 import { LatencySparkline } from "@/features/nodes/latency-sparkline"
 import { latencyBadgeVariant, latencyTone, latencyToneClass } from "@/features/nodes/latency-style"
@@ -45,7 +46,10 @@ function TestControls({ node }: { node: Outbound }) {
       if (choice === "all") return api.nodes.testBatch(nodeTestTypes.map((type) => nodeTestInput(node, type)!), 3)
       return api.nodes.test(nodeTestInput(node, choice)!)
     },
-    onSuccess: () => { void client.invalidateQueries({ queryKey: ["nodes", "results"] }); void client.invalidateQueries({ queryKey: ["nodes", "history"] }) },
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["nodes", "results"] })
+      void client.invalidateQueries({ queryKey: ["nodes", "history"] })
+    },
     onError: (error: Error) => toast.error(error.message),
   })
   return <DropdownMenu><DropdownMenuTrigger render={<Button variant="outline" size="xs" disabled={!available || mutation.isPending} />}>
@@ -56,23 +60,6 @@ function TestControls({ node }: { node: Outbound }) {
   </DropdownMenuGroup></DropdownMenuContent></DropdownMenu>
 }
 
-export function NodeCard({ node, results, history }: { node: Outbound; results?: Record<string, TestResult>; history?: Record<string, LatencyPoint[]> }) {
-  const { t } = useTranslation()
-  const titleId = useId()
-  const subscription = node.source === "subscription"
-  const source = subscription ? node.source_name || t("nodes.subscription") : t("nodes.imported")
-  return <article aria-labelledby={titleId}><Card size="sm" className="h-full">
-    <CardHeader><CardTitle><h3 id={titleId}>{node.tag}</h3></CardTitle><CardDescription>{node.server ?? "—"}:{node.port ?? "—"}</CardDescription><CardAction><div className="flex items-center gap-2"><Badge variant="outline">{node.type}</Badge><TestControls node={node} /></div></CardAction></CardHeader>
-    <CardContent className="flex flex-col gap-3"><Badge variant="secondary">{source}</Badge><TestResults results={results} />
-      <div className="space-y-1">
-        <p className="text-xs text-muted-foreground">{t("nodes.latencyHistory")}</p>
-        <LatencySparkline points={pickHistorySeries(history)} aria-label={t("nodes.latencyHistoryFor", { tag: node.tag })} />
-      </div>
-    </CardContent>
-  </Card></article>
-}
-
-
 function pickHistorySeries(history?: Record<string, LatencyPoint[]>) {
   if (!history) return []
   for (const type of nodeTestTypes) {
@@ -80,4 +67,24 @@ function pickHistorySeries(history?: Record<string, LatencyPoint[]>) {
     if (series?.length) return series
   }
   return Object.values(history)[0] ?? []
+}
+
+export function NodeCard({ node, results, history }: { node: Outbound; results?: Record<string, TestResult>; history?: Record<string, LatencyPoint[]> }) {
+  const { t } = useTranslation()
+  const titleId = useId()
+  const subscription = node.source === "subscription"
+  const source = subscription ? node.source_name || t("nodes.subscription") : t("nodes.imported")
+  const series = pickHistorySeries(history)
+  return <article aria-labelledby={titleId}><Card size="sm" className="h-full">
+    <CardHeader><CardTitle><h3 id={titleId}>{node.tag}</h3></CardTitle><CardDescription>{node.server ?? "—"}:{node.port ?? "—"}</CardDescription><CardAction><div className="flex items-center gap-2"><Badge variant="outline">{node.type}</Badge><TestControls node={node} /></div></CardAction></CardHeader>
+    <CardContent className="flex flex-col gap-3"><Badge variant="secondary">{source}</Badge><TestResults results={results} />
+      <div className="space-y-1">
+        <div className="flex items-center justify-between gap-2">
+          <LatencyHistoryDialog tag={node.tag} history={history} />
+          <span className="text-[11px] text-muted-foreground">{series.length ? t("nodes.historySamples", { count: series.length }) : t("nodes.latencyHistoryEmpty")}</span>
+        </div>
+        <LatencySparkline points={series} aria-label={t("nodes.latencyHistoryFor", { tag: node.tag })} />
+      </div>
+    </CardContent>
+  </Card></article>
 }

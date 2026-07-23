@@ -1,4 +1,4 @@
-export function formatRelativeTime(value: string, now = Date.now(), locale = "zh-CN") {
+export function formatRelativeTime(value: string, now: number, locale = "zh-CN") {
   const time = Date.parse(value)
   if (Number.isNaN(time)) return ""
   const deltaSec = Math.round((time - now) / 1000)

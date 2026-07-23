@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Badge } from "@/components/ui/badge"
@@ -19,10 +20,13 @@ function expireLabel(traffic: SubscriptionTraffic, t: (key: string, options?: Re
   return t("subscriptions.expireAt", { date: date.toLocaleString() })
 }
 
-export function SubscriptionTrafficBadges({ traffic }: { traffic?: SubscriptionTraffic }) {
+export function SubscriptionTrafficBadges({ traffic, now }: { traffic?: SubscriptionTraffic; now?: number }) {
   const { t } = useTranslation()
+  // Lazy state init is not treated as impure render evaluation.
+  const [mountedAt] = useState(() => Date.now())
   if (!traffic) return null
-  const expired = Boolean(traffic.expire && Date.parse(traffic.expire) <= Date.now())
+  const clock = now ?? mountedAt
+  const expired = Boolean(traffic.expire && Date.parse(traffic.expire) <= clock)
   return (
     <div className="flex flex-wrap gap-2">
       <Badge variant="outline">{trafficLabel(traffic, t)}</Badge>
