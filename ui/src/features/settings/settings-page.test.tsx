@@ -26,6 +26,8 @@ describe("SettingsPage", () => {
     expect(screen.getByRole("combobox", { name: "测速地址" })).toBeInTheDocument()
     expect(screen.queryByLabelText("自定义测速地址")).not.toBeInTheDocument()
     expect(screen.getByRole("button", { name: "保存测速地址" })).toBeInTheDocument()
+    expect(screen.getByLabelText("确认新密码")).toBeInTheDocument()
+    expect(screen.getByText(/至少 12 个字符/)).toBeInTheDocument()
     expect(screen.getByText("订阅 URLTest 默认值")).toBeInTheDocument()
   })
 })

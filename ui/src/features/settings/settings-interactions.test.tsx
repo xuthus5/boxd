@@ -62,7 +62,8 @@ describe("settings interactions", () => {
     renderApp(<App />, "/settings")
     await screen.findByRole("heading", { name: "应用设置" })
     await user.type(screen.getByLabelText("当前密码"), "current")
-    await user.type(screen.getByLabelText("新密码"), "new-password")
+    await user.type(screen.getByLabelText("新密码"), "replacement-password-456")
+    await user.type(screen.getByLabelText("确认新密码"), "replacement-password-456")
     await user.click(screen.getByRole("button", { name: "轮换密码" }))
   })
 
