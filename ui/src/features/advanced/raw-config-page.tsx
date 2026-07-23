@@ -13,6 +13,7 @@ import { ConfigSaveErrorAlert } from "@/features/config/config-save-error-alert"
 import { useConfigSaveError } from "@/features/config/use-config-save-error"
 import { useConfigPathReveal } from "@/features/config/use-config-path-reveal"
 import { useRawConfigQuery, useSaveConfigMutation } from "@/features/config/config-hooks"
+import { api } from "@/lib/api/endpoints"
 import { diffConfig, formatConfigDiffSummary } from "@/features/config/config-diff"
 import { JsonEditor, type JsonEditorHandle } from "@/features/config/json-editor"
 import { isValidJSON } from "@/features/config/json-utils"
@@ -24,6 +25,7 @@ function RawEditor({ initial }: { initial: SingBoxConfig }) {
   const [value, setValue] = useState(() => JSON.stringify(initial, null, 2))
   const { saveError, clearSaveError, reportError, reportRollback } = useConfigSaveError()
   const save = useSaveConfigMutation(true)
+  const [validating, setValidating] = useState(false)
   const valid = isValidJSON(value)
   const nextConfig = valid ? JSON.parse(value) as SingBoxConfig : null
   const diffItems = nextConfig ? diffConfig(initial, nextConfig) : []
@@ -40,6 +42,20 @@ function RawEditor({ initial }: { initial: SingBoxConfig }) {
     return ok
   }, [t])
   useConfigPathReveal(reveal)
+  const runValidate = async () => {
+    if (!nextConfig) return
+    clearSaveError()
+    setValidating(true)
+    try {
+      await api.config.validate(nextConfig)
+      toast.success(t("advanced.validateOK"))
+    } catch (error) {
+      const err = reportError(error)
+      if (err.path) reveal(err.path)
+    } finally {
+      setValidating(false)
+    }
+  }
   const persist = () => {
     if (!nextConfig) return
     clearSaveError()
@@ -74,8 +90,17 @@ function RawEditor({ initial }: { initial: SingBoxConfig }) {
         <Button variant="outline" size="sm" className="h-8 w-full sm:w-auto" onClick={() => { setValue(JSON.stringify(initial, null, 2)); clearSaveError() }}>
           {t("advanced.reset")}
         </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 w-full sm:w-auto"
+          disabled={!valid || validating || save.isPending}
+          onClick={() => { void runValidate() }}
+        >
+          {validating ? t("advanced.validating") : t("advanced.validate")}
+        </Button>
         <ConfirmAction
-          trigger={<Button size="sm" className="h-8 w-full sm:w-auto" disabled={!valid || save.isPending}>{t("advanced.saveRaw")}</Button>}
+          trigger={<Button size="sm" className="h-8 w-full sm:w-auto" disabled={!valid || save.isPending || validating}>{t("advanced.saveRaw")}</Button>}
           title={t("advanced.overwriteTitle")}
           description={`${t("advanced.overwriteDescription")}
 ${diffSummary}`}

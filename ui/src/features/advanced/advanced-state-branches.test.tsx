@@ -91,6 +91,6 @@ describe("advanced alternate states", () => {
     renderApp(<App />, "/advanced/raw")
     await user.click(await screen.findByRole("button", { name: "保存完整配置" }))
     await user.click(screen.getByRole("button", { name: "确认覆盖" }))
-    expect(await screen.findByText("write failed")).toBeInTheDocument()
+    expect(await screen.findByTestId("config-save-error", {}, { timeout: 3000 })).toHaveTextContent(/write failed/)
   })
 })

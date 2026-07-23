@@ -124,7 +124,7 @@ describe("api endpoint coverage", () => {
     const test = { tag: "node", test_type: "http" as const, server: "example.com", port: 443 }
 
     await Promise.all([
-      api.auth.logout(), api.config.get(), api.config.update({}), api.config.getRaw(), api.config.updateRaw({}),
+      api.auth.logout(), api.config.get(), api.config.update({}), api.config.getRaw(), api.config.updateRaw({}), api.config.validate({}),
       api.config.applyHistory(), api.config.installDNS(), api.config.installRuleSets(), api.config.installOutbounds(), api.config.installInbounds(), api.config.installExperimental(), api.config.installRoute(),
       api.service.status(), api.service.start(), api.service.stop(), api.service.restart(), api.stats.history(),
       api.stats.closeAll(), api.stats.closeConnection("1"), api.import.link("vless://node"), api.import.save(node),
