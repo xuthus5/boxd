@@ -2,7 +2,7 @@ import { BoxIcon, LogOutIcon, PanelLeftIcon } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { NavLink, Outlet, useLocation } from "react-router-dom"
-import { toast } from "sonner"
+import { reportSettingsRequestError } from "@/features/settings/settings-request-error-actions"
 
 import { Separator } from "@/components/ui/separator"
 import { Spinner } from "@/components/ui/spinner"
@@ -64,7 +64,10 @@ function AppSidebar() {
     try {
       await auth.logout()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : String(error))
+      reportSettingsRequestError(error, t, {
+        scope: "logout",
+        fallback: t("nav.logoutFailed"),
+      })
     } finally {
       setLoggingOut(false)
     }

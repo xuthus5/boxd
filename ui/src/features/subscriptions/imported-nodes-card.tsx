@@ -11,8 +11,15 @@ import { Card, CardAction, CardDescription, CardFooter, CardHeader, CardTitle } 
 import { ConfirmAction } from "@/components/confirm-action"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  classifyNodeRequestError,
+  formatNodeRequestErrorToast,
+  nodeRequestErrorClipboardText,
+  nodeRequestErrorHintKey,
+} from "@/features/nodes/node-request-error"
 import { NodeEditorDialog } from "@/features/nodes/node-editor-dialog"
 import { NodeImportDialog } from "@/features/nodes/node-import-dialog"
+import { copyText } from "@/features/proxy/copy-tag-button"
 import { api } from "@/lib/api/endpoints"
 import type { Outbound } from "@/lib/api/types"
 
@@ -67,7 +74,22 @@ export function ImportedNodesCard() {
     .then(() => api.nodes.sync())
     .then(refresh)
     .then(() => toast.success(t("nodes.deleted")))
-    .catch((error: Error) => toast.error(error.message))
+    .catch((error: Error) => {
+      const code = classifyNodeRequestError(error)
+      const payload = nodeRequestErrorClipboardText(error, { scope: "import-delete", tag })
+      toast.error(formatNodeRequestErrorToast(error, t("nodes.deleteFailed")), {
+        description: t(nodeRequestErrorHintKey(code)),
+        action: payload ? {
+          label: t("nodes.copyRequestError"),
+          onClick: () => {
+            void copyText(payload).then(
+              () => toast.success(t("nodes.requestErrorCopied")),
+              () => toast.error(t("nodes.requestErrorCopyFailed")),
+            )
+          },
+        } : undefined,
+      })
+    })
   const content = query.isLoading
     ? <Skeleton className="h-32 w-full" />
     : query.error

@@ -1,13 +1,23 @@
-import { screen, within } from "@testing-library/react"
+import { screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { toast } from "sonner"
+
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() },
+  Toaster: () => null,
+}))
 
 import App from "@/App"
 import { sessionStore } from "@/lib/session"
 import { installMockAPI } from "@/test/mock-api"
 import { renderApp } from "@/test/render"
 
-afterEach(() => { sessionStore.clear(); vi.unstubAllGlobals() })
+afterEach(() => {
+  vi.clearAllMocks()
+  sessionStore.clear()
+  vi.unstubAllGlobals()
+})
 
 describe("application routing", () => {
   it("redirects unauthenticated users to login", () => {
@@ -50,6 +60,12 @@ describe("application routing", () => {
     await screen.findByRole("heading", { name: "端点" })
     await user.click(screen.getByRole("button", { name: "退出登录" }))
     expect(await screen.findByRole("heading", { name: "boxd" })).toBeInTheDocument()
-    expect(await screen.findByText("logout failed")).toBeInTheDocument()
+    await waitFor(() => expect(toast.error).toHaveBeenCalled())
+    const [message, options] = vi.mocked(toast.error).mock.calls.at(-1)!
+    expect(String(message)).toContain("logout failed")
+    expect(options).toEqual(expect.objectContaining({
+      description: expect.any(String),
+      action: expect.objectContaining({ label: expect.any(String) }),
+    }))
   })
 })
