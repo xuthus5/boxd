@@ -15,6 +15,7 @@ export interface ServiceStatus {
   started_at?: string
   config_path?: string
   last_error?: string
+  last_error_code?: string
   last_error_at?: string
 }
 
@@ -244,5 +245,6 @@ export interface ConfigApplyEvent {
   hash: string
   size: number
   error?: string
+  error_code?: string
   applied_at: string
 }

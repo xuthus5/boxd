@@ -15,6 +15,10 @@ import {
   configApplySourceKey,
   shortConfigHash,
 } from "@/features/dashboard/config-apply-source"
+import {
+  kernelErrorHintKey,
+  resolveKernelErrorCode,
+} from "@/features/dashboard/kernel-error"
 import { copyText } from "@/features/proxy/copy-tag-button"
 import { formatRelativeTime } from "@/features/subscriptions/relative-time"
 import { api } from "@/lib/api/endpoints"
@@ -26,6 +30,57 @@ function formatBytes(size: number) {
   if (size < 1024) return `${size} B`
   if (size < 1024 ** 2) return `${(size / 1024).toFixed(1)} KB`
   return `${(size / 1024 ** 2).toFixed(1)} MB`
+}
+
+
+function EventErrorBlock({
+  event,
+  sourceLabel,
+  sourceHref,
+  onCopy,
+}: {
+  event: ConfigApplyEvent
+  sourceLabel: string
+  sourceHref: string
+  onCopy: () => void
+}) {
+  const { t } = useTranslation()
+  const code = resolveKernelErrorCode(event)
+  return (
+    <div className="mt-1.5 flex flex-col gap-1.5">
+      {code && code !== "unknown" ? (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge variant="outline" className="font-mono text-[10px]">{code}</Badge>
+        </div>
+      ) : null}
+      <p className="line-clamp-2 text-xs text-destructive" title={event.error}>
+        {event.error}
+      </p>
+      <p className="line-clamp-2 text-[11px] text-muted-foreground">
+        {t(kernelErrorHintKey(code))}
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-7"
+          onClick={onCopy}
+          aria-label={`${t("dashboard.copyApplyError")}: ${sourceLabel}`}
+        >
+          <CopyIcon data-icon="inline-start" />
+          {t("dashboard.copyApplyError")}
+        </Button>
+        <Link
+          to={sourceHref}
+          className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-7")}
+          aria-label={`${t("dashboard.openApplySource")}: ${sourceLabel}`}
+        >
+          {t("dashboard.openApplySource")}
+        </Link>
+      </div>
+    </div>
+  )
 }
 
 function EventRow({ event, now, locale }: { event: ConfigApplyEvent; now: number; locale: string }) {
@@ -92,31 +147,7 @@ function EventRow({ event, now, locale }: { event: ConfigApplyEvent; now: number
         </Badge>
       </div>
       {event.error ? (
-        <div className="mt-1.5 flex flex-col gap-1.5">
-          <p className="line-clamp-2 text-xs text-destructive" title={event.error}>
-            {event.error}
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-7"
-              onClick={copyError}
-              aria-label={`${t("dashboard.copyApplyError")}: ${sourceLabel}`}
-            >
-              <CopyIcon data-icon="inline-start" />
-              {t("dashboard.copyApplyError")}
-            </Button>
-            <Link
-              to={sourceHref}
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-7")}
-              aria-label={`${t("dashboard.openApplySource")}: ${sourceLabel}`}
-            >
-              {t("dashboard.openApplySource")}
-            </Link>
-          </div>
-        </div>
+        <EventErrorBlock event={event} sourceLabel={sourceLabel} sourceHref={sourceHref} onCopy={copyError} />
       ) : null}
     </li>
   )

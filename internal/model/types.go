@@ -13,14 +13,15 @@ type AuthResponse struct {
 }
 
 type ServiceStatus struct {
-	Running     bool       `json:"running"`
-	Uptime      string     `json:"uptime,omitempty"`
-	Memory      int64      `json:"memory,omitempty"`
-	Version     string     `json:"version,omitempty"`
-	StartedAt   *time.Time `json:"started_at,omitempty"`
-	ConfigPath  string     `json:"config_path,omitempty"`
-	LastError   string     `json:"last_error,omitempty"`
-	LastErrorAt *time.Time `json:"last_error_at,omitempty"`
+	Running       bool       `json:"running"`
+	Uptime        string     `json:"uptime,omitempty"`
+	Memory        int64      `json:"memory,omitempty"`
+	Version       string     `json:"version,omitempty"`
+	StartedAt     *time.Time `json:"started_at,omitempty"`
+	ConfigPath    string     `json:"config_path,omitempty"`
+	LastError     string     `json:"last_error,omitempty"`
+	LastErrorCode string     `json:"last_error_code,omitempty"`
+	LastErrorAt   *time.Time `json:"last_error_at,omitempty"`
 }
 
 type TrafficEvent struct {
@@ -139,5 +140,6 @@ type ConfigApplyEvent struct {
 	Hash      string    `json:"hash"`
 	Size      int       `json:"size"`
 	Error     string    `json:"error,omitempty"`
+	ErrorCode string    `json:"error_code,omitempty"`
 	AppliedAt time.Time `json:"applied_at"`
 }

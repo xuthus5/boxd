@@ -1,3 +1,5 @@
+import { resolveKernelErrorCode } from "@/features/dashboard/kernel-error"
+
 /** Maps backend config apply source codes to i18n keys and ops destinations. */
 
 const sourceKeys: Record<string, string> = {
@@ -42,13 +44,16 @@ export function configApplyErrorClipboardText(event: {
   hash?: string
   size?: number
   error?: string
+  error_code?: string
   applied_at?: string
 }): string {
+  const code = resolveKernelErrorCode(event)
   const lines = [
     event.source?.trim() ? `source: ${event.source.trim()}` : "",
     event.status?.trim() ? `status: ${event.status.trim()}` : "",
     event.hash?.trim() ? `hash: ${event.hash.trim()}` : "",
     Number.isFinite(event.size) ? `size: ${event.size}` : "",
+    code ? `code: ${code}` : "",
     event.error?.trim() ? `error: ${event.error.trim()}` : "",
     event.applied_at?.trim() ? `at: ${event.applied_at.trim()}` : "",
   ].filter(Boolean)

@@ -79,6 +79,7 @@ describe("dashboard component states", () => {
     )
     expect(screen.getByText("/var/lib/boxd/config.json")).toBeInTheDocument()
     expect(screen.getByText("invalid outbound")).toBeInTheDocument()
+    expect(screen.getByText(/配置无效/)).toBeInTheDocument()
     expect(screen.getByText("1.13.14")).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "查看错误日志" })).toHaveAttribute(
       "href",
@@ -88,7 +89,9 @@ describe("dashboard component states", () => {
     expect(copySpy).toHaveBeenCalledWith("/var/lib/boxd/config.json")
     expect(toast.success).toHaveBeenCalled()
     await user.click(screen.getByRole("button", { name: "复制错误信息" }))
-    expect(copySpy).toHaveBeenCalledWith("invalid outbound")
+    expect(copySpy).toHaveBeenCalled()
+    expect(String(copySpy.mock.calls.at(-1)?.[0])).toContain("error: invalid outbound")
+    expect(String(copySpy.mock.calls.at(-1)?.[0])).toContain("code: config_invalid")
     copySpy.mockRestore()
   })
 

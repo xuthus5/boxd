@@ -8,6 +8,11 @@ import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Spinner } from "@/components/ui/spinner"
+import {
+  kernelErrorHintKey,
+  kernelLastErrorClipboardText,
+  resolveKernelErrorCode,
+} from "@/features/dashboard/kernel-error"
 import { buildLogsHref } from "@/features/observability/log-filter-presets"
 import { copyText } from "@/features/proxy/copy-tag-button"
 import type { ServiceStatus } from "@/lib/api/types"
@@ -105,6 +110,90 @@ function DiagnosticRow({
   )
 }
 
+
+function ServiceLastError({
+  status,
+  lastError,
+  lastErrorAt,
+  errorLogsHref,
+}: {
+  status: ServiceStatus
+  lastError: string
+  lastErrorAt: string
+  errorLogsHref: string
+}) {
+  const { t } = useTranslation()
+  const code = resolveKernelErrorCode(status)
+  return (
+    <div
+      className={cn(
+        "rounded-md border px-2.5 py-1.5",
+        status.running
+          ? "border-border bg-muted/30"
+          : "border-destructive/40 bg-destructive/5",
+      )}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p
+          className={cn(
+            "text-xs font-medium",
+            status.running ? "text-muted-foreground" : "text-destructive",
+          )}
+        >
+          {status.running
+            ? t("dashboard.serviceLastErrorRecovered")
+            : t("dashboard.serviceLastError")}
+        </p>
+        <div className="flex items-center gap-1.5">
+          {lastErrorAt ? (
+            <p className="text-xs text-muted-foreground tabular-nums">{lastErrorAt}</p>
+          ) : null}
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            className={cn(
+              "h-6 shrink-0 px-1.5",
+              status.running ? "text-muted-foreground" : "text-destructive",
+            )}
+            aria-label={t("dashboard.copyLastError")}
+            onClick={() => {
+              const payload = kernelLastErrorClipboardText(status) || lastError
+              void copyText(payload).then(
+                () => toast.success(t("dashboard.lastErrorCopied")),
+                () => toast.error(t("dashboard.lastErrorCopyFailed")),
+              )
+            }}
+          >
+            <CopyIcon className="size-3.5" aria-hidden="true" />
+          </Button>
+        </div>
+      </div>
+      {code && code !== "unknown" ? (
+        <Badge variant="outline" className="mt-1 font-mono text-[10px]">{code}</Badge>
+      ) : null}
+      <p
+        className={cn(
+          "mt-1 break-words text-sm",
+          status.running ? "text-foreground" : "text-destructive",
+        )}
+        title={lastError}
+      >
+        {lastError}
+      </p>
+      <p className="mt-1 text-[11px] text-muted-foreground">
+        {t(kernelErrorHintKey(code))}
+      </p>
+      <Link
+        to={errorLogsHref}
+        className={cn(buttonVariants({ variant: "link", size: "sm" }), "h-auto px-0")}
+      >
+        {t("dashboard.openErrorLogs")}
+      </Link>
+    </div>
+  )
+}
+
 export function ServiceCard({ status, pending, onAction }: ServiceCardProps) {
   const { t } = useTranslation()
   const startedAt = formatTimestamp(status.started_at)
@@ -149,65 +238,12 @@ export function ServiceCard({ status, pending, onAction }: ServiceCardProps) {
           />
         </div>
         {lastError ? (
-          <div
-            className={cn(
-              "rounded-md border px-2.5 py-1.5",
-              status.running
-                ? "border-border bg-muted/30"
-                : "border-destructive/40 bg-destructive/5",
-            )}
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p
-                className={cn(
-                  "text-xs font-medium",
-                  status.running ? "text-muted-foreground" : "text-destructive",
-                )}
-              >
-                {status.running
-                  ? t("dashboard.serviceLastErrorRecovered")
-                  : t("dashboard.serviceLastError")}
-              </p>
-              <div className="flex items-center gap-1.5">
-                {lastErrorAt ? (
-                  <p className="text-xs text-muted-foreground tabular-nums">{lastErrorAt}</p>
-                ) : null}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="xs"
-                  className={cn(
-                    "h-6 shrink-0 px-1.5",
-                    status.running ? "text-muted-foreground" : "text-destructive",
-                  )}
-                  aria-label={t("dashboard.copyLastError")}
-                  onClick={() => {
-                    void copyText(lastError).then(
-                      () => toast.success(t("dashboard.lastErrorCopied")),
-                      () => toast.error(t("dashboard.lastErrorCopyFailed")),
-                    )
-                  }}
-                >
-                  <CopyIcon className="size-3.5" aria-hidden="true" />
-                </Button>
-              </div>
-            </div>
-            <p
-              className={cn(
-                "mt-1 break-words text-sm",
-                status.running ? "text-foreground" : "text-destructive",
-              )}
-              title={lastError}
-            >
-              {lastError}
-            </p>
-            <Link
-              to={errorLogsHref}
-              className={cn(buttonVariants({ variant: "link", size: "sm" }), "h-auto px-0")}
-            >
-              {t("dashboard.openErrorLogs")}
-            </Link>
-          </div>
+          <ServiceLastError
+            status={status}
+            lastError={lastError}
+            lastErrorAt={lastErrorAt}
+            errorLogsHref={errorLogsHref}
+          />
         ) : null}
       </CardContent>
       <CardFooter className="grid grid-cols-1 gap-2 sm:grid-cols-3">

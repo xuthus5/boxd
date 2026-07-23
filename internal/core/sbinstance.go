@@ -28,17 +28,18 @@ var (
 
 // SBInstance 封装 sing-box 内核实例，提供运行控制与运行时能力访问。
 type SBInstance struct {
-	mu          sync.Mutex
-	running     bool
-	configPath  string
-	box         boxInstance
-	boxCtx      context.Context // box 启动使用的 context，含注册的 CacheFile 等服务
-	cancel      context.CancelFunc
-	startTime   time.Time
-	lastError   string
-	lastErrorAt time.Time
-	LogWriter   *LogWriter
-	Traffic     *TrafficTracker
+	mu            sync.Mutex
+	running       bool
+	configPath    string
+	box           boxInstance
+	boxCtx        context.Context // box 启动使用的 context，含注册的 CacheFile 等服务
+	cancel        context.CancelFunc
+	startTime     time.Time
+	lastError     string
+	lastErrorCode string
+	lastErrorAt   time.Time
+	LogWriter     *LogWriter
+	Traffic       *TrafficTracker
 }
 
 // OutboundGroupInfo 描述一个出站分组（selector/urltest）及其当前选中节点。
@@ -166,6 +167,7 @@ func (s *SBInstance) Start() error {
 	s.running = true
 	s.startTime = time.Now()
 	s.lastError = ""
+	s.lastErrorCode = ""
 	s.lastErrorAt = time.Time{}
 	return nil
 }
@@ -220,6 +222,7 @@ func (s *SBInstance) Status() model.ServiceStatus {
 	}
 	if s.lastError != "" {
 		st.LastError = s.lastError
+		st.LastErrorCode = s.lastErrorCode
 		if !s.lastErrorAt.IsZero() {
 			at := s.lastErrorAt.UTC()
 			st.LastErrorAt = &at
@@ -233,6 +236,8 @@ func (s *SBInstance) recordStartErrorLocked(err error) {
 	if err == nil {
 		return
 	}
-	s.lastError = err.Error()
+	msg := err.Error()
+	s.lastError = msg
+	s.lastErrorCode = ClassifyKernelError(msg, err)
 	s.lastErrorAt = time.Now().UTC()
 }

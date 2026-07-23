@@ -55,6 +55,7 @@ func NewConfigApplyEvent(source, status string, body []byte, applyErr error) mod
 	}
 	if applyErr != nil {
 		event.Error = strings.TrimSpace(applyErr.Error())
+		event.ErrorCode = ClassifyKernelError(event.Error, applyErr)
 	}
 	if event.Source == "" {
 		event.Source = "unknown"

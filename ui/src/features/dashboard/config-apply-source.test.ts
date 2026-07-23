@@ -53,9 +53,24 @@ describe("configApplyErrorClipboardText", () => {
       "status: rolled_back",
       "hash: abcdef01",
       "size: 2048",
+      "code: restart_failed",
       "error: restart failed",
       "at: 2026-07-23T12:00:00Z",
     ].join("\n"))
   })
 })
 
+describe("config apply error codes", () => {
+  it("includes classified code in clipboard text", () => {
+    const payload = configApplyErrorClipboardText({
+      source: "raw",
+      status: "rolled_back",
+      hash: "abcdef",
+      size: 10,
+      error: "restart failed after config save",
+      applied_at: "2026-07-23T12:00:00Z",
+    })
+    expect(payload).toContain("code: restart_failed")
+    expect(payload).toContain("error: restart failed after config save")
+  })
+})

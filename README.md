@@ -8,7 +8,7 @@ Single-node control plane for [sing-box](https://github.com/SagerNet/sing-box). 
 
 ## Features
 
-- **Dashboard**: start/stop/restart kernel, setup checklist with failed-subscription previews, live health with failed-sub/unstable-node alerts, config apply timeline with copyable failures, global outbound/Clash mode switch, live traffic, memory, recent logs
+- **Dashboard**: start/stop/restart kernel, setup checklist with failed-subscription previews, live health with failed-sub/unstable-node alerts, config apply timeline with error-code diagnostics and copyable failures, global outbound/Clash mode switch, live traffic, memory, recent logs
 - **Proxy config**: structured inbound/outbound forms (TLS/Reality, transports), numeric field validation, list search, tag copy, ops deep-links to connections/logs/nodes, path-level save errors, plus Advanced JSON with path-level save diff
 - **Traffic policy**: route/DNS rules with search, invert toggles, denser mobile cards, DNS servers with search, health probe, and error-code diagnostics; rule name/description stored by boxd
 - **Nodes & subscriptions**: Clash YAML + base64 subscriptions, traffic/expiry, failed-first + retry with error-code hints and copy/open diagnostics, subscription deep-links to nodes/logs, denser mobile toolbars/cards, node search, latency color bands + history sparkline/detail chart, copyable probe errors with error-code hints, runtime groups, probes

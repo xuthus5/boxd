@@ -51,6 +51,9 @@ func TestConfigApplyHistoryAppendAndList(t *testing.T) {
 	if events[0].Error != "restart failed" {
 		t.Fatalf("error = %q", events[0].Error)
 	}
+	if events[0].ErrorCode != KernelErrorRestartFailed {
+		t.Fatalf("error_code = %q", events[0].ErrorCode)
+	}
 	if events[1].Source != "update" || events[1].Status != "applied" {
 		t.Fatalf("older = %+v", events[1])
 	}
