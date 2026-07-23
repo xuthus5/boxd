@@ -88,4 +88,43 @@ describe("experimental page", () => {
     await user.keyboard("{Control>}a{/Control}[BracketLeft][BracketRight]")
     expect(screen.getByRole("button", { name: "保存配置" })).toBeDisabled()
   })
+
+  it("surfaces densified save errors with code and clipboard actions", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    const fetchMock = vi.fn((input: string | URL | Request, init?: RequestInit) => {
+      const path = String(typeof input === "string" ? input : input instanceof URL ? input.pathname : input.url).split("?")[0]
+      if (path === "/api/config/" && init?.method === "PUT") {
+        return Promise.resolve(new Response(JSON.stringify({
+          status: "error",
+          data: null,
+          error: { code: "config_invalid_runtime", message: "experimental.clash_api.secret: required" },
+          meta: {},
+        }), { status: 400 }))
+      }
+      if (path === "/api/config/" || path === "/api/config/raw") {
+        return Promise.resolve(new Response(JSON.stringify({
+          log: { level: "info" },
+          experimental: { cache_file: { enabled: true, path: "/tmp/x.db" } },
+        })))
+      }
+      if (path === "/api/network/interfaces") {
+        return Promise.resolve(new Response(JSON.stringify({ interfaces: [] })))
+      }
+      if (path === "/api/settings/password") {
+        return Promise.resolve(new Response(JSON.stringify({ defaultPassword: false })))
+      }
+      return Promise.resolve(new Response(JSON.stringify({})))
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    const user = userEvent.setup()
+    renderApp(<App />, "/advanced/experimental")
+    await screen.findByRole("heading", { name: "实验特性" })
+    const save = screen.getByRole("button", { name: "保存配置" })
+    expect(save).toBeEnabled()
+    await user.click(save)
+    expect(await screen.findByTestId("config-save-error")).toBeInTheDocument()
+    expect(screen.getByText("config_invalid")).toBeInTheDocument()
+    expect(screen.getAllByText(/experimental\.clash_api\.secret/).length).toBeGreaterThan(0)
+  })
+
 })

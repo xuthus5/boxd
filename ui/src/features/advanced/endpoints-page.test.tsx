@@ -99,4 +99,40 @@ describe("endpoints page", () => {
     expect(screen.getByRole("button", { name: "保存配置" })).toHaveClass("h-8")
     expect(screen.getByRole("button", { name: "保存配置" })).toBeDisabled()
   })
+
+  it("surfaces densified save errors with code", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    const fetchMock = vi.fn((input: string | URL | Request, init?: RequestInit) => {
+      const path = String(typeof input === "string" ? input : input instanceof URL ? input.pathname : input.url).split("?")[0]
+      if (path === "/api/config/" && init?.method === "PUT") {
+        return Promise.resolve(new Response(JSON.stringify({
+          status: "error",
+          data: null,
+          error: { code: "config_restart_failed", message: "restart failed after config save: listen tcp :1080: bind" },
+          meta: {},
+        }), { status: 500 }))
+      }
+      if (path === "/api/config/" || path === "/api/config/raw") {
+        return Promise.resolve(new Response(JSON.stringify({
+          log: { level: "info" },
+          endpoints: [{ type: "wireguard", tag: "wg-home", address: ["10.0.0.2/32"], private_key: "private", peers: [{ public_key: "peer", allowed_ips: ["0.0.0.0/0"] }] }],
+        })))
+      }
+      if (path === "/api/network/interfaces") {
+        return Promise.resolve(new Response(JSON.stringify({ interfaces: [{ name: "eth0", ips: ["10.0.0.2"] }] })))
+      }
+      if (path === "/api/settings/password") {
+        return Promise.resolve(new Response(JSON.stringify({ defaultPassword: false })))
+      }
+      return Promise.resolve(new Response(JSON.stringify({})))
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    const user = userEvent.setup()
+    renderApp(<App />, "/advanced/endpoints")
+    await screen.findByRole("heading", { name: "端点" })
+    await user.click(screen.getByRole("button", { name: "保存配置" }))
+    expect(await screen.findByTestId("config-save-error")).toBeInTheDocument()
+    expect(screen.getByText("restart_failed")).toBeInTheDocument()
+  })
+
 })

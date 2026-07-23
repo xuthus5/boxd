@@ -16,11 +16,12 @@ import {
   prepareExperimentalObject,
 } from "@/features/advanced/experimental-form-model"
 import { ExperimentalVisualEditor } from "@/features/advanced/experimental-visual-editor"
+import { ConfigSaveErrorAlert } from "@/features/config/config-save-error-alert"
 import { useConfigQuery, useSaveConfigMutation } from "@/features/config/config-hooks"
+import { useConfigSaveError } from "@/features/config/use-config-save-error"
 import { JsonEditor } from "@/features/config/json-editor"
 import { isJsonObject, type JsonObject } from "@/features/policy/policy-form-model"
 import { api } from "@/lib/api/endpoints"
-import { rolledBackMessage } from "@/lib/api/status"
 import type { JsonValue } from "@/lib/api/types"
 
 function parseExperimentalObject(value: string): JsonObject | null {
@@ -54,11 +55,13 @@ function useExperimentalEditorState(initial: JsonValue | undefined) {
   return { value, revision, invalidFields, object, updateObject, updateJSON, updateFieldValidity }
 }
 
-function ExperimentalEditor({ initial, onSave, onInstallClashAPI, installing }: {
+function ExperimentalEditor({ initial, onSave, onInstallClashAPI, installing, saveError, onDismissError }: {
   initial: JsonValue | undefined
   onSave: (object: JsonObject) => void
   onInstallClashAPI: () => void
   installing: boolean
+  saveError: ReturnType<typeof useConfigSaveError>["saveError"]
+  onDismissError: () => void
 }) {
   const { t } = useTranslation()
   const editor = useExperimentalEditorState(initial)
@@ -72,6 +75,7 @@ function ExperimentalEditor({ initial, onSave, onInstallClashAPI, installing }: 
         <CardDescription>{t("advanced.experimentalDescription")}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-2 sm:gap-3">
+        <ConfigSaveErrorAlert error={saveError} onDismiss={onDismissError} />
         <Tabs defaultValue="visual" className="min-h-0 min-w-0">
           <TabsList activateOnFocus className="h-auto max-w-full justify-start overflow-x-auto overflow-y-hidden" variant="line">
             <TabsTrigger value="visual">{t("advanced.visualTab")}</TabsTrigger>
@@ -123,6 +127,7 @@ export function ExperimentalPage() {
   const { t } = useTranslation()
   const query = useConfigQuery()
   const save = useSaveConfigMutation()
+  const { saveError, clearSaveError, reportError, reportRollback } = useConfigSaveError()
   const [installing, setInstalling] = useState(false)
   if (query.isLoading) return <Skeleton className="h-64 w-full" />
   if (query.error) {
@@ -134,15 +139,16 @@ export function ExperimentalPage() {
   const initial = query.data?.experimental
   const installClashAPI = () => {
     setInstalling(true)
+    clearSaveError()
     api.config.installExperimental()
       .then((response) => {
         if (response.status === "rolled_back") {
-          toast.error(rolledBackMessage(response, t("advanced.rolledBack")))
+          reportRollback(response, t("advanced.rolledBack"))
           return
         }
         return query.refetch().then(() => toast.success(t("advanced.clashAPIInstalled")))
       })
-      .catch((error: Error) => toast.error(error.message))
+      .catch((error: Error) => { reportError(error) })
       .finally(() => setInstalling(false))
   }
   return (
@@ -150,16 +156,25 @@ export function ExperimentalPage() {
       key={JSON.stringify(initial ?? {})}
       initial={initial}
       installing={installing}
+      saveError={saveError}
+      onDismissError={clearSaveError}
       onInstallClashAPI={installClashAPI}
-      onSave={(object) => save.mutate(
-        { ...query.data!, experimental: object },
-        {
-          onSuccess: (response) => response.status === "rolled_back"
-            ? toast.error(rolledBackMessage(response, t("advanced.rolledBack")))
-            : toast.success(t("advanced.saved")),
-          onError: (error) => toast.error(error.message),
-        },
-      )}
+      onSave={(object) => {
+        clearSaveError()
+        save.mutate(
+          { ...query.data!, experimental: object },
+          {
+            onSuccess: (response) => {
+              if (response.status === "rolled_back") {
+                reportRollback(response, t("advanced.rolledBack"))
+                return
+              }
+              toast.success(t("advanced.saved"))
+            },
+            onError: (error) => { reportError(error) },
+          },
+        )
+      }}
     />
   )
 }

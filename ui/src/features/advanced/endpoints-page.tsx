@@ -16,10 +16,11 @@ import {
   prepareEndpoints,
 } from "@/features/advanced/endpoints-form-model"
 import { EndpointsVisualEditor } from "@/features/advanced/endpoints-visual-editor"
+import { ConfigSaveErrorAlert } from "@/features/config/config-save-error-alert"
 import { useConfigQuery, useSaveConfigMutation } from "@/features/config/config-hooks"
+import { useConfigSaveError } from "@/features/config/use-config-save-error"
 import { JsonEditor } from "@/features/config/json-editor"
 import { type JsonObject } from "@/features/policy/policy-form-model"
-import { rolledBackMessage } from "@/lib/api/status"
 import type { JsonValue } from "@/lib/api/types"
 
 function parseEndpoints(value: string): JsonObject[] | null {
@@ -39,9 +40,11 @@ function useEndpointsEditorState(initial: JsonValue | undefined) {
   return { value, items, updateItems, updateJSON }
 }
 
-function EndpointsEditor({ initial, onSave }: {
+function EndpointsEditor({ initial, onSave, saveError, onDismissError }: {
   initial: JsonValue | undefined
   onSave: (items: JsonObject[]) => void
+  saveError: ReturnType<typeof useConfigSaveError>["saveError"]
+  onDismissError: () => void
 }) {
   const { t } = useTranslation()
   const editor = useEndpointsEditorState(initial)
@@ -55,6 +58,7 @@ function EndpointsEditor({ initial, onSave }: {
         <CardDescription>{t("advanced.endpointsDescription")}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-2 sm:gap-3">
+        <ConfigSaveErrorAlert error={saveError} onDismiss={onDismissError} />
         <Tabs defaultValue="visual" className="min-h-0 min-w-0">
           <TabsList activateOnFocus className="h-auto max-w-full justify-start overflow-x-auto overflow-y-hidden" variant="line">
             <TabsTrigger value="visual">{t("advanced.visualTab")}</TabsTrigger>
@@ -98,6 +102,7 @@ export function EndpointsPage() {
   const { t } = useTranslation()
   const query = useConfigQuery()
   const save = useSaveConfigMutation()
+  const { saveError, clearSaveError, reportError, reportRollback } = useConfigSaveError()
   if (query.isLoading) return <Skeleton className="h-64 w-full" />
   if (query.error) {
     return (
@@ -112,15 +117,24 @@ export function EndpointsPage() {
     <EndpointsEditor
       key={JSON.stringify(initial ?? [])}
       initial={initial}
-      onSave={(items) => save.mutate(
-        { ...query.data!, endpoints: items },
-        {
-          onSuccess: (response) => response.status === "rolled_back"
-            ? toast.error(rolledBackMessage(response, t("advanced.rolledBack")))
-            : toast.success(t("advanced.saved")),
-          onError: (error) => toast.error(error.message),
-        },
-      )}
+      saveError={saveError}
+      onDismissError={clearSaveError}
+      onSave={(items) => {
+        clearSaveError()
+        save.mutate(
+          { ...query.data!, endpoints: items },
+          {
+            onSuccess: (response) => {
+              if (response.status === "rolled_back") {
+                reportRollback(response, t("advanced.rolledBack"))
+                return
+              }
+              toast.success(t("advanced.saved"))
+            },
+            onError: (error) => { reportError(error) },
+          },
+        )
+      }}
     />
   )
 }
