@@ -1,4 +1,4 @@
-import { useId, useMemo } from "react"
+import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
@@ -10,10 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { useAuth } from "@/features/auth/auth-context"
 import { logConnectionsHref } from "@/features/observability/connection-facets"
@@ -23,18 +20,22 @@ import {
   downloadTextFile,
   formatLogExport,
 } from "@/features/observability/log-export"
+import { LogFilters } from "@/features/observability/log-filters"
 import {
   applyLogPreset,
   LOG_FILTER_PRESETS,
   matchesLogFilter,
+  matchesLogLevel,
   parseLogSearchParams,
   resolveLogSeed,
+  summarizeLogLevels,
   toLogSearchParams,
   type LogFilterPresetId,
   type LogSearchFilters,
   type LogThresholdParam,
 } from "@/features/observability/log-filter-presets"
 import { meetsLogThreshold, type LogThreshold } from "@/features/observability/log-level"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { StreamStatusBadge } from "@/features/observability/stream-status-badge"
 import { useStreamBuffer } from "@/features/observability/use-stream-buffer"
 import { usePreferences } from "@/features/preferences/preferences-provider"
@@ -47,90 +48,26 @@ function formatLogTimestamp(timestamp?: string) {
   return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString()
 }
 
-function LogFilters({
-  filter,
-  minimum,
-  activePreset,
-  onFilterChange,
-  onMinimumChange,
-  onPreset,
-  onClear,
-}: {
-  filter: string
-  minimum: LogThreshold
-  activePreset: LogFilterPresetId | null
-  onFilterChange: (value: string) => void
-  onMinimumChange: (value: LogThreshold) => void
-  onPreset: (id: LogFilterPresetId) => void
-  onClear: () => void
-}) {
-  const { t } = useTranslation()
-  const searchId = useId()
-  const levelId = useId()
-  const levelDescriptionId = useId()
-  const levels = [
-    { label: t("observability.allLevels"), value: "all" },
-    { label: "Debug", value: "debug" },
-    { label: "Info", value: "info" },
-    { label: "Warn", value: "warn" },
-    { label: "Error", value: "error" },
-  ]
-  const hasFilter = Boolean(filter.trim()) || minimum !== "all"
-  return <FieldGroup className="gap-3">
-    <div className="flex flex-col gap-3 @md/field-group:flex-row">
-      <Field className="flex-1">
-        <FieldLabel htmlFor={searchId}>{t("observability.searchLogs")}</FieldLabel>
-        <Input id={searchId} aria-label={t("observability.searchLogs")} placeholder={t("observability.searchLogs")} value={filter} onChange={(event) => onFilterChange(event.target.value)} />
-      </Field>
-      <Field className="sm:w-52">
-        <FieldLabel htmlFor={levelId}>{t("observability.minimumLogLevel")}</FieldLabel>
-        <Select items={levels} value={minimum} onValueChange={(value) => onMinimumChange(String(value) as LogThreshold)}>
-          <SelectTrigger id={levelId} aria-label={t("observability.minimumLogLevel")} aria-describedby={levelDescriptionId} className="w-full"><SelectValue /></SelectTrigger>
-          <SelectContent><SelectGroup>
-            {levels.map((level) => <SelectItem key={level.value} value={level.value}>{level.label}</SelectItem>)}
-          </SelectGroup></SelectContent>
-        </Select>
-        <FieldDescription id={levelDescriptionId}>{t("observability.minimumLogLevelDescription")}</FieldDescription>
-      </Field>
-    </div>
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="text-sm text-muted-foreground">{t("observability.logPresets")}</span>
-      {LOG_FILTER_PRESETS.map((preset) => (
-        <Button
-          key={preset.id}
-          type="button"
-          size="sm"
-          variant={activePreset === preset.id ? "default" : "outline"}
-          aria-pressed={activePreset === preset.id}
-          onClick={() => onPreset(preset.id)}
-        >
-          {t(preset.labelKey)}
-        </Button>
-      ))}
-      {hasFilter ? (
-        <Button type="button" size="sm" variant="ghost" onClick={onClear}>
-          {t("observability.clearLogFilter")}
-        </Button>
-      ) : null}
-    </div>
-  </FieldGroup>
-}
-
 export function LogPanel({ path, title }: { path: string; title: string }) {
   const { t } = useTranslation()
   const preferences = usePreferences()
   const stream = useStreamBuffer<LogEvent>(path, useAuth().session!.token)
   const [searchParams, setSearchParams] = useSearchParams()
   const filters = useMemo(() => parseLogSearchParams(searchParams), [searchParams])
-  const seed = useMemo(() => resolveLogSeed(filters), [filters])
+  const seed = resolveLogSeed(filters)
   const filter = seed.filter
   const minimum = (seed.minimum ?? preferences.minimumLogLevel) as LogThreshold
+  const level = seed.level
   const activePreset = seed.preset
+  const levelSummary = useMemo(() => summarizeLogLevels(stream.items, filter), [filter, stream.items])
   const items = useMemo(
     () => stream.items.filter((item) => meetsLogThreshold(item.level, minimum)
-      && matchesLogFilter(item.level, item.message, filter)),
-    [filter, minimum, stream.items],
+      && matchesLogFilter(item.level, item.message, filter)
+      && matchesLogLevel(item.level, level)),
+    [filter, level, minimum, stream.items],
   )
+  const isMobile = useIsMobile()
+
   const exportText = useMemo(() => formatLogExport(items), [items])
   const canExport = items.length > 0
 
@@ -166,6 +103,7 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
       tab: sharedTab(),
       query: applied.filter,
       minimum: applied.minimum ?? "all",
+      level: undefined,
       preset: id,
     })
   }
@@ -174,8 +112,8 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
     writeFilters({
       tab: sharedTab(),
       query: value,
-      // Preserve resolved threshold (URL or preset) while clearing preset id.
       minimum: filters.minimum ?? seed.minimum,
+      level,
       preset: undefined,
     })
   }
@@ -185,6 +123,17 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
       tab: sharedTab(),
       query: filter,
       minimum: value as LogThresholdParam,
+      level,
+      preset: undefined,
+    })
+  }
+
+  const onLevelChange = (next: Pick<LogSearchFilters, "level">) => {
+    writeFilters({
+      tab: sharedTab(),
+      query: filter,
+      minimum: minimum as LogThresholdParam,
+      level: next.level,
       preset: undefined,
     })
   }
@@ -193,7 +142,7 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
     writeFilters({ tab: sharedTab() })
   }
 
-  const hasActiveFilter = Boolean(filter.trim()) || minimum !== "all" || Boolean(activePreset)
+  const hasActiveFilter = Boolean(filter.trim()) || minimum !== "all" || Boolean(level) || Boolean(activePreset)
 
   return <Card>
     <CardHeader>
@@ -208,9 +157,12 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
       <LogFilters
         filter={filter}
         minimum={minimum}
+        level={level}
+        levelSummary={levelSummary}
         activePreset={activePreset}
         onFilterChange={onFilterChange}
         onMinimumChange={onMinimumChange}
+        onLevelChange={onLevelChange}
         onPreset={onPreset}
         onClear={onClear}
       />
@@ -233,25 +185,25 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
               </EmptyContent>
             ) : null}
           </Empty>
-          : <Table>
-            <TableHeader><TableRow>
-              <TableHead>{t("observability.time")}</TableHead>
-              <TableHead>{t("dashboard.level")}</TableHead>
-              <TableHead>{t("dashboard.message")}</TableHead>
-              <TableHead className="w-28">{t("common.actions")}</TableHead>
-            </TableRow></TableHeader>
-            <TableBody>
+          : isMobile
+            ? <div className="flex flex-col gap-2">
               {items.map((item, index) => {
                 const connectionsHref = logConnectionsHref(item.message)
                 return (
-                  <TableRow key={`${item.timestamp}-${item.level}-${index}`}>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">
-                      <time dateTime={item.timestamp || undefined}>{formatLogTimestamp(item.timestamp)}</time>
-                    </TableCell>
-                    <TableCell><Badge variant={item.level === "error" ? "destructive" : "secondary"}>{item.level}</Badge></TableCell>
-                    <TableCell className="min-w-64 whitespace-normal break-words">{item.message}</TableCell>
-                    <TableCell>
-                      {connectionsHref ? (
+                  <Card key={`${item.timestamp}-${item.level}-${index}`} size="sm">
+                    <CardHeader className="min-w-0 gap-1">
+                      <CardTitle className="flex flex-wrap items-center gap-2 text-sm font-medium">
+                        <Badge variant={item.level === "error" ? "destructive" : "secondary"}>{item.level}</Badge>
+                        <time className="text-muted-foreground" dateTime={item.timestamp || undefined}>
+                          {formatLogTimestamp(item.timestamp)}
+                        </time>
+                      </CardTitle>
+                      <CardDescription className="whitespace-normal break-words text-foreground">
+                        {item.message}
+                      </CardDescription>
+                    </CardHeader>
+                    {connectionsHref ? (
+                      <CardContent>
                         <Link
                           to={connectionsHref}
                           aria-label={`${t("observability.viewConnections")}: ${item.message}`}
@@ -260,13 +212,46 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
                           <NetworkIcon data-icon="inline-start" />
                           {t("observability.viewConnections")}
                         </Link>
-                      ) : null}
-                    </TableCell>
-                  </TableRow>
+                      </CardContent>
+                    ) : null}
+                  </Card>
                 )
               })}
-            </TableBody>
-          </Table>}
+            </div>
+            : <Table>
+              <TableHeader><TableRow>
+                <TableHead>{t("observability.time")}</TableHead>
+                <TableHead>{t("dashboard.level")}</TableHead>
+                <TableHead>{t("dashboard.message")}</TableHead>
+                <TableHead className="w-28">{t("common.actions")}</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>
+                {items.map((item, index) => {
+                  const connectionsHref = logConnectionsHref(item.message)
+                  return (
+                    <TableRow key={`${item.timestamp}-${item.level}-${index}`}>
+                      <TableCell className="whitespace-nowrap text-muted-foreground">
+                        <time dateTime={item.timestamp || undefined}>{formatLogTimestamp(item.timestamp)}</time>
+                      </TableCell>
+                      <TableCell><Badge variant={item.level === "error" ? "destructive" : "secondary"}>{item.level}</Badge></TableCell>
+                      <TableCell className="min-w-64 whitespace-normal break-words">{item.message}</TableCell>
+                      <TableCell>
+                        {connectionsHref ? (
+                          <Link
+                            to={connectionsHref}
+                            aria-label={`${t("observability.viewConnections")}: ${item.message}`}
+                            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                          >
+                            <NetworkIcon data-icon="inline-start" />
+                            {t("observability.viewConnections")}
+                          </Link>
+                        ) : null}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>}
       </ScrollArea>
     </CardContent>
     <CardFooter className="flex flex-wrap gap-2">

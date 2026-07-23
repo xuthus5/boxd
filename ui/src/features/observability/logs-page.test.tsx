@@ -30,31 +30,31 @@ function setupLevelThreshold() {
 describe("LogsPage", () => {
   it("shows stream connection errors", async () => {
     sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 503 })))
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(new Response(null, { status: 503 }))))
     renderApp(<App />, "/observability/logs")
     expect(await screen.findAllByText("SSE request failed with status 503")).toHaveLength(2)
   })
 
   it("shows log source tabs inside the log page", async () => {
     sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(sse({ level: "info", message: "kernel ready", timestamp: "2026-01-01T00:00:00Z" })))
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(sse({ level: "info", message: "kernel ready", timestamp: "2026-01-01T00:00:00Z" }))))
     renderApp(<App />, "/observability/logs")
 
     expect(await screen.findByRole("tab", { name: "内核日志" })).toBeInTheDocument()
     expect(screen.getByRole("tab", { name: "应用日志" })).toBeInTheDocument()
-    expect(await screen.findByText("kernel ready")).toBeInTheDocument()
-    const timestamp = document.querySelector('time[datetime="2026-01-01T00:00:00Z"]')
-    expect(timestamp).toBeInTheDocument()
-    expect(timestamp).not.toHaveTextContent("—")
+    expect((await screen.findAllByText("kernel ready")).length).toBeGreaterThan(0)
+    const timestamps = document.querySelectorAll('time[datetime="2026-01-01T00:00:00Z"]')
+    expect(timestamps.length).toBeGreaterThan(0)
+    expect(timestamps[0]).not.toHaveTextContent("—")
   })
 
   it("shows error logs without a timestamp", async () => {
     sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(sse({ level: "error", message: "failed", timestamp: "" })))
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(sse({ level: "error", message: "failed", timestamp: "" }))))
     renderApp(<App />, "/observability/logs")
-    expect(await screen.findByText("failed")).toBeInTheDocument()
-    expect(screen.getByRole("columnheader", { name: "时间" })).toBeInTheDocument()
-    expect(screen.getByText("—")).toBeInTheDocument()
+    expect((await screen.findAllByText("failed")).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole("columnheader", { name: "时间" }).length).toBeGreaterThan(0)
+    expect(screen.getAllByText("—").length).toBeGreaterThan(0)
   })
 
   it("shares URL filters across log source tabs", async () => {
@@ -88,15 +88,15 @@ describe("LogsPage", () => {
   })
   it("deep-links log hosts to connection search", async () => {
     sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(sse({
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(sse({
       level: "info",
       message: "outbound/vless[hk]: outbound connection to api.telegram.org:443",
       timestamp: "2026-01-01T00:00:00Z",
-    })))
+    }))))
     renderApp(<App />, "/observability/logs")
 
-    expect(await screen.findByText(/outbound connection to api.telegram.org:443/)).toBeInTheDocument()
-    const link = screen.getByRole("link", { name: /查看连接/ })
+    expect((await screen.findAllByText(/outbound connection to api.telegram.org:443/)).length).toBeGreaterThan(0)
+    const link = screen.getAllByRole("link", { name: /查看连接/ })[0]
     expect(link).toHaveAttribute("href", "/observability/connections?q=api.telegram.org")
   })
 
@@ -183,4 +183,35 @@ describe("LogsPage level threshold", () => {
     await user.click(screen.getByRole("tab", { name: "内核日志" }))
     expect(within(await screen.findByRole("tabpanel")).getByRole("combobox", { name: "最低日志级别" })).toHaveTextContent("Error")
   })
+  it("filters logs from level summary chips", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(sse([
+      { level: "info", message: "info entry" },
+      { level: "error", message: "error entry" },
+    ]))))
+    const user = userEvent.setup()
+    renderApp(<App />, "/observability/logs")
+    const panel = await screen.findByRole("tabpanel")
+    expect(await within(panel).findByText(/级别分布/)).toBeInTheDocument()
+    expect(await within(panel).findByText("info entry")).toBeInTheDocument()
+    expect(within(panel).getByText("error entry")).toBeInTheDocument()
+    await user.click(within(panel).getAllByRole("button", { name: /error/i })[0])
+    expect(within(panel).queryByText("info entry")).not.toBeInTheDocument()
+    expect(within(panel).getByText("error entry")).toBeInTheDocument()
+    expect(within(panel).getAllByRole("button", { name: /error/i })[0]).toHaveAttribute("aria-pressed", "true")
+  })
+
+  it("seeds exact level filter from deep-link query params", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(sse([
+      { level: "info", message: "info entry" },
+      { level: "error", message: "error entry" },
+    ]))))
+    renderApp(<App />, "/observability/logs?level=error")
+    const panel = await screen.findByRole("tabpanel")
+    expect(await within(panel).findByText("error entry")).toBeInTheDocument()
+    expect(within(panel).queryByText("info entry")).not.toBeInTheDocument()
+    expect(within(panel).getAllByRole("button", { name: /error/i })[0]).toHaveAttribute("aria-pressed", "true")
+  })
+
 })

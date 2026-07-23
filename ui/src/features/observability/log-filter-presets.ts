@@ -21,7 +21,56 @@ export type LogSearchFilters = {
   tab?: "kernel" | "application"
   query?: string
   minimum?: LogThresholdParam
+  level?: string
   preset?: LogFilterPresetId
+}
+
+export type LogLevelBucket = {
+  level: string
+  count: number
+}
+
+export type LogLevelSummary = {
+  total: number
+  buckets: LogLevelBucket[]
+}
+
+const LEVEL_ORDER = ["error", "warn", "info", "debug"] as const
+
+export function normalizeLogLevel(level: string | undefined): string {
+  const value = level?.trim().toLowerCase()
+  return value || "unknown"
+}
+
+export function matchesLogLevel(level: string | undefined, selected: string | undefined): boolean {
+  if (!selected) return true
+  return normalizeLogLevel(level) === selected.trim().toLowerCase()
+}
+
+export function summarizeLogLevels(
+  items: readonly { level?: string; message?: string }[],
+  query = "",
+): LogLevelSummary {
+  const counts = new Map<string, number>()
+  let total = 0
+  for (const item of items) {
+    if (!matchesLogFilter(item.level ?? "", item.message ?? "", query)) continue
+    total += 1
+    const level = normalizeLogLevel(item.level)
+    counts.set(level, (counts.get(level) ?? 0) + 1)
+  }
+  const buckets = Array.from(counts.entries())
+    .map(([level, count]) => ({ level, count }))
+    .sort((left, right) => {
+      const leftRank = LEVEL_ORDER.indexOf(left.level as (typeof LEVEL_ORDER)[number])
+      const rightRank = LEVEL_ORDER.indexOf(right.level as (typeof LEVEL_ORDER)[number])
+      const leftOrder = leftRank === -1 ? LEVEL_ORDER.length : leftRank
+      const rightOrder = rightRank === -1 ? LEVEL_ORDER.length : rightRank
+      if (leftOrder !== rightOrder) return leftOrder - rightOrder
+      if (right.count !== left.count) return right.count - left.count
+      return left.level.localeCompare(right.level)
+    })
+  return { total, buckets }
 }
 
 export const LOG_FILTER_PRESETS: readonly LogFilterPreset[] = [
@@ -69,9 +118,10 @@ export function parseLogSearchParams(
   const query = readParam(params, "q")
   const minimumRaw = readParam(params, "minimum")?.toLowerCase() as LogThresholdParam | undefined
   const minimum = minimumRaw && THRESHOLDS.has(minimumRaw) ? minimumRaw : undefined
+  const level = readParam(params, "level")?.toLowerCase()
   const presetRaw = readParam(params, "preset") as LogFilterPresetId | undefined
   const preset = presetRaw && PRESET_IDS.has(presetRaw) ? presetRaw : undefined
-  return { tab, query, minimum, preset }
+  return { tab, query, minimum, level, preset }
 }
 
 export function toLogSearchParams(filters: LogSearchFilters = {}): URLSearchParams {
@@ -80,6 +130,8 @@ export function toLogSearchParams(filters: LogSearchFilters = {}): URLSearchPara
   const query = filters.query?.trim()
   if (query) params.set("q", query)
   if (filters.minimum) params.set("minimum", filters.minimum)
+  const level = filters.level?.trim().toLowerCase()
+  if (level) params.set("level", level)
   if (filters.preset) params.set("preset", filters.preset)
   return params
 }
@@ -92,6 +144,7 @@ export function buildLogsHref(filters: LogSearchFilters = {}): string {
 export function resolveLogSeed(filters: LogSearchFilters): {
   filter: string
   minimum?: LogThresholdParam
+  level?: string
   preset: LogFilterPresetId | null
 } {
   if (filters.preset) {
@@ -99,12 +152,14 @@ export function resolveLogSeed(filters: LogSearchFilters): {
     return {
       filter: filters.query ?? applied.filter,
       minimum: filters.minimum ?? applied.minimum ?? "all",
+      level: filters.level,
       preset: filters.preset,
     }
   }
   return {
     filter: filters.query ?? "",
     minimum: filters.minimum,
+    level: filters.level,
     preset: null,
   }
 }
