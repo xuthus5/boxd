@@ -264,6 +264,7 @@ export function ConnectionsPage() {
                   field="outbound"
                   busy={busy}
                   onCloseGroup={closeGroup}
+                  baseFilters={filters}
                   emptyTitle={t("observability.noMatch")}
                   emptyDescription={t("observability.noMatchDescription")}
                   emptyActionLabel={emptyActionLabel}
@@ -276,6 +277,7 @@ export function ConnectionsPage() {
                   field="rule"
                   busy={busy}
                   onCloseGroup={closeGroup}
+                  baseFilters={filters}
                   emptyTitle={t("observability.noMatch")}
                   emptyDescription={t("observability.noMatchDescription")}
                   emptyActionLabel={emptyActionLabel}
@@ -288,6 +290,7 @@ export function ConnectionsPage() {
                   field="process"
                   busy={busy}
                   onCloseGroup={closeGroup}
+                  baseFilters={filters}
                   emptyTitle={t("observability.noMatch")}
                   emptyDescription={t("observability.noMatchDescription")}
                   emptyActionLabel={emptyActionLabel}

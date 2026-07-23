@@ -393,4 +393,19 @@ describe("ConnectionsPage", () => {
     expect(screen.getByRole("combobox", { name: "排序连接" })).toHaveTextContent("按目标")
   })
 
+  it("deep-links connection groups into the filtered list view", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    mockConnectionsFetch()
+    const user = userEvent.setup()
+    renderApp(<App />, "/observability/connections")
+    expect(await screen.findByText("example.com:443")).toBeInTheDocument()
+    await user.click(screen.getByRole("tab", { name: "按出口" }))
+    const link = await screen.findByRole("link", { name: "查看列表: proxy" })
+    expect(link).toHaveAttribute("href", "/observability/connections?outbound=proxy")
+    expect(screen.getByRole("link", { name: "查看列表: direct" })).toHaveAttribute(
+      "href",
+      "/observability/connections?outbound=direct",
+    )
+  })
+
 })

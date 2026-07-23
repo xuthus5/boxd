@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
+  configApplySourceHref,
   configApplySourceKey,
   shortConfigHash,
 } from "@/features/dashboard/config-apply-source"
@@ -32,7 +33,13 @@ function EventRow({ event, now, locale }: { event: ConfigApplyEvent; now: number
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium">
-            {t(`dashboard.${configApplySourceKey(event.source)}`)}
+            <Link
+              to={configApplySourceHref(event.source)}
+              className="underline-offset-4 hover:underline"
+              aria-label={`${t(`dashboard.${configApplySourceKey(event.source)}`)}`}
+            >
+              {t(`dashboard.${configApplySourceKey(event.source)}`)}
+            </Link>
           </p>
           <p className="truncate text-xs text-muted-foreground" title={event.applied_at}>
             {relative}

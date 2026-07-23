@@ -1,13 +1,29 @@
 import { useTranslation } from "react-i18next"
+import { Link } from "react-router-dom"
 
-import { Button } from "@/components/ui/button"
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ConfirmAction } from "@/components/confirm-action"
+import { Button, buttonVariants } from "@/components/ui/button"
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { formatBytes } from "@/features/dashboard/format"
+import {
+  buildConnectionsHref,
+  type ConnectionFacetFilters,
+} from "@/features/observability/connection-facets"
 import type { ConnectionGroupStat } from "@/features/observability/connection-stats"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { cn } from "@/lib/utils"
+
+type GroupField = "outbound" | "rule" | "process"
+
+function groupListHref(field: GroupField, key: string, base: ConnectionFacetFilters = {}) {
+  return buildConnectionsHref({
+    ...base,
+    [field]: key,
+    view: undefined,
+  })
+}
 
 function CloseGroupButton({
   group,
@@ -16,15 +32,15 @@ function CloseGroupButton({
   onCloseGroup,
 }: {
   group: ConnectionGroupStat
-  field: "outbound" | "rule" | "process"
+  field: GroupField
   busy: boolean
-  onCloseGroup: (field: "outbound" | "rule" | "process", key: string) => void
+  onCloseGroup: (field: GroupField, key: string) => void
 }) {
   const { t } = useTranslation()
   return (
     <ConfirmAction
       trigger={
-        <Button size="sm" variant="destructive" disabled={busy || group.key === "—"}>
+        <Button size="sm" className="h-8" variant="destructive" disabled={busy || group.key === "—"}>
           {t("observability.closeGroup")}
         </Button>
       }
@@ -37,6 +53,23 @@ function CloseGroupButton({
   )
 }
 
+function GroupListLink({ field, groupKey, baseFilters }: {
+  field: GroupField
+  groupKey: string
+  baseFilters?: ConnectionFacetFilters
+}) {
+  const { t } = useTranslation()
+  return (
+    <Link
+      to={groupListHref(field, groupKey, baseFilters)}
+      aria-label={`${t("observability.viewGroupConnections")}: ${groupKey}`}
+      className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+    >
+      {t("observability.viewGroupConnections")}
+    </Link>
+  )
+}
+
 export function ConnectionGroupTable({
   groups,
   field,
@@ -46,15 +79,17 @@ export function ConnectionGroupTable({
   emptyDescription,
   emptyActionLabel,
   onEmptyAction,
+  baseFilters,
 }: {
   groups: ConnectionGroupStat[]
-  field: "outbound" | "rule" | "process"
+  field: GroupField
   busy: boolean
-  onCloseGroup: (field: "outbound" | "rule" | "process", key: string) => void
+  onCloseGroup: (field: GroupField, key: string) => void
   emptyTitle: string
   emptyDescription: string
   emptyActionLabel?: string
   onEmptyAction?: () => void
+  baseFilters?: ConnectionFacetFilters
 }) {
   const { t } = useTranslation()
   const isMobile = useIsMobile()
@@ -83,7 +118,8 @@ export function ConnectionGroupTable({
             <CardHeader className="min-w-0">
               <CardTitle className="truncate" title={group.key}>{group.key}</CardTitle>
               <CardDescription>{t("observability.count")}: {group.count}</CardDescription>
-              <CardAction>
+              <CardAction className="flex flex-wrap justify-end gap-1">
+                <GroupListLink field={field} groupKey={group.key} baseFilters={baseFilters} />
                 <CloseGroupButton group={group} field={field} busy={busy} onCloseGroup={onCloseGroup} />
               </CardAction>
             </CardHeader>
@@ -110,12 +146,23 @@ export function ConnectionGroupTable({
       <TableBody>
         {groups.map((group) => (
           <TableRow key={group.key}>
-            <TableCell className="max-w-[14rem] truncate" title={group.key}>{group.key}</TableCell>
+            <TableCell className="max-w-[14rem] truncate" title={group.key}>
+              <Link
+                to={groupListHref(field, group.key, baseFilters)}
+                className="underline-offset-4 hover:underline"
+                title={group.key}
+              >
+                {group.key}
+              </Link>
+            </TableCell>
             <TableCell>{group.count}</TableCell>
             <TableCell>{formatBytes(group.upload)}</TableCell>
             <TableCell>{formatBytes(group.download)}</TableCell>
             <TableCell>
-              <CloseGroupButton group={group} field={field} busy={busy} onCloseGroup={onCloseGroup} />
+              <div className="flex flex-wrap items-center gap-1">
+                <GroupListLink field={field} groupKey={group.key} baseFilters={baseFilters} />
+                <CloseGroupButton group={group} field={field} busy={busy} onCloseGroup={onCloseGroup} />
+              </div>
             </TableCell>
           </TableRow>
         ))}

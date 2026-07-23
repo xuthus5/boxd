@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest"
 
-import { configApplySourceKey, shortConfigHash } from "@/features/dashboard/config-apply-source"
+import {
+  configApplySourceHref,
+  configApplySourceKey,
+  shortConfigHash,
+} from "@/features/dashboard/config-apply-source"
 
 describe("configApplySourceKey", () => {
   it("maps known sources", () => {
@@ -12,6 +16,17 @@ describe("configApplySourceKey", () => {
   it("falls back for unknown sources", () => {
     expect(configApplySourceKey("sync")).toBe("sourceUnknown")
     expect(configApplySourceKey("")).toBe("sourceUnknown")
+  })
+})
+
+describe("configApplySourceHref", () => {
+  it("maps sources to ops pages", () => {
+    expect(configApplySourceHref("raw")).toBe("/advanced/raw")
+    expect(configApplySourceHref("dns_defaults")).toBe("/policy/dns")
+    expect(configApplySourceHref("outbounds_defaults")).toBe("/proxy/outbounds")
+    expect(configApplySourceHref("inbounds_defaults")).toBe("/proxy/inbounds")
+    expect(configApplySourceHref("route_defaults")).toBe("/policy/route")
+    expect(configApplySourceHref("unknown")).toBe("/advanced/raw")
   })
 })
 

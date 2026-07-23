@@ -58,7 +58,8 @@ describe("ConfigApplyTimelineCard", () => {
       ],
     })))))
     renderCard()
-    expect(await screen.findByText("完整配置保存")).toBeInTheDocument()
+    expect(await screen.findByRole("link", { name: "完整配置保存" })).toHaveAttribute("href", "/advanced/raw")
+    expect(screen.getByRole("link", { name: "结构化保存" })).toHaveAttribute("href", "/advanced/raw")
     expect(screen.getByText("结构化保存")).toBeInTheDocument()
     expect(screen.getByText("已回滚")).toBeInTheDocument()
     expect(screen.getByText("已应用")).toBeInTheDocument()

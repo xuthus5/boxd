@@ -18,7 +18,10 @@ export function useSaveConfigMutation(raw = false) {
   return useMutation({
     mutationFn: (config: SingBoxConfig) => raw ? api.config.updateRaw(config) : api.config.update(config),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: configKey })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: configKey }),
+        queryClient.invalidateQueries({ queryKey: ["config", "apply-history"] }),
+      ])
     },
   })
 }
