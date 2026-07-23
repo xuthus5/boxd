@@ -180,4 +180,15 @@ describe("ConnectionsPage", () => {
     )
   })
 
+
+  it("filters connections by process facet from the URL", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    mockConnectionsFetch()
+    renderApp(<App />, "/observability/connections?process=/usr/bin/curl")
+
+    expect(await screen.findByText("example.com:443")).toBeInTheDocument()
+    expect(screen.queryByText("cdn.example.net:443")).not.toBeInTheDocument()
+    expect(screen.getByText("显示 1 条")).toBeInTheDocument()
+  })
+
 })

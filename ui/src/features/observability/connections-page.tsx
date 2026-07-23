@@ -52,6 +52,7 @@ function filtersToSearchParams(filters: ConnectionFacetFilters): URLSearchParams
   if (filters.protocol) params.set("protocol", filters.protocol)
   if (filters.outbound) params.set("outbound", filters.outbound)
   if (filters.rule) params.set("rule", filters.rule)
+  if (filters.process) params.set("process", filters.process)
   return params
 }
 
@@ -66,6 +67,7 @@ export function ConnectionsPage() {
   const protocol = filters.protocol ?? ""
   const outbound = filters.outbound ?? ""
   const rule = filters.rule ?? ""
+  const process = filters.process ?? ""
   const [closingId, setClosingId] = useState<string | "all" | null>(null)
   const [sort, setSort] = useState<ConnectionSortKey>("traffic")
   const [columns, setColumns] = useState<ConnectionColumnId[]>(() => loadConnectionColumns())
@@ -76,6 +78,7 @@ export function ConnectionsPage() {
   const protocolOptions = useMemo(() => listConnectionFacets(connections, "protocol"), [connections])
   const outboundOptions = useMemo(() => listConnectionFacets(connections, "outbound"), [connections])
   const ruleOptions = useMemo(() => listConnectionFacets(connections, "rule"), [connections])
+  const processOptions = useMemo(() => listConnectionFacets(connections, "process"), [connections])
   const facetsActive = connectionFiltersActive(filters)
   const sorted = useMemo(() => sortConnections(filtered, sort), [filtered, sort])
   const summary = useMemo(() => summarizeConnections(filtered), [filtered])
@@ -99,6 +102,7 @@ export function ConnectionsPage() {
       protocol: patch.protocol !== undefined ? patch.protocol || undefined : filters.protocol,
       outbound: patch.outbound !== undefined ? patch.outbound || undefined : filters.outbound,
       rule: patch.rule !== undefined ? patch.rule || undefined : filters.rule,
+      process: patch.process !== undefined ? patch.process || undefined : filters.process,
     }
     setSearchParams(filtersToSearchParams(next), { replace: true })
   }
@@ -195,12 +199,14 @@ export function ConnectionsPage() {
             protocol={protocol}
             outbound={outbound}
             rule={rule}
+            process={process}
             sort={sort}
             columns={columns}
             networkOptions={networkOptions}
             protocolOptions={protocolOptions}
             outboundOptions={outboundOptions}
             ruleOptions={ruleOptions}
+            processOptions={processOptions}
             sortOptions={sortOptions}
             facetsActive={facetsActive}
             filteredCount={filtered.length}
@@ -212,6 +218,7 @@ export function ConnectionsPage() {
             onProtocolChange={(value) => patchFilters({ protocol: value })}
             onOutboundChange={(value) => patchFilters({ outbound: value })}
             onRuleChange={(value) => patchFilters({ rule: value })}
+            onProcessChange={(value) => patchFilters({ process: value })}
             onSortChange={setSort}
             onToggleColumn={onToggleColumn}
             onClearFacets={() => setSearchParams(new URLSearchParams(), { replace: true })}

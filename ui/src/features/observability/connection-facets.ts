@@ -1,9 +1,9 @@
-/** Connection list facet helpers (network/protocol/outbound/rule + query). */
+/** Connection list facet helpers (network/protocol/outbound/rule/process + query). */
 
 import { matchesConnection } from "@/features/observability/connection-stats"
 import type { Connection } from "@/lib/api/types"
 
-export type ConnectionFacetField = "network" | "protocol" | "outbound" | "rule"
+export type ConnectionFacetField = "network" | "protocol" | "outbound" | "rule" | "process"
 
 export type ConnectionFacetFilters = {
   query?: string
@@ -11,6 +11,7 @@ export type ConnectionFacetFilters = {
   protocol?: string
   outbound?: string
   rule?: string
+  process?: string
 }
 
 export type ConnectionFacetOption = {
@@ -27,7 +28,9 @@ export function connectionFacetValue(connection: Connection, field: ConnectionFa
       ? connection.protocol
       : field === "outbound"
         ? connection.outbound
-        : connection.rule
+        : field === "rule"
+          ? connection.rule
+          : connection.process
   const value = raw?.trim()
   return value ? value : UNKNOWN
 }
@@ -71,6 +74,7 @@ export function filterConnectionsByFacets(
     && matchesConnectionFacet(connection, "protocol", filters.protocol)
     && matchesConnectionFacet(connection, "outbound", filters.outbound)
     && matchesConnectionFacet(connection, "rule", filters.rule)
+    && matchesConnectionFacet(connection, "process", filters.process)
   ))
 }
 
@@ -80,7 +84,8 @@ export function connectionFiltersActive(filters: ConnectionFacetFilters): boolea
     || filters.network
     || filters.protocol
     || filters.outbound
-    || filters.rule,
+    || filters.rule
+    || filters.process,
   )
 }
 
@@ -97,6 +102,7 @@ export function parseConnectionSearchParams(
     protocol: read("protocol"),
     outbound: read("outbound"),
     rule: read("rule"),
+    process: read("process"),
   }
 }
 
@@ -108,6 +114,7 @@ export function buildConnectionsHref(filters: ConnectionFacetFilters = {}): stri
   if (filters.protocol) params.set("protocol", filters.protocol)
   if (filters.outbound) params.set("outbound", filters.outbound)
   if (filters.rule) params.set("rule", filters.rule)
+  if (filters.process) params.set("process", filters.process)
   const qs = params.toString()
   return qs ? `/observability/connections?${qs}` : "/observability/connections"
 }

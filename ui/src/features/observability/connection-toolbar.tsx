@@ -61,12 +61,14 @@ type Props = {
   protocol: string
   outbound: string
   rule: string
+  process: string
   sort: ConnectionSortKey
   columns: ConnectionColumnId[]
   networkOptions: ConnectionFacetOption[]
   protocolOptions: ConnectionFacetOption[]
   outboundOptions: ConnectionFacetOption[]
   ruleOptions: ConnectionFacetOption[]
+  processOptions: ConnectionFacetOption[]
   sortOptions: { label: string; value: ConnectionSortKey }[]
   facetsActive: boolean
   filteredCount: number
@@ -78,6 +80,7 @@ type Props = {
   onProtocolChange: (value: string) => void
   onOutboundChange: (value: string) => void
   onRuleChange: (value: string) => void
+  onProcessChange: (value: string) => void
   onSortChange: (value: ConnectionSortKey) => void
   onToggleColumn: (id: ConnectionColumnId, enabled: boolean) => void
   onClearFacets: () => void
@@ -104,6 +107,7 @@ export function ConnectionToolbar(props: Props) {
       <FacetSelect label={t("observability.filterProtocol")} value={props.protocol} options={props.protocolOptions} allLabel={allLabel} onChange={props.onProtocolChange} />
       <FacetSelect label={t("observability.filterOutbound")} value={props.outbound} options={props.outboundOptions} allLabel={allLabel} onChange={props.onOutboundChange} />
       <FacetSelect label={t("observability.filterRule")} value={props.rule} options={props.ruleOptions} allLabel={allLabel} onChange={props.onRuleChange} />
+      <FacetSelect label={t("observability.filterProcess")} value={props.process} options={props.processOptions} allLabel={allLabel} onChange={props.onProcessChange} />
       {props.facetsActive ? (
         <Button variant="ghost" onClick={props.onClearFacets}>{t("observability.clearFacets")}</Button>
       ) : null}
