@@ -197,3 +197,47 @@ export function summarizeNodeStability(
   }
   return summary
 }
+
+
+export type ProblemNodePreview = {
+  tag: string
+  type: string
+  stability: "unstable" | "failed"
+  percent: number
+  success: number
+  latest?: number
+  count: number
+}
+
+/** 问题节点预览：全失败优先，其次不稳；默认最多 3 条。 */
+export function listProblemNodes(
+  nodes: readonly Outbound[] | undefined,
+  history: NodeHistoryMap | undefined,
+  limit = 3,
+): ProblemNodePreview[] {
+  if (!Array.isArray(nodes) || nodes.length === 0 || limit <= 0) return []
+  const items: ProblemNodePreview[] = []
+  for (const node of nodes) {
+    const health = nodeLatencyHealth(node, history)
+    const bucket = stabilityBucketForHealth(health)
+    if (bucket !== "failed" && bucket !== "unstable") continue
+    items.push({
+      tag: node.tag,
+      type: node.type,
+      stability: bucket,
+      percent: health.percent,
+      success: health.success,
+      latest: health.latest,
+      count: health.count,
+    })
+  }
+  items.sort((left, right) => {
+    if (left.stability !== right.stability) {
+      return left.stability === "failed" ? -1 : 1
+    }
+    if (left.percent !== right.percent) return left.percent - right.percent
+    if (left.count !== right.count) return right.count - left.count
+    return left.tag.localeCompare(right.tag)
+  })
+  return items.slice(0, Math.floor(limit))
+}

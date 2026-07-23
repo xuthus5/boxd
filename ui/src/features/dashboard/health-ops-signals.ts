@@ -1,8 +1,10 @@
 /** Operational health signals: failed subscriptions and unstable nodes. */
 
 import {
+  listProblemNodes,
   summarizeNodeStability,
   type NodeHistoryMap,
+  type ProblemNodePreview,
 } from "@/features/nodes/nodes-filter"
 import {
   failedSubscriptionIds,
@@ -11,6 +13,7 @@ import {
 import type { Outbound, Subscription } from "@/lib/api/types"
 
 export const FAILED_SUBSCRIPTION_PREVIEW_LIMIT = 3
+export const PROBLEM_NODE_PREVIEW_LIMIT = 3
 
 export type HealthOpsSignals = {
   failedSubscriptions: number
@@ -18,6 +21,7 @@ export type HealthOpsSignals = {
   unstableNodes: number
   failedNodes: number
   problemNodes: number
+  problemNodeItems: ProblemNodePreview[]
 }
 
 export function countFailedSubscriptions(items: readonly Subscription[] | undefined): number {
@@ -47,13 +51,16 @@ export function buildHealthOpsSignals(input: {
   nodes?: readonly Outbound[]
   history?: NodeHistoryMap
   failedPreviewLimit?: number
+  problemPreviewLimit?: number
 }): HealthOpsSignals {
   const problems = countProblemNodes(input.nodes, input.history)
   const subscriptions = Array.isArray(input.subscriptions) ? input.subscriptions : []
-  const limit = input.failedPreviewLimit ?? FAILED_SUBSCRIPTION_PREVIEW_LIMIT
+  const failedLimit = input.failedPreviewLimit ?? FAILED_SUBSCRIPTION_PREVIEW_LIMIT
+  const problemLimit = input.problemPreviewLimit ?? PROBLEM_NODE_PREVIEW_LIMIT
   return {
     failedSubscriptions: countFailedSubscriptions(subscriptions),
-    failedSubscriptionItems: listFailedSubscriptions(subscriptions, limit),
+    failedSubscriptionItems: listFailedSubscriptions(subscriptions, failedLimit),
+    problemNodeItems: listProblemNodes(input.nodes, input.history, problemLimit),
     ...problems,
   }
 }

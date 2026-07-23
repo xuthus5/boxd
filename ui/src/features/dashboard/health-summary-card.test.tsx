@@ -59,4 +59,41 @@ describe("HealthSummaryCard", () => {
       "/subscriptions?q=%E5%A4%B1%E8%B4%A5%E8%AE%A2%E9%98%85&status=error",
     )
   })
+
+  it("embeds problem node preview for failed and unstable nodes", async () => {
+    vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
+      const path = typeof input === "string" ? input : input.toString()
+      if (path.includes("/api/subscriptions")) {
+        return Promise.resolve(new Response(JSON.stringify([])))
+      }
+      if (path.includes("/api/nodes/test-history")) {
+        return Promise.resolve(new Response(JSON.stringify({
+          history: {
+            "hk-bad": {
+              tcp: [
+                { timestamp: "2026-07-23T00:00:00Z", success: false },
+                { timestamp: "2026-07-23T00:01:00Z", success: false },
+              ],
+            },
+          },
+        })))
+      }
+      if (path.includes("/api/nodes")) {
+        return Promise.resolve(new Response(JSON.stringify([
+          { tag: "hk-bad", type: "vless", server: "a.example.com", port: 443, source: "import" },
+        ])))
+      }
+      return Promise.resolve(new Response("{}"))
+    }))
+    renderCard()
+    expect(await screen.findByText("1 个全失败节点")).toBeInTheDocument()
+    await waitFor(() => {
+      expect(document.querySelector('[data-slot="problem-nodes-preview"]')).not.toBeNull()
+    })
+    expect(screen.getByText("hk-bad")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "查看: hk-bad" })).toHaveAttribute(
+      "href",
+      "/nodes?q=hk-bad&stability=failed",
+    )
+  })
 })

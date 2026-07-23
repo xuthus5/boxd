@@ -14,6 +14,7 @@ describe("HealthOpsAlertChips", () => {
         signals={{
           failedSubscriptions: 2,
           failedSubscriptionItems: [],
+          problemNodeItems: [],
           unstableNodes: 3,
           failedNodes: 1,
           problemNodes: 4,
@@ -40,6 +41,7 @@ describe("HealthOpsAlertChips", () => {
         signals={{
           failedSubscriptions: 0,
           failedSubscriptionItems: [],
+          problemNodeItems: [],
           unstableNodes: 0,
           failedNodes: 0,
           problemNodes: 0,
@@ -58,6 +60,7 @@ describe("HealthOpsAlertActions", () => {
           signals={{
             failedSubscriptions: 1,
             failedSubscriptionItems: [],
+            problemNodeItems: [],
             unstableNodes: 0,
             failedNodes: 2,
             problemNodes: 2,
@@ -82,6 +85,7 @@ describe("HealthOpsAlertActions", () => {
           signals={{
             failedSubscriptions: 0,
             failedSubscriptionItems: [],
+            problemNodeItems: [],
             unstableNodes: 2,
             failedNodes: 1,
             problemNodes: 3,

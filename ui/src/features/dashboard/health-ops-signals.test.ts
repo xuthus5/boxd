@@ -76,6 +76,7 @@ describe("health-ops-signals", () => {
       unstableNodes: 0,
       failedNodes: 0,
       problemNodes: 0,
+      problemNodeItems: [],
     })
     expect(hasHealthOpsAlerts(empty)).toBe(false)
 
@@ -92,6 +93,7 @@ describe("health-ops-signals", () => {
     expect(signals.unstableNodes).toBe(1)
     expect(signals.failedNodes).toBe(1)
     expect(signals.problemNodes).toBe(2)
+    expect(signals.problemNodeItems.map((item) => item.tag).sort()).toEqual(["failed", "unstable"])
     expect(hasHealthOpsAlerts(signals)).toBe(true)
   })
 })

@@ -10,6 +10,7 @@ import {
   parseNodeSearchParams,
   pickNodeHistorySeries,
   sortNodes,
+  listProblemNodes,
   summarizeNodeStability,
   stabilityBucketForHealth,
   toNodeSearchParams,
@@ -116,5 +117,39 @@ describe("nodes-filter", () => {
       unknown: 0,
     })
     expect(stabilityBucketForHealth(nodeLatencyHealth(nodes[0], undefined))).toBe("unknown")
+  })
+
+  it("lists problem nodes with failed first and limit", () => {
+    const nodes = [
+      { tag: "ok", type: "vless", server: "a", port: 1, source: "import" as const, raw: {} },
+      { tag: "unstable", type: "vless", server: "b", port: 1, source: "import" as const, raw: {} },
+      { tag: "failed", type: "vmess", server: "c", port: 1, source: "import" as const, raw: {} },
+      { tag: "failed-b", type: "trojan", server: "d", port: 1, source: "import" as const, raw: {} },
+    ]
+    const history = {
+      ok: { tcp: [
+        { timestamp: "2026-07-23T00:00:00Z", success: true, latency_ms: 20 },
+        { timestamp: "2026-07-23T00:01:00Z", success: true, latency_ms: 22 },
+      ]},
+      unstable: { tcp: [
+        { timestamp: "2026-07-23T00:00:00Z", success: true, latency_ms: 30 },
+        { timestamp: "2026-07-23T00:01:00Z", success: false },
+        { timestamp: "2026-07-23T00:02:00Z", success: false },
+        { timestamp: "2026-07-23T00:03:00Z", success: false },
+      ]},
+      failed: { tcp: [
+        { timestamp: "2026-07-23T00:00:00Z", success: false },
+        { timestamp: "2026-07-23T00:01:00Z", success: false },
+      ]},
+      "failed-b": { tcp: [
+        { timestamp: "2026-07-23T00:00:00Z", success: false },
+      ]},
+    }
+    expect(listProblemNodes(nodes, history, 2).map((item) => item.tag)).toEqual(["failed", "failed-b"])
+    expect(listProblemNodes(nodes, history, 3).map((item) => item.stability)).toEqual([
+      "failed", "failed", "unstable",
+    ])
+    expect(listProblemNodes([], history, 3)).toEqual([])
+    expect(listProblemNodes(nodes, history, 0)).toEqual([])
   })
 })
