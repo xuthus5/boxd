@@ -65,6 +65,8 @@ describe("settings interactions", () => {
     await user.type(screen.getByLabelText("新密码"), "replacement-password-456")
     await user.type(screen.getByLabelText("确认新密码"), "replacement-password-456")
     await user.click(screen.getByRole("button", { name: "轮换密码" }))
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "确认轮换" }))
   })
 
   it("submits a JWT secret rotation", async () => {
