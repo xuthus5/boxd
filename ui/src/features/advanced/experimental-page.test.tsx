@@ -125,6 +125,8 @@ describe("experimental page", () => {
     expect(await screen.findByTestId("config-save-error")).toBeInTheDocument()
     expect(screen.getByText("config_invalid")).toBeInTheDocument()
     expect(screen.getAllByText(/experimental\.clash_api\.secret/).length).toBeGreaterThan(0)
+    await user.click(screen.getByRole("button", { name: "跳转到路径" }))
+    expect(screen.getByRole("tab", { name: "高级 JSON" })).toHaveAttribute("aria-selected", "true")
   })
 
 })

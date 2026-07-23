@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useCallback, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
@@ -19,7 +19,8 @@ import { ExperimentalVisualEditor } from "@/features/advanced/experimental-visua
 import { ConfigSaveErrorAlert } from "@/features/config/config-save-error-alert"
 import { useConfigQuery, useSaveConfigMutation } from "@/features/config/config-hooks"
 import { useConfigSaveError } from "@/features/config/use-config-save-error"
-import { JsonEditor } from "@/features/config/json-editor"
+import { JsonEditor, type JsonEditorHandle } from "@/features/config/json-editor"
+import { useConfigPathReveal } from "@/features/config/use-config-path-reveal"
 import { isJsonObject, type JsonObject } from "@/features/policy/policy-form-model"
 import { api } from "@/lib/api/endpoints"
 import type { JsonValue } from "@/lib/api/types"
@@ -65,8 +66,25 @@ function ExperimentalEditor({ initial, onSave, onInstallClashAPI, installing, sa
 }) {
   const { t } = useTranslation()
   const editor = useExperimentalEditorState(initial)
+  const editorRef = useRef<JsonEditorHandle>(null)
+  const [activeTab, setActiveTab] = useState("visual")
   const structureValid = isExperimentalStructureValid(editor.object)
   const canSave = Boolean(editor.object && structureValid && editor.invalidFields.size === 0)
+  const section = "experimental"
+  const reveal = useCallback((path: string) => {
+    setActiveTab("json")
+    const candidates = [path]
+    if (path.startsWith(`${section}.`)) candidates.push(path.slice(section.length + 1))
+    if (path.startsWith(`${section}[`)) candidates.push(path.slice(section.length))
+    if (!path.startsWith(section)) candidates.push(`${section}.${path.replace(/^\./, "")}`)
+    const tryReveal = () => candidates.some((candidate) => editorRef.current?.revealPath(candidate) ?? false)
+    if (tryReveal()) return true
+    window.setTimeout(() => {
+      if (!tryReveal()) toast.message(t("config.pathNotFound", { path }))
+    }, 50)
+    return true
+  }, [t])
+  useConfigPathReveal((path) => reveal(path), { section })
 
   return (
     <Card size="sm">
@@ -75,8 +93,12 @@ function ExperimentalEditor({ initial, onSave, onInstallClashAPI, installing, sa
         <CardDescription>{t("advanced.experimentalDescription")}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-2 sm:gap-3">
-        <ConfigSaveErrorAlert error={saveError} onDismiss={onDismissError} />
-        <Tabs defaultValue="visual" className="min-h-0 min-w-0">
+        <ConfigSaveErrorAlert error={saveError} onDismiss={onDismissError} onJumpToPath={reveal} />
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(String(value || "visual"))}
+          className="min-h-0 min-w-0"
+        >
           <TabsList activateOnFocus className="h-auto max-w-full justify-start overflow-x-auto overflow-y-hidden" variant="line">
             <TabsTrigger value="visual">{t("advanced.visualTab")}</TabsTrigger>
             <TabsTrigger value="json">{t("advanced.advancedTab")}</TabsTrigger>
@@ -100,7 +122,12 @@ function ExperimentalEditor({ initial, onSave, onInstallClashAPI, installing, sa
             <FieldGroup className="gap-2 sm:gap-3">
               <Field>
                 <FieldLabel className="sr-only">{t("advanced.experimentalJSON")}</FieldLabel>
-                <JsonEditor value={editor.value} onChange={editor.updateJSON} ariaLabel={t("advanced.experimentalJSON")} />
+                <JsonEditor
+                  ref={editorRef}
+                  value={editor.value}
+                  onChange={editor.updateJSON}
+                  ariaLabel={t("advanced.experimentalJSON")}
+                />
               </Field>
             </FieldGroup>
           </TabsContent>

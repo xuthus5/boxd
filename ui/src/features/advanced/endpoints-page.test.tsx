@@ -108,7 +108,7 @@ describe("endpoints page", () => {
         return Promise.resolve(new Response(JSON.stringify({
           status: "error",
           data: null,
-          error: { code: "config_restart_failed", message: "restart failed after config save: listen tcp :1080: bind" },
+          error: { code: "config_invalid_runtime", message: "endpoints[0].private_key: required" },
           meta: {},
         }), { status: 500 }))
       }
@@ -132,7 +132,10 @@ describe("endpoints page", () => {
     await screen.findByRole("heading", { name: "端点" })
     await user.click(screen.getByRole("button", { name: "保存配置" }))
     expect(await screen.findByTestId("config-save-error")).toBeInTheDocument()
-    expect(screen.getByText("restart_failed")).toBeInTheDocument()
+    expect(screen.getByText("config_invalid")).toBeInTheDocument()
+    expect(screen.getAllByText(/endpoints\[0\]\.private_key/).length).toBeGreaterThan(0)
+    await user.click(screen.getByRole("button", { name: "跳转到路径" }))
+    expect(screen.getByRole("tab", { name: "高级 JSON" })).toHaveAttribute("aria-selected", "true")
   })
 
 })
