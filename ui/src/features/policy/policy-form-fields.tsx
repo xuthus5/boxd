@@ -101,7 +101,7 @@ function SelectField({ field, label, namespace, value, onChange, onFieldValidity
   )
   const invalid = Boolean(field.required && !value)
   useFieldValidity(field.path, !invalid, onFieldValidityChange)
-  return <Field data-invalid={invalid}>
+  return <Field data-invalid={invalid || undefined}>
     <FieldHeading id={id} label={label} namespace={namespace} labelKey={field.label} />
     <Select items={items} value={value || null} required={field.required} onValueChange={(next) => onChange(next === null ? "" : String(next))}>
       <SelectTrigger id={id} aria-label={label} aria-invalid={invalid} className="w-full"><SelectValue /></SelectTrigger>
@@ -110,6 +110,7 @@ function SelectField({ field, label, namespace, value, onChange, onFieldValidity
         {values.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}
       </SelectGroup></SelectContent>
     </Select>
+    {invalid ? <FieldDescription>{t("common.requiredField")}</FieldDescription> : null}
   </Field>
 }
 
@@ -134,13 +135,14 @@ function RefSelectField({ field, label, namespace, value, context, onChange, onF
   const invalid = Boolean(field.required && !value)
   useFieldValidity(field.path, !invalid, onFieldValidityChange)
   if (options.length === 0) {
-    return <Field data-invalid={invalid}>
+    return <Field data-invalid={invalid || undefined}>
       <FieldHeading id={id} label={label} namespace={namespace} labelKey={field.label} />
       <Input id={id} aria-label={label} aria-invalid={invalid} required={field.required} value={value}
         onChange={(event) => onChange(event.target.value)} />
+      {invalid ? <FieldDescription>{t("common.requiredField")}</FieldDescription> : null}
     </Field>
   }
-  return <Field data-invalid={invalid}>
+  return <Field data-invalid={invalid || undefined}>
     <FieldHeading id={id} label={label} namespace={namespace} labelKey={field.label} />
     <Select items={items} value={value || null} required={field.required}
       onValueChange={(next) => onChange(next === null ? "" : String(next))}>
@@ -152,6 +154,7 @@ function RefSelectField({ field, label, namespace, value, context, onChange, onF
         ))}
       </SelectGroup></SelectContent>
     </Select>
+    {invalid ? <FieldDescription>{t("common.requiredField")}</FieldDescription> : null}
   </Field>
 }
 
@@ -270,16 +273,21 @@ function NetworkInterfaceField({ label, namespace, labelKey, revision = 0, value
   </Field>
 }
 
-function TextField({ field, label, namespace, value, onChange }: {
-  field: PolicyFieldSpec; label: string; namespace: string; value: string; onChange: (value: string) => void
+function TextField({ field, label, namespace, value, onChange, onFieldValidityChange }: {
+  field: PolicyFieldSpec; label: string; namespace: string; value: string
+  onChange: (value: string) => void; onFieldValidityChange?: ValidityCallback
 }) {
+  const { t } = useTranslation()
   const id = useId()
   const area = field.kind === "textarea" || field.kind === "list" || field.kind === "number-list"
-  return <Field>
+  const invalid = Boolean(field.required && !value.trim())
+  useFieldValidity(field.path, !invalid, onFieldValidityChange)
+  return <Field data-invalid={invalid || undefined}>
     <FieldHeading id={id} label={label} namespace={namespace} labelKey={field.label} />
     {area
-      ? <Textarea id={id} aria-label={label} required={field.required} value={value} onChange={(event) => onChange(event.target.value)} />
-      : <Input id={id} aria-label={label} required={field.required} type={field.kind === "number" ? "number" : "text"} value={value} onChange={(event) => onChange(event.target.value)} />}
+      ? <Textarea id={id} aria-label={label} aria-invalid={invalid} required={field.required} value={value} onChange={(event) => onChange(event.target.value)} />
+      : <Input id={id} aria-label={label} aria-invalid={invalid} required={field.required} type={field.kind === "number" ? "number" : "text"} value={value} onChange={(event) => onChange(event.target.value)} />}
+    {invalid ? <FieldDescription>{t("common.requiredField")}</FieldDescription> : null}
   </Field>
 }
 
@@ -410,7 +418,7 @@ function PolicyField(props: Omit<PolicyFormFieldsProps, "fields" | "leading"> & 
   if (transformField) {
     return <TransformedPolicyField {...props} label={label} value={value} transformField={transformField} />
   }
-  return <TextField field={field} label={label} namespace={namespace} value={textValue(value)} onChange={update} />
+  return <TextField field={field} label={label} namespace={namespace} value={textValue(value)} onChange={update} onFieldValidityChange={onFieldValidityChange} />
 }
 
 export function PolicyFormFields({ fields, leading, object, ...rest }: PolicyFormFieldsProps) {

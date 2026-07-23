@@ -142,6 +142,8 @@ describe("policy form field conversions", () => {
     const textChange = renderFields([{ path: "tag", label: "tag", required: true }])
     const text = screen.getByLabelText(label("tag"))
     expect(text).toBeRequired()
+    expect(text).toHaveAttribute("aria-invalid", "true")
+    expect(screen.getByText("此字段为必填项。")).toBeInTheDocument()
     fireEvent.change(text, { target: { value: "rule-1" } })
     expect(textChange).toHaveBeenLastCalledWith({ tag: "rule-1" })
     cleanup()
@@ -197,15 +199,18 @@ describe("policy form field conversions", () => {
     const select = screen.getByRole("combobox", { name: label("action") })
     expect(select).toHaveAttribute("aria-invalid", "true")
     expect(screen.getByLabelText("select validity")).toHaveTextContent("invalid")
+    expect(screen.getByText("此字段为必填项。")).toBeInTheDocument()
 
     await user.click(select)
     await user.click(await screen.findByRole("option", { name: "__unset__" }))
     expect(screen.getByText("__unset__", { selector: "output" })).toBeInTheDocument()
     expect(select).toHaveAttribute("aria-invalid", "false")
+    expect(screen.queryByText("此字段为必填项。")).not.toBeInTheDocument()
     await user.click(select)
     await user.click(await screen.findByRole("option", { name: label("notSet") }))
     expect(screen.getByText("undefined", { selector: "output" })).toBeInTheDocument()
     expect(select).toHaveAttribute("aria-invalid", "true")
+    expect(screen.getByText("此字段为必填项。")).toBeInTheDocument()
   })
 
   it("uses custom transforms and falls back only when they return undefined", () => {
