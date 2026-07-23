@@ -232,3 +232,13 @@ export interface UIPreferences {
   language: "zh" | "en"
   minimumLogLevel: "all" | "debug" | "info" | "warn" | "error"
 }
+
+export interface ConfigApplyEvent {
+  id: string
+  source: string
+  status: string
+  hash: string
+  size: number
+  error?: string
+  applied_at: string
+}

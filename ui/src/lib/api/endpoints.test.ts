@@ -125,7 +125,7 @@ describe("api endpoint coverage", () => {
 
     await Promise.all([
       api.auth.logout(), api.config.get(), api.config.update({}), api.config.getRaw(), api.config.updateRaw({}),
-      api.config.installDNS(), api.config.installRuleSets(), api.config.installOutbounds(), api.config.installInbounds(), api.config.installExperimental(), api.config.installRoute(),
+      api.config.applyHistory(), api.config.installDNS(), api.config.installRuleSets(), api.config.installOutbounds(), api.config.installInbounds(), api.config.installExperimental(), api.config.installRoute(),
       api.service.status(), api.service.start(), api.service.stop(), api.service.restart(), api.stats.history(),
       api.stats.closeAll(), api.stats.closeConnection("1"), api.import.link("vless://node"), api.import.save(node),
       api.nodes.list(), api.nodes.get("node"), api.nodes.update("node", node), api.nodes.delete("node"),
@@ -142,6 +142,7 @@ describe("api endpoint coverage", () => {
 
     const paths = fetchMock.mock.calls.map(([path]) => path)
     expect(paths).toContain("/api/config/raw")
+    expect(paths).toContain("/api/config/apply-history")
     expect(paths).toContain("/api/subscriptions/refresh-all")
     expect(paths).toContain("/api/runtime/fakeip/flush")
     expect(paths).toContain("/api/runtime/clash-mode")

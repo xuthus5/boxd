@@ -9,6 +9,7 @@ import { ClashModeCard } from "@/features/dashboard/clash-mode-card"
 import { HealthSummaryCard } from "@/features/dashboard/health-summary-card"
 import { SetupChecklistCard } from "@/features/dashboard/setup-checklist-card"
 import { ProxySelectorCard } from "@/features/dashboard/proxy-selector-card"
+import { ConfigApplyTimelineCard } from "@/features/dashboard/config-apply-timeline-card"
 import { OpsShortcutsCard } from "@/features/dashboard/ops-shortcuts-card"
 import { RuntimeActions } from "@/features/dashboard/runtime-actions"
 import { RuntimeStatsCard } from "@/features/dashboard/runtime-stats-card"
@@ -63,6 +64,7 @@ export function DashboardPage() {
         <ClashModeCard enabled={Boolean(status.data?.running)} />
         <RuntimeStatsCard memory={memory.data!} panelVersion={version.data!.version} kernelVersion={version.data!.kernel_version} />
         <OpsShortcutsCard />
+        <ConfigApplyTimelineCard />
         <TrafficChart points={points} />
         <RuntimeActions pending={maintenance.isPending} onGC={() => maintenance.mutate(api.runtime.gc)} onFlushDNS={() => maintenance.mutate(api.runtime.flushDNS)} onFlushFakeIP={() => maintenance.mutate(api.runtime.flushFakeIP)} />
         <RecentLogs items={logs.items} />

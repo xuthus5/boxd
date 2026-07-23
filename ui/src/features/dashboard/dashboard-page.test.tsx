@@ -24,6 +24,7 @@ function responseFor(path: string) {
     return [{ id: "sub-1", name: "主订阅", url: "https://example.com/sub", interval_min: 60, last_updated: "2026-01-01T00:00:00Z", outbounds: [] }]
   }
   if (path === "/api/runtime/clash-mode") return { mode: "Rule", mode_list: ["Rule", "Global", "Direct"] }
+  if (path === "/api/config/apply-history") return { events: [] }
   return null
 }
 

@@ -50,7 +50,7 @@ func (h *ConfigHandler) InstallDefaultOutbounds(w http.ResponseWriter, r *http.R
 		writeJSONError(w, http.StatusInternalServerError, "failed to encode config")
 		return
 	}
-	status, apiErr, err := h.applyConfigBytes(body, true)
+	status, apiErr, err := h.applyConfigBytesWithSource(body, true, "outbounds_defaults")
 	if err != nil {
 		writeApplyConfigError(w, err)
 		return
@@ -100,7 +100,7 @@ func (h *ConfigHandler) InstallDefaultRouteRules(w http.ResponseWriter, r *http.
 		writeJSONError(w, http.StatusInternalServerError, "failed to encode config")
 		return
 	}
-	status, apiErr, err := h.applyConfigBytes(body, true)
+	status, apiErr, err := h.applyConfigBytesWithSource(body, true, "route_defaults")
 	if err != nil {
 		writeApplyConfigError(w, err)
 		return
@@ -151,7 +151,7 @@ func (h *ConfigHandler) InstallDefaultDNS(w http.ResponseWriter, r *http.Request
 		writeJSONError(w, http.StatusInternalServerError, "failed to encode config")
 		return
 	}
-	status, apiErr, err := h.applyConfigBytes(body, true)
+	status, apiErr, err := h.applyConfigBytesWithSource(body, true, "dns_defaults")
 	if err != nil {
 		writeApplyConfigError(w, err)
 		return
@@ -218,7 +218,7 @@ func (h *ConfigHandler) InstallDefaultInbounds(w http.ResponseWriter, r *http.Re
 		writeJSONError(w, http.StatusInternalServerError, "failed to encode config")
 		return
 	}
-	status, apiErr, err := h.applyConfigBytes(body, true)
+	status, apiErr, err := h.applyConfigBytesWithSource(body, true, "inbounds_defaults")
 	if err != nil {
 		writeApplyConfigError(w, err)
 		return
@@ -262,7 +262,7 @@ func (h *ConfigHandler) InstallDefaultExperimental(w http.ResponseWriter, r *htt
 		writeJSONError(w, http.StatusInternalServerError, "failed to encode config")
 		return
 	}
-	status, apiErr, err := h.applyConfigBytes(body, true)
+	status, apiErr, err := h.applyConfigBytesWithSource(body, true, "experimental_defaults")
 	if err != nil {
 		writeApplyConfigError(w, err)
 		return

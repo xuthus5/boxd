@@ -31,6 +31,7 @@ type ConfigHandler struct {
 	dnsInstaller          core.DNSDefaultsInstaller
 	experimentalInstaller core.ExperimentalDefaultsInstaller
 	routeMetadata         *core.RouteRuleMetadataManager
+	applyHistory          *core.ConfigApplyHistoryManager
 }
 
 type restartableInstance interface {
@@ -38,6 +39,11 @@ type restartableInstance interface {
 }
 
 func NewConfigHandler(configPath string, instance restartableInstance, ruleSetInstaller core.RuleSetDefaultsInstaller, outboundInstaller core.OutboundDefaultsInstaller, routeInstaller core.RouteDefaultsInstaller, dnsInstaller core.DNSDefaultsInstaller, routeMetadata ...*core.RouteRuleMetadataManager) *ConfigHandler {
+	return NewConfigHandlerWithHistory(configPath, instance, ruleSetInstaller, outboundInstaller, routeInstaller, dnsInstaller, nil, routeMetadata...)
+}
+
+// NewConfigHandlerWithHistory wires optional config apply timeline storage.
+func NewConfigHandlerWithHistory(configPath string, instance restartableInstance, ruleSetInstaller core.RuleSetDefaultsInstaller, outboundInstaller core.OutboundDefaultsInstaller, routeInstaller core.RouteDefaultsInstaller, dnsInstaller core.DNSDefaultsInstaller, applyHistory *core.ConfigApplyHistoryManager, routeMetadata ...*core.RouteRuleMetadataManager) *ConfigHandler {
 	handler := &ConfigHandler{
 		configPath:            configPath,
 		instance:              instance,
@@ -47,6 +53,7 @@ func NewConfigHandler(configPath string, instance restartableInstance, ruleSetIn
 		routeInstaller:        routeInstaller,
 		dnsInstaller:          dnsInstaller,
 		experimentalInstaller: core.NewDefaultExperimentalInstaller(),
+		applyHistory:          applyHistory,
 	}
 	if len(routeMetadata) > 0 {
 		handler.routeMetadata = routeMetadata[0]
@@ -143,53 +150,52 @@ func writeApplyConfigError(w http.ResponseWriter, err error) {
 	writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorInternal, "failed to write config")
 }
 
-func (h *ConfigHandler) applyConfigBytes(body []byte, shouldValidate bool) (string, *model.APIError, error) {
+func (h *ConfigHandler) applyConfigBytesWithSource(body []byte, shouldValidate bool, source string) (string, *model.APIError, error) {
 	if shouldValidate {
 		if err := validateRuntimeConfig(body); err != nil {
 			return "", nil, err
 		}
 	}
-
 	previousBody, err := os.ReadFile(h.configPath)
 	previousExists := err == nil
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", nil, err
 	}
-
 	if err := atomicWriteFile(h.configPath, body); err != nil {
 		return "", nil, err
 	}
-
 	if h.instance == nil {
+		h.recordConfigApply(source, model.StatusOK, body, nil)
 		return model.StatusOK, nil, nil
 	}
-
 	restartErr := h.instance.Restart()
 	if restartErr == nil {
+		h.recordConfigApply(source, model.StatusOK, body, nil)
 		return model.StatusOK, nil, nil
 	}
 	slog.Error("auto-restart after config save failed", "err", restartErr)
-
-	var rollbackErr error
-	if previousExists {
-		rollbackErr = atomicWriteFile(h.configPath, previousBody)
-	} else {
-		rollbackErr = os.Remove(h.configPath)
-		if errors.Is(rollbackErr, os.ErrNotExist) {
-			rollbackErr = nil
-		}
+	if err := rollbackConfigFile(h.configPath, previousBody, previousExists); err != nil {
+		return "", nil, err
 	}
-	if rollbackErr != nil {
-		return "", nil, rollbackErr
+	if err := h.instance.Restart(); err != nil {
+		return "", nil, err
 	}
-	if restartRollbackErr := h.instance.Restart(); restartRollbackErr != nil {
-		return "", nil, restartRollbackErr
-	}
-
+	h.recordConfigApply(source, model.StatusRolledBack, body, restartErr)
 	return model.StatusRolledBack, &model.APIError{
 		Code:    model.ErrorConfigRestartFailed,
 		Message: restartFailureMessage(restartErr),
 	}, nil
+}
+
+func rollbackConfigFile(path string, previous []byte, previousExists bool) error {
+	if previousExists {
+		return atomicWriteFile(path, previous)
+	}
+	err := os.Remove(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	return err
 }
 
 func (h *ConfigHandler) GetConfig(w http.ResponseWriter, r *http.Request) {
@@ -221,7 +227,7 @@ func (h *ConfigHandler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	status, apiErr, err := h.applyConfigBytes(body, true)
+	status, apiErr, err := h.applyConfigBytesWithSource(body, true, "update")
 	if err != nil {
 		if errors.Is(err, ErrInvalidRuntimeConfig) {
 			writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorConfigInvalidRuntime, runtimeConfigErrorMessage(err))
@@ -258,7 +264,7 @@ func (h *ConfigHandler) UpdateRawConfig(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	status, apiErr, err := h.applyConfigBytes(body, true)
+	status, apiErr, err := h.applyConfigBytesWithSource(body, true, "raw")
 	if err != nil {
 		if errors.Is(err, ErrInvalidRuntimeConfig) {
 			writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorConfigInvalidRuntime, runtimeConfigErrorMessage(err))
@@ -318,7 +324,7 @@ func (h *ConfigHandler) InstallDefaultRuleSets(w http.ResponseWriter, r *http.Re
 		writeJSONError(w, http.StatusInternalServerError, "failed to encode config")
 		return
 	}
-	status, apiErr, err := h.applyConfigBytes(body, true)
+	status, apiErr, err := h.applyConfigBytesWithSource(body, true, "rule_sets_defaults")
 	if err != nil {
 		writeApplyConfigError(w, err)
 		return

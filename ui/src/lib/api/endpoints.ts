@@ -25,6 +25,7 @@ import type {
   DNSProbeInput,
   DNSProbeResult,
   LatencyPoint,
+  ConfigApplyEvent,
 } from "@/lib/api/types"
 
 const json = (method: string, body?: unknown): RequestInit => ({
@@ -78,6 +79,7 @@ export const api = {
     installExperimental: () => apiRequestEnvelope<JsonValue>("/api/config/experimental/defaults", json("POST")),
     installRoute: () => apiRequestEnvelope<JsonValue>("/api/config/route/defaults", json("POST")),
     getRouteRuleMetadata: () => apiRequest<RouteRuleMetadata[]>("/api/config/route/rule-metadata"),
+    applyHistory: () => apiRequest<{ events: ConfigApplyEvent[] }>("/api/config/apply-history"),
     updateRouteRuleMetadata: (metadata: RouteRuleMetadata[]) => apiRequest<RouteRuleMetadata[]>(
       "/api/config/route/rule-metadata", json("PUT", metadata),
     ),
