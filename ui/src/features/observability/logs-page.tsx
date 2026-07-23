@@ -32,7 +32,7 @@ export function LogsPage() {
     <div className="flex flex-col gap-3 sm:gap-4">
       <h1 className="text-2xl font-semibold">{t("observability.logs")}</h1>
       <Tabs value={tab} onValueChange={onTabChange}>
-        <TabsList>
+        <TabsList activateOnFocus className="h-auto max-w-full justify-start overflow-x-auto overflow-y-hidden" variant="line">
           <TabsTrigger value="kernel">{t("observability.kernelLogs")}</TabsTrigger>
           <TabsTrigger value="application">{t("observability.appLogs")}</TabsTrigger>
         </TabsList>

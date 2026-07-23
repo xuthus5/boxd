@@ -1,6 +1,7 @@
-import { PauseIcon, PlayIcon, RotateCcwIcon } from "lucide-react"
+import { CopyIcon, PauseIcon, PlayIcon, RotateCcwIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
+import { toast } from "sonner"
 
 import { ConfirmAction } from "@/components/confirm-action"
 import { Badge } from "@/components/ui/badge"
@@ -8,6 +9,7 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Spinner } from "@/components/ui/spinner"
 import { buildLogsHref } from "@/features/observability/log-filter-presets"
+import { copyText } from "@/features/proxy/copy-tag-button"
 import type { ServiceStatus } from "@/lib/api/types"
 import { cn } from "@/lib/utils"
 
@@ -66,10 +68,36 @@ function formatTimestamp(value?: string) {
   return date.toLocaleString()
 }
 
-function DiagnosticRow({ label, value, title }: { label: string; value: string; title?: string }) {
+function DiagnosticRow({
+  label,
+  value,
+  title,
+  onCopy,
+  copyLabel,
+}: {
+  label: string
+  value: string
+  title?: string
+  onCopy?: () => void
+  copyLabel?: string
+}) {
   return (
     <div className="min-w-0 rounded-md border bg-muted/30 px-2.5 py-1.5">
-      <p className="text-xs text-muted-foreground">{label}</p>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        {onCopy ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            className="h-6 shrink-0 px-1.5"
+            aria-label={copyLabel}
+            onClick={onCopy}
+          >
+            <CopyIcon className="size-3.5" aria-hidden="true" />
+          </Button>
+        ) : null}
+      </div>
       <p className="truncate text-sm font-medium tabular-nums" title={title ?? value}>
         {value}
       </p>
@@ -105,15 +133,45 @@ export function ServiceCard({ status, pending, onAction }: ServiceCardProps) {
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
           <DiagnosticRow label={t("dashboard.serviceStartedAt")} value={startedAt || "—"} />
-          <DiagnosticRow label={t("dashboard.serviceConfigPath")} value={configPath} title={configPath} />
+          <DiagnosticRow
+            label={t("dashboard.serviceConfigPath")}
+            value={configPath}
+            title={configPath}
+            copyLabel={t("dashboard.copyConfigPath")}
+            onCopy={configPath !== "—"
+              ? () => {
+                  void copyText(configPath).then(
+                    () => toast.success(t("dashboard.configPathCopied")),
+                    () => toast.error(t("dashboard.configPathCopyFailed")),
+                  )
+                }
+              : undefined}
+          />
         </div>
         {lastError ? (
-          <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2">
+          <div className="rounded-md border border-destructive/40 bg-destructive/5 px-2.5 py-1.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs font-medium text-destructive">{t("dashboard.serviceLastError")}</p>
-              {lastErrorAt ? (
-                <p className="text-xs text-muted-foreground tabular-nums">{lastErrorAt}</p>
-              ) : null}
+              <div className="flex items-center gap-1.5">
+                {lastErrorAt ? (
+                  <p className="text-xs text-muted-foreground tabular-nums">{lastErrorAt}</p>
+                ) : null}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  className="h-6 shrink-0 px-1.5 text-destructive"
+                  aria-label={t("dashboard.copyLastError")}
+                  onClick={() => {
+                    void copyText(lastError).then(
+                      () => toast.success(t("dashboard.lastErrorCopied")),
+                      () => toast.error(t("dashboard.lastErrorCopyFailed")),
+                    )
+                  }}
+                >
+                  <CopyIcon className="size-3.5" aria-hidden="true" />
+                </Button>
+              </div>
             </div>
             <p className="mt-1 break-words text-sm text-destructive" title={lastError}>
               {lastError}

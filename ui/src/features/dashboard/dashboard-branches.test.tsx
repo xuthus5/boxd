@@ -2,6 +2,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { toast } from "sonner"
+
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
 import { HealthSummaryCard } from "@/features/dashboard/health-summary-card"
 import { ServiceCard } from "@/features/dashboard/service-card"
@@ -59,7 +62,9 @@ describe("dashboard component states", () => {
     expect(screen.getByRole("button", { name: /重启/ })).toBeDisabled()
   })
 
-  it("surfaces kernel start diagnostics and error log deep-link", () => {
+  it("surfaces kernel start diagnostics and error log deep-link", async () => {
+    const copySpy = vi.spyOn(await import("@/features/proxy/copy-tag-button"), "copyText").mockResolvedValue()
+    const user = userEvent.setup()
     renderApp(
       <ServiceCard
         status={{
@@ -79,6 +84,12 @@ describe("dashboard component states", () => {
       "href",
       "/observability/logs?preset=errors",
     )
+    await user.click(screen.getByRole("button", { name: "复制配置路径" }))
+    expect(copySpy).toHaveBeenCalledWith("/var/lib/boxd/config.json")
+    expect(toast.success).toHaveBeenCalled()
+    await user.click(screen.getByRole("button", { name: "复制错误信息" }))
+    expect(copySpy).toHaveBeenCalledWith("invalid outbound")
+    copySpy.mockRestore()
   })
 
   it("renders an empty traffic chart", () => {

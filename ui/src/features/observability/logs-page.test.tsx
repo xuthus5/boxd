@@ -42,6 +42,7 @@ describe("LogsPage", () => {
 
     expect(await screen.findByRole("tab", { name: "内核日志" })).toBeInTheDocument()
     expect(screen.getByRole("tab", { name: "应用日志" })).toBeInTheDocument()
+    expect(screen.getByRole("tab", { name: "内核日志" }).closest('[data-slot="tabs-list"]')).toHaveClass("overflow-x-auto")
     expect((await screen.findAllByText("kernel ready")).length).toBeGreaterThan(0)
     const timestamps = document.querySelectorAll('time[datetime="2026-01-01T00:00:00Z"]')
     expect(timestamps.length).toBeGreaterThan(0)
