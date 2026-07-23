@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query"
 import { PlusIcon, WandSparklesIcon } from "lucide-react"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -17,7 +18,11 @@ import { RuntimeGroupCard } from "@/features/nodes/runtime-groups-card"
 import { InboundCard } from "@/features/proxy/inbound-card"
 import { OutboundCard } from "@/features/proxy/outbound-card"
 import { ProxyEditorDialog } from "@/features/proxy/proxy-editor-dialog"
-import { matchesProxyItem } from "@/features/proxy/proxy-filter"
+import {
+  matchesProxyItem,
+  parseProxySearchParams,
+  toProxySearchParams,
+} from "@/features/proxy/proxy-filter"
 import { api } from "@/lib/api/endpoints"
 import type { JsonValue, OutboundGroup, Subscription } from "@/lib/api/types"
 
@@ -134,7 +139,9 @@ export function ProxyListPage({ configKey, title, addLabel }: {
   const query = useConfigQuery()
   const save = useSaveConfigMutation()
   const [editing, setEditing] = useState<Editing | null>(null)
-  const [search, setSearch] = useState("")
+  const [searchParams, setSearchParams] = useSearchParams()
+  const filters = useMemo(() => parseProxySearchParams(searchParams), [searchParams])
+  const search = filters.query ?? ""
   const { saveError, clearSaveError, reportError, reportRollback } = useConfigSaveError()
   if (query.isLoading) return <Skeleton className="h-64 w-full" />
   if (query.error) {
@@ -143,6 +150,9 @@ export function ProxyListPage({ configKey, title, addLabel }: {
   const items = objects(query.data?.[configKey])
   const normalized = search.trim().toLowerCase()
   const filtered = items.map((item, index) => ({ item, index })).filter(({ item }) => matchesProxyItem(item, normalized))
+  const writeQuery = (queryValue: string) => {
+    setSearchParams(toProxySearchParams({ query: queryValue }), { replace: true })
+  }
   const persist = (nextItems: JsonObject[]) => {
     clearSaveError()
     save.mutate({ ...query.data!, [configKey]: nextItems }, {
@@ -189,7 +199,7 @@ export function ProxyListPage({ configKey, title, addLabel }: {
       {items.length > 0 ? (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <label className="sr-only" htmlFor={`proxy-search-${configKey}`}>{t("proxy.search")}</label>
-          <Input id={`proxy-search-${configKey}`} value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("proxy.searchPlaceholder")} className="sm:max-w-sm" />
+          <Input id={`proxy-search-${configKey}`} value={search} onChange={(event) => writeQuery(event.target.value)} placeholder={t("proxy.searchPlaceholder")} className="sm:max-w-sm" aria-label={t("proxy.search")} />
           {normalized ? <p className="text-sm text-muted-foreground">{t("proxy.searchCount", { shown: filtered.length, total: items.length })}</p> : null}
         </div>
       ) : null}
@@ -213,7 +223,7 @@ export function ProxyListPage({ configKey, title, addLabel }: {
         ) : (
           <Card>
             <CardHeader><CardTitle>{t("proxy.noMatch")}</CardTitle><CardDescription>{t("proxy.noMatchDescription")}</CardDescription></CardHeader>
-            <CardContent><Button variant="outline" onClick={() => setSearch("")}>{t("proxy.clearSearch")}</Button></CardContent>
+            <CardContent><Button variant="outline" onClick={() => writeQuery("")}>{t("proxy.clearSearch")}</Button></CardContent>
           </Card>
         )
       ) : (

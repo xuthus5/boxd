@@ -23,3 +23,31 @@ export function matchesProxyItem(item: JsonObject, query: string) {
   ].join(" ").toLowerCase()
   return haystack.includes(query)
 }
+
+export type ProxyListFilters = {
+  query?: string
+}
+
+export function parseProxySearchParams(
+  params: URLSearchParams | { get(name: string): string | null },
+): ProxyListFilters {
+  const value = params.get("q")?.trim()
+  return { query: value ? value : undefined }
+}
+
+export function toProxySearchParams(filters: ProxyListFilters = {}): URLSearchParams {
+  const params = new URLSearchParams()
+  const query = filters.query?.trim()
+  if (query) params.set("q", query)
+  return params
+}
+
+export function buildProxyHref(
+  configKey: "inbounds" | "outbounds",
+  filters: ProxyListFilters = {},
+): string {
+  const base = configKey === "inbounds" ? "/proxy/inbounds" : "/proxy/outbounds"
+  const qs = toProxySearchParams(filters).toString()
+  return qs ? `${base}?${qs}` : base
+}
+

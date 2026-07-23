@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest"
 
-import { matchesProxyItem } from "@/features/proxy/proxy-filter"
+import {
+  buildProxyHref,
+  matchesProxyItem,
+  parseProxySearchParams,
+  toProxySearchParams,
+} from "@/features/proxy/proxy-filter"
 
 describe("matchesProxyItem", () => {
   it("matches tag type listen server and transport", () => {
@@ -15,5 +20,13 @@ describe("matchesProxyItem", () => {
 
   it("returns true for empty query", () => {
     expect(matchesProxyItem({ tag: "x", type: "direct" }, "")).toBe(true)
+  })
+
+  it("parses and builds proxy list deep-link query strings", () => {
+    expect(parseProxySearchParams(new URLSearchParams("q=mixed"))).toEqual({ query: "mixed" })
+    expect(parseProxySearchParams(new URLSearchParams(""))).toEqual({ query: undefined })
+    expect(buildProxyHref("inbounds", { query: "tun" })).toBe("/proxy/inbounds?q=tun")
+    expect(buildProxyHref("outbounds", {})).toBe("/proxy/outbounds")
+    expect(toProxySearchParams({ query: "  " }).toString()).toBe("")
   })
 })

@@ -1,4 +1,5 @@
 import { screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import App from "@/App"
@@ -89,3 +90,44 @@ describe("proxy configuration pages", () => {
     expect(screen.getByText("配置与运行时类型不一致")).toBeInTheDocument()
   })
 })
+
+describe("proxy list deep links", () => {
+  it("seeds inbound search from deep-link query params", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
+      inbounds: [
+        { tag: "mixed-in", type: "mixed", listen: "::", listen_port: 1080 },
+        { tag: "tun-in", type: "tun", interface_name: "tun0" },
+      ],
+      outbounds: [],
+    })))))
+    renderApp(<App />, "/proxy/inbounds?q=tun")
+    expect(await screen.findByLabelText("搜索配置")).toHaveValue("tun")
+    expect(screen.getByText("tun-in")).toBeInTheDocument()
+    expect(screen.queryByText("mixed-in")).not.toBeInTheDocument()
+  })
+
+  it("filters outbounds from search input and clears via URL state", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
+      const path = String(input)
+      const data = path === "/api/subscriptions/" ? [] : path === "/api/nodes/groups" ? { groups: [] }
+        : {
+          inbounds: [],
+          outbounds: [
+            { tag: "proxy", type: "vless", server: "example.com", server_port: 443 },
+            { tag: "direct", type: "direct" },
+          ],
+        }
+      return Promise.resolve(new Response(JSON.stringify(data)))
+    }))
+    const user = userEvent.setup()
+    renderApp(<App />, "/proxy/outbounds")
+    expect(await screen.findByText("proxy")).toBeInTheDocument()
+    await user.type(screen.getByLabelText("搜索配置"), "direct")
+    expect(screen.getAllByText("direct").length).toBeGreaterThan(0)
+    expect(screen.queryByText("proxy")).not.toBeInTheDocument()
+    expect(screen.queryByText("example.com:443")).not.toBeInTheDocument()
+  })
+})
+
