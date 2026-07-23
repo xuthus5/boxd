@@ -3,7 +3,11 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 import {
+  closeErrorClipboardText,
+  closeErrorHintKey,
+  classifyCloseError,
   filterSuppressedConnections,
+  formatCloseErrorToast,
   formatClosedScopeMessage,
   groupClosingKey,
   isBenignCloseMiss,
@@ -13,6 +17,7 @@ import {
   suppressConnectionIds,
   type ClosingTarget,
 } from "@/features/observability/connection-close"
+import { copyText } from "@/features/proxy/copy-tag-button"
 import { filterConnectionsByGroup } from "@/features/observability/connection-stats"
 import { api } from "@/lib/api/endpoints"
 import type { Connection } from "@/lib/api/types"
@@ -45,6 +50,27 @@ export function useConnectionCloseActions(liveConnections: Connection[]) {
     })
   }
 
+  const reportCloseError = (
+    error: unknown,
+    options: { scope: "one" | "all" | "filtered" | "group"; target?: string; group?: string; count?: number },
+  ) => {
+    const message = formatCloseErrorToast(error, t, options)
+    const code = classifyCloseError(error)
+    const payload = closeErrorClipboardText(error, options)
+    toast.error(message, {
+      description: t(closeErrorHintKey(code)),
+      action: {
+        label: t("observability.copyCloseError"),
+        onClick: () => {
+          void copyText(payload).then(
+            () => toast.success(t("observability.closeErrorCopied")),
+            () => toast.error(t("observability.closeErrorCopyFailed")),
+          )
+        },
+      },
+    })
+  }
+
   const closeOne = async (id: string) => {
     const target = connections.find((item) => String(item.id) === id)?.target
     setClosingId(id)
@@ -56,7 +82,7 @@ export function useConnectionCloseActions(liveConnections: Connection[]) {
       if (isBenignCloseMiss(error)) toast.success(t("observability.closedAlready"))
       else {
         restoreSuppressed([id])
-        toast.error(error instanceof Error ? error.message : String(error))
+        reportCloseError(error, { scope: "one", target, count: 1 })
       }
     } finally {
       setClosingId(null)
@@ -72,7 +98,7 @@ export function useConnectionCloseActions(liveConnections: Connection[]) {
       toast.success(formatClosedScopeMessage("all", t, { count: result.closed }))
     } catch (error) {
       restoreSuppressed(ids)
-      toast.error(error instanceof Error ? error.message : String(error))
+      reportCloseError(error, { scope: "all", count: ids.length })
     } finally {
       setClosingId(null)
     }
@@ -92,7 +118,7 @@ export function useConnectionCloseActions(liveConnections: Connection[]) {
       toast.success(formatClosedScopeMessage("group", t, { group: key, count: result.closed }))
     } catch (error) {
       restoreSuppressed(groupIds)
-      toast.error(error instanceof Error ? error.message : String(error))
+      reportCloseError(error, { scope: "group", group: key, count: groupIds.length })
     } finally {
       setClosingId(null)
     }
@@ -107,7 +133,7 @@ export function useConnectionCloseActions(liveConnections: Connection[]) {
       toast.success(formatClosedScopeMessage("filtered", t, { count: result.closed }))
     } catch (error) {
       restoreSuppressed(ids)
-      toast.error(error instanceof Error ? error.message : String(error))
+      reportCloseError(error, { scope: "filtered", count: ids.length })
     } finally {
       setClosingId(null)
     }

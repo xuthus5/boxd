@@ -89,3 +89,88 @@ export function formatClosedScopeMessage(
     count: options.count ?? 0,
   })
 }
+
+export type CloseErrorCode =
+  | "unavailable"
+  | "not_found"
+  | "invalid_request"
+  | "unknown"
+
+export function classifyCloseError(error: unknown): CloseErrorCode {
+  if (error instanceof ApiError) {
+    const code = error.code?.toLowerCase() || ""
+    if (code === "unavailable") return "unavailable"
+    if (code === "not_found") return "not_found"
+    if (code === "invalid_request") return "invalid_request"
+    const lower = error.message.toLowerCase()
+    if (lower.includes("not available") || lower.includes("unavailable")) return "unavailable"
+    if (lower.includes("not found")) return "not_found"
+    if (lower.includes("invalid") || lower.includes("too many") || lower.includes("specify only one")) {
+      return "invalid_request"
+    }
+  }
+  if (error instanceof Error) {
+    const lower = error.message.toLowerCase()
+    if (lower.includes("not available") || lower.includes("unavailable")) return "unavailable"
+    if (lower.includes("not found")) return "not_found"
+    if (lower.includes("invalid") || lower.includes("too many")) return "invalid_request"
+  }
+  return "unknown"
+}
+
+export function closeErrorHintKey(code?: string): string {
+  switch (code) {
+    case "unavailable":
+      return "observability.errorHintCloseUnavailable"
+    case "not_found":
+      return "observability.errorHintCloseNotFound"
+    case "invalid_request":
+      return "observability.errorHintCloseInvalid"
+    default:
+      return "observability.errorHintCloseUnknown"
+  }
+}
+
+export function closeErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message.trim()) return error.message.trim()
+  return fallback
+}
+
+export function formatCloseErrorToast(
+  error: unknown,
+  t: (key: string, values?: Record<string, string | number>) => string,
+  options: { scope: CloseScope; target?: string; group?: string } ,
+): string {
+  const code = classifyCloseError(error)
+  const detail = closeErrorMessage(error, t("observability.closeFailed"))
+  const scopeLabel =
+    options.scope === "one"
+      ? (options.target?.trim() || t("observability.closedOne"))
+      : options.scope === "group"
+        ? (options.group?.trim() || "—")
+        : options.scope
+  const head = t("observability.closeFailedScope", {
+    scope: scopeLabel,
+    code: code === "unknown" ? "—" : code,
+  })
+  return `${head}: ${detail}`
+}
+
+export function closeErrorClipboardText(error: unknown, options: {
+  scope: CloseScope
+  target?: string
+  group?: string
+  count?: number
+}): string {
+  const code = classifyCloseError(error)
+  const detail = closeErrorMessage(error, "close failed")
+  const lines = [
+    `scope: ${options.scope}`,
+    options.target?.trim() ? `target: ${options.target.trim()}` : "",
+    options.group?.trim() ? `group: ${options.group.trim()}` : "",
+    options.count !== undefined ? `count: ${options.count}` : "",
+    code ? `code: ${code}` : "",
+    `error: ${detail}`,
+  ].filter(Boolean)
+  return lines.join("\n")
+}

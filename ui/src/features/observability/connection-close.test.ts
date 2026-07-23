@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest"
 
 import { ApiError } from "@/lib/api/client"
 import {
+  classifyCloseError,
+  closeErrorClipboardText,
+  closeErrorHintKey,
   filterSuppressedConnections,
+  formatCloseErrorToast,
   formatClosedScopeMessage,
   isBenignCloseMiss,
   isBulkClosing,
@@ -44,7 +48,6 @@ describe("connection close helpers", () => {
     expect(isBenignCloseMiss(new ApiError("boom", 500, "internal_error"))).toBe(false)
     expect(isBenignCloseMiss(new Error("x"))).toBe(false)
   })
-})
 
   it("formats densified close messages", () => {
     const t = (key: string, values?: Record<string, string | number>) => {
@@ -62,3 +65,33 @@ describe("connection close helpers", () => {
     expect(formatClosedScopeMessage("group", t, { group: "proxy", count: 4 })).toBe("closed group proxy 4")
   })
 
+  it("classifies close failures and formats diagnostics", () => {
+    expect(classifyCloseError(new ApiError("service not available", 503, "unavailable"))).toBe("unavailable")
+    expect(classifyCloseError(new ApiError("connection not found", 404, "not_found"))).toBe("not_found")
+    expect(classifyCloseError(new ApiError("invalid connection id", 400, "invalid_request"))).toBe("invalid_request")
+    expect(classifyCloseError(new Error("boom"))).toBe("unknown")
+    expect(closeErrorHintKey("unavailable")).toBe("observability.errorHintCloseUnavailable")
+
+    const t = (key: string, values?: Record<string, string | number>) => {
+      if (key === "observability.closeFailed") return "close failed"
+      if (key === "observability.closeFailedScope") return `fail ${values?.scope}/${values?.code}`
+      if (key === "observability.closedOne") return "one"
+      return key
+    }
+    expect(formatCloseErrorToast(
+      new ApiError("service not available", 503, "unavailable"),
+      t,
+      { scope: "one", target: "a.com:443" },
+    )).toBe("fail a.com:443/unavailable: service not available")
+
+    expect(closeErrorClipboardText(
+      new ApiError("service not available", 503, "unavailable"),
+      { scope: "all", count: 3 },
+    )).toBe([
+      "scope: all",
+      "count: 3",
+      "code: unavailable",
+      "error: service not available",
+    ].join("\n"))
+  })
+})
