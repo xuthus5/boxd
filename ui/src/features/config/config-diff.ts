@@ -59,7 +59,7 @@ export function diffConfig(before: unknown, after: unknown, base = "", limit = 4
   return items.slice(0, limit)
 }
 
-export function summarizeConfigDiff(items: ConfigDiffItem[]) {
+export function summarizeConfigDiff(items: readonly ConfigDiffItem[]) {
   return {
     added: items.filter((item) => item.kind === "added").length,
     removed: items.filter((item) => item.kind === "removed").length,
@@ -69,7 +69,7 @@ export function summarizeConfigDiff(items: ConfigDiffItem[]) {
 }
 
 export function formatConfigDiffSummary(
-  items: ConfigDiffItem[],
+  items: readonly ConfigDiffItem[],
   labels: { added: string; removed: string; changed: string; none: string; more: string },
   preview = 6,
 ) {
