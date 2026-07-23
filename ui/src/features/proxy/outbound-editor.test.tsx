@@ -28,7 +28,7 @@ describe("outbound editor", () => {
   it("edits VLESS TLS, uTLS, Reality, transport, and multiplex fields", async () => {
     const user = userEvent.setup()
     const onSave = vi.fn()
-    renderEditor(<OutboundEditorDialog title="编辑" item={{ type: "vless", server: "old.example.com", server_port: 443, custom: "keep" }} onClose={vi.fn()} onSave={onSave} />)
+    renderEditor(<OutboundEditorDialog title="编辑" item={{ tag: "vless-out", type: "vless", server: "old.example.com", server_port: 443, custom: "keep" }} onClose={vi.fn()} onSave={onSave} />)
 
     expect(screen.getByRole("dialog")).toHaveClass("sm:max-w-5xl")
     expect(screen.getByLabelText("服务器地址")).toHaveValue("old.example.com")
@@ -59,7 +59,7 @@ describe("outbound editor", () => {
     const user = userEvent.setup()
     const onSave = vi.fn()
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ outbounds: [{ tag: "a" }, { tag: "b" }, { tag: "c" }] }))))
-    renderEditor(<OutboundEditorDialog title="编辑" item={{ type: "selector", outbounds: ["a", "b"] }} onClose={vi.fn()} onSave={onSave} />)
+    renderEditor(<OutboundEditorDialog title="编辑" item={{ tag: "group", type: "selector", outbounds: ["a", "b"] }} onClose={vi.fn()} onSave={onSave} />)
     await user.click(screen.getByRole("tab", { name: "分组" }))
     expect(screen.getByText("订阅自动生成的分组请在订阅页面管理")).toBeInTheDocument()
     expect(screen.getByText("a")).toBeInTheDocument()
@@ -77,7 +77,7 @@ describe("outbound editor", () => {
 
   it("shows SSH fields without TLS or transport tabs", async () => {
     const user = userEvent.setup()
-    renderEditor(<OutboundEditorDialog title="编辑" item={{ type: "ssh", server: "host", server_port: 22 }} onClose={vi.fn()} onSave={vi.fn()} />)
+    renderEditor(<OutboundEditorDialog title="编辑" item={{ tag: "ssh-out", type: "ssh", server: "host", server_port: 22 }} onClose={vi.fn()} onSave={vi.fn()} />)
     await user.click(screen.getByRole("tab", { name: "协议" }))
     expect(screen.getByLabelText("SSH 用户")).toBeInTheDocument()
     expect(screen.queryByRole("tab", { name: "TLS / uTLS / Reality" })).not.toBeInTheDocument()
@@ -86,7 +86,7 @@ describe("outbound editor", () => {
 
   it("keeps invalid structured JSON blocking save across tabs", async () => {
     const user = userEvent.setup()
-    renderEditor(<OutboundEditorDialog title="编辑" item={{ type: "http", server: "host", server_port: 8080 }} onClose={vi.fn()} onSave={vi.fn()} />)
+    renderEditor(<OutboundEditorDialog title="编辑" item={{ tag: "http-out", type: "http", server: "host", server_port: 8080 }} onClose={vi.fn()} onSave={vi.fn()} />)
     await user.click(screen.getByRole("tab", { name: "协议" }))
     fireEvent.change(screen.getByLabelText("请求 Headers"), { target: { value: "invalid" } })
     expect(screen.getByRole("button", { name: "保存" })).toBeDisabled()
@@ -96,7 +96,7 @@ describe("outbound editor", () => {
 
   it("hides TLS nested fields until enabled and exposes version presets", async () => {
     const user = userEvent.setup()
-    renderEditor(<OutboundEditorDialog title="编辑" item={{ type: "vless", server: "host", server_port: 443 }} onClose={vi.fn()} onSave={vi.fn()} />)
+    renderEditor(<OutboundEditorDialog title="编辑" item={{ tag: "vless-out", type: "vless", server: "host", server_port: 443 }} onClose={vi.fn()} onSave={vi.fn()} />)
     await user.click(screen.getByRole("tab", { name: "TLS / uTLS / Reality" }))
     expect(screen.queryByLabelText("服务器名称")).not.toBeInTheDocument()
     expect(screen.queryByLabelText("最低 TLS 版本")).not.toBeInTheDocument()
@@ -109,5 +109,21 @@ describe("outbound editor", () => {
     expect(screen.queryByLabelText("uTLS 指纹")).not.toBeInTheDocument()
     await user.click(screen.getByRole("switch", { name: "启用 uTLS" }))
     expect(screen.getByLabelText("uTLS 指纹")).toBeInTheDocument()
+  })
+
+  it("requires outbound base fields before saving", async () => {
+    const user = userEvent.setup()
+    renderEditor(<OutboundEditorDialog title="新增" item={{ type: "vless" }} onClose={vi.fn()} onSave={vi.fn()} />)
+    expect(screen.getByRole("button", { name: "保存" })).toBeDisabled()
+    expect(screen.getByText("请填写 Tag。")).toBeInTheDocument()
+    expect(screen.getByText("请填写服务器地址。")).toBeInTheDocument()
+    expect(screen.getByText("请填写 1-65535 的端口。")).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText("Tag"), { target: { value: "hk" } })
+    fireEvent.change(screen.getByLabelText("服务器地址"), { target: { value: "hk.example.com" } })
+    fireEvent.change(screen.getByLabelText("服务器端口"), { target: { value: "443" } })
+    expect(screen.getByRole("button", { name: "保存" })).toBeEnabled()
+    await user.clear(screen.getByLabelText("服务器端口"))
+    fireEvent.change(screen.getByLabelText("服务器端口"), { target: { value: "0" } })
+    expect(screen.getByRole("button", { name: "保存" })).toBeDisabled()
   })
 })

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -15,6 +15,7 @@ import {
   changeInboundType, getPath, inboundTypes, listenFields, multiplexFields, multiplexTypes, protocolFields, tlsFields, tlsTypes,
   transportTypeFields, transportTypes, tunFields, type JsonObject,
 } from "@/features/proxy/inbound-form-model"
+import { collectInboundBaseInvalid } from "@/features/proxy/proxy-base-validation"
 import { configTags, dnsServerTags } from "@/features/proxy/proxy-form-model"
 
 interface InboundEditorDialogProps {
@@ -39,10 +40,27 @@ function BaseFields({ object, onChange }: { object: JsonObject; onChange: (objec
   const type = String(object.type ?? "")
   const options = useMemo(() => typeOptions(type), [type])
   const items = useMemo(() => options.map((value) => ({ value, label: value })), [options])
+  const invalid = new Set(collectInboundBaseInvalid(object))
   return <FieldGroup className="grid gap-4 sm:grid-cols-2">
-    <Field><FieldLabel htmlFor="inbound-tag">Tag</FieldLabel><Input id="inbound-tag" value={String(object.tag ?? "")} onChange={(event) => onChange({ ...object, tag: event.target.value })} /></Field>
-    <Field><FieldLabel htmlFor="inbound-type">{t("common.type")}</FieldLabel><Select items={items} value={type || null} onValueChange={(value) => onChange(changeInboundType(object, String(value)))}><SelectTrigger id="inbound-type" aria-label={t("common.type")} className="w-full"><SelectValue placeholder={t("proxy.inbound.selectType")} /></SelectTrigger><SelectContent><SelectGroup>{options.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectGroup></SelectContent></Select></Field>
-    <div className="sm:col-span-2">{type === "tun" ? <InboundFormFields fields={tunFields.slice(0, 4)} object={object} type={type} onChange={onChange} /> : <InboundFormFields fields={listenFields.slice(0, 2)} object={object} type={type} onChange={onChange} />}</div>
+    <Field data-invalid={invalid.has("tag") || undefined}>
+      <FieldLabel htmlFor="inbound-tag">Tag</FieldLabel>
+      <Input id="inbound-tag" aria-invalid={invalid.has("tag") || undefined} value={String(object.tag ?? "")} onChange={(event) => onChange({ ...object, tag: event.target.value || undefined })} />
+      {invalid.has("tag") ? <FieldDescription>{t("proxy.inbound.requiredTag")}</FieldDescription> : null}
+    </Field>
+    <Field data-invalid={invalid.has("type") || undefined}>
+      <FieldLabel htmlFor="inbound-type">{t("common.type")}</FieldLabel>
+      <Select items={items} value={type || null} onValueChange={(value) => onChange(changeInboundType(object, String(value)))}>
+        <SelectTrigger id="inbound-type" aria-invalid={invalid.has("type") || undefined} aria-label={t("common.type")} className="w-full"><SelectValue placeholder={t("proxy.inbound.selectType")} /></SelectTrigger>
+        <SelectContent><SelectGroup>{options.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectGroup></SelectContent>
+      </Select>
+      {invalid.has("type") ? <FieldDescription>{t("proxy.inbound.requiredType")}</FieldDescription> : null}
+    </Field>
+    <div className="sm:col-span-2">
+      {type === "tun"
+        ? <InboundFormFields fields={tunFields.slice(0, 4)} object={object} type={type} onChange={onChange} />
+        : <InboundFormFields fields={listenFields.slice(0, 2)} object={object} type={type} onChange={onChange} />}
+      {invalid.has("listen_port") ? <FieldError>{t("proxy.inbound.requiredPort")}</FieldError> : null}
+    </div>
   </FieldGroup>
 }
 
@@ -95,6 +113,7 @@ export function InboundEditorDialog({ title, item, onClose, onSave }: InboundEdi
   const [revision, setRevision] = useState(0)
   const [invalidFields, setInvalidFields] = useState<Set<string>>(() => new Set())
   const object = parseObject(value)
+  const baseInvalid = object ? collectInboundBaseInvalid(object).length > 0 : true
   const update = (next: JsonObject) => setValue(JSON.stringify(next, null, 2))
   const updateJSON = (next: string) => { setValue(next); setRevision((current) => current + 1) }
   const updateValidity = useCallback((path: string, valid: boolean) => setInvalidFields((current) => { const next = new Set(current); if (valid) next.delete(path); else next.add(path); return next }), [])
@@ -104,7 +123,7 @@ export function InboundEditorDialog({ title, item, onClose, onSave }: InboundEdi
       <div className="min-h-0 overflow-y-auto pr-1">
         {object ? <FormTabs object={object} value={value} title={title} revision={revision} onChange={update} onJSONChange={updateJSON} onFieldValidityChange={updateValidity} /> : <JsonEditor value={value} onChange={updateJSON} ariaLabel={`${title} JSON`} />}
       </div>
-      <DialogFooter><Button variant="outline" onClick={onClose}>{t("common.cancel")}</Button><Button disabled={!object || typeof object.type !== "string" || !object.type || invalidFields.size > 0} onClick={() => { if (object) onSave(object) }}>{t("common.save")}</Button></DialogFooter>
+      <DialogFooter><Button variant="outline" onClick={onClose}>{t("common.cancel")}</Button><Button disabled={!object || baseInvalid || invalidFields.size > 0} onClick={() => { if (object) onSave(object) }}>{t("common.save")}</Button></DialogFooter>
     </DialogContent>
   </Dialog>
 }

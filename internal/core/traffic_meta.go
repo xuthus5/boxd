@@ -16,15 +16,43 @@ func ruleName(rule adapter.Rule) string {
 	if typed, ok := any(rule).(interface{ Type() string }); ok {
 		typeName = typed.Type()
 	}
-	return pickRuleName(typeName, rule.String())
+	return formatRuleName(typeName, rule.String())
 }
 
-// pickRuleName prefers a short rule type when present.
-func pickRuleName(typeName, raw string) string {
-	if name := strings.TrimSpace(typeName); name != "" {
-		return name
+// formatRuleName prefers a human-readable rule expression over generic types.
+func formatRuleName(typeName, raw string) string {
+	expression := compactRuleExpression(raw)
+	kind := strings.TrimSpace(typeName)
+	if expression == "" {
+		return kind
 	}
-	return strings.TrimSpace(raw)
+	// "default"/"logical" alone are not useful in connection lists.
+	if kind == "" || kind == "default" || kind == "logical" {
+		return truncateRuleName(expression, 120)
+	}
+	if strings.EqualFold(expression, kind) {
+		return kind
+	}
+	return truncateRuleName(kind+": "+expression, 120)
+}
+
+func compactRuleExpression(raw string) string {
+	fields := strings.Fields(strings.TrimSpace(raw))
+	if len(fields) == 0 {
+		return ""
+	}
+	return strings.Join(fields, " ")
+}
+
+func truncateRuleName(value string, limit int) string {
+	runes := []rune(strings.TrimSpace(value))
+	if limit <= 0 || len(runes) <= limit {
+		return string(runes)
+	}
+	if limit <= 1 {
+		return string(runes[:limit])
+	}
+	return string(runes[:limit-1]) + "…"
 }
 
 func connectionTarget(metadata adapter.InboundContext) string {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -455,11 +456,11 @@ func TestConnectionTargetFallbacks(t *testing.T) {
 	if got := ruleName(nil); got != "" {
 		t.Fatalf("nil rule = %q", got)
 	}
-	if got := pickRuleName("default", "rule(default)"); got != "default" {
-		t.Fatalf("pick type = %q", got)
+	if got := formatRuleName("default", "rule(default)"); got != "rule(default)" {
+		t.Fatalf("format default = %q", got)
 	}
-	if got := pickRuleName("", " rule "); got != "rule" {
-		t.Fatalf("pick raw = %q", got)
+	if got := formatRuleName("", " rule "); got != "rule" {
+		t.Fatalf("format raw = %q", got)
 	}
 	if got := formatHostPort(" example.com ", 443); got != "example.com:443" {
 		t.Fatalf("format hostport = %q", got)
@@ -490,11 +491,39 @@ func (r fakeRule) Type() string { return r.typ }
 func (r fakeRule) Action() adapter.RuleAction { return nil }
 
 func TestRuleNameWithAdapterRule(t *testing.T) {
-	if got := ruleName(fakeRule{typ: "logical", raw: "rule(logical)"}); got != "logical" {
-		t.Fatalf("typed rule = %q", got)
+	if got := ruleName(fakeRule{typ: "logical", raw: "domain_suffix=google.com => proxy"}); got != "domain_suffix=google.com => proxy" {
+		t.Fatalf("logical rule = %q", got)
+	}
+	if got := ruleName(fakeRule{typ: "default", raw: "geoip=cn => direct"}); got != "geoip=cn => direct" {
+		t.Fatalf("default rule = %q", got)
+	}
+	if got := ruleName(fakeRule{typ: "custom", raw: "geoip=cn"}); got != "custom: geoip=cn" {
+		t.Fatalf("named rule = %q", got)
 	}
 	if got := ruleName(fakeRule{typ: "", raw: "fallback-rule"}); got != "fallback-rule" {
 		t.Fatalf("raw rule = %q", got)
+	}
+	if got := ruleName(fakeRule{typ: "default", raw: ""}); got != "default" {
+		t.Fatalf("type only = %q", got)
+	}
+}
+
+func TestFormatRuleNameHelpers(t *testing.T) {
+	if got := formatRuleName("default", "  a   b  "); got != "a b" {
+		t.Fatalf("compact = %q", got)
+	}
+	long := strings.Repeat("x", 130)
+	if got := formatRuleName("default", long); len([]rune(got)) != 120 || !strings.HasSuffix(got, "…") {
+		t.Fatalf("truncate = %q len=%d", got, len([]rune(got)))
+	}
+	if got := formatRuleName("route", "route"); got != "route" {
+		t.Fatalf("equal = %q", got)
+	}
+	if got := truncateRuleName("ab", 1); got != "a" {
+		t.Fatalf("tiny truncate = %q", got)
+	}
+	if got := truncateRuleName("ab", 0); got != "ab" {
+		t.Fatalf("no limit = %q", got)
 	}
 }
 

@@ -5,7 +5,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -18,6 +18,7 @@ import {
   outboundMultiplexFields, outboundMultiplexTypes, outboundTLSFields, outboundTLSTypes, outboundTransportTypes,
   outboundTypes, protocolFields, serverTypes, transportTypeFields,
 } from "@/features/proxy/outbound-form-model"
+import { collectOutboundBaseInvalid } from "@/features/proxy/proxy-base-validation"
 import { configTags, dnsServerTags, getPath, type JsonObject, setPath } from "@/features/proxy/proxy-form-model"
 
 interface OutboundEditorDialogProps {
@@ -42,26 +43,32 @@ function BaseFields({ object, onChange }: { object: JsonObject; onChange: (objec
   const type = String(object.type ?? "")
   const options = useMemo(() => typeOptions(type), [type])
   const items = useMemo(() => options.map((value) => ({ value, label: value })), [options])
+  const invalid = new Set(collectOutboundBaseInvalid(object))
+  const showServer = serverTypes.has(type)
   return <FieldGroup className="grid gap-4 sm:grid-cols-2">
-    <Field>
+    <Field data-invalid={invalid.has("tag") || undefined}>
       <FieldLabel htmlFor="outbound-tag">Tag</FieldLabel>
-      <Input id="outbound-tag" value={String(object.tag ?? "")} onChange={(event) => onChange(setPath(object, "tag", event.target.value || undefined))} />
+      <Input id="outbound-tag" aria-invalid={invalid.has("tag") || undefined} value={String(object.tag ?? "")} onChange={(event) => onChange(setPath(object, "tag", event.target.value || undefined))} />
+      {invalid.has("tag") ? <FieldDescription>{t("proxy.outbound.requiredTag")}</FieldDescription> : null}
     </Field>
-    <Field>
+    <Field data-invalid={invalid.has("type") || undefined}>
       <FieldLabel htmlFor="outbound-type">{t("common.type")}</FieldLabel>
       <Select items={items} value={type || null} onValueChange={(value) => onChange(changeOutboundType(object, String(value)))}>
-        <SelectTrigger id="outbound-type" aria-label={t("common.type")} className="w-full"><SelectValue placeholder={t("proxy.outbound.selectType")} /></SelectTrigger>
+        <SelectTrigger id="outbound-type" aria-invalid={invalid.has("type") || undefined} aria-label={t("common.type")} className="w-full"><SelectValue placeholder={t("proxy.outbound.selectType")} /></SelectTrigger>
         <SelectContent><SelectGroup>{options.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectGroup></SelectContent>
       </Select>
+      {invalid.has("type") ? <FieldDescription>{t("proxy.outbound.requiredType")}</FieldDescription> : null}
     </Field>
-    {serverTypes.has(type) ? <>
-      <Field>
+    {showServer ? <>
+      <Field data-invalid={invalid.has("server") || undefined}>
         <FieldLabel htmlFor="outbound-server">{t("proxy.outbound.server")}</FieldLabel>
-        <Input id="outbound-server" value={String(object.server ?? "")} onChange={(event) => onChange(setPath(object, "server", event.target.value || undefined))} />
+        <Input id="outbound-server" aria-invalid={invalid.has("server") || undefined} value={String(object.server ?? "")} onChange={(event) => onChange(setPath(object, "server", event.target.value || undefined))} />
+        {invalid.has("server") ? <FieldDescription>{t("proxy.outbound.requiredServer")}</FieldDescription> : null}
       </Field>
-      <Field>
+      <Field data-invalid={invalid.has("server_port") || undefined}>
         <FieldLabel htmlFor="outbound-port">{t("proxy.outbound.serverPort")}</FieldLabel>
-        <Input id="outbound-port" type="number" value={String(object.server_port ?? "")} onChange={(event) => onChange(setPath(object, "server_port", event.target.value ? Number(event.target.value) : undefined))} />
+        <Input id="outbound-port" type="number" aria-invalid={invalid.has("server_port") || undefined} value={String(object.server_port ?? "")} onChange={(event) => onChange(setPath(object, "server_port", event.target.value ? Number(event.target.value) : undefined))} />
+        {invalid.has("server_port") ? <FieldDescription>{t("proxy.outbound.requiredPort")}</FieldDescription> : null}
       </Field>
     </> : null}
   </FieldGroup>
@@ -200,6 +207,7 @@ export function OutboundEditorDialog({ title, item, onClose, onSave }: OutboundE
   const [revision, setRevision] = useState(0)
   const [invalidFields, setInvalidFields] = useState<Set<string>>(() => new Set())
   const object = parseObject(value)
+  const baseInvalid = object ? collectOutboundBaseInvalid(object).length > 0 : true
   const update = (next: JsonObject) => setValue(JSON.stringify(next, null, 2))
   const updateJSON = (next: string) => { setValue(next); setRevision((current) => current + 1) }
   const updateValidity = useCallback((path: string, valid: boolean) => setInvalidFields((current) => {
@@ -221,7 +229,7 @@ export function OutboundEditorDialog({ title, item, onClose, onSave }: OutboundE
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onClose}>{t("common.cancel")}</Button>
-        <Button disabled={!object || typeof object.type !== "string" || !object.type || invalidFields.size > 0} onClick={() => { if (object) onSave(object) }}>{t("common.save")}</Button>
+        <Button disabled={!object || baseInvalid || invalidFields.size > 0} onClick={() => { if (object) onSave(object) }}>{t("common.save")}</Button>
       </DialogFooter>
     </DialogContent>
   </Dialog>

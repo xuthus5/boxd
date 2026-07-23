@@ -29,7 +29,7 @@ describe("inbound editor", () => {
   it("edits VLESS TLS, Reality, transport, and multiplex fields", async () => {
     const onSave = vi.fn()
     const user = userEvent.setup()
-    renderEditor(<InboundEditorDialog title="编辑 vless" item={{ tag: "in", type: "vless", custom: "keep" }} onClose={vi.fn()} onSave={onSave} />)
+    renderEditor(<InboundEditorDialog title="编辑 vless" item={{ tag: "in", type: "vless", listen_port: 443, custom: "keep" }} onClose={vi.fn()} onSave={onSave} />)
 
     await user.click(screen.getByRole("tab", { name: "协议" }))
     await user.click(screen.getByRole("button", { name: "添加用户" }))
@@ -60,7 +60,7 @@ describe("inbound editor", () => {
   it("shows TUN fields without listen address and clears fields when type changes", async () => {
     const onSave = vi.fn()
     const user = userEvent.setup()
-    renderEditor(<InboundEditorDialog title="编辑" item={{ type: "mixed", listen: "::", listen_port: 1080, users: [{ username: "old" }] }} onClose={vi.fn()} onSave={onSave} />)
+    renderEditor(<InboundEditorDialog title="编辑" item={{ tag: "mixed-in", type: "mixed", listen: "::", listen_port: 1080, users: [{ username: "old" }] }} onClose={vi.fn()} onSave={onSave} />)
 
     await user.click(screen.getByRole("combobox", { name: "类型" }))
     await user.click(await screen.findByRole("option", { name: "tun" }))
@@ -79,7 +79,7 @@ describe("inbound editor", () => {
   it("shows transport-specific fields and saves HTTP Upgrade host as a string", async () => {
     const onSave = vi.fn()
     const user = userEvent.setup()
-    renderEditor(<InboundEditorDialog title="编辑" item={{ type: "vless", transport: { type: "ws", path: "/ws" } }} onClose={vi.fn()} onSave={onSave} />)
+    renderEditor(<InboundEditorDialog title="编辑" item={{ tag: "vless-in", type: "vless", listen_port: 443, transport: { type: "ws", path: "/ws" } }} onClose={vi.fn()} onSave={onSave} />)
 
     expect(screen.getByRole("dialog")).toHaveClass("sm:max-w-5xl")
     await user.click(screen.getByRole("tab", { name: "传输与复用" }))
@@ -99,7 +99,7 @@ describe("inbound editor", () => {
   it("supports listen address presets and manual input", async () => {
     const onSave = vi.fn()
     const user = userEvent.setup()
-    renderEditor(<InboundEditorDialog title="编辑" item={{ type: "mixed", listen: "::", listen_port: 1080 }} onClose={vi.fn()} onSave={onSave} />)
+    renderEditor(<InboundEditorDialog title="编辑" item={{ tag: "mixed-in", type: "mixed", listen: "::", listen_port: 1080 }} onClose={vi.fn()} onSave={onSave} />)
 
     await user.click(screen.getByRole("combobox", { name: "监听地址" }))
     await user.click(await screen.findByRole("option", { name: "0.0.0.0（IPv4 全接口）" }))
@@ -118,7 +118,7 @@ describe("inbound editor", () => {
 
   it("blocks saving while a structured field contains invalid JSON", async () => {
     const user = userEvent.setup()
-    renderEditor(<InboundEditorDialog title="编辑" item={{ type: "vless", transport: { type: "ws" } }} onClose={vi.fn()} onSave={vi.fn()} />)
+    renderEditor(<InboundEditorDialog title="编辑" item={{ tag: "vless-in", type: "vless", listen_port: 443, transport: { type: "ws" } }} onClose={vi.fn()} onSave={vi.fn()} />)
     await user.click(screen.getByRole("tab", { name: "传输与复用" }))
     fireEvent.change(screen.getByLabelText("传输 Headers"), { target: { value: "invalid" } })
     expect(screen.getByRole("button", { name: "保存" })).toBeDisabled()
@@ -126,6 +126,16 @@ describe("inbound editor", () => {
     expect(screen.getByRole("button", { name: "保存" })).toBeDisabled()
     await user.click(screen.getByRole("tab", { name: "传输与复用" }))
     fireEvent.change(screen.getByLabelText("传输 Headers"), { target: { value: "{}" } })
+    expect(screen.getByRole("button", { name: "保存" })).toBeEnabled()
+  })
+
+  it("requires inbound base fields before saving", async () => {
+    renderEditor(<InboundEditorDialog title="新增" item={{ type: "mixed" }} onClose={vi.fn()} onSave={vi.fn()} />)
+    expect(screen.getByRole("button", { name: "保存" })).toBeDisabled()
+    expect(screen.getByText("请填写 Tag。")).toBeInTheDocument()
+    expect(screen.getByText("请填写 1-65535 的端口。")).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText("Tag"), { target: { value: "mixed-in" } })
+    fireEvent.change(screen.getByLabelText("监听端口"), { target: { value: "1080" } })
     expect(screen.getByRole("button", { name: "保存" })).toBeEnabled()
   })
 })
