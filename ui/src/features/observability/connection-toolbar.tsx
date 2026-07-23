@@ -59,6 +59,7 @@ type Props = {
   query: string
   network: string
   protocol: string
+  inbound: string
   outbound: string
   rule: string
   process: string
@@ -66,6 +67,7 @@ type Props = {
   columns: ConnectionColumnId[]
   networkOptions: ConnectionFacetOption[]
   protocolOptions: ConnectionFacetOption[]
+  inboundOptions: ConnectionFacetOption[]
   outboundOptions: ConnectionFacetOption[]
   ruleOptions: ConnectionFacetOption[]
   processOptions: ConnectionFacetOption[]
@@ -78,6 +80,7 @@ type Props = {
   onQueryChange: (value: string) => void
   onNetworkChange: (value: string) => void
   onProtocolChange: (value: string) => void
+  onInboundChange: (value: string) => void
   onOutboundChange: (value: string) => void
   onRuleChange: (value: string) => void
   onProcessChange: (value: string) => void
@@ -106,6 +109,7 @@ export function ConnectionToolbar(props: Props) {
         />
         <FacetSelect label={t("observability.filterNetwork")} value={props.network} options={props.networkOptions} allLabel={allLabel} onChange={props.onNetworkChange} />
         <FacetSelect label={t("observability.filterProtocol")} value={props.protocol} options={props.protocolOptions} allLabel={allLabel} onChange={props.onProtocolChange} />
+        <FacetSelect label={t("observability.filterInbound")} value={props.inbound} options={props.inboundOptions} allLabel={allLabel} onChange={props.onInboundChange} />
         <FacetSelect label={t("observability.filterOutbound")} value={props.outbound} options={props.outboundOptions} allLabel={allLabel} onChange={props.onOutboundChange} />
         <FacetSelect label={t("observability.filterRule")} value={props.rule} options={props.ruleOptions} allLabel={allLabel} onChange={props.onRuleChange} />
         <FacetSelect label={t("observability.filterProcess")} value={props.process} options={props.processOptions} allLabel={allLabel} onChange={props.onProcessChange} />

@@ -64,6 +64,7 @@ export function ConnectionsPage() {
   const facetOptions = useMemo(() => ({
     network: listConnectionFacets(connections, "network"),
     protocol: listConnectionFacets(connections, "protocol"),
+    inbound: listConnectionFacets(connections, "inbound"),
     outbound: listConnectionFacets(connections, "outbound"),
     rule: listConnectionFacets(connections, "rule"),
     process: listConnectionFacets(connections, "process"),
@@ -91,6 +92,7 @@ export function ConnectionsPage() {
       query: patch.query !== undefined ? patch.query : filters.query,
       network: patch.network !== undefined ? patch.network || undefined : filters.network,
       protocol: patch.protocol !== undefined ? patch.protocol || undefined : filters.protocol,
+      inbound: patch.inbound !== undefined ? patch.inbound || undefined : filters.inbound,
       outbound: patch.outbound !== undefined ? patch.outbound || undefined : filters.outbound,
       rule: patch.rule !== undefined ? patch.rule || undefined : filters.rule,
       process: patch.process !== undefined ? patch.process || undefined : filters.process,
@@ -204,6 +206,7 @@ export function ConnectionsPage() {
             query={filters.query ?? ""}
             network={filters.network ?? ""}
             protocol={filters.protocol ?? ""}
+            inbound={filters.inbound ?? ""}
             outbound={filters.outbound ?? ""}
             rule={filters.rule ?? ""}
             process={filters.process ?? ""}
@@ -211,6 +214,7 @@ export function ConnectionsPage() {
             columns={columns}
             networkOptions={facetOptions.network}
             protocolOptions={facetOptions.protocol}
+            inboundOptions={facetOptions.inbound}
             outboundOptions={facetOptions.outbound}
             ruleOptions={facetOptions.rule}
             processOptions={facetOptions.process}
@@ -223,6 +227,7 @@ export function ConnectionsPage() {
             onQueryChange={(value) => patchFilters({ query: value })}
             onNetworkChange={(value) => patchFilters({ network: value })}
             onProtocolChange={(value) => patchFilters({ protocol: value })}
+            onInboundChange={(value) => patchFilters({ inbound: value })}
             onOutboundChange={(value) => patchFilters({ outbound: value })}
             onRuleChange={(value) => patchFilters({ rule: value })}
             onProcessChange={(value) => patchFilters({ process: value })}

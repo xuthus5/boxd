@@ -1,14 +1,18 @@
-import { PencilIcon, Trash2Icon } from "lucide-react"
+import { ActivityIcon, PencilIcon, ScrollTextIcon, Trash2Icon } from "lucide-react"
 import { useId } from "react"
 import { useTranslation } from "react-i18next"
+import { Link } from "react-router-dom"
 
 import { ConfirmAction } from "@/components/confirm-action"
 import { CopyTagButton } from "@/features/proxy/copy-tag-button"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
+import { buildConnectionsHref } from "@/features/observability/connection-facets"
+import { buildLogsHref } from "@/features/observability/log-filter-presets"
 import type { JsonValue } from "@/lib/api/types"
+import { cn } from "@/lib/utils"
 
 type JsonObject = Record<string, JsonValue>
 
@@ -39,6 +43,7 @@ export function InboundCard({ item, onEdit, onDelete, onPatch, busy }: InboundCa
   const isTun = type === "tun"
   const systemProxy = asBool(item.set_system_proxy)
   const autoRoute = asBool(item.auto_route)
+  const hasTag = Boolean(tag && tag !== "—")
 
   return (
     <article aria-labelledby={titleId}>
@@ -67,6 +72,26 @@ export function InboundCard({ item, onEdit, onDelete, onPatch, busy }: InboundCa
               ? <Badge variant="outline">{autoRoute ? t("proxy.inbound.autoRouteOn") : t("proxy.inbound.autoRouteOff")}</Badge>
               : null}
           </div>
+          {hasTag ? (
+            <div className="flex flex-wrap gap-1.5">
+              <Link
+                to={buildConnectionsHref({ inbound: tag })}
+                aria-label={`${t("proxy.viewConnections")}: ${tag}`}
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+              >
+                <ActivityIcon data-icon="inline-start" />
+                {t("proxy.viewConnections")}
+              </Link>
+              <Link
+                to={buildLogsHref({ query: tag })}
+                aria-label={`${t("proxy.viewLogs")}: ${tag}`}
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+              >
+                <ScrollTextIcon data-icon="inline-start" />
+                {t("proxy.viewLogs")}
+              </Link>
+            </div>
+          ) : null}
           {supportsSystemProxy && onPatch ? (
             <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
               <div className="min-w-0">

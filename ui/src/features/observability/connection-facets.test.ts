@@ -12,6 +12,7 @@ import {
   logConnectionQuery,
   logConnectionsHref,
   logDNSHref,
+  logDNSServerTag,
   matchesConnectionFacet,
   parseConnectionSearchParams,
   summarizeConnectionFacets,
@@ -20,9 +21,9 @@ import {
 import type { Connection } from "@/lib/api/types"
 
 const sample: Connection[] = [
-  { id: 1, target: "a.com:443", outbound: "proxy", rule: "geosite-google", network: "tcp", protocol: "tls", process: "/usr/bin/curl", upload: 1, download: 2, start: "t" },
-  { id: 2, target: "b.com:443", outbound: "direct", rule: "geoip-cn", network: "udp", protocol: "quic", process: "/usr/bin/curl", upload: 1, download: 2, start: "t" },
-  { id: 3, target: "c.com:443", outbound: "proxy", network: "tcp", protocol: "", process: "/Applications/Chrome.app", upload: 1, download: 2, start: "t" },
+  { id: 1, target: "a.com:443", outbound: "proxy", rule: "geosite-google", network: "tcp", protocol: "tls", inbound: "mixed-in", process: "/usr/bin/curl", upload: 1, download: 2, start: "t" },
+  { id: 2, target: "b.com:443", outbound: "direct", rule: "geoip-cn", network: "udp", protocol: "quic", inbound: "mixed-in", process: "/usr/bin/curl", upload: 1, download: 2, start: "t" },
+  { id: 3, target: "c.com:443", outbound: "proxy", network: "tcp", protocol: "", inbound: "tun-in", process: "/Applications/Chrome.app", upload: 1, download: 2, start: "t" },
   { id: 4, target: "d.com:53", outbound: "dns", network: "", protocol: "dns", upload: 1, download: 2, start: "t" },
 ]
 
@@ -66,6 +67,8 @@ describe("connection-facets", () => {
     expect(filterConnectionsByFacets(sample, { outbound: "proxy" }).map((item) => item.id)).toEqual([1, 3])
     expect(filterConnectionsByFacets(sample, { rule: "geoip-cn" })).toEqual([sample[1]])
     expect(filterConnectionsByFacets(sample, { process: "/usr/bin/curl" }).map((item) => item.id)).toEqual([1, 2])
+    expect(filterConnectionsByFacets(sample, { inbound: "mixed-in" }).map((item) => item.id)).toEqual([1, 2])
+    expect(connectionFiltersActive({ inbound: "mixed-in" })).toBe(true)
     expect(filterConnectionsByFacets(sample, { query: "proxy", network: "tcp" }).map((item) => item.id)).toEqual([1, 3])
     expect(connectionFiltersActive({ query: "x" })).toBe(true)
     expect(connectionFiltersActive({ network: "tcp" })).toBe(true)
@@ -75,18 +78,19 @@ describe("connection-facets", () => {
   })
 
   it("parses and builds connections deep-link query strings", () => {
-    expect(parseConnectionSearchParams(new URLSearchParams("network=tcp&outbound=proxy&process=/usr/bin/curl&q=api"))).toEqual({
+    expect(parseConnectionSearchParams(new URLSearchParams("network=tcp&inbound=mixed-in&outbound=proxy&process=/usr/bin/curl&q=api"))).toEqual({
       query: "api",
       network: "tcp",
       protocol: undefined,
+      inbound: "mixed-in",
       outbound: "proxy",
       rule: undefined,
       process: "/usr/bin/curl",
       view: undefined,
       sort: undefined,
     })
-    expect(buildConnectionsHref({ network: "udp", rule: "geoip-cn", process: "/usr/bin/curl" })).toBe(
-      "/observability/connections?network=udp&rule=geoip-cn&process=%2Fusr%2Fbin%2Fcurl",
+    expect(buildConnectionsHref({ network: "udp", inbound: "mixed-in", rule: "geoip-cn", process: "/usr/bin/curl" })).toBe(
+      "/observability/connections?network=udp&inbound=mixed-in&rule=geoip-cn&process=%2Fusr%2Fbin%2Fcurl",
     )
     expect(buildConnectionsHref({})).toBe("/observability/connections")
   })
@@ -107,6 +111,7 @@ describe("connection-facets", () => {
       query: undefined,
       network: "tcp",
       protocol: undefined,
+      inbound: undefined,
       outbound: undefined,
       rule: undefined,
       process: undefined,
@@ -153,3 +158,9 @@ describe("connection-facets", () => {
 
 })
 
+
+  it("prefers DNS server tags when building DNS deep-links from logs", () => {
+    expect(logDNSServerTag("dns/local[local]: exchange example.com")).toBe("local")
+    expect(logDNSHref("dns/cf[cloudflare]: lookup api.telegram.org")).toBe("/policy/dns?sq=cloudflare")
+    expect(logDNSHref("lookup example.com via nameserver")).toContain("/policy/dns")
+  })

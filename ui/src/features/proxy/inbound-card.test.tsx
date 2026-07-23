@@ -3,12 +3,17 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 import { I18nextProvider } from "react-i18next"
+import { MemoryRouter } from "react-router-dom"
 
 import { InboundCard } from "@/features/proxy/inbound-card"
 import { i18n } from "@/i18n"
 
 function wrap(ui: ReactElement) {
-  return render(<I18nextProvider i18n={i18n}>{ui}</I18nextProvider>)
+  return render(
+    <I18nextProvider i18n={i18n}>
+      <MemoryRouter>{ui}</MemoryRouter>
+    </I18nextProvider>,
+  )
 }
 
 describe("InboundCard", () => {
@@ -24,6 +29,14 @@ describe("InboundCard", () => {
       />,
     )
     expect(screen.getByText("mixed")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "查看连接: mixed-in" })).toHaveAttribute(
+      "href",
+      "/observability/connections?inbound=mixed-in",
+    )
+    expect(screen.getByRole("link", { name: "查看日志: mixed-in" })).toHaveAttribute(
+      "href",
+      "/observability/logs?q=mixed-in",
+    )
     await user.click(screen.getByRole("switch", { name: "设置系统代理" }))
     expect(onPatch).toHaveBeenCalledWith(expect.objectContaining({ set_system_proxy: true }))
   })
@@ -57,5 +70,4 @@ describe("InboundCard", () => {
     expect(screen.getByText("系统代理已开")).toBeInTheDocument()
     expect(screen.queryByRole("switch")).not.toBeInTheDocument()
   })
-
 })

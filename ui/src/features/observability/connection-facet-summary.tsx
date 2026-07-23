@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils"
 const fieldLabelKey: Record<ConnectionFacetField, string> = {
   network: "observability.filterNetwork",
   protocol: "observability.filterProtocol",
+  inbound: "observability.filterInbound",
   outbound: "observability.filterOutbound",
   rule: "observability.filterRule",
   process: "observability.filterProcess",

@@ -1,4 +1,5 @@
-import { PlusIcon, RefreshCcwIcon, Trash2Icon } from "lucide-react"
+import { SubscriptionItem } from "@/features/subscriptions/subscription-item"
+import { PlusIcon, RefreshCcwIcon } from "lucide-react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useId, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -6,16 +7,12 @@ import { useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { ConfirmAction } from "@/components/confirm-action"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ImportedNodesCard } from "@/features/subscriptions/imported-nodes-card"
 import { SubscriptionDialog } from "@/features/subscriptions/subscription-dialog"
-import { formatRelativeTime } from "@/features/subscriptions/relative-time"
 import {
   failedSubscriptionIds,
   filterSubscriptions,
@@ -27,72 +24,8 @@ import {
   type SubscriptionListFilters,
 } from "@/features/subscriptions/subscription-list"
 import { SubscriptionStatusSummaryBar } from "@/features/subscriptions/subscription-status-summary"
-import { SubscriptionTrafficBadges } from "@/features/subscriptions/subscription-traffic"
 import { api } from "@/lib/api/endpoints"
 import type { Subscription } from "@/lib/api/types"
-
-interface ItemProps { item: Subscription; onEdit: () => void; onRefresh: () => void; onDelete: () => void }
-
-function urlTestStatus(item: Subscription, t: (key: string) => string) {
-  const hasOverrides = Boolean(item.urltest && Object.values(item.urltest).some((value) => value !== undefined))
-  if (item.urltest?.enabled === false) return t("subscriptions.urlTestOff")
-  if (hasOverrides) return t("subscriptions.urlTestCustom")
-  return t("subscriptions.urlTestInherited")
-}
-
-function SubscriptionItem({ item, onEdit, onRefresh, onDelete }: ItemProps) {
-  const { t, i18n } = useTranslation()
-  const [mountedAt] = useState(() => Date.now())
-  return (
-    <article aria-label={item.name}>
-      <Card size="sm" className={item.error ? "border-destructive/40" : undefined}>
-        <CardHeader className="min-w-0 gap-1.5">
-          <CardTitle className="truncate" title={item.name}>{item.name}</CardTitle>
-          <CardDescription className="line-clamp-2 break-all" title={item.url}>{item.url}</CardDescription>
-          <CardAction>
-            <Badge variant="outline">{t("subscriptions.nodeCount", { count: item.outbounds?.length ?? 0 })}</Badge>
-          </CardAction>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-1.5">
-          <span className="text-xs text-muted-foreground sm:text-sm" title={item.last_updated ? new Date(item.last_updated).toLocaleString() : undefined}>
-            {item.last_updated && !Number.isNaN(Date.parse(item.last_updated))
-              ? t("subscriptions.updatedRelative", { time: formatRelativeTime(item.last_updated, mountedAt, i18n.language) })
-              : t("subscriptions.neverUpdated")}
-          </span>
-          <div className="flex flex-wrap gap-1.5">
-            <Badge variant={item.error ? "destructive" : "secondary"} title={item.error || undefined}>
-              {item.error ? t("subscriptions.statusError") : t("common.normal")}
-            </Badge>
-            <Badge variant="outline">{urlTestStatus(item, t)}</Badge>
-          </div>
-          {item.error ? (
-            <p className="line-clamp-2 text-xs text-destructive sm:text-sm" title={item.error}>{item.error}</p>
-          ) : null}
-          <SubscriptionTrafficBadges traffic={item.traffic} />
-        </CardContent>
-        <CardFooter className="grid grid-cols-3 gap-1.5">
-          <Button size="sm" className="h-8" variant="outline" onClick={onEdit}>{t("common.edit")}</Button>
-          <Button size="sm" className="h-8" variant="outline" onClick={onRefresh}>
-            {item.error ? t("subscriptions.retry") : t("subscriptions.refresh")}
-          </Button>
-          <ConfirmAction
-            trigger={(
-              <Button size="sm" className="h-8" variant="destructive">
-                <Trash2Icon data-icon="inline-start" />
-                {t("common.delete")}
-              </Button>
-            )}
-            title={t("common.deleteTitle")}
-            description={t("common.deleteDescription")}
-            confirmLabel={t("common.confirmDelete")}
-            confirmVariant="destructive"
-            onConfirm={onDelete}
-          />
-        </CardFooter>
-      </Card>
-    </article>
-  )
-}
 
 export function SubscriptionsPage() {
   const { t } = useTranslation()

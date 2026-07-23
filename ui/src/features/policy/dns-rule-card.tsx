@@ -12,6 +12,7 @@ import { dnsRuleMatchFields, summarizeDNSRule } from "@/features/policy/dns-form
 import { isRuleInverted } from "@/features/policy/rule-invert"
 import { Switch } from "@/components/ui/switch"
 import { buildLogsHref } from "@/features/observability/log-filter-presets"
+import { buildDNSHref } from "@/features/policy/dns-filter"
 import type { JsonObject } from "@/features/policy/policy-form-model"
 import { cn } from "@/lib/utils"
 
@@ -110,7 +111,8 @@ export function DNSRuleCard(props: DNSRuleCardProps) {
           <div className="flex flex-wrap gap-1.5">
             <Link
               to={buildLogsHref({
-                preset: summary.action.toLowerCase().includes("reject") ? "reject" : "dns",
+                query: typeof item.server === "string" ? item.server : undefined,
+                preset: String(summary.action).toLowerCase().includes("reject") ? "reject" : "dns",
               })}
               aria-label={`${t("policy.dns.viewLogs")}: ${number}`}
               className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
@@ -118,6 +120,15 @@ export function DNSRuleCard(props: DNSRuleCardProps) {
               <ScrollTextIcon data-icon="inline-start" />
               {t("policy.dns.viewLogs")}
             </Link>
+            {typeof item.server === "string" && item.server ? (
+              <Link
+                to={buildDNSHref({ servers: item.server })}
+                aria-label={`${t("policy.dns.viewDNSServer")}: ${item.server}`}
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+              >
+                {t("policy.dns.viewDNSServer")}
+              </Link>
+            ) : null}
           </div>
           {onToggleInvert ? (
             <div className="flex items-center justify-between gap-2 rounded-md border px-2.5 py-1.5">

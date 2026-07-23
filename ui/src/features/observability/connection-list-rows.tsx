@@ -112,7 +112,7 @@ export function ConnectionMobileCard({
         <div className="flex flex-wrap gap-1.5">
           {show("network") ? <MetaChip field="network" label={t("observability.network")} value={connection.network || "—"} /> : null}
           {show("protocol") ? <MetaChip field="protocol" label={t("observability.protocol")} value={connection.protocol || "—"} /> : null}
-          {show("inbound") ? <MetaChip label={t("observability.inbound")} value={connection.inbound || "—"} /> : null}
+          {show("inbound") ? <MetaChip field="inbound" label={t("observability.inbound")} value={connection.inbound || "—"} /> : null}
           {show("source") ? <MetaChip label={t("observability.source")} value={connection.source || "—"} /> : null}
           {show("process") ? <MetaChip field="process" label={t("observability.process")} value={connection.process || "—"} /> : null}
         </div>

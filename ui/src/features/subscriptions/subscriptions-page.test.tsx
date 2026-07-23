@@ -24,6 +24,8 @@ describe("SubscriptionsPage", () => {
     const { container } = renderApp(<App />, "/subscriptions")
 
     expect(await screen.findByText("主订阅")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "查看节点: 主订阅" })).toHaveAttribute("href", "/nodes?q=%E4%B8%BB%E8%AE%A2%E9%98%85")
+    expect(screen.getByRole("link", { name: "查看日志: 主订阅" })).toHaveAttribute("href", "/observability/logs?q=%E4%B8%BB%E8%AE%A2%E9%98%85")
     expect(container.querySelector("[data-slot=card] [data-slot=card]")).not.toBeInTheDocument()
     expect(screen.getByRole("button", { name: "新增订阅" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "刷新全部" })).toBeInTheDocument()
