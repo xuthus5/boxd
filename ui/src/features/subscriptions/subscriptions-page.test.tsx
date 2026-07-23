@@ -46,7 +46,7 @@ describe("SubscriptionsPage", () => {
     expect(screen.queryByText("URLTest：自定义")).not.toBeInTheDocument()
   })
 
-  it("sorts subscriptions by last_updated descending", async () => {
+  it("sorts failed subscriptions first then by last_updated", async () => {
     sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
     vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
       const path = typeof input === "string" ? input : input.toString()
@@ -55,12 +55,17 @@ describe("SubscriptionsPage", () => {
         : path.endsWith("/nodes/") ? [] : [
           { id: "old", name: "旧订阅", url: "https://example.com/old", interval_min: 60, last_updated: "2026-01-01T00:00:00Z", outbounds: [] },
           { id: "new", name: "新订阅", url: "https://example.com/new", interval_min: 60, last_updated: "2026-06-01T00:00:00Z", outbounds: [] },
+          { id: "bad", name: "失败订阅", url: "https://example.com/bad", interval_min: 60, last_updated: "2026-02-01T00:00:00Z", outbounds: [], error: "timeout" },
         ]
       return Promise.resolve(new Response(JSON.stringify(data)))
     }))
     renderApp(<App />, "/subscriptions")
-    const older = await screen.findByText("旧订阅")
+    const failed = await screen.findByText("失败订阅")
     const newer = screen.getByText("新订阅")
+    const older = screen.getByText("旧订阅")
+    expect(failed.compareDocumentPosition(newer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(newer.compareDocumentPosition(older) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.getByRole("button", { name: /重试失败/ })).toBeInTheDocument()
+    expect(screen.getByText("timeout")).toBeInTheDocument()
   })
 })

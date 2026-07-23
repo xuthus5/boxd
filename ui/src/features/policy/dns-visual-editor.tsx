@@ -5,6 +5,8 @@ import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
+import { Input } from "@/components/ui/input"
+import { matchesDNSRule, matchesDNSServer } from "@/features/policy/dns-filter"
 import { DNSFakeIPCard, DNSGlobalCard } from "@/features/policy/dns-global-card"
 import { DNSRuleCard } from "@/features/policy/dns-rule-card"
 import { DNSRuleDialog } from "@/features/policy/dns-rule-dialog"
@@ -43,7 +45,12 @@ function ServerSection({ object, onChange, onRulesChange, onEdit, onInstall }: {
   onRulesChange?: (object: JsonObject, metadata: never[]) => void; onInstall?: () => void
 }) {
   const { t } = useTranslation()
+  const [search, setSearch] = useState("")
   const servers = dnsServers(object)
+  const normalized = search.trim().toLowerCase()
+  const visible = servers
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => matchesDNSServer(item, normalized))
   /* c8 ignore next */
   const update = (next: readonly JsonObject[]) => { const nextObject = setDNSServers(object, next); onChange(nextObject); onRulesChange?.(nextObject, []) }
   return <Card><CardHeader className="min-w-0 grid-cols-1 has-data-[slot=card-action]:grid-cols-1 sm:has-data-[slot=card-action]:grid-cols-[1fr_auto]">
@@ -51,12 +58,21 @@ function ServerSection({ object, onChange, onRulesChange, onEdit, onInstall }: {
     <CardAction className="col-start-1 row-start-auto w-full justify-self-start sm:col-start-2 sm:row-start-1 sm:w-auto sm:justify-self-end">
       <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row"><Button variant="outline" className="w-full sm:w-auto" onClick={onInstall}>{t("policy.installDNS")}</Button><Button className="w-full sm:w-auto" onClick={() => onEdit(null)}><ListPlusIcon data-icon="inline-start" />{t("policy.dns.addServer")}</Button></div>
     </CardAction></CardHeader>
-    <CardContent>{servers.length === 0
+    <CardContent className="flex flex-col gap-3">{servers.length === 0
       ? <EmptySection title={t("policy.dns.emptyServersTitle")} description={t("policy.dns.emptyServersDescription")}
         action={t("policy.dns.addServer")} onAdd={() => onEdit(null)} />
-      : <div className="flex flex-col gap-3">{servers.map((item, index) => <DNSServerCard key={index} item={item}
-        onEdit={() => onEdit(index)} onCopy={() => update(insertCopy(servers, index))}
-        onDelete={() => update(servers.filter((_, itemIndex) => itemIndex !== index))} />)}</div>}</CardContent>
+      : <>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <label className="sr-only" htmlFor="dns-servers-search">{t("policy.dns.searchServers")}</label>
+          <Input id="dns-servers-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("policy.dns.searchServersPlaceholder")} className="sm:max-w-sm" />
+          {normalized ? <p className="text-sm text-muted-foreground">{t("policy.dns.searchCount", { shown: visible.length, total: servers.length })}</p> : null}
+        </div>
+        {visible.length === 0
+          ? <Empty><EmptyHeader><EmptyTitle>{t("policy.dns.noMatch")}</EmptyTitle><EmptyDescription>{t("policy.dns.noMatchDescription")}</EmptyDescription></EmptyHeader></Empty>
+          : <div className="flex flex-col gap-3">{visible.map(({ item, index }) => <DNSServerCard key={index} item={item}
+            onEdit={() => onEdit(index)} onCopy={() => update(insertCopy(servers, index))}
+            onDelete={() => update(servers.filter((_, itemIndex) => itemIndex !== index))} />)}</div>}
+      </>}</CardContent>
     <CardFooter><p className="text-muted-foreground">{t("policy.dns.serversCount", { count: servers.length })}</p></CardFooter></Card>
 }
 
@@ -65,7 +81,12 @@ function RuleSection({ object, onChange, onRulesChange, onEdit }: {
   onRulesChange?: (object: JsonObject, metadata: never[]) => void
 }) {
   const { t } = useTranslation()
+  const [search, setSearch] = useState("")
   const rules = dnsRules(object)
+  const normalized = search.trim().toLowerCase()
+  const visible = rules
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => matchesDNSRule(item, normalized))
   /* c8 ignore next */
   const update = (next: readonly JsonObject[]) => { const nextObject = setDNSRules(object, next); onChange(nextObject); onRulesChange?.(nextObject, []) }
   return <Card><CardHeader className="min-w-0 grid-cols-1 has-data-[slot=card-action]:grid-cols-1 sm:has-data-[slot=card-action]:grid-cols-[1fr_auto]">
@@ -73,18 +94,27 @@ function RuleSection({ object, onChange, onRulesChange, onEdit }: {
     <CardAction className="col-start-1 row-start-auto w-full justify-self-start sm:col-start-2 sm:row-start-1 sm:w-auto sm:justify-self-end">
       <Button className="w-full sm:w-auto" onClick={() => onEdit(null)}><ListPlusIcon data-icon="inline-start" />{t("policy.dns.addRule")}</Button>
     </CardAction></CardHeader>
-    <CardContent>{rules.length === 0
+    <CardContent className="flex flex-col gap-3">{rules.length === 0
       ? <EmptySection title={t("policy.dns.emptyRulesTitle")} description={t("policy.dns.emptyRulesDescription")}
         action={t("policy.dns.addRule")} onAdd={() => onEdit(null)} />
-      : <div className="flex flex-col gap-3">{rules.map((item, index) => <DNSRuleCard key={index} index={index} item={item}
-        first={index === 0} last={index === rules.length - 1} onEdit={() => onEdit(index)}
-        onCopy={() => update(insertCopy(rules, index))} onMoveUp={() => update(moveItem(rules, index, -1))}
-        onMoveDown={() => update(moveItem(rules, index, 1))}
-        onDelete={() => update(rules.filter((_, itemIndex) => itemIndex !== index))} />)}</div>}</CardContent>
+      : <>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <label className="sr-only" htmlFor="dns-rules-search">{t("policy.dns.searchRules")}</label>
+          <Input id="dns-rules-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("policy.dns.searchRulesPlaceholder")} className="sm:max-w-sm" />
+          {normalized ? <p className="text-sm text-muted-foreground">{t("policy.dns.searchCount", { shown: visible.length, total: rules.length })}</p> : null}
+        </div>
+        {visible.length === 0
+          ? <Empty><EmptyHeader><EmptyTitle>{t("policy.dns.noMatch")}</EmptyTitle><EmptyDescription>{t("policy.dns.noMatchDescription")}</EmptyDescription></EmptyHeader></Empty>
+          : <div className="flex flex-col gap-3">{visible.map(({ item, index }) => <DNSRuleCard key={index} index={index} item={item}
+            first={index === 0} last={index === rules.length - 1} onEdit={() => onEdit(index)}
+            onCopy={() => update(insertCopy(rules, index))}
+            onMoveUp={() => update(moveItem(rules, index, -1))}
+            onMoveDown={() => update(moveItem(rules, index, 1))}
+            onDelete={() => update(rules.filter((_, itemIndex) => itemIndex !== index))} />)}</div>}
+      </>}</CardContent>
     <CardFooter><p className="text-muted-foreground">{t("policy.dns.rulesCount", { count: rules.length })}</p></CardFooter></Card>
 }
 
-/* c8 ignore start */
 export function DNSVisualEditor(props: PolicyVisualEditorProps): React.ReactNode {
   const { t } = useTranslation()
   const { object, onChange } = props
