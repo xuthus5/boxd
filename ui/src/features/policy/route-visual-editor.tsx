@@ -113,7 +113,7 @@ function RuleSection({ object, metadata, metadataLoading, metadataError, onChang
     <CardAction className="col-start-1 row-start-auto w-full justify-self-start sm:col-start-2 sm:row-start-1 sm:w-auto sm:justify-self-end">
       <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto"><Button variant="outline" size="sm" className="h-8" onClick={onInstall}>{t("policy.installRoute")}</Button><Button size="sm" className="h-8" onClick={() => onEdit(null)}><ListPlusIcon data-icon="inline-start" />{t("policy.route.addRule")}</Button></div>
     </CardAction></CardHeader>
-    <CardContent className="flex flex-col gap-3">{metadataLoading ? <Skeleton className="h-24 w-full" /> : metadataError
+    <CardContent className="flex flex-col gap-2 sm:gap-3">{metadataLoading ? <Skeleton className="h-24 w-full" /> : metadataError
       ? <Alert variant="destructive"><AlertTitle>{t("common.loadFailed")}</AlertTitle><AlertDescription>{metadataError}</AlertDescription></Alert>
       : rules.length === 0
       ? <EmptySection title={t("policy.route.emptyRulesTitle")} description={t("policy.route.emptyRulesDescription")}
@@ -193,7 +193,7 @@ function RuleSetSection({ object, onChange, onRulesChange, onEdit }: {
     <CardContent>{ruleSets.length === 0
       ? <EmptySection title={t("policy.route.emptyRuleSetsTitle")} description={t("policy.route.emptyRuleSetsDescription")}
         action={t("policy.route.addRuleSet")} onAdd={() => onEdit(null)} />
-      : <div className="flex flex-col gap-3">{ruleSets.map((item, index) => {
+      : <div className="flex flex-col gap-2 sm:gap-3">{ruleSets.map((item, index) => {
         const tag = typeof item.tag === "string" ? item.tag : ""
         const status = statusByTag.get(tag)
         return <RouteRuleSetCard key={index} item={item} status={status}

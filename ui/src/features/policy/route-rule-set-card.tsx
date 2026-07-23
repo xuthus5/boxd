@@ -38,14 +38,14 @@ export function RouteRuleSetCard({ item, status, updating, onEdit, onCopy, onDel
   const updatedLabel = formatUpdatedAt(status?.last_updated)
   return <>
     <Card size="sm">
-      <CardHeader className="min-w-0"><CardTitle>{tag}</CardTitle><CardDescription className="min-w-0 break-words">{summary.detail || t("policy.route.ruleSetLocationMissing")}</CardDescription>
-        <CardAction className="flex items-center gap-1">
+      <CardHeader className="min-w-0 gap-1.5"><CardTitle className="truncate" title={tag}>{tag}</CardTitle><CardDescription className="min-w-0 line-clamp-2 break-words">{summary.detail || t("policy.route.ruleSetLocationMissing")}</CardDescription>
+        <CardAction className="flex flex-wrap items-center justify-end gap-1">
           {updatable ? <Button variant="outline" size="xs" disabled={updating} aria-label={t("policy.route.updateRuleSet", { tag })} onClick={onUpdate}><RefreshCwIcon data-icon="inline-start" className={updating ? "animate-spin" : undefined} />{t("policy.route.update")}</Button> : null}
           <Button variant="outline" size="xs" aria-label={t("policy.route.editRuleSet", { tag })} onClick={onEdit}><PencilIcon data-icon="inline-start" />{t("policy.route.edit")}</Button>
         </CardAction>
       </CardHeader>
-      <CardContent className="flex flex-col gap-2">
-        <div className="flex flex-wrap gap-1">
+      <CardContent className="flex flex-col gap-1.5">
+        <div className="flex flex-wrap gap-1.5">
           <Badge variant="secondary">{summary.type}</Badge>
           {status?.builtin ? <Badge variant="outline">{t("policy.route.builtin")}</Badge> : null}
           {status?.update_interval ? <Badge variant="outline">{t("policy.route.intervalBadge", { interval: status.update_interval })}</Badge> : null}

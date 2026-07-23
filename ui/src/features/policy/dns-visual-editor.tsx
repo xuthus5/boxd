@@ -122,7 +122,7 @@ function ServerSection({ object, onChange, onRulesChange, onEdit, onInstall }: {
         <Button className="h-8 w-full sm:w-auto" onClick={() => onEdit(null)}><ListPlusIcon data-icon="inline-start" />{t("policy.dns.addServer")}</Button>
       </div>
     </CardAction></CardHeader>
-    <CardContent className="flex flex-col gap-3">{servers.length === 0
+    <CardContent className="flex flex-col gap-2 sm:gap-3">{servers.length === 0
       ? <EmptySection title={t("policy.dns.emptyServersTitle")} description={t("policy.dns.emptyServersDescription")}
         action={t("policy.dns.addServer")} onAdd={() => onEdit(null)} />
       : <>
@@ -192,7 +192,7 @@ function RuleSection({ object, onChange, onRulesChange, onEdit }: {
     <CardAction className="col-start-1 row-start-auto w-full justify-self-start sm:col-start-2 sm:row-start-1 sm:w-auto sm:justify-self-end">
       <Button className="h-8 w-full sm:w-auto" onClick={() => onEdit(null)}><ListPlusIcon data-icon="inline-start" />{t("policy.dns.addRule")}</Button>
     </CardAction></CardHeader>
-    <CardContent className="flex flex-col gap-3">{rules.length === 0
+    <CardContent className="flex flex-col gap-2 sm:gap-3">{rules.length === 0
       ? <EmptySection title={t("policy.dns.emptyRulesTitle")} description={t("policy.dns.emptyRulesDescription")}
         action={t("policy.dns.addRule")} onAdd={() => onEdit(null)} />
       : <>

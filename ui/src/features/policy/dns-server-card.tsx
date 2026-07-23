@@ -62,8 +62,10 @@ export function DNSServerCard({ item, onEdit, onCopy, onDelete, probeResult, onP
     onError: (error: Error) => toast.error(error.message),
   })
   const confirmDelete = () => { setDeleting(false); onDelete() }
-  return <><Card size="sm"><CardHeader className="min-w-0"><CardTitle>{tag}</CardTitle>
-    <CardDescription>{inferDNSServerType(item)}</CardDescription><CardAction className="flex items-center gap-2">
+  return <><Card size="sm"><CardHeader className="min-w-0 gap-1.5">
+    <CardTitle className="truncate" title={tag}>{tag}</CardTitle>
+    <CardDescription className="truncate">{inferDNSServerType(item)}</CardDescription>
+    <CardAction className="flex flex-wrap items-center justify-end gap-1">
       <ProbeBadge result={probeResult} />
       <Button variant="outline" size="xs" disabled={!probeable || probeMutation.isPending}
         aria-label={t("policy.dns.probeServer", { tag })} onClick={() => probeMutation.mutate()}>
@@ -71,9 +73,15 @@ export function DNSServerCard({ item, onEdit, onCopy, onDelete, probeResult, onP
       </Button>
       <Button variant="outline" size="xs" aria-label={t("policy.dns.editServer", { tag })} onClick={onEdit}>
         <PencilIcon data-icon="inline-start" />{t("policy.dns.edit")}
-      </Button></CardAction></CardHeader>
-    <CardContent><div className="flex flex-wrap gap-2"><Badge>{summary.type}</Badge>
-      {summary.detail ? <Badge variant="secondary">{summary.detail}</Badge> : null}</div></CardContent>
+      </Button>
+    </CardAction>
+  </CardHeader>
+    <CardContent className="flex flex-col gap-1.5">
+      <div className="flex flex-wrap gap-1.5">
+        <Badge>{summary.type}</Badge>
+        {summary.detail ? <Badge variant="secondary" className="max-w-full truncate">{summary.detail}</Badge> : null}
+      </div>
+    </CardContent>
     <CardFooter className="justify-between gap-2"><div className="hidden gap-1 sm:flex">
       <Button variant="outline" size="icon-xs" aria-label={t("policy.dns.copyServer", { tag })} onClick={onCopy}><CopyIcon data-icon="inline-start" /></Button>
       <Button variant="destructive" size="icon-xs" aria-label={t("policy.dns.deleteServer", { tag })} onClick={() => setDeleting(true)}><Trash2Icon data-icon="inline-start" /></Button>
