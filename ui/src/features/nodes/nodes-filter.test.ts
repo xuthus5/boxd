@@ -10,6 +10,8 @@ import {
   parseNodeSearchParams,
   pickNodeHistorySeries,
   sortNodes,
+  summarizeNodeStability,
+  stabilityBucketForHealth,
   toNodeSearchParams,
 } from "@/features/nodes/nodes-filter"
 import type { LatencyPoint, Outbound } from "@/lib/api/types"
@@ -94,5 +96,25 @@ describe("nodes-filter", () => {
     expect(buildNodesHref({ query: "hk", sort: "stability" })).toBe("/nodes?q=hk&sort=stability")
     expect(buildNodesHref({ sort: "name" })).toBe("/nodes")
     expect(toNodeSearchParams({ stability: "failed" }).get("stability")).toBe("failed")
+  })
+
+  it("summarizes stability buckets for the current search query", () => {
+    expect(summarizeNodeStability(nodes, history)).toEqual({
+      total: 3,
+      stable: 1,
+      fair: 1,
+      unstable: 1,
+      failed: 0,
+      unknown: 0,
+    })
+    expect(summarizeNodeStability(nodes, history, "hk")).toEqual({
+      total: 1,
+      stable: 1,
+      fair: 0,
+      unstable: 0,
+      failed: 0,
+      unknown: 0,
+    })
+    expect(stabilityBucketForHealth(nodeLatencyHealth(nodes[0], undefined))).toBe("unknown")
   })
 })

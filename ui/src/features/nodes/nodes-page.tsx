@@ -10,10 +10,12 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { NodeSection } from "@/features/nodes/node-section"
+import { NodeStabilitySummaryBar } from "@/features/nodes/node-stability-summary"
 import {
   filterAndSortNodes,
   nodeFiltersActive,
   parseNodeSearchParams,
+  summarizeNodeStability,
   toNodeSearchParams,
   type NodeListFilters,
   type NodeSortKey,
@@ -91,6 +93,10 @@ export function NodesPage() {
   const filtered = useMemo(
     () => filterAndSortNodes(nodesQuery.data ?? [], { query, stability: stability || undefined, sort }, history),
     [history, nodesQuery.data, query, sort, stability],
+  )
+  const stabilitySummary = useMemo(
+    () => summarizeNodeStability(nodesQuery.data ?? [], history, query),
+    [history, nodesQuery.data, query],
   )
   const imported = filtered.filter((node) => node.source === "import")
   const subscriptions = groupSubscriptions(filtered)
@@ -195,6 +201,7 @@ export function NodesPage() {
           ) : null}
         </div>
       </div>
+      <NodeStabilitySummaryBar summary={stabilitySummary} filters={filters} onChange={writeFilters} />
       <RuntimeGroupsCard />
       {filtered.length === 0 && facetsActive
         ? <Empty>

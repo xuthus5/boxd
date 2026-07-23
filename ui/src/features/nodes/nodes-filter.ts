@@ -161,3 +161,39 @@ export function buildNodesHref(filters: NodeListFilters = {}): string {
   return qs ? `/nodes?${qs}` : "/nodes"
 }
 
+
+
+export type NodeStabilityBucket = Exclude<NodeStabilityFilter, "">
+
+export type NodeStabilitySummary = Record<NodeStabilityBucket, number> & {
+  total: number
+}
+
+export function stabilityBucketForHealth(health: LatencyHealth): NodeStabilityBucket {
+  if (health.tone === "excellent" || health.tone === "good") return "stable"
+  if (health.tone === "fair") return "fair"
+  if (health.tone === "poor") return "unstable"
+  if (health.tone === "failed") return "failed"
+  return "unknown"
+}
+
+export function summarizeNodeStability(
+  nodes: readonly Outbound[],
+  history: NodeHistoryMap | undefined,
+  query = "",
+): NodeStabilitySummary {
+  const summary: NodeStabilitySummary = {
+    total: 0,
+    stable: 0,
+    fair: 0,
+    unstable: 0,
+    failed: 0,
+    unknown: 0,
+  }
+  for (const node of nodes) {
+    if (!matchesNodeQuery(node, query)) continue
+    summary.total += 1
+    summary[stabilityBucketForHealth(nodeLatencyHealth(node, history))] += 1
+  }
+  return summary
+}
