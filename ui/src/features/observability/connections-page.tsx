@@ -1,4 +1,4 @@
-import { Trash2Icon } from "lucide-react"
+import { Columns3Icon, Trash2Icon } from "lucide-react"
 import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -9,92 +9,44 @@ import { Button } from "@/components/ui/button"
 import { ConfirmAction } from "@/components/confirm-action"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/features/auth/auth-context"
 import { formatBytes } from "@/features/dashboard/format"
+import {
+  CONNECTION_COLUMNS,
+  loadConnectionColumns,
+  saveConnectionColumns,
+  toggleConnectionColumn,
+  type ConnectionColumnId,
+} from "@/features/observability/connection-columns"
 import {
   buildConnectionExportFilename,
   formatConnectionExport,
   sortConnections,
   type ConnectionSortKey,
 } from "@/features/observability/connection-export"
+import { ConnectionGroupTable } from "@/features/observability/connection-group-table"
+import { ConnectionListTable } from "@/features/observability/connection-list-table"
 import {
   aggregateConnections,
   matchesConnection,
   summarizeConnections,
-  type ConnectionGroupStat,
 } from "@/features/observability/connection-stats"
 import { downloadTextFile } from "@/features/observability/log-export"
 import { useStreamBuffer } from "@/features/observability/use-stream-buffer"
 import { api } from "@/lib/api/endpoints"
 import type { ConnectionEvent } from "@/lib/api/types"
-
-function formatDuration(start: string) {
-  const startedAt = new Date(start).getTime()
-  if (!Number.isFinite(startedAt)) return "—"
-  return `${Math.floor(Math.max(0, Date.now() - startedAt) / 1000)}s`
-}
-
-function GroupStatsTable({
-  groups,
-  field,
-  busy,
-  onCloseGroup,
-  emptyTitle,
-  emptyDescription,
-}: {
-  groups: ConnectionGroupStat[]
-  field: "outbound" | "rule"
-  busy: boolean
-  onCloseGroup: (field: "outbound" | "rule", key: string) => void
-  emptyTitle: string
-  emptyDescription: string
-}) {
-  const { t } = useTranslation()
-  if (groups.length === 0) {
-    return <Empty><EmptyHeader><EmptyTitle>{emptyTitle}</EmptyTitle><EmptyDescription>{emptyDescription}</EmptyDescription></EmptyHeader></Empty>
-  }
-  return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>{t("observability.group")}</TableHead>
-          <TableHead>{t("observability.count")}</TableHead>
-          <TableHead>{t("dashboard.upload")}</TableHead>
-          <TableHead>{t("dashboard.download")}</TableHead>
-          <TableHead>{t("common.actions")}</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {groups.map((group) => (
-          <TableRow key={group.key}>
-            <TableCell className="max-w-[14rem] truncate" title={group.key}>{group.key}</TableCell>
-            <TableCell>{group.count}</TableCell>
-            <TableCell>{formatBytes(group.upload)}</TableCell>
-            <TableCell>{formatBytes(group.download)}</TableCell>
-            <TableCell>
-              <ConfirmAction
-                trigger={
-                  <Button size="sm" variant="destructive" disabled={busy || group.key === "—"}>
-                    {t("observability.closeGroup")}
-                  </Button>
-                }
-                title={t("observability.closeGroupTitle", { group: group.key })}
-                description={t("observability.closeGroupDescription", { count: group.count, group: group.key })}
-                confirmLabel={t("observability.confirmClose")}
-                confirmVariant="destructive"
-                onConfirm={() => onCloseGroup(field, group.key)}
-              />
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-  )
-}
 
 export function ConnectionsPage() {
   const { t } = useTranslation()
@@ -103,6 +55,7 @@ export function ConnectionsPage() {
   const [closingId, setClosingId] = useState<string | "all" | null>(null)
   const [query, setQuery] = useState("")
   const [sort, setSort] = useState<ConnectionSortKey>("traffic")
+  const [columns, setColumns] = useState<ConnectionColumnId[]>(() => loadConnectionColumns())
   const snapshot = stream.items.at(-1)
   const connections = useMemo(() => snapshot?.list ?? [], [snapshot?.list])
   const normalized = query.trim().toLowerCase()
@@ -161,6 +114,10 @@ export function ConnectionsPage() {
     }
   }
 
+  const onToggleColumn = (id: ConnectionColumnId, enabled: boolean) => {
+    setColumns((current) => saveConnectionColumns(toggleConnectionColumn(current, id, enabled)))
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -182,6 +139,7 @@ export function ConnectionsPage() {
               <CardTitle>
                 {t("observability.liveConnections")}{" "}
                 <Badge variant="secondary">{t("observability.shownCount", { count: filtered.length })}</Badge>
+                {stream.paused ? <Badge variant="outline" className="ml-2">{t("observability.paused")}</Badge> : null}
               </CardTitle>
               <CardDescription>{t("observability.connectionsDescription")}</CardDescription>
             </div>
@@ -191,7 +149,7 @@ export function ConnectionsPage() {
               <span>{t("observability.outboundCount", { count: summary.outbounds })}</span>
             </div>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
             <label className="sr-only" htmlFor="connections-search">{t("observability.searchConnections")}</label>
             <Input
               id="connections-search"
@@ -199,6 +157,7 @@ export function ConnectionsPage() {
               onChange={(event) => setQuery(event.target.value)}
               placeholder={t("observability.searchConnectionsPlaceholder")}
               className="sm:max-w-xs"
+              aria-label={t("observability.searchConnections")}
             />
             <Select items={sortOptions} value={sort} onValueChange={(value) => setSort(String(value) as ConnectionSortKey)}>
               <SelectTrigger aria-label={t("observability.sortConnections")} className="w-full sm:w-44">
@@ -212,6 +171,31 @@ export function ConnectionsPage() {
                 </SelectGroup>
               </SelectContent>
             </Select>
+            <DropdownMenu>
+              <DropdownMenuTrigger render={<Button variant="outline" />}>
+                <Columns3Icon data-icon="inline-start" />
+                {t("observability.columns")}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-52">
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>{t("observability.columns")}</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {CONNECTION_COLUMNS.map((column) => (
+                    <DropdownMenuCheckboxItem
+                      key={column.id}
+                      checked={columns.includes(column.id)}
+                      disabled={column.required}
+                      onCheckedChange={(checked) => onToggleColumn(column.id, checked === true)}
+                    >
+                      {t(column.labelKey)}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button variant="outline" onClick={() => stream.setPaused(!stream.paused)}>
+              {stream.paused ? t("observability.resume") : t("observability.pause")}
+            </Button>
             <Button variant="outline" disabled={!canExport} onClick={onExport}>
               {t("observability.exportConnections")}
             </Button>
@@ -243,56 +227,15 @@ export function ConnectionsPage() {
                 <TabsTrigger value="rule">{t("observability.byRule")}</TabsTrigger>
               </TabsList>
               <TabsContent value="list" className="mt-3">
-                {sorted.length === 0 ? (
-                  <Empty><EmptyHeader><EmptyTitle>{t("observability.noMatch")}</EmptyTitle><EmptyDescription>{t("observability.noMatchDescription")}</EmptyDescription></EmptyHeader></Empty>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{t("observability.target")}</TableHead>
-                        <TableHead>{t("observability.source")}</TableHead>
-                        <TableHead>{t("observability.network")}</TableHead>
-                        <TableHead>{t("observability.inbound")}</TableHead>
-                        <TableHead>{t("observability.outbound")}</TableHead>
-                        <TableHead>{t("observability.rule")}</TableHead>
-                        <TableHead>{t("observability.protocol")}</TableHead>
-                        <TableHead>{t("observability.process")}</TableHead>
-                        <TableHead>{t("dashboard.upload")}</TableHead>
-                        <TableHead>{t("dashboard.download")}</TableHead>
-                        <TableHead>{t("observability.duration")}</TableHead>
-                        <TableHead>{t("common.actions")}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {sorted.map((connection) => {
-                        const id = String(connection.id)
-                        return (
-                          <TableRow key={connection.id}>
-                            <TableCell className="max-w-[12rem] truncate" title={connection.target}>{connection.target}</TableCell>
-                            <TableCell className="max-w-[10rem] truncate" title={connection.source || undefined}>{connection.source || "—"}</TableCell>
-                            <TableCell>{connection.network || "—"}</TableCell>
-                            <TableCell className="max-w-[8rem] truncate" title={connection.inbound || undefined}>{connection.inbound || "—"}</TableCell>
-                            <TableCell>{connection.outbound}</TableCell>
-                            <TableCell className="max-w-[10rem] truncate" title={connection.rule || undefined}>{connection.rule || "—"}</TableCell>
-                            <TableCell>{connection.protocol || "—"}</TableCell>
-                            <TableCell className="max-w-[10rem] truncate" title={connection.process || undefined}>{connection.process || "—"}</TableCell>
-                            <TableCell>{formatBytes(connection.upload)}</TableCell>
-                            <TableCell>{formatBytes(connection.download)}</TableCell>
-                            <TableCell>{formatDuration(connection.start)}</TableCell>
-                            <TableCell>
-                              <Button size="sm" variant="destructive" disabled={busy} onClick={() => void run(api.stats.closeConnection(id), t("observability.close"), id)}>
-                                {t("observability.close")}
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })}
-                    </TableBody>
-                  </Table>
-                )}
+                <ConnectionListTable
+                  connections={sorted}
+                  columns={columns}
+                  busy={busy}
+                  onClose={(id) => void run(api.stats.closeConnection(id), t("observability.close"), id)}
+                />
               </TabsContent>
               <TabsContent value="outbound" className="mt-3">
-                <GroupStatsTable
+                <ConnectionGroupTable
                   groups={byOutbound}
                   field="outbound"
                   busy={busy}
@@ -302,7 +245,7 @@ export function ConnectionsPage() {
                 />
               </TabsContent>
               <TabsContent value="rule" className="mt-3">
-                <GroupStatsTable
+                <ConnectionGroupTable
                   groups={byRule}
                   field="rule"
                   busy={busy}
@@ -320,4 +263,3 @@ export function ConnectionsPage() {
     </div>
   )
 }
-
