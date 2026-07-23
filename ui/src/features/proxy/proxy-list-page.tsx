@@ -10,14 +10,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import { ConfigSaveErrorAlert } from "@/features/config/config-save-error-alert"
 import { useConfigQuery, useSaveConfigMutation } from "@/features/config/config-hooks"
+import { useConfigSaveError } from "@/features/config/use-config-save-error"
 import { RuntimeGroupCard } from "@/features/nodes/runtime-groups-card"
 import { InboundCard } from "@/features/proxy/inbound-card"
 import { OutboundCard } from "@/features/proxy/outbound-card"
 import { ProxyEditorDialog } from "@/features/proxy/proxy-editor-dialog"
 import { matchesProxyItem } from "@/features/proxy/proxy-filter"
 import { api } from "@/lib/api/endpoints"
-import { rolledBackMessage, saveErrorMessage } from "@/lib/api/status"
 import type { JsonValue, OutboundGroup, Subscription } from "@/lib/api/types"
 
 type JsonObject = Record<string, JsonValue>
@@ -134,6 +135,7 @@ export function ProxyListPage({ configKey, title, addLabel }: {
   const save = useSaveConfigMutation()
   const [editing, setEditing] = useState<Editing | null>(null)
   const [search, setSearch] = useState("")
+  const { saveError, clearSaveError, reportError, reportRollback } = useConfigSaveError()
   if (query.isLoading) return <Skeleton className="h-64 w-full" />
   if (query.error) {
     return <Alert variant="destructive"><AlertTitle>{t("common.loadFailed")}</AlertTitle><AlertDescription>{query.error.message}</AlertDescription></Alert>
@@ -141,12 +143,19 @@ export function ProxyListPage({ configKey, title, addLabel }: {
   const items = objects(query.data?.[configKey])
   const normalized = search.trim().toLowerCase()
   const filtered = items.map((item, index) => ({ item, index })).filter(({ item }) => matchesProxyItem(item, normalized))
-  const persist = (nextItems: JsonObject[]) => save.mutate({ ...query.data!, [configKey]: nextItems }, {
-    onSuccess: (response) => response.status === "rolled_back"
-      ? toast.error(rolledBackMessage(response, t("proxy.rolledBack")))
-      : toast.success(t("proxy.saved")),
-    onError: (error) => toast.error(saveErrorMessage(error)),
-  })
+  const persist = (nextItems: JsonObject[]) => {
+    clearSaveError()
+    save.mutate({ ...query.data!, [configKey]: nextItems }, {
+      onSuccess: (response) => {
+        if (response.status === "rolled_back") {
+          reportRollback(response, t("proxy.rolledBack"))
+          return
+        }
+        toast.success(t("proxy.saved"))
+      },
+      onError: (error) => { reportError(error) },
+    })
+  }
   const saveItem = (item: JsonObject) => {
     const next = [...items]
     if (editing!.index < 0) next.push(item)
@@ -157,7 +166,10 @@ export function ProxyListPage({ configKey, title, addLabel }: {
   const installDefaults = () => {
     const action = configKey === "outbounds" ? api.config.installOutbounds() : api.config.installInbounds()
     const success = configKey === "outbounds" ? t("proxy.defaultsInstalled") : t("proxy.inboundDefaultsInstalled")
-    action.then(() => query.refetch()).then(() => toast.success(success)).catch((error: Error) => toast.error(saveErrorMessage(error)))
+    clearSaveError()
+    action.then(() => query.refetch()).then(() => toast.success(success)).catch((error: Error) => {
+      reportError(error)
+    })
   }
   return (
     <div className="flex flex-col gap-4">
@@ -173,6 +185,7 @@ export function ProxyListPage({ configKey, title, addLabel }: {
           </Button>
         </div>
       </div>
+      <ConfigSaveErrorAlert error={saveError} onDismiss={clearSaveError} />
       {items.length > 0 ? (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <label className="sr-only" htmlFor={`proxy-search-${configKey}`}>{t("proxy.search")}</label>

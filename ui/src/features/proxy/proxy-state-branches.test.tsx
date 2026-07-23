@@ -42,6 +42,6 @@ describe("proxy alternate states", () => {
     renderApp(<App />, "/proxy/inbounds")
     await user.click(await screen.findByRole("button", { name: "删除" }))
     await user.click(screen.getByRole("button", { name: "确认删除" }))
-    expect(await screen.findByText("配置已回滚")).toBeInTheDocument()
+    expect(await screen.findByTestId("config-save-error")).toHaveTextContent("配置已回滚")
   })
 })

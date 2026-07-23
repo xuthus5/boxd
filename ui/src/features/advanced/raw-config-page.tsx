@@ -9,19 +9,19 @@ import { ConfirmAction } from "@/components/confirm-action"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ConfigDiffPanel } from "@/features/config/config-diff-panel"
+import { ConfigSaveErrorAlert } from "@/features/config/config-save-error-alert"
+import { useConfigSaveError } from "@/features/config/use-config-save-error"
 import { useRawConfigQuery, useSaveConfigMutation } from "@/features/config/config-hooks"
 import { diffConfig, formatConfigDiffSummary } from "@/features/config/config-diff"
 import { JsonEditor, type JsonEditorHandle } from "@/features/config/json-editor"
 import { isValidJSON } from "@/features/config/json-utils"
 import type { SingBoxConfig } from "@/lib/api/types"
-import { rolledBackMessage, saveErrorMessage } from "@/lib/api/status"
-import { parseConfigError } from "@/lib/api/config-error"
 
 function RawEditor({ initial }: { initial: SingBoxConfig }) {
   const { t } = useTranslation()
   const editorRef = useRef<JsonEditorHandle>(null)
   const [value, setValue] = useState(() => JSON.stringify(initial, null, 2))
-  const [errorPath, setErrorPath] = useState<string | null>(null)
+  const { saveError, clearSaveError, reportError, reportRollback } = useConfigSaveError()
   const save = useSaveConfigMutation(true)
   const valid = isValidJSON(value)
   const nextConfig = valid ? JSON.parse(value) as SingBoxConfig : null
@@ -39,19 +39,19 @@ function RawEditor({ initial }: { initial: SingBoxConfig }) {
   }
   const persist = () => {
     if (!nextConfig) return
-    setErrorPath(null)
+    clearSaveError()
     save.mutate(nextConfig, {
-      onSuccess: (response) => response.status === "rolled_back"
-        ? toast.error(rolledBackMessage(response, t("advanced.rolledBack")))
-        : toast.success(t("advanced.rawSaved")),
-      onError: (error) => {
-        const message = saveErrorMessage(error)
-        toast.error(message)
-        const parsed = parseConfigError(error.message)
-        if (parsed.path) {
-          setErrorPath(parsed.path)
-          reveal(parsed.path)
+      onSuccess: (response) => {
+        if (response.status === "rolled_back") {
+          const err = reportRollback(response, t("advanced.rolledBack"))
+          if (err.path) reveal(err.path)
+          return
         }
+        toast.success(t("advanced.rawSaved"))
+      },
+      onError: (error) => {
+        const err = reportError(error)
+        if (err.path) reveal(err.path)
       },
     })
   }
@@ -61,20 +61,14 @@ function RawEditor({ initial }: { initial: SingBoxConfig }) {
         <FieldLabel className="sr-only">{t("advanced.rawJSON")}</FieldLabel>
         <JsonEditor ref={editorRef} value={value} onChange={setValue} ariaLabel={t("advanced.rawJSON")} />
       </Field>
-      {errorPath ? (
-        <Alert variant="destructive" data-testid="raw-config-error-path">
-          <AlertTitle>{t("config.errorPathTitle")}</AlertTitle>
-          <AlertDescription className="flex flex-wrap items-center gap-2">
-            <span>{t("config.errorPathDescription", { path: errorPath })}</span>
-            <Button type="button" size="xs" variant="outline" onClick={() => reveal(errorPath)}>
-              {t("config.jumpToPath")}
-            </Button>
-          </AlertDescription>
-        </Alert>
-      ) : null}
+      <ConfigSaveErrorAlert
+        error={saveError}
+        onDismiss={clearSaveError}
+        onJumpToPath={reveal}
+      />
       <ConfigDiffPanel items={diffItems} onSelectPath={reveal} />
       <Field orientation="horizontal">
-        <Button variant="outline" onClick={() => { setValue(JSON.stringify(initial, null, 2)); setErrorPath(null) }}>
+        <Button variant="outline" onClick={() => { setValue(JSON.stringify(initial, null, 2)); clearSaveError() }}>
           {t("advanced.reset")}
         </Button>
         <ConfirmAction
