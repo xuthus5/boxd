@@ -1,6 +1,6 @@
 import { screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { afterEach, describe, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import App from "@/App"
 import { sessionStore } from "@/lib/session"
@@ -31,6 +31,10 @@ describe("observability interactions", () => {
     renderApp(<App />, "/observability/logs")
     const panel = await screen.findByRole("tabpanel")
     await within(panel).findByText("ready")
+    await user.click(within(panel).getByRole("button", { name: "连接" }))
+    expect(within(panel).getByLabelText("搜索日志")).toHaveValue("inbound outbound connection")
+    await user.click(within(panel).getByRole("button", { name: "清除过滤" }))
+    expect(within(panel).getByLabelText("搜索日志")).toHaveValue("")
     await user.type(within(panel).getByLabelText("搜索日志"), "ready")
     await user.click(within(panel).getByRole("button", { name: "暂停" }))
     await user.click(within(panel).getByRole("button", { name: "清空显示" }))

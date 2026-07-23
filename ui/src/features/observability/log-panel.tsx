@@ -19,6 +19,12 @@ import {
   downloadTextFile,
   formatLogExport,
 } from "@/features/observability/log-export"
+import {
+  applyLogPreset,
+  LOG_FILTER_PRESETS,
+  matchesLogFilter,
+  type LogFilterPresetId,
+} from "@/features/observability/log-filter-presets"
 import { meetsLogThreshold, type LogThreshold } from "@/features/observability/log-level"
 import { useStreamBuffer } from "@/features/observability/use-stream-buffer"
 import { usePreferences } from "@/features/preferences/preferences-provider"
@@ -30,11 +36,22 @@ function formatLogTimestamp(timestamp?: string) {
   return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString()
 }
 
-function LogFilters({ filter, minimum, onFilterChange, onMinimumChange }: {
+function LogFilters({
+  filter,
+  minimum,
+  activePreset,
+  onFilterChange,
+  onMinimumChange,
+  onPreset,
+  onClear,
+}: {
   filter: string
   minimum: LogThreshold
+  activePreset: LogFilterPresetId | null
   onFilterChange: (value: string) => void
   onMinimumChange: (value: LogThreshold) => void
+  onPreset: (id: LogFilterPresetId) => void
+  onClear: () => void
 }) {
   const { t } = useTranslation()
   const searchId = useId()
@@ -47,21 +64,44 @@ function LogFilters({ filter, minimum, onFilterChange, onMinimumChange }: {
     { label: "Warn", value: "warn" },
     { label: "Error", value: "error" },
   ]
-  return <FieldGroup className="gap-3 @md/field-group:flex-row">
-    <Field>
-      <FieldLabel htmlFor={searchId}>{t("observability.searchLogs")}</FieldLabel>
-      <Input id={searchId} aria-label={t("observability.searchLogs")} placeholder={t("observability.searchLogs")} value={filter} onChange={(event) => onFilterChange(event.target.value)} />
-    </Field>
-    <Field>
-      <FieldLabel htmlFor={levelId}>{t("observability.minimumLogLevel")}</FieldLabel>
-      <Select items={levels} value={minimum} onValueChange={(value) => onMinimumChange(String(value) as LogThreshold)}>
-        <SelectTrigger id={levelId} aria-label={t("observability.minimumLogLevel")} aria-describedby={levelDescriptionId} className="w-full"><SelectValue /></SelectTrigger>
-        <SelectContent><SelectGroup>
-          {levels.map((level) => <SelectItem key={level.value} value={level.value}>{level.label}</SelectItem>)}
-        </SelectGroup></SelectContent>
-      </Select>
-      <FieldDescription id={levelDescriptionId}>{t("observability.minimumLogLevelDescription")}</FieldDescription>
-    </Field>
+  const hasFilter = Boolean(filter.trim()) || minimum !== "all"
+  return <FieldGroup className="gap-3">
+    <div className="flex flex-col gap-3 @md/field-group:flex-row">
+      <Field className="flex-1">
+        <FieldLabel htmlFor={searchId}>{t("observability.searchLogs")}</FieldLabel>
+        <Input id={searchId} aria-label={t("observability.searchLogs")} placeholder={t("observability.searchLogs")} value={filter} onChange={(event) => onFilterChange(event.target.value)} />
+      </Field>
+      <Field className="sm:w-52">
+        <FieldLabel htmlFor={levelId}>{t("observability.minimumLogLevel")}</FieldLabel>
+        <Select items={levels} value={minimum} onValueChange={(value) => onMinimumChange(String(value) as LogThreshold)}>
+          <SelectTrigger id={levelId} aria-label={t("observability.minimumLogLevel")} aria-describedby={levelDescriptionId} className="w-full"><SelectValue /></SelectTrigger>
+          <SelectContent><SelectGroup>
+            {levels.map((level) => <SelectItem key={level.value} value={level.value}>{level.label}</SelectItem>)}
+          </SelectGroup></SelectContent>
+        </Select>
+        <FieldDescription id={levelDescriptionId}>{t("observability.minimumLogLevelDescription")}</FieldDescription>
+      </Field>
+    </div>
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-sm text-muted-foreground">{t("observability.logPresets")}</span>
+      {LOG_FILTER_PRESETS.map((preset) => (
+        <Button
+          key={preset.id}
+          type="button"
+          size="sm"
+          variant={activePreset === preset.id ? "default" : "outline"}
+          aria-pressed={activePreset === preset.id}
+          onClick={() => onPreset(preset.id)}
+        >
+          {t(preset.labelKey)}
+        </Button>
+      ))}
+      {hasFilter ? (
+        <Button type="button" size="sm" variant="ghost" onClick={onClear}>
+          {t("observability.clearLogFilter")}
+        </Button>
+      ) : null}
+    </div>
   </FieldGroup>
 }
 
@@ -71,9 +111,10 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
   const stream = useStreamBuffer<LogEvent>(path, useAuth().session!.token)
   const [filter, setFilter] = useState("")
   const [minimum, setMinimum] = useState<LogThreshold>(preferences.minimumLogLevel)
+  const [activePreset, setActivePreset] = useState<LogFilterPresetId | null>(null)
   const items = useMemo(
     () => stream.items.filter((item) => meetsLogThreshold(item.level, minimum)
-      && `${item.level} ${item.message}`.toLowerCase().includes(filter.toLowerCase())),
+      && matchesLogFilter(item.level, item.message, filter)),
     [filter, minimum, stream.items],
   )
   const exportText = useMemo(() => formatLogExport(items), [items])
@@ -99,6 +140,29 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
     }
   }
 
+  const onPreset = (id: LogFilterPresetId) => {
+    const applied = applyLogPreset(LOG_FILTER_PRESETS.find((preset) => preset.id === id))
+    setActivePreset(id)
+    setFilter(applied.filter)
+    if (applied.minimum) setMinimum(applied.minimum)
+  }
+
+  const onFilterChange = (value: string) => {
+    setActivePreset(null)
+    setFilter(value)
+  }
+
+  const onMinimumChange = (value: LogThreshold) => {
+    setActivePreset(null)
+    setMinimum(value)
+  }
+
+  const onClear = () => {
+    setActivePreset(null)
+    setFilter("")
+    setMinimum(preferences.minimumLogLevel)
+  }
+
   return <Card>
     <CardHeader>
       <CardTitle>{title}</CardTitle>
@@ -109,7 +173,15 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
         <AlertTitle>{t("observability.streamError")}</AlertTitle>
         <AlertDescription>{stream.error}</AlertDescription>
       </Alert> : null}
-      <LogFilters filter={filter} minimum={minimum} onFilterChange={setFilter} onMinimumChange={setMinimum} />
+      <LogFilters
+        filter={filter}
+        minimum={minimum}
+        activePreset={activePreset}
+        onFilterChange={onFilterChange}
+        onMinimumChange={onMinimumChange}
+        onPreset={onPreset}
+        onClear={onClear}
+      />
       <ScrollArea className="h-[32rem]">
         {items.length === 0
           ? <Empty><EmptyHeader><EmptyTitle>{t("observability.noLogs")}</EmptyTitle><EmptyDescription>{t("observability.waitLogs")}</EmptyDescription></EmptyHeader></Empty>
