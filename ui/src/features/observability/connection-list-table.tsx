@@ -1,4 +1,6 @@
+import { CopyIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -11,6 +13,7 @@ import {
   type ConnectionColumnId,
 } from "@/features/observability/connection-columns"
 import { formatBytes } from "@/features/dashboard/format"
+import { copyText } from "@/features/proxy/copy-tag-button"
 import { useIsMobile } from "@/hooks/use-mobile"
 import type { Connection } from "@/lib/api/types"
 
@@ -81,8 +84,25 @@ function ConnectionMobileCard({
   return (
     <Card size="sm">
       <CardHeader className="min-w-0">
-        <CardTitle className="truncate" title={connection.target || undefined}>
-          {connection.target || "—"}
+        <CardTitle className="flex min-w-0 items-center gap-1">
+          <span className="truncate" title={connection.target || undefined}>{connection.target || "—"}</span>
+          {connection.target ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="shrink-0"
+              aria-label={`${t("observability.copyTarget")}: ${connection.target}`}
+              onClick={() => {
+                void copyText(connection.target!).then(
+                  () => toast.success(t("observability.targetCopied")),
+                  () => toast.error(t("observability.targetCopyFailed")),
+                )
+              }}
+            >
+              <CopyIcon className="size-3.5" />
+            </Button>
+          ) : null}
         </CardTitle>
         <CardDescription className="truncate">
           {show("outbound") ? (connection.outbound || "—") : null}
@@ -178,6 +198,30 @@ export function ConnectionListTable({
                   )
                 }
                 const value = cellValue(connection, column.id, duration)
+                if (column.id === "target" && connection.target) {
+                  return (
+                    <TableCell key={column.id} className="max-w-[14rem]">
+                      <div className="flex min-w-0 items-center gap-1">
+                        <span className="truncate" title={connection.target}>{value}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          className="shrink-0"
+                          aria-label={`${t("observability.copyTarget")}: ${connection.target}`}
+                          onClick={() => {
+                            void copyText(connection.target!).then(
+                              () => toast.success(t("observability.targetCopied")),
+                              () => toast.error(t("observability.targetCopyFailed")),
+                            )
+                          }}
+                        >
+                          <CopyIcon className="size-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  )
+                }
                 return (
                   <TableCell key={column.id} className="max-w-[12rem] truncate" title={titleFor(connection, column.id)}>
                     {value}

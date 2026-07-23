@@ -139,4 +139,18 @@ describe("ConnectionsPage", () => {
     expect(screen.getByText("10.0.0.2:51234")).toBeInTheDocument()
     expect(localStorage.getItem(CONNECTION_COLUMN_STORAGE_KEY)).toContain("source")
   })
+
+  it("copies connection target to clipboard", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    mockConnectionsFetch()
+    const copySpy = vi.spyOn(await import("@/features/proxy/copy-tag-button"), "copyText").mockResolvedValue()
+    const user = userEvent.setup()
+    renderApp(<App />, "/observability/connections")
+
+    expect(await screen.findByText("example.com:443")).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "复制目标: example.com:443" }))
+    expect(copySpy).toHaveBeenCalledWith("example.com:443")
+    expect(await screen.findByText("目标已复制")).toBeInTheDocument()
+    copySpy.mockRestore()
+  })
 })
