@@ -40,13 +40,13 @@ export function EndpointsVisualEditor({ items, onChange }: EndpointsVisualEditor
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-4">
-      <Card>
-        <CardHeader className="min-w-0 grid-cols-1 has-data-[slot=card-action]:grid-cols-1 sm:has-data-[slot=card-action]:grid-cols-[1fr_auto]">
-          <CardTitle>{t("advanced.endpoints.listTitle")}</CardTitle>
+    <div className="flex min-w-0 flex-col gap-2 sm:gap-3">
+      <Card size="sm">
+        <CardHeader className="min-w-0 gap-1.5 grid-cols-1 has-data-[slot=card-action]:grid-cols-1 sm:has-data-[slot=card-action]:grid-cols-[1fr_auto]">
+          <CardTitle className="truncate">{t("advanced.endpoints.listTitle")}</CardTitle>
           <CardDescription>{t("advanced.endpoints.listDescription")}</CardDescription>
           <CardAction className="col-start-1 row-start-auto w-full justify-self-start sm:col-start-2 sm:row-start-1 sm:w-auto sm:justify-self-end">
-            <Button className="w-full sm:w-auto" onClick={() => edit(null)}>
+            <Button size="sm" className="h-8 w-full sm:w-auto" onClick={() => edit(null)}>
               <ListPlusIcon data-icon="inline-start" />{t("advanced.endpoints.add")}
             </Button>
           </CardAction>
@@ -61,14 +61,14 @@ export function EndpointsVisualEditor({ items, onChange }: EndpointsVisualEditor
                   <EmptyDescription>{t("advanced.endpoints.emptyDescription")}</EmptyDescription>
                 </EmptyHeader>
                 <EmptyContent>
-                  <Button onClick={() => edit(null)}>
+                  <Button size="sm" className="h-8" onClick={() => edit(null)}>
                     <ListPlusIcon data-icon="inline-start" />{t("advanced.endpoints.add")}
                   </Button>
                 </EmptyContent>
               </Empty>
             )
             : (
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-2 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3">
                 {items.map((item, index) => (
                   <EndpointCard
                     key={`${String(item.tag)}-${index}`}
@@ -81,7 +81,7 @@ export function EndpointsVisualEditor({ items, onChange }: EndpointsVisualEditor
             )}
         </CardContent>
         <CardFooter>
-          <p className="text-muted-foreground">{t("advanced.endpoints.count", { count: items.length })}</p>
+          <p className="text-xs text-muted-foreground sm:text-sm">{t("advanced.endpoints.count", { count: items.length })}</p>
         </CardFooter>
       </Card>
       {selection

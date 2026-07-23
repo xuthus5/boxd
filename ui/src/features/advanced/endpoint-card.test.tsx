@@ -18,6 +18,7 @@ describe("EndpointCard", () => {
       </I18nextProvider>,
     )
     expect(screen.getByRole("heading", { name: "wg" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "编辑" })).toHaveClass("h-7")
     expect(screen.getByText("wireguard")).toBeInTheDocument()
     expect(screen.getAllByText("10.0.0.2/32").length).toBeGreaterThan(0)
   })

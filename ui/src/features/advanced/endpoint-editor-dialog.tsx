@@ -54,7 +54,7 @@ function TypeField({ object, onChange }: { object: JsonObject; onChange: (item: 
     <Field>
       <FieldLabel htmlFor="endpoint-type">{t("advanced.endpoints.type")}</FieldLabel>
       <Select items={items} value={current} onValueChange={(value) => onChange(changeEndpointType(object, String(value)))}>
-        <SelectTrigger id="endpoint-type" aria-label={t("advanced.endpoints.type")} className="w-full">
+        <SelectTrigger id="endpoint-type" aria-label={t("advanced.endpoints.type")} className="h-8 w-full">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -118,18 +118,18 @@ export function EndpointEditorDialog({ open, item, title, onOpenChange, onSave }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+      <DialogContent className="max-h-[calc(100dvh-1rem)] min-w-0 gap-3 overflow-y-auto p-3 sm:max-h-[calc(100dvh-2rem)] sm:max-w-3xl sm:gap-4 sm:p-4">
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle className="truncate">{title}</DialogTitle>
           <DialogDescription>{t("advanced.endpoints.editorDescription")}</DialogDescription>
         </DialogHeader>
-        <Tabs defaultValue="visual" className="min-w-0">
-          <TabsList activateOnFocus className="max-w-full">
+        <Tabs defaultValue="visual" className="min-h-0 min-w-0">
+          <TabsList activateOnFocus className="h-auto max-w-full justify-start overflow-x-auto overflow-y-hidden" variant="line">
             <TabsTrigger value="visual">{t("advanced.visualTab")}</TabsTrigger>
             <TabsTrigger value="json">{t("advanced.advancedTab")}</TabsTrigger>
           </TabsList>
-          <TabsContent value="visual" className="pt-4">
-            <div className="flex flex-col gap-4">
+          <TabsContent value="visual" className="pt-3 sm:pt-4">
+            <div className="flex flex-col gap-2 sm:gap-3">
               <TypeField object={object} onChange={updateVisual} />
               <PolicyFormFields
                 fields={sectionFields("basic")}
@@ -160,7 +160,7 @@ export function EndpointEditorDialog({ open, item, title, onOpenChange, onSave }
               />
             </div>
           </TabsContent>
-          <TabsContent value="json" className="pt-4">
+          <TabsContent value="json" className="pt-3 sm:pt-4">
             <FieldGroup>
               <Field>
                 <FieldLabel className="sr-only">{t("advanced.endpoints.itemJSON")}</FieldLabel>
@@ -169,9 +169,9 @@ export function EndpointEditorDialog({ open, item, title, onOpenChange, onSave }
             </FieldGroup>
           </TabsContent>
         </Tabs>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
-          <Button disabled={!(visualReady || jsonReady)} onClick={persist}>{t("common.save")}</Button>
+        <DialogFooter className="gap-2">
+          <Button variant="outline" size="sm" className="h-8" onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button>
+          <Button size="sm" className="h-8" disabled={!(visualReady || jsonReady)} onClick={persist}>{t("common.save")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -104,7 +104,7 @@ function SelectField({ field, label, namespace, value, onChange, onFieldValidity
   return <Field data-invalid={invalid || undefined}>
     <FieldHeading id={id} label={label} namespace={namespace} labelKey={field.label} />
     <Select items={items} value={value || null} required={field.required} onValueChange={(next) => onChange(next === null ? "" : String(next))}>
-      <SelectTrigger id={id} aria-label={label} aria-invalid={invalid} className="w-full"><SelectValue /></SelectTrigger>
+      <SelectTrigger id={id} aria-label={label} aria-invalid={invalid} className="h-8 w-full"><SelectValue /></SelectTrigger>
       <SelectContent><SelectGroup>
         <SelectItem value={null}>{t(`${namespace}.notSet`)}</SelectItem>
         {values.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}
@@ -137,7 +137,7 @@ function RefSelectField({ field, label, namespace, value, context, onChange, onF
   if (options.length === 0) {
     return <Field data-invalid={invalid || undefined}>
       <FieldHeading id={id} label={label} namespace={namespace} labelKey={field.label} />
-      <Input id={id} aria-label={label} aria-invalid={invalid} required={field.required} value={value}
+      <Input id={id} className="h-8" aria-label={label} aria-invalid={invalid} required={field.required} value={value}
         onChange={(event) => onChange(event.target.value)} />
       {invalid ? <FieldDescription>{t("common.requiredField")}</FieldDescription> : null}
     </Field>
@@ -146,7 +146,7 @@ function RefSelectField({ field, label, namespace, value, context, onChange, onF
     <FieldHeading id={id} label={label} namespace={namespace} labelKey={field.label} />
     <Select items={items} value={value || null} required={field.required}
       onValueChange={(next) => onChange(next === null ? "" : String(next))}>
-      <SelectTrigger id={id} aria-label={label} aria-invalid={invalid} className="w-full"><SelectValue /></SelectTrigger>
+      <SelectTrigger id={id} aria-label={label} aria-invalid={invalid} className="h-8 w-full"><SelectValue /></SelectTrigger>
       <SelectContent><SelectGroup>
         <SelectItem value={null}>{t(`${namespace}.notSet`)}</SelectItem>
         {items.filter((item) => item.value !== null).map((item) => (
@@ -170,7 +170,7 @@ function NetworkMultiField({ label, namespace, labelKey, value, onChange }: {
   }
   return <Field className="sm:col-span-2">
     <FieldHeading id={id} label={label} namespace={namespace} labelKey={labelKey} />
-    <div className="flex flex-wrap gap-4" role="group" aria-label={label}>
+    <div className="flex flex-wrap gap-2 sm:gap-3" role="group" aria-label={label}>
       {options.map((option) => <label key={option} className="flex items-center gap-2 text-sm">
         <Switch aria-label={`${label} ${option}`} checked={value.includes(option)} onCheckedChange={(checked) => toggle(option, checked)} />
         <span>{option}</span>
@@ -261,14 +261,14 @@ function NetworkInterfaceField({ label, namespace, labelKey, revision = 0, value
       setMode(selected)
       onChange(selected)
     }}>
-      <SelectTrigger id={selectId} aria-label={label} className="w-full"><SelectValue /></SelectTrigger>
+      <SelectTrigger id={selectId} aria-label={label} className="h-8 w-full"><SelectValue /></SelectTrigger>
       <SelectContent><SelectGroup>
         {items.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
       </SelectGroup></SelectContent>
     </Select>
     {mode === "manual" ? <>
       <FieldLabel htmlFor={inputId}>{t(`${namespace}.interfaceManualInput`)}</FieldLabel>
-      <Input id={inputId} aria-label={t(`${namespace}.interfaceManualInput`)} value={value} placeholder={t(`${namespace}.interfaceManualPlaceholder`)} onChange={(event) => onChange(event.target.value)} />
+      <Input id={inputId} className="h-8" aria-label={t(`${namespace}.interfaceManualInput`)} value={value} placeholder={t(`${namespace}.interfaceManualPlaceholder`)} onChange={(event) => onChange(event.target.value)} />
     </> : null}
   </Field>
 }
@@ -286,7 +286,7 @@ function TextField({ field, label, namespace, value, onChange, onFieldValidityCh
     <FieldHeading id={id} label={label} namespace={namespace} labelKey={field.label} />
     {area
       ? <Textarea id={id} aria-label={label} aria-invalid={invalid} required={field.required} value={value} onChange={(event) => onChange(event.target.value)} />
-      : <Input id={id} aria-label={label} aria-invalid={invalid} required={field.required} type={field.kind === "number" ? "number" : "text"} value={value} onChange={(event) => onChange(event.target.value)} />}
+      : <Input id={id} className="h-8" aria-label={label} aria-invalid={invalid} required={field.required} type={field.kind === "number" ? "number" : "text"} value={value} onChange={(event) => onChange(event.target.value)} />}
     {invalid ? <FieldDescription>{t("common.requiredField")}</FieldDescription> : null}
   </Field>
 }
@@ -427,18 +427,18 @@ export function PolicyFormFields({ fields, leading, object, ...rest }: PolicyFor
   const groups = groupPolicyFieldsBySection(shown)
   const hasSections = groups.some((group) => group.section)
   if (!hasSections) {
-    return <FieldGroup className="grid gap-4 sm:grid-cols-2">
+    return <FieldGroup className="grid gap-2 sm:grid-cols-2 sm:gap-3">
       {leading}
       {shown.map((field) => <PolicyField key={field.path} field={field} object={object} {...rest} />)}
     </FieldGroup>
   }
-  return <div className="flex flex-col gap-6">
-    {leading ? <FieldGroup className="grid gap-4 sm:grid-cols-2">{leading}</FieldGroup> : null}
+  return <div className="flex flex-col gap-3 sm:gap-4">
+    {leading ? <FieldGroup className="grid gap-2 sm:grid-cols-2 sm:gap-3">{leading}</FieldGroup> : null}
     {groups.map((group, index) => {
       const hasTitle = Boolean(group.section && i18n.exists(`${rest.namespace}.section.${group.section}`))
       return <section key={`${group.section ?? "default"}-${index}`} className="flex flex-col gap-3">
         {hasTitle ? <h3 className="text-sm font-medium text-muted-foreground">{t(`${rest.namespace}.section.${group.section}`)}</h3> : null}
-        <FieldGroup className="grid gap-4 sm:grid-cols-2">
+        <FieldGroup className="grid gap-2 sm:grid-cols-2 sm:gap-3">
           {group.fields.map((field) => <PolicyField key={field.path} field={field} object={object} {...rest} />)}
         </FieldGroup>
       </section>

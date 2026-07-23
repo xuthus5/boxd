@@ -23,29 +23,29 @@ export function EndpointCard({ item, onEdit, onDelete }: EndpointCardProps) {
   return (
     <article aria-labelledby={titleId}>
       <Card size="sm" className="h-full">
-        <CardHeader className="min-w-0">
-          <CardTitle><h2 id={titleId} className="truncate">{tag}</h2></CardTitle>
-          <CardDescription className="truncate">{summary.detail ?? summary.type}</CardDescription>
+        <CardHeader className="min-w-0 gap-1.5">
+          <CardTitle><h2 id={titleId} className="truncate" title={tag}>{tag}</h2></CardTitle>
+          <CardDescription className="truncate" title={summary.detail ?? summary.type}>{summary.detail ?? summary.type}</CardDescription>
           <CardAction>
-            <Button variant="outline" size="xs" onClick={onEdit}>
+            <Button variant="outline" size="xs" className="h-7" onClick={onEdit}>
               <PencilIcon data-icon="inline-start" />{t("common.edit")}
             </Button>
           </CardAction>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-2">
-            <Badge>{summary.type}</Badge>
+          <div className="flex flex-wrap gap-1.5">
+            <Badge className="max-w-full truncate">{summary.type}</Badge>
             {summary.type === "wireguard" && summary.meta > 0
               ? <Badge variant="secondary">{t("advanced.endpoints.peerCount", { count: summary.meta })}</Badge>
               : null}
             {summary.detail && summary.detail !== summary.type
-              ? <Badge variant="outline">{summary.detail}</Badge>
+              ? <Badge variant="outline" className="max-w-full truncate">{summary.detail}</Badge>
               : null}
           </div>
         </CardContent>
         <CardFooter className="justify-end">
           <ConfirmAction
-            trigger={<Button variant="destructive" size="xs"><Trash2Icon data-icon="inline-start" />{t("common.delete")}</Button>}
+            trigger={<Button variant="destructive" size="xs" className="h-7"><Trash2Icon data-icon="inline-start" />{t("common.delete")}</Button>}
             title={t("advanced.endpoints.deleteTitle")}
             description={t("advanced.endpoints.deleteDescription", { tag })}
             confirmLabel={t("advanced.endpoints.confirmDelete")}
