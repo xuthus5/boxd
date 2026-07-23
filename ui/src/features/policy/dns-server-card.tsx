@@ -13,7 +13,13 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem,
 import { formatLatency } from "@/features/nodes/node-format"
 import { latencyBadgeVariant, latencyTone, latencyToneClass } from "@/features/nodes/latency-style"
 import { buildDNSHref } from "@/features/policy/dns-filter"
+import {
+  dnsProbeErrorClipboardText,
+  dnsProbeErrorHintKey,
+  resolveDNSProbeErrorCode,
+} from "@/features/policy/dns-probe-error"
 import { dnsProbeInput, isDNSServerProbeable } from "@/features/policy/dns-probe"
+import { copyText } from "@/features/proxy/copy-tag-button"
 import { buildLogsHref } from "@/features/observability/log-filter-presets"
 import { inferDNSServerType, summarizeDNSServer } from "@/features/policy/dns-form-model"
 import type { JsonObject } from "@/features/policy/policy-form-model"
@@ -30,11 +36,41 @@ interface DNSServerCardProps {
   onProbeResult?: (result: DNSProbeResult) => void
 }
 
+function copyProbeError(result: DNSProbeResult, t: (key: string) => string) {
+  const payload = dnsProbeErrorClipboardText(result)
+  if (!payload) return
+  void copyText(payload).then(
+    () => toast.success(t("policy.dns.probeErrorCopied")),
+    () => toast.error(t("policy.dns.probeErrorCopyFailed")),
+  )
+}
+
 function ProbeBadge({ result }: { result?: DNSProbeResult }) {
   const { t } = useTranslation()
   if (!result) return null
   if (!result.success) {
-    return <Badge variant="destructive">{result.error || t("policy.dns.probeFailed")}</Badge>
+    const label = result.error?.trim() || t("policy.dns.probeFailed")
+    const code = resolveDNSProbeErrorCode(result)
+    const hint = t(dnsProbeErrorHintKey(code))
+    const title = code ? `${code} · ${label}\n${hint}` : `${label}\n${hint}`
+    return (
+      <Badge
+        variant="destructive"
+        className="max-w-[10rem] cursor-pointer truncate"
+        title={title}
+        role="button"
+        tabIndex={0}
+        aria-label={`${t("policy.dns.copyProbeError")}: ${result.tag || ""} ${label}`}
+        onClick={() => copyProbeError(result, t)}
+        onKeyDown={(event) => {
+          if (event.key !== "Enter" && event.key !== " ") return
+          event.preventDefault()
+          copyProbeError(result, t)
+        }}
+      >
+        {code && code !== "unknown" && code !== label ? `${code}: ${label}` : label}
+      </Badge>
+    )
   }
   const tone = latencyTone(result.latency_ms, true)
   const label = result.latency_ms === undefined ? t("common.normal") : formatLatency(result.latency_ms)
@@ -60,7 +96,13 @@ export function DNSServerCard({ item, onEdit, onCopy, onDelete, probeResult, onP
     },
     onSuccess: (result) => {
       onProbeResult?.(result)
-      if (!result.success) toast.error(result.error || t("policy.dns.probeFailed"))
+      if (!result.success) {
+        const code = resolveDNSProbeErrorCode(result)
+        const detail = result.error || t("policy.dns.probeFailed")
+        toast.error(code ? `${code}: ${detail}` : detail, {
+          description: t(dnsProbeErrorHintKey(code)),
+        })
+      }
     },
     onError: (error: Error) => toast.error(error.message),
   })

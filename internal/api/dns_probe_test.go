@@ -164,12 +164,12 @@ func TestProbeDNSServerWithHooks(t *testing.T) {
 		return nil, fmt.Errorf("network down")
 	}
 	fail := probeDNSServer(DNSProbeRequest{Type: "udp", Server: "1.1.1.1"})
-	if fail.Success || fail.Error == "" {
-		t.Fatalf("expected failure, got %+v", fail)
+	if fail.Success || fail.Error == "" || fail.ErrorCode != ProbeErrorNetwork {
+		t.Fatalf("expected network failure, got %+v", fail)
 	}
 
 	local := probeDNSServer(DNSProbeRequest{Type: "local", Tag: "sys"})
-	if local.Success || !strings.Contains(local.Error, "not probeable") {
+	if local.Success || !strings.Contains(local.Error, "not probeable") || local.ErrorCode != ProbeErrorUnsupported {
 		t.Fatalf("local = %+v", local)
 	}
 
@@ -179,7 +179,7 @@ func TestProbeDNSServerWithHooks(t *testing.T) {
 		return msg2, nil
 	}
 	servfail := probeDNSServer(DNSProbeRequest{Type: "udp", Server: "1.1.1.1"})
-	if servfail.Success || !strings.Contains(servfail.Error, "SERVFAIL") {
+	if servfail.Success || !strings.Contains(servfail.Error, "SERVFAIL") || servfail.ErrorCode != ProbeErrorDNSRcode {
 		t.Fatalf("servfail = %+v", servfail)
 	}
 
@@ -187,7 +187,7 @@ func TestProbeDNSServerWithHooks(t *testing.T) {
 		return nil, nil
 	}
 	empty := probeDNSServer(DNSProbeRequest{Type: "udp", Server: "1.1.1.1"})
-	if empty.Success || empty.Error != "empty dns response" {
+	if empty.Success || empty.Error != "empty dns response" || empty.ErrorCode != ProbeErrorEmpty {
 		t.Fatalf("empty = %+v", empty)
 	}
 }

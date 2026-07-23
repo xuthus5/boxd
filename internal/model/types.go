@@ -112,6 +112,7 @@ type TestResult struct {
 	Success   bool      `json:"success"`
 	LatencyMs float64   `json:"latency_ms,omitempty"`
 	Error     string    `json:"error,omitempty"`
+	ErrorCode string    `json:"error_code,omitempty"`
 	Timestamp time.Time `json:"timestamp,omitempty"`
 }
 

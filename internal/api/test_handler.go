@@ -120,7 +120,9 @@ func (h *TestHandler) RunBatch(w http.ResponseWriter, r *http.Request) {
 			it.Tag = firstNonEmpty(it.Tag, it.Server)
 			r, err := h.dispatchTest(it)
 			if err != nil {
-				r = model.TestResult{Tag: it.Tag, TestType: it.TestType, Error: err.Error()}
+				r = failedTestResult(err.Error(), err)
+				r.Tag = it.Tag
+				r.TestType = it.TestType
 			}
 			results[idx] = r
 
@@ -176,7 +178,7 @@ func (h *TestHandler) ListHistory(w http.ResponseWriter, r *http.Request) {
 
 func (h *TestHandler) tcpPing(req TestRequest) model.TestResult {
 	if h.instance == nil {
-		return model.TestResult{Error: "test service not available"}
+		return failedTestResult("test service not available", nil)
 	}
 	link := ""
 	if h.settingsURL != nil {
@@ -187,10 +189,10 @@ func (h *TestHandler) tcpPing(req TestRequest) model.TestResult {
 	defer cancel()
 	delay, err := h.instance.OutboundDelay(ctx, req.Tag, link, timeout)
 	if err != nil {
-		return model.TestResult{Error: err.Error()}
+		return failedTestResult(err.Error(), err)
 	}
 	if delay == 0 {
-		return model.TestResult{Error: "delay test failed: no response"}
+		return failedTestResult("delay test failed: no response", nil)
 	}
 	return model.TestResult{Success: true, LatencyMs: float64(delay)}
 }
@@ -209,7 +211,7 @@ func (h *TestHandler) httpTest(req TestRequest) model.TestResult {
 	start := time.Now()
 
 	if h.instance == nil {
-		return model.TestResult{Error: "test service not available"}
+		return failedTestResult("test service not available", nil)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -223,7 +225,7 @@ func (h *TestHandler) httpTest(req TestRequest) model.TestResult {
 	client := &http.Client{Transport: transport, Timeout: 5 * time.Second}
 	resp, err := client.Get(target)
 	if err != nil {
-		return model.TestResult{Error: err.Error()}
+		return failedTestResult(err.Error(), err)
 	}
 	_ = resp.Body.Close()
 	latency := time.Since(start).Seconds() * 1000
@@ -260,14 +262,18 @@ func isValidPingTarget(server string) bool {
 func (h *TestHandler) icmpPing(req TestRequest) model.TestResult {
 	server := strings.TrimSpace(req.Server)
 	if server == "" || !isValidPingTarget(server) {
-		return model.TestResult{Error: "invalid server address"}
+		return failedTestResult("invalid server address", nil)
 	}
 
 	start := time.Now()
 	output, err := commandOutput("ping", "-c", "1", "-W", "3", server)
 	latency := time.Since(start).Seconds() * 1000
 	if err != nil {
-		return model.TestResult{Error: fmt.Sprintf("ping failed: %s", strings.TrimSpace(string(output)))}
+		msg := fmt.Sprintf("ping failed: %s", strings.TrimSpace(string(output)))
+		if strings.TrimSpace(string(output)) == "" {
+			msg = fmt.Sprintf("ping failed: %s", err.Error())
+		}
+		return failedTestResult(msg, err)
 	}
 
 	for _, line := range strings.Split(string(output), "\n") {

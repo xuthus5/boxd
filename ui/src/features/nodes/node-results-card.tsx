@@ -5,7 +5,12 @@ import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { nodeTestErrorClipboardText, nodeTestErrorLabel } from "@/features/nodes/node-test-error"
+import {
+  nodeTestErrorClipboardText,
+  nodeTestErrorHintKey,
+  nodeTestErrorLabel,
+  resolveNodeTestErrorCode,
+} from "@/features/nodes/node-test-error"
 import { copyText } from "@/features/proxy/copy-tag-button"
 import { api } from "@/lib/api/endpoints"
 import type { TestResult } from "@/lib/api/types"
@@ -29,11 +34,14 @@ function ResultStatusBadge({ result }: { result: TestResult }) {
     return <Badge variant="secondary">{t("common.normal")}</Badge>
   }
   const label = nodeTestErrorLabel(result, t("nodes.testFailed"))
+  const code = resolveNodeTestErrorCode(result)
+  const hint = t(nodeTestErrorHintKey(code))
+  const title = code ? `${code} · ${label}\n${hint}` : `${label}\n${hint}`
   return (
     <Badge
       variant="destructive"
       className="max-w-[12rem] cursor-pointer truncate"
-      title={label}
+      title={title}
       role="button"
       tabIndex={0}
       aria-label={`${t("nodes.copyTestError")}: ${result.tag} ${result.test_type.toUpperCase()} ${label}`}
@@ -44,7 +52,7 @@ function ResultStatusBadge({ result }: { result: TestResult }) {
         copyFailedResult(result, t)
       }}
     >
-      {label}
+      {code && code !== "unknown" && code !== label ? `${code}: ${label}` : label}
     </Badge>
   )
 }

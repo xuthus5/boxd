@@ -39,7 +39,7 @@ describe("summarizeBatchTestResults", () => {
       worstLatencyMs: 40,
       failedSamples: [
         { tag: "us-01", testType: "TCP", error: "timeout" },
-        { tag: "sg-01", testType: "HTTP", error: "connection refused" },
+        { tag: "sg-01", testType: "HTTP", error: "network: connection refused" },
       ],
     })
   })

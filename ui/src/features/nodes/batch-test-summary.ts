@@ -1,5 +1,6 @@
 /** Summarize bulk node speed-test results for toast / UI feedback. */
 
+import { formatNodeTestFailureSample } from "@/features/nodes/node-test-error"
 import type { TestResult } from "@/lib/api/types"
 
 export type BatchTestFailureSample = {
@@ -57,7 +58,7 @@ export function summarizeBatchTestResults(results: readonly TestResult[] | undef
       failedSamples.push({
         tag: item.tag?.trim() || "—",
         testType: (item.test_type ?? "").trim().toUpperCase() || "—",
-        error: item.error?.trim() || "failed",
+        error: formatNodeTestFailureSample(item),
       })
     }
   }

@@ -143,6 +143,7 @@ export interface TestResult {
   success: boolean
   latency_ms?: number
   error?: string
+  error_code?: string
   timestamp?: string
 }
 
@@ -169,6 +170,7 @@ export interface DNSProbeResult {
   success: boolean
   latency_ms?: number
   error?: string
+  error_code?: string
   domain?: string
   answers?: string[]
 }

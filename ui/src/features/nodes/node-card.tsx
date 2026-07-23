@@ -11,7 +11,12 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { LatencyHistoryDialog } from "@/features/nodes/latency-history-dialog"
 import { formatLatency } from "@/features/nodes/node-format"
-import { nodeTestErrorClipboardText, nodeTestErrorLabel } from "@/features/nodes/node-test-error"
+import {
+  nodeTestErrorClipboardText,
+  nodeTestErrorHintKey,
+  nodeTestErrorLabel,
+  resolveNodeTestErrorCode,
+} from "@/features/nodes/node-test-error"
 import { LatencyHealthBar } from "@/features/nodes/latency-health-bar"
 import { LatencySparkline } from "@/features/nodes/latency-sparkline"
 import { pickNodeHistorySeries } from "@/features/nodes/nodes-filter"
@@ -38,11 +43,14 @@ function copyTestError(result: TestResult, t: (key: string) => string) {
 function FailedResultBadge({ result }: { result: TestResult }) {
   const { t } = useTranslation()
   const label = nodeTestErrorLabel(result, t("nodes.testFailed"))
+  const code = resolveNodeTestErrorCode(result)
+  const hint = t(nodeTestErrorHintKey(code))
+  const title = code ? `${code} · ${label}\n${hint}` : `${label}\n${hint}`
   return (
     <Badge
       variant="destructive"
       className="max-w-[10rem] cursor-pointer truncate"
-      title={label}
+      title={title}
       role="button"
       tabIndex={0}
       aria-label={`${t("nodes.copyTestError")}: ${result.test_type.toUpperCase()} ${label}`}
@@ -53,7 +61,7 @@ function FailedResultBadge({ result }: { result: TestResult }) {
         copyTestError(result, t)
       }}
     >
-      {label}
+      {code && code !== "unknown" && code !== label ? `${code}: ${label}` : label}
     </Badge>
   )
 }

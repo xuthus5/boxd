@@ -1,4 +1,5 @@
 import type { JsonObject } from "@/features/policy/policy-form-model"
+import { formatDNSProbeFailureSample } from "@/features/policy/dns-probe-error"
 import type { DNSProbeInput, DNSProbeResult } from "@/lib/api/types"
 
 const nonProbeable = new Set(["local", "hosts", "dhcp", "fakeip", "tailscale"])
@@ -87,7 +88,7 @@ export function summarizeDNSProbeResults(
     }
     failed += 1
     if (failedSamples.length < FAILED_SAMPLE_LIMIT) {
-      failedSamples.push({ tag: label, error: item.error?.trim() || "failed" })
+      failedSamples.push({ tag: label, error: formatDNSProbeFailureSample(item) })
     }
   })
   return {

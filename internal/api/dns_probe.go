@@ -34,6 +34,7 @@ type DNSProbeResult struct {
 	Success   bool     `json:"success"`
 	LatencyMs float64  `json:"latency_ms,omitempty"`
 	Error     string   `json:"error,omitempty"`
+	ErrorCode string   `json:"error_code,omitempty"`
 	Domain    string   `json:"domain,omitempty"`
 	Answers   []string `json:"answers,omitempty"`
 }
@@ -56,8 +57,7 @@ func probeDNSServer(req DNSProbeRequest) DNSProbeResult {
 
 	proto, server, port, path, err := normalizeDNSProbeTarget(req)
 	if err != nil {
-		result.Error = err.Error()
-		return result
+		return failedDNSProbeResult(result, err.Error(), err)
 	}
 	result.Type = proto
 
@@ -85,18 +85,17 @@ func probeDNSServer(req DNSProbeRequest) DNSProbeResult {
 		latency = 1
 	}
 	if err != nil {
-		result.Error = err.Error()
-		result.LatencyMs = latency
-		return result
+		out := failedDNSProbeResult(result, err.Error(), err)
+		out.LatencyMs = latency
+		return out
 	}
 	if resp == nil {
-		result.Error = "empty dns response"
-		return result
+		return failedDNSProbeResult(result, "empty dns response", nil)
 	}
 	if resp.Rcode != dns.RcodeSuccess && resp.Rcode != dns.RcodeNameError {
-		result.Error = fmt.Sprintf("dns rcode %s", dns.RcodeToString[resp.Rcode])
-		result.LatencyMs = latency
-		return result
+		out := failedDNSProbeResult(result, fmt.Sprintf("dns rcode %s", dns.RcodeToString[resp.Rcode]), nil)
+		out.LatencyMs = latency
+		return out
 	}
 	result.Success = true
 	result.LatencyMs = latency
