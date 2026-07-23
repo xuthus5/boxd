@@ -32,6 +32,8 @@ describe("RuleSetAutoUpdateCard", () => {
     const user = userEvent.setup()
     const input = screen.getByLabelText("自动更新间隔")
     const save = screen.getByRole("button", { name: "保存" })
+    expect(input).toHaveClass("h-8")
+    expect(save).toHaveClass("h-8")
     expect(save).toBeDisabled()
     await user.clear(input)
     await user.type(input, "bad")

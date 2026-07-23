@@ -38,6 +38,7 @@ function ActionButton({
     <Button
       variant={action === "stop" ? "destructive" : "outline"}
       size="sm"
+      className="h-8 w-full"
       disabled={Boolean(pending) || disabled}
       onClick={action === "start" ? () => onAction(action) : undefined}
     >
@@ -67,7 +68,7 @@ function formatTimestamp(value?: string) {
 
 function DiagnosticRow({ label, value, title }: { label: string; value: string; title?: string }) {
   return (
-    <div className="min-w-0 rounded-lg border bg-muted/30 px-3 py-2">
+    <div className="min-w-0 rounded-md border bg-muted/30 px-2.5 py-1.5">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="truncate text-sm font-medium tabular-nums" title={title ?? value}>
         {value}
@@ -85,12 +86,12 @@ export function ServiceCard({ status, pending, onAction }: ServiceCardProps) {
   const errorLogsHref = buildLogsHref({ preset: "errors" })
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("dashboard.service")}</CardTitle>
+    <Card size="sm">
+      <CardHeader className="gap-1.5">
+        <CardTitle className="truncate">{t("dashboard.service")}</CardTitle>
         <CardDescription>{t("dashboard.serviceDescription")}</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+      <CardContent className="flex flex-col gap-2 sm:gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant={status.running ? "default" : "secondary"}>
             {status.running ? t("dashboard.running") : t("dashboard.stopped")}
@@ -126,7 +127,7 @@ export function ServiceCard({ status, pending, onAction }: ServiceCardProps) {
           </div>
         ) : null}
       </CardContent>
-      <CardFooter className="flex flex-wrap gap-2">
+      <CardFooter className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         <ActionButton action="start" pending={pending} disabled={status.running} onAction={onAction} />
         <ActionButton action="stop" pending={pending} disabled={!status.running} onAction={onAction} />
         <ActionButton action="restart" pending={pending} disabled={!status.running} onAction={onAction} />

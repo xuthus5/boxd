@@ -29,9 +29,9 @@ export function RecentLogs({ items }: { items: LogEvent[] }) {
   const hasError = visible.some((item) => item.level === "error")
   const logsHref = hasError ? buildLogsHref({ preset: "errors" }) : buildLogsHref()
   return (
-    <Card className="lg:col-span-3">
-      <CardHeader>
-        <CardTitle>{t("dashboard.recentLogs")}</CardTitle>
+    <Card size="sm" className="lg:col-span-3">
+      <CardHeader className="gap-1.5">
+        <CardTitle className="truncate">{t("dashboard.recentLogs")}</CardTitle>
         <CardDescription>{t("dashboard.recentLogsDescription")}</CardDescription>
       </CardHeader>
       <CardContent>
@@ -64,7 +64,7 @@ export function RecentLogs({ items }: { items: LogEvent[] }) {
           </Table>}
       </CardContent>
       <CardFooter>
-        <Link to={logsHref} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+        <Link to={logsHref} className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}>
           {hasError ? t("dashboard.openErrorLogs") : t("dashboard.openLogs")}
         </Link>
       </CardFooter>

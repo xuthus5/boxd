@@ -38,6 +38,9 @@ describe("URLTestDefaultsCard", () => {
     const user = userEvent.setup()
     const interval = document.getElementById("urltest-interval") as HTMLInputElement
     const tolerance = document.getElementById("urltest-tolerance") as HTMLInputElement
+    expect(interval).toHaveClass("h-8")
+    expect(tolerance).toHaveClass("h-8")
+    expect(screen.getByRole("button", { name: "保存 URLTest 默认值" })).toHaveClass("h-8")
     await user.clear(interval)
     await user.type(interval, "bad")
     expect(screen.getByRole("button", { name: "保存 URLTest 默认值" })).toBeDisabled()

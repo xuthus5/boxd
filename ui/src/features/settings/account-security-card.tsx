@@ -83,10 +83,10 @@ export function AccountSecurityCard({
   })
 
   return (
-    <Card>
-      <CardHeader className="gap-2">
+    <Card size="sm">
+      <CardHeader className="gap-1.5">
         <div className="flex flex-wrap items-center gap-2">
-          <CardTitle>{t("settings.accountTitle")}</CardTitle>
+          <CardTitle className="truncate">{t("settings.accountTitle")}</CardTitle>
           {defaultPassword ? (
             <Badge variant="destructive">{t("settings.defaultPasswordBadge")}</Badge>
           ) : (
@@ -100,7 +100,7 @@ export function AccountSecurityCard({
         </div>
         <CardDescription>{t("settings.accountDescription")}</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3 sm:gap-4">
+      <CardContent className="flex flex-col gap-2 sm:gap-3">
         {defaultPassword ? (
           <Alert variant="destructive">
             <AlertTitle>{t("settings.defaultPasswordTitle")}</AlertTitle>

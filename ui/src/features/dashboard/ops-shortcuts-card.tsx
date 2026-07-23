@@ -43,19 +43,19 @@ const shortcuts: Shortcut[] = [
 export function OpsShortcutsCard() {
   const { t } = useTranslation()
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("dashboard.opsShortcutsTitle")}</CardTitle>
+    <Card size="sm">
+      <CardHeader className="gap-1.5">
+        <CardTitle className="truncate">{t("dashboard.opsShortcutsTitle")}</CardTitle>
         <CardDescription>{t("dashboard.opsShortcutsDescription")}</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-wrap gap-2">
+      <CardContent className="flex flex-wrap gap-1.5 sm:gap-2">
         {shortcuts.map((item) => {
           const Icon = item.icon
           return (
             <Link
               key={item.labelKey}
               to={item.to}
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8 gap-1.5")}
             >
               <Icon data-icon="inline-start" />
               {t(item.labelKey)}

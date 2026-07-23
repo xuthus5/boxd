@@ -6,7 +6,7 @@ import type { MemoryStats } from "@/lib/api/types"
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0 rounded-lg border bg-muted/30 px-3 py-2">
+    <div className="min-w-0 rounded-md border bg-muted/30 px-2.5 py-1.5">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="truncate text-sm font-semibold tabular-nums" title={value}>{value}</p>
     </div>
@@ -24,9 +24,9 @@ export function RuntimeStatsCard({
 }) {
   const { t } = useTranslation()
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("dashboard.runtimeStatsTitle")}</CardTitle>
+    <Card size="sm">
+      <CardHeader className="gap-1.5">
+        <CardTitle className="truncate">{t("dashboard.runtimeStatsTitle")}</CardTitle>
         <CardDescription>{t("dashboard.runtimeStatsDescription")}</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-2 sm:grid-cols-2">

@@ -48,13 +48,13 @@ export function URLTestDefaultsCard({ defaults }: { defaults: URLTestDefaults })
   })
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("settings.urlTestDefaultsTitle")}</CardTitle>
+    <Card size="sm">
+      <CardHeader className="gap-1.5">
+        <CardTitle className="truncate">{t("settings.urlTestDefaultsTitle")}</CardTitle>
         <CardDescription>{t("settings.urlTestDefaultsDescription")}</CardDescription>
       </CardHeader>
       <CardContent>
-        <FieldGroup>
+        <FieldGroup className="gap-2 sm:gap-3">
           <Field orientation="horizontal">
             <FieldLabel htmlFor="urltest-enabled">{t("settings.urlTestDefaultsEnabled")}</FieldLabel>
             <Switch id="urltest-enabled" checked={enabled} onCheckedChange={setEnabled} />
@@ -72,6 +72,7 @@ export function URLTestDefaultsCard({ defaults }: { defaults: URLTestDefaults })
             <FieldLabel htmlFor="urltest-interval">{t("settings.urlTestInterval")}</FieldLabel>
             <Input
               id="urltest-interval"
+              className="h-8"
               aria-invalid={isIntervalInvalid || undefined}
               value={interval}
               onChange={(event) => setInterval(event.target.value)}
@@ -87,6 +88,7 @@ export function URLTestDefaultsCard({ defaults }: { defaults: URLTestDefaults })
               type="number"
               min={0}
               max={65535}
+              className="h-8"
               aria-invalid={isToleranceInvalid || undefined}
               value={tolerance}
               onChange={(event) => setTolerance(event.target.value)}
@@ -98,7 +100,7 @@ export function URLTestDefaultsCard({ defaults }: { defaults: URLTestDefaults })
         </FieldGroup>
       </CardContent>
       <CardFooter>
-        <Button disabled={!ready || save.isPending} onClick={() => save.mutate()}>
+        <Button size="sm" className="h-8 w-full sm:w-auto" disabled={!ready || save.isPending} onClick={() => save.mutate()}>
           {t("settings.saveURLTestDefaults")}
         </Button>
       </CardFooter>

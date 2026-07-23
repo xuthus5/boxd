@@ -54,21 +54,21 @@ export function SetupChecklistCard({ status }: { status?: ServiceStatus }) {
   if (!showChecklist && !showFailed) return null
 
   return (
-    <Card className={showChecklist || showFailed ? "lg:col-span-3" : undefined}>
-      <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <CardTitle>{t("dashboard.setupTitle")}</CardTitle>
+    <Card size="sm" className={showChecklist || showFailed ? "lg:col-span-3" : undefined}>
+      <CardHeader className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <CardTitle className="truncate">{t("dashboard.setupTitle")}</CardTitle>
           <CardDescription>
             {progress.complete ? t("dashboard.setupComplete") : t("dashboard.setupDescription")}
           </CardDescription>
         </div>
-        <Badge variant="secondary">{t("dashboard.setupProgress", { done: progress.done, total: progress.total })}</Badge>
+        <Badge variant="secondary" className="shrink-0">{t("dashboard.setupProgress", { done: progress.done, total: progress.total })}</Badge>
       </CardHeader>
       {showChecklist ? (
         <CardContent>
           <ul className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
             {steps.map((step) => (
-              <li key={step.id} className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2">
+              <li key={step.id} className="flex items-center justify-between gap-2 rounded-md border px-2.5 py-1.5">
                 <div className="flex min-w-0 items-center gap-2">
                   {step.done
                     ? <CheckCircle2Icon className="size-4 shrink-0 text-primary" aria-hidden />
@@ -97,7 +97,7 @@ export function SetupChecklistCard({ status }: { status?: ServiceStatus }) {
           </p>
           <Link
             to={failedHref}
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "shrink-0")}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8 shrink-0")}
           >
             {t("dashboard.openFailedSubscriptions")}
           </Link>

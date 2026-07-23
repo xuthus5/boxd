@@ -56,15 +56,15 @@ export function HealthSummaryCard({
   const tcpHref = summary.tcp > 0 ? buildConnectionsHref({ network: "tcp" }) : ""
   const udpHref = summary.udp > 0 ? buildConnectionsHref({ network: "udp" }) : ""
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <ActivityIcon className="size-4" aria-hidden="true" />
-          {t("dashboard.healthTitle")}
+    <Card size="sm">
+      <CardHeader className="gap-1.5">
+        <CardTitle className="flex min-w-0 items-center gap-2 truncate">
+          <ActivityIcon className="size-4 shrink-0" aria-hidden="true" />
+          <span className="truncate">{t("dashboard.healthTitle")}</span>
         </CardTitle>
         <CardDescription>{t("dashboard.healthDescription")}</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+      <CardContent className="flex flex-col gap-2 sm:gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant={toneVariant(summary.tone)}>{t(toneLabelKey(summary.tone))}</Badge>
           <span className="text-2xl font-semibold">{t("dashboard.healthActive", { count: summary.active })}</span>
@@ -96,7 +96,7 @@ export function HealthSummaryCard({
         ) : null}
       </CardContent>
       <CardFooter className="flex flex-wrap gap-2">
-        <Link to="/observability/connections" className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+        <Link to="/observability/connections" className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}>
           {t("dashboard.healthOpenConnections")}
         </Link>
         <HealthOpsAlertActions signals={ops} />

@@ -25,13 +25,13 @@ function AppearanceCard() {
   const preferences = usePreferences()
   const { t } = useTranslation()
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("settings.appearanceTitle")}</CardTitle>
+    <Card size="sm">
+      <CardHeader className="gap-1.5">
+        <CardTitle className="truncate">{t("settings.appearanceTitle")}</CardTitle>
         <CardDescription>{t("settings.appearanceDescription")}</CardDescription>
       </CardHeader>
       <CardContent>
-        <FieldGroup className="gap-4">
+        <FieldGroup className="gap-2 sm:gap-3">
           <Field orientation="responsive" className="gap-2 sm:justify-between">
             <FieldTitle id="theme-label" className="shrink-0">{t("settings.theme")}</FieldTitle>
             <ToggleGroup
@@ -105,13 +105,13 @@ function RuntimeSettingsCard({ url, enabled }: { url: string; enabled: boolean }
     })
   }
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("settings.runtimeTitle")}</CardTitle>
+    <Card size="sm">
+      <CardHeader className="gap-1.5">
+        <CardTitle className="truncate">{t("settings.runtimeTitle")}</CardTitle>
         <CardDescription>{t("settings.runtimeDescription")}</CardDescription>
       </CardHeader>
       <CardContent>
-        <FieldGroup>
+        <FieldGroup className="gap-2 sm:gap-3">
           <div className="grid gap-2">
             <ProbeURLField
               id="test-url"
@@ -121,7 +121,7 @@ function RuntimeSettingsCard({ url, enabled }: { url: string; enabled: boolean }
               invalid={urlInvalid}
               description={urlInvalid ? t("settings.urlTestURLInvalid") : t("settings.testURLDescription")}
             />
-            <Button onClick={() => saveURL.mutate()} disabled={!urlReady || saveURL.isPending}>
+            <Button size="sm" className="h-8 w-full sm:w-auto" onClick={() => saveURL.mutate()} disabled={!urlReady || saveURL.isPending}>
               {t("settings.saveTestURL")}
             </Button>
           </div>

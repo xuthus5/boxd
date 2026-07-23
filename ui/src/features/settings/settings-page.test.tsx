@@ -25,7 +25,7 @@ describe("SettingsPage", () => {
     expect(screen.getByText("登录用户名由 BOXD_USERNAME 或启动参数管理，前端不可轮换。")).toBeInTheDocument()
     expect(screen.getByRole("combobox", { name: "测速地址" })).toBeInTheDocument()
     expect(screen.queryByLabelText("自定义测速地址")).not.toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "保存测速地址" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "保存测速地址" })).toHaveClass("h-8")
     expect(screen.getByLabelText("确认新密码")).toBeInTheDocument()
     expect(screen.getByText(/至少 12 个字符/)).toBeInTheDocument()
     expect(screen.getByText("订阅 URLTest 默认值")).toBeInTheDocument()

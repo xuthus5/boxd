@@ -60,14 +60,14 @@ export function HealthOpsAlertActions({ signals }: { signals: HealthOpsSignals }
   return (
     <>
       {signals.failedSubscriptions > 0 ? (
-        <Link to={failedSubsHref} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+        <Link to={failedSubsHref} className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}>
           {t("dashboard.openFailedSubscriptions")}
         </Link>
       ) : null}
       {signals.problemNodes > 0 ? (
         <Link
           to={signals.failedNodes > 0 && signals.unstableNodes === 0 ? failedNodesHref : unstableHref}
-          className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+          className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
         >
           {t("dashboard.healthOpenProblemNodes")}
         </Link>

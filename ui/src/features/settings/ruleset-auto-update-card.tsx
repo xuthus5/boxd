@@ -31,26 +31,28 @@ export function RuleSetAutoUpdateCard({ defaults }: { defaults: RuleSetAutoUpdat
     },
     onError: (error: Error) => toast.error(error.message),
   })
-  return <Card>
-    <CardHeader>
-      <CardTitle>{t("settings.ruleSetAutoUpdateTitle")}</CardTitle>
-      <CardDescription>{t("settings.ruleSetAutoUpdateDescription")}</CardDescription>
-    </CardHeader>
-    <CardContent>
-      <FieldGroup>
-        <Field orientation="horizontal">
-          <FieldLabel htmlFor="ruleset-auto-enabled">{t("settings.ruleSetAutoUpdateEnabled")}</FieldLabel>
-          <Switch id="ruleset-auto-enabled" checked={enabled} onCheckedChange={setEnabled} />
-        </Field>
-        <Field data-invalid={invalid || undefined}>
-          <FieldLabel htmlFor="ruleset-auto-interval">{t("settings.ruleSetAutoUpdateInterval")}</FieldLabel>
-          <Input id="ruleset-auto-interval" value={interval} onChange={(event) => setInterval(event.target.value)} placeholder="24h" aria-invalid={invalid || undefined} />
-          <FieldDescription>{invalid ? t("settings.urlTestIntervalInvalid") : "24h / 12h / 1h"}</FieldDescription>
-        </Field>
-      </FieldGroup>
-    </CardContent>
-    <CardFooter>
-      <Button disabled={!ready || save.isPending} onClick={() => save.mutate()}>{t("common.save")}</Button>
-    </CardFooter>
-  </Card>
+  return (
+    <Card size="sm">
+      <CardHeader className="gap-1.5">
+        <CardTitle className="truncate">{t("settings.ruleSetAutoUpdateTitle")}</CardTitle>
+        <CardDescription>{t("settings.ruleSetAutoUpdateDescription")}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <FieldGroup className="gap-2 sm:gap-3">
+          <Field orientation="horizontal">
+            <FieldLabel htmlFor="ruleset-auto-enabled">{t("settings.ruleSetAutoUpdateEnabled")}</FieldLabel>
+            <Switch id="ruleset-auto-enabled" checked={enabled} onCheckedChange={setEnabled} />
+          </Field>
+          <Field data-invalid={invalid || undefined}>
+            <FieldLabel htmlFor="ruleset-auto-interval">{t("settings.ruleSetAutoUpdateInterval")}</FieldLabel>
+            <Input id="ruleset-auto-interval" className="h-8" value={interval} onChange={(event) => setInterval(event.target.value)} placeholder="24h" aria-invalid={invalid || undefined} />
+            <FieldDescription>{invalid ? t("settings.urlTestIntervalInvalid") : "24h / 12h / 1h"}</FieldDescription>
+          </Field>
+        </FieldGroup>
+      </CardContent>
+      <CardFooter>
+        <Button size="sm" className="h-8 w-full sm:w-auto" disabled={!ready || save.isPending} onClick={() => save.mutate()}>{t("common.save")}</Button>
+      </CardFooter>
+    </Card>
+  )
 }
