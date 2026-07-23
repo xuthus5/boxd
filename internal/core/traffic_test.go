@@ -183,46 +183,80 @@ func TestTrafficTrackerRoutedConnection(t *testing.T) {
 
 func TestTrafficTrackerRoutedPacketConnection(t *testing.T) {
 	tracker := NewTrafficTracker()
-	packetConn := fakePacketConn{}
+	packetConn := &fakePacketConn{payload: []byte("ping")}
 	got := tracker.RoutedPacketConnection(
 		context.Background(),
 		packetConn,
-		adapter.InboundContext{},
+		adapter.InboundContext{
+			Network:     "udp",
+			Inbound:     "tun-in",
+			Destination: M.ParseSocksaddr("1.1.1.1:53"),
+			Source:      M.ParseSocksaddr("10.0.0.2:53000"),
+		},
 		nil,
 		fakeOutbound{tag: "proxy"},
 	)
-	if got != packetConn {
-		t.Fatal("packet connection should be returned unchanged")
+	if _, ok := got.(*wrappedPacketConn); !ok {
+		t.Fatalf("expected wrapped packet conn, got %T", got)
+	}
+	conns := tracker.Connections()
+	if len(conns) != 1 || conns[0].Network != "udp" || conns[0].Target != "1.1.1.1:53" {
+		t.Fatalf("connections = %#v", conns)
+	}
+	buffer := buf.New()
+	defer buffer.Release()
+	if _, err := got.ReadPacket(buffer); err != nil {
+		t.Fatal(err)
+	}
+	if err := got.WritePacket(buf.As([]byte("pong")), M.ParseSocksaddr("1.1.1.1:53")); err != nil {
+		t.Fatal(err)
+	}
+	up, down := tracker.Total()
+	if up != 4 || down != 4 {
+		t.Fatalf("totals = %d,%d", up, down)
+	}
+	if err := got.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if conns := tracker.Connections(); len(conns) != 0 {
+		t.Fatalf("connections after close = %#v", conns)
 	}
 }
 
-type fakePacketConn struct{}
-
-func (fakePacketConn) ReadPacket(buffer *buf.Buffer) (M.Socksaddr, error) {
-	return M.Socksaddr{}, nil
+type fakePacketConn struct {
+	payload []byte
+	closed  bool
 }
 
-func (fakePacketConn) WritePacket(buffer *buf.Buffer, destination M.Socksaddr) error {
+func (f *fakePacketConn) ReadPacket(buffer *buf.Buffer) (M.Socksaddr, error) {
+	if len(f.payload) > 0 {
+		_, _ = buffer.Write(f.payload)
+	}
+	return M.ParseSocksaddr("1.1.1.1:53"), nil
+}
+
+func (f *fakePacketConn) WritePacket(buffer *buf.Buffer, destination M.Socksaddr) error {
 	return nil
 }
 
-func (fakePacketConn) Close() error {
+func (f *fakePacketConn) Close() error {
+	f.closed = true
 	return nil
 }
 
-func (fakePacketConn) LocalAddr() net.Addr {
+func (f *fakePacketConn) LocalAddr() net.Addr {
 	return nil
 }
 
-func (fakePacketConn) SetDeadline(t time.Time) error {
+func (f *fakePacketConn) SetDeadline(t time.Time) error {
 	return nil
 }
 
-func (fakePacketConn) SetReadDeadline(t time.Time) error {
+func (f *fakePacketConn) SetReadDeadline(t time.Time) error {
 	return nil
 }
 
-func (fakePacketConn) SetWriteDeadline(t time.Time) error {
+func (f *fakePacketConn) SetWriteDeadline(t time.Time) error {
 	return nil
 }
 
@@ -321,9 +355,9 @@ func TestTrafficTrackerCloseConnsByOutboundAndRule(t *testing.T) {
 	}
 
 	// Plant three synthetic connections.
-	tracker.connections.Store(int64(1), &trafficConnInternal{id: 1, outbound: "proxy", rule: "geosite-google", conn: left1})
-	tracker.connections.Store(int64(2), &trafficConnInternal{id: 2, outbound: "proxy", rule: "geoip-cn", conn: left2})
-	tracker.connections.Store(int64(3), &trafficConnInternal{id: 3, outbound: "direct", rule: "geoip-cn", conn: left3})
+	tracker.connections.Store(int64(1), &trafficConnInternal{id: 1, outbound: "proxy", rule: "geosite-google", closer: left1.Close})
+	tracker.connections.Store(int64(2), &trafficConnInternal{id: 2, outbound: "proxy", rule: "geoip-cn", closer: left2.Close})
+	tracker.connections.Store(int64(3), &trafficConnInternal{id: 3, outbound: "direct", rule: "geoip-cn", closer: left3.Close})
 
 	if n := tracker.CloseConnsByOutbound("proxy"); n != 2 {
 		t.Fatalf("close by outbound = %d, want 2", n)
@@ -486,4 +520,38 @@ func TestCloseConnsWhereNilPred(t *testing.T) {
 	if got := tracker.CloseConnsWhere(nil); got != 0 {
 		t.Fatalf("nil pred = %d", got)
 	}
+}
+
+func TestRoutedConnectionDefaultNetwork(t *testing.T) {
+	tracker := NewTrafficTracker()
+	left, right := net.Pipe()
+	defer func() { _ = right.Close() }()
+	wrapped := tracker.RoutedConnection(
+		context.Background(),
+		left,
+		adapter.InboundContext{Destination: M.ParseSocksaddr("example.com:443")},
+		nil,
+		fakeOutbound{tag: "proxy"},
+	)
+	conns := tracker.Connections()
+	if len(conns) != 1 || conns[0].Network != "tcp" {
+		t.Fatalf("connections = %#v", conns)
+	}
+	_ = wrapped.Close()
+}
+
+func TestRoutedPacketConnectionDefaultUDPNetwork(t *testing.T) {
+	tracker := NewTrafficTracker()
+	got := tracker.RoutedPacketConnection(
+		context.Background(),
+		&fakePacketConn{},
+		adapter.InboundContext{Destination: M.ParseSocksaddr("8.8.8.8:53")},
+		nil,
+		fakeOutbound{tag: "direct"},
+	)
+	conns := tracker.Connections()
+	if len(conns) != 1 || conns[0].Network != "udp" {
+		t.Fatalf("connections = %#v", conns)
+	}
+	_ = got.Close()
 }
