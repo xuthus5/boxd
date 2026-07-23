@@ -112,7 +112,17 @@ function ServerSection({ object, onChange, onRulesChange, onEdit, onInstall }: {
           {normalized ? <p className="text-sm text-muted-foreground">{t("policy.dns.searchCount", { shown: visible.length, total: servers.length })}</p> : null}
         </div>
         {visible.length === 0
-          ? <Empty><EmptyHeader><EmptyTitle>{t("policy.dns.noMatch")}</EmptyTitle><EmptyDescription>{t("policy.dns.noMatchDescription")}</EmptyDescription></EmptyHeader></Empty>
+          ? <Empty>
+            <EmptyHeader>
+              <EmptyTitle>{t("policy.dns.noMatch")}</EmptyTitle>
+              <EmptyDescription>{t("policy.dns.noMatchDescription")}</EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              <Button type="button" variant="outline" onClick={() => writeServersQuery("")}>
+                {t("proxy.clearSearch")}
+              </Button>
+            </EmptyContent>
+          </Empty>
           : <div className="flex flex-col gap-3">{visible.map(({ item, index }) => {
             const key = probeKey(item, index)
             return <DNSServerCard key={index} item={item}
@@ -158,7 +168,17 @@ function RuleSection({ object, onChange, onRulesChange, onEdit }: {
           {normalized ? <p className="text-sm text-muted-foreground">{t("policy.dns.searchCount", { shown: visible.length, total: rules.length })}</p> : null}
         </div>
         {visible.length === 0
-          ? <Empty><EmptyHeader><EmptyTitle>{t("policy.dns.noMatch")}</EmptyTitle><EmptyDescription>{t("policy.dns.noMatchDescription")}</EmptyDescription></EmptyHeader></Empty>
+          ? <Empty>
+            <EmptyHeader>
+              <EmptyTitle>{t("policy.dns.noMatch")}</EmptyTitle>
+              <EmptyDescription>{t("policy.dns.noMatchDescription")}</EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              <Button type="button" variant="outline" onClick={() => writeRulesQuery("")}>
+                {t("proxy.clearSearch")}
+              </Button>
+            </EmptyContent>
+          </Empty>
           : <div className="flex flex-col gap-3">{visible.map(({ item, index }) => <DNSRuleCard key={index} index={index} item={item}
             first={index === 0} last={index === rules.length - 1} onEdit={() => onEdit(index)}
             onCopy={() => update(insertCopy(rules, index))}

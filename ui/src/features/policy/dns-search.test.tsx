@@ -62,4 +62,16 @@ describe("DNS search", () => {
     expect(screen.queryByText("google.com")).not.toBeInTheDocument()
     vi.unstubAllGlobals()
   })
+  it("clears server search from empty-state action", async () => {
+    const user = userEvent.setup()
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ outbounds: [] }))))
+    renderEditor("/policy/dns?sq=missing-server")
+    expect(await screen.findByText("无匹配项")).toBeInTheDocument()
+    await user.click(screen.getAllByRole("button", { name: "清空搜索" })[0])
+    expect(await screen.findByText("dns-remote")).toBeInTheDocument()
+    expect(screen.getByText("dns-local")).toBeInTheDocument()
+    expect(screen.getByLabelText("搜索 DNS 服务器")).toHaveValue("")
+    vi.unstubAllGlobals()
+  })
+
 })

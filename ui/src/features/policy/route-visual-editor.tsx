@@ -112,7 +112,17 @@ function RuleSection({ object, metadata, metadataLoading, metadataError, onChang
           {normalized ? <p className="text-sm text-muted-foreground">{t("policy.route.searchRulesCount", { shown: visible.length, total: rules.length })}</p> : null}
         </div>
         {visible.length === 0
-          ? <Empty><EmptyHeader><EmptyTitle>{t("policy.route.noMatchRules")}</EmptyTitle><EmptyDescription>{t("policy.route.noMatchRulesDescription")}</EmptyDescription></EmptyHeader></Empty>
+          ? <Empty>
+            <EmptyHeader>
+              <EmptyTitle>{t("policy.route.noMatchRules")}</EmptyTitle>
+              <EmptyDescription>{t("policy.route.noMatchRulesDescription")}</EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              <Button type="button" variant="outline" onClick={() => writeQuery("")}>
+                {t("proxy.clearSearch")}
+              </Button>
+            </EmptyContent>
+          </Empty>
           : <div className="flex flex-col gap-3">{visible.map(({ item, index }) => <RouteRuleCard key={index} index={index} item={item} metadata={metadata[index]}
             first={index === 0} last={index === rules.length - 1} onEdit={() => onEdit(index)}
             onCopy={() => updateBoth(insertCopy(rules, index), insertMetadataCopy(metadata, index))}

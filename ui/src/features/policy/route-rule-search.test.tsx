@@ -54,4 +54,14 @@ describe("route rule search", () => {
     expect(screen.getByText("Google")).toBeInTheDocument()
     expect(screen.queryByText("CN")).not.toBeInTheDocument()
   })
+  it("clears rule search from empty-state action", async () => {
+    const user = userEvent.setup()
+    renderEditor("/policy/route?q=missing-rule")
+    expect(await screen.findByText("无匹配规则")).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "清空搜索" }))
+    expect(await screen.findByText("Google")).toBeInTheDocument()
+    expect(screen.getByText("CN")).toBeInTheDocument()
+    expect(screen.getByLabelText("搜索规则")).toHaveValue("")
+  })
+
 })
