@@ -146,20 +146,21 @@ func (h *SubscriptionHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *SubscriptionHandler) RefreshAll(w http.ResponseWriter, r *http.Request) {
-	errs := h.manager.RefreshAll()
+	failures := h.manager.RefreshAll()
 
 	_ = h.syncConfig()
 
-	if len(errs) > 0 {
-		writeJSONStatus(w, http.StatusOK, model.StatusPartial, nil, &model.APIError{
+	if len(failures) > 0 {
+		writeJSONStatus(w, http.StatusOK, model.StatusPartial, map[string]any{
+			"failed": failures,
+		}, &model.APIError{
 			Code:    model.ErrorSubscriptionRefresh,
 			Message: "some subscriptions failed to refresh",
 		}, map[string]any{
-			"failed_count": len(errs),
-			"errors":       errs,
+			"failed_count": len(failures),
 		})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, nil)
+	writeJSON(w, http.StatusOK, map[string]any{"failed": []any{}})
 }

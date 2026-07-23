@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -62,6 +63,61 @@ func TestSubscriptionRefreshErrors(t *testing.T) {
 	}
 	if got := manager.Get(subscription.ID); got.Error == "" {
 		t.Fatal("refresh error should be stored")
+	} else if got.ErrorCode == "" {
+		t.Fatal("error_code should be stored")
+	}
+}
+
+func TestSubscriptionRefreshEmptyContent(t *testing.T) {
+	db, cleanup := setupSubDB(t)
+	defer cleanup()
+
+	withSubscriptionHTTPClient(t, "not a subscription")
+	manager := NewSubscriptionManager(db, t.TempDir())
+	subscription, err := manager.Create(SubscriptionParams{Name: "empty", URL: "https://example.test/empty", IntervalMin: 60})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := manager.Refresh(subscription.ID); err == nil {
+		t.Fatal("expected empty content error")
+	}
+	got := manager.Get(subscription.ID)
+	if got == nil || got.ErrorCode != SubRefreshEmpty {
+		t.Fatalf("got = %#v", got)
+	}
+}
+
+func TestSubscriptionRefreshHTTPStatusCodes(t *testing.T) {
+	db, cleanup := setupSubDB(t)
+	defer cleanup()
+
+	previous := subscriptionHTTPClient
+	subscriptionHTTPClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusForbidden,
+			Body:       io.NopCloser(strings.NewReader("denied")),
+			Header:     make(http.Header),
+			Request:    req,
+		}, nil
+	})}
+	t.Cleanup(func() { subscriptionHTTPClient = previous })
+
+	manager := NewSubscriptionManager(db, t.TempDir())
+	subscription, err := manager.Create(SubscriptionParams{Name: "forbidden", URL: "https://example.test/forbidden", IntervalMin: 60})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = manager.Refresh(subscription.ID)
+	if err == nil {
+		t.Fatal("expected http error")
+	}
+	var refreshErr *SubscriptionRefreshError
+	if !errors.As(err, &refreshErr) || refreshErr.Code != SubRefreshForbidden {
+		t.Fatalf("err = %v", err)
+	}
+	got := manager.Get(subscription.ID)
+	if got.ErrorCode != SubRefreshForbidden {
+		t.Fatalf("stored code = %q", got.ErrorCode)
 	}
 }
 
@@ -74,14 +130,18 @@ func TestSubscriptionRefreshAll(t *testing.T) {
 	if _, err := manager.Create(SubscriptionParams{Name: "ok", URL: "https://example.test/ok", IntervalMin: 60}); err != nil {
 		t.Fatal(err)
 	}
-	if errs := manager.RefreshAll(); len(errs) != 0 {
-		t.Fatalf("errs = %v", errs)
+	if failures := manager.RefreshAll(); len(failures) != 0 {
+		t.Fatalf("failures = %v", failures)
 	}
 	if _, err := manager.Create(SubscriptionParams{Name: "bad", URL: "://bad-url", IntervalMin: 60}); err != nil {
 		t.Fatal(err)
 	}
-	if errs := manager.RefreshAll(); len(errs) != 1 {
-		t.Fatalf("errs = %v", errs)
+	failures := manager.RefreshAll()
+	if len(failures) != 1 {
+		t.Fatalf("failures = %v", failures)
+	}
+	if failures[0].ID == "" || failures[0].Code == "" {
+		t.Fatalf("failure = %#v", failures[0])
 	}
 }
 

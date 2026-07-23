@@ -155,7 +155,7 @@ func TestTestResultJSON(t *testing.T) {
 func TestSubscriptionJSON(t *testing.T) {
 	sub := Subscription{
 		ID: "1", Name: "test", URL: "https://example.com/sub",
-		IntervalMin: 60, LastUpdated: time.Now(), Error: "",
+		IntervalMin: 60, LastUpdated: time.Now(), Error: "boom", ErrorCode: "timeout",
 		Outbounds: []Outbound{{Tag: "node1", Type: "vless", Server: "1.2.3.4", Port: 443}},
 	}
 	data, err := json.Marshal(sub)
@@ -171,6 +171,9 @@ func TestSubscriptionJSON(t *testing.T) {
 	}
 	if len(decoded.Outbounds) != 1 || decoded.Outbounds[0].Tag != "node1" {
 		t.Error("outbounds roundtrip failed")
+	}
+	if decoded.Error != "boom" || decoded.ErrorCode != "timeout" {
+		t.Errorf("error fields = %q %q", decoded.Error, decoded.ErrorCode)
 	}
 }
 

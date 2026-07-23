@@ -200,11 +200,17 @@ func TestSubscriptionSetError(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sm.setError(created.ID, "something went wrong")
+	sm.setError(created.ID, newSubscriptionRefreshError(SubRefreshUnknown, "something went wrong", 0))
 
 	updated := sm.Get(created.ID)
 	if updated.Error != "something went wrong" {
 		t.Errorf("expected 'something went wrong', got '%s'", updated.Error)
+	}
+	if updated.ErrorCode != SubRefreshUnknown {
+		t.Errorf("error_code = %q", updated.ErrorCode)
+	}
+	if updated.ErrorAt == nil {
+		t.Error("error_at should be set")
 	}
 }
 

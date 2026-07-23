@@ -19,6 +19,7 @@ export function matchesSubscription(item: Subscription, query: string) {
     item.name,
     item.url,
     item.error ?? "",
+    item.error_code ?? "",
     item.id,
     ...(item.outbounds?.map((outbound) => outbound.tag) ?? []),
   ].join(" ").toLowerCase()

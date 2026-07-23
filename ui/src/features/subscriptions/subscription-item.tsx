@@ -10,6 +10,7 @@ import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader,
 import { buildNodesHref } from "@/features/nodes/nodes-filter"
 import { buildLogsHref } from "@/features/observability/log-filter-presets"
 import { formatRelativeTime } from "@/features/subscriptions/relative-time"
+import { resolveSubscriptionErrorCode, subscriptionErrorHintKey } from "@/features/subscriptions/subscription-error"
 import { SubscriptionTrafficBadges } from "@/features/subscriptions/subscription-traffic"
 import type { Subscription } from "@/lib/api/types"
 import { cn } from "@/lib/utils"
@@ -54,7 +55,12 @@ export function SubscriptionItem({ item, onEdit, onRefresh, onDelete }: Subscrip
             <Badge variant="outline">{urlTestStatus(item, t)}</Badge>
           </div>
           {item.error ? (
-            <p className="line-clamp-2 text-xs text-destructive sm:text-sm" title={item.error}>{item.error}</p>
+            <div className="flex flex-col gap-0.5">
+              <p className="line-clamp-2 text-xs text-destructive sm:text-sm" title={item.error}>{item.error}</p>
+              <p className="line-clamp-2 text-[11px] text-muted-foreground sm:text-xs">
+                {t(subscriptionErrorHintKey(resolveSubscriptionErrorCode(item)))}
+              </p>
+            </div>
           ) : null}
           <SubscriptionTrafficBadges traffic={item.traffic} />
           <div className="flex flex-wrap gap-1.5">

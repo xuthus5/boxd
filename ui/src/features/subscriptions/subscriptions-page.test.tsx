@@ -70,6 +70,7 @@ describe("SubscriptionsPage", () => {
     expect(newer.compareDocumentPosition(older) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.getByRole("button", { name: /重试失败/ })).toBeInTheDocument()
     expect(screen.getByText("timeout")).toBeInTheDocument()
+    expect(screen.getByText("拉取超时，可稍后重试或调大网络稳定性。")).toBeInTheDocument()
   })
 })
 

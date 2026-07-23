@@ -104,6 +104,8 @@ export interface Subscription {
   urltest?: URLTestOverrides
   last_updated: string
   error?: string
+  error_code?: string
+  error_at?: string
   traffic?: SubscriptionTraffic
   outbounds?: Outbound[]
 }

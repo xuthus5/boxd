@@ -51,7 +51,13 @@ export function SubscriptionsPage() {
     .then(() => toast.success(message))
     .catch((error: Error) => toast.error(error.message))
   const refreshAll = () => api.subscriptions.refreshAll().then((response) => {
-    if (response.status === "partial") throw new Error(response.error?.message || t("subscriptions.partialFailure"))
+    if (response.status === "partial") {
+      const failedCount = Number((response.meta as { failed_count?: number } | null)?.failed_count ?? 0)
+      const detail = failedCount > 0
+        ? t("subscriptions.partialFailureCount", { count: failedCount })
+        : (response.error?.message || t("subscriptions.partialFailure"))
+      throw new Error(detail)
+    }
     return response
   }).then(refresh).then(() => toast.success(t("subscriptions.refreshedAll"))).catch((error: Error) => toast.error(error.message))
 

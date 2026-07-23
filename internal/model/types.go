@@ -65,6 +65,8 @@ type Subscription struct {
 	URLTest     *URLTestOverrides    `json:"urltest,omitempty"`
 	LastUpdated time.Time            `json:"last_updated"`
 	Error       string               `json:"error,omitempty"`
+	ErrorCode   string               `json:"error_code,omitempty"`
+	ErrorAt     *time.Time           `json:"error_at,omitempty"`
 	Traffic     *SubscriptionTraffic `json:"traffic,omitempty"`
 	Outbounds   []Outbound           `json:"outbounds,omitempty"`
 }

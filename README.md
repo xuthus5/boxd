@@ -63,7 +63,7 @@ go run ./cmd/boxd/
 ## Usage
 
 1. Sign in and rotate the admin password.
-2. **Subscriptions / nodes**: add a subscription URL or import a single node; configure URLTest (inherit global defaults when needed).
+2. **Subscriptions / nodes**: add a subscription URL or import a single node; configure URLTest (inherit global defaults when needed). Failed refreshes store error codes with actionable UI hints; empty/unparseable content is treated as failure.
 3. **Inbounds / outbounds**: install mixed (1080) + TUN templates or create custom inbounds; bind subscription groups as selector/urltest, or use direct/block.
 4. **Route / DNS / Experimental**: edit rules in forms; install common defaults; one-click enable Clash API.
 5. **Dashboard**: start the kernel; switch global outbound and Clash mode; watch traffic and logs.
