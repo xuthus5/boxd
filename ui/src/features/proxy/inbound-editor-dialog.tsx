@@ -42,16 +42,16 @@ function BaseFields({ object, onChange }: { object: JsonObject; onChange: (objec
   const options = useMemo(() => typeOptions(type), [type])
   const items = useMemo(() => options.map((value) => ({ value, label: value })), [options])
   const invalid = new Set(collectInboundBaseInvalid(object))
-  return <FieldGroup className="grid gap-4 sm:grid-cols-2">
+  return <FieldGroup className="grid gap-2 sm:grid-cols-2 sm:gap-3">
     <Field data-invalid={invalid.has("tag") || undefined}>
       <FieldLabel htmlFor="inbound-tag">Tag</FieldLabel>
-      <Input id="inbound-tag" aria-invalid={invalid.has("tag") || undefined} value={String(object.tag ?? "")} onChange={(event) => { const next = { ...object }; const tag = event.target.value.trim(); if (tag) next.tag = tag; else delete next.tag; onChange(next) }} />
+      <Input id="inbound-tag" className="h-8" aria-invalid={invalid.has("tag") || undefined} value={String(object.tag ?? "")} onChange={(event) => { const next = { ...object }; const tag = event.target.value.trim(); if (tag) next.tag = tag; else delete next.tag; onChange(next) }} />
       {invalid.has("tag") ? <FieldDescription>{t("proxy.inbound.requiredTag")}</FieldDescription> : null}
     </Field>
     <Field data-invalid={invalid.has("type") || undefined}>
       <FieldLabel htmlFor="inbound-type">{t("common.type")}</FieldLabel>
       <Select items={items} value={type || null} onValueChange={(value) => onChange(changeInboundType(object, String(value)))}>
-        <SelectTrigger id="inbound-type" aria-invalid={invalid.has("type") || undefined} aria-label={t("common.type")} className="w-full"><SelectValue placeholder={t("proxy.inbound.selectType")} /></SelectTrigger>
+        <SelectTrigger id="inbound-type" aria-invalid={invalid.has("type") || undefined} aria-label={t("common.type")} className="h-8 w-full"><SelectValue placeholder={t("proxy.inbound.selectType")} /></SelectTrigger>
         <SelectContent><SelectGroup>{options.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectGroup></SelectContent>
       </Select>
       {invalid.has("type") ? <FieldDescription>{t("proxy.inbound.requiredType")}</FieldDescription> : null}
@@ -90,8 +90,8 @@ function FormTabs({ object, value, title, revision, onChange, onJSONChange, onFi
     outboundTags: configTags(config.data?.outbounds, currentTag),
     dnsServerTags: dnsServerTags(config.data?.dns),
   }
-  return <Tabs defaultValue="basic" className="min-h-0">
-    <TabsList className="h-auto w-full justify-start overflow-x-auto" variant="line">
+  return <Tabs defaultValue="basic" className="min-h-0 min-w-0">
+    <TabsList activateOnFocus className="h-auto max-w-full justify-start overflow-x-auto overflow-y-hidden" variant="line">
       <TabsTrigger value="basic">{t("proxy.inbound.basic")}</TabsTrigger>
       <TabsTrigger value="listen">{t(type === "tun" ? "proxy.inbound.tun" : "proxy.inbound.listenAndConnection")}</TabsTrigger>
       <TabsTrigger value="protocol">{t("proxy.inbound.protocol")}</TabsTrigger>
@@ -99,12 +99,12 @@ function FormTabs({ object, value, title, revision, onChange, onJSONChange, onFi
       {hasTransport ? <TabsTrigger value="transport">{t("proxy.inbound.transportMultiplex")}</TabsTrigger> : null}
       <TabsTrigger value="advanced">{t("proxy.advancedJSON")}</TabsTrigger>
     </TabsList>
-    <TabsContent value="basic" className="pt-4"><BaseFields object={object} onChange={onChange} /></TabsContent>
-    <TabsContent value="listen" className="pt-4"><InboundFormFields fields={type === "tun" ? tunFields.slice(4) : listenFields.slice(2)} object={object} type={type} context={context} onChange={onChange} /></TabsContent>
-    <TabsContent value="protocol" className="pt-4" keepMounted><InboundFormFields fields={protocolFields(type)} object={object} type={type} revision={revision} context={context} onChange={onChange} onFieldValidityChange={onFieldValidityChange} /></TabsContent>
-    {hasTLS ? <TabsContent value="tls" className="pt-4"><InboundFormFields fields={tlsFields} object={object} type={type} context={context} onChange={onChange} /></TabsContent> : null}
-    {hasTransport ? <TabsContent value="transport" className="pt-4" keepMounted><InboundFormFields fields={[...(transportTypes.has(type) ? transportTypeFields(transportType) : []), ...(multiplexTypes.has(type) ? multiplexFields : [])]} object={object} type={type} revision={revision} context={context} onChange={onChange} onFieldValidityChange={onFieldValidityChange} /></TabsContent> : null}
-    <TabsContent value="advanced" className="pt-4"><Field><FieldLabel className="sr-only">{t("proxy.advancedJSON")}</FieldLabel><JsonEditor value={value} onChange={onJSONChange} ariaLabel={`${title} JSON`} /></Field></TabsContent>
+    <TabsContent value="basic" className="pt-3 sm:pt-4"><BaseFields object={object} onChange={onChange} /></TabsContent>
+    <TabsContent value="listen" className="pt-3 sm:pt-4"><InboundFormFields fields={type === "tun" ? tunFields.slice(4) : listenFields.slice(2)} object={object} type={type} context={context} onChange={onChange} /></TabsContent>
+    <TabsContent value="protocol" className="pt-3 sm:pt-4" keepMounted><InboundFormFields fields={protocolFields(type)} object={object} type={type} revision={revision} context={context} onChange={onChange} onFieldValidityChange={onFieldValidityChange} /></TabsContent>
+    {hasTLS ? <TabsContent value="tls" className="pt-3 sm:pt-4"><InboundFormFields fields={tlsFields} object={object} type={type} context={context} onChange={onChange} /></TabsContent> : null}
+    {hasTransport ? <TabsContent value="transport" className="pt-3 sm:pt-4" keepMounted><InboundFormFields fields={[...(transportTypes.has(type) ? transportTypeFields(transportType) : []), ...(multiplexTypes.has(type) ? multiplexFields : [])]} object={object} type={type} revision={revision} context={context} onChange={onChange} onFieldValidityChange={onFieldValidityChange} /></TabsContent> : null}
+    <TabsContent value="advanced" className="pt-3 sm:pt-4"><Field><FieldLabel className="sr-only">{t("proxy.advancedJSON")}</FieldLabel><JsonEditor value={value} onChange={onJSONChange} ariaLabel={`${title} JSON`} /></Field></TabsContent>
   </Tabs>
 }
 
@@ -119,15 +119,15 @@ export function InboundEditorDialog({ title, item, onClose, onSave }: InboundEdi
   const updateJSON = (next: string) => { setValue(next); setRevision((current) => current + 1) }
   const updateValidity = useCallback((path: string, valid: boolean) => setInvalidFields((current) => { const next = new Set(current); if (valid) next.delete(path); else next.add(path); return next }), [])
   return <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
-    <DialogContent className="max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-5xl">
-      <DialogHeader><DialogTitle>{title}</DialogTitle><DialogDescription>{t("proxy.inbound.editorDescription")}</DialogDescription></DialogHeader>
+    <DialogContent className="max-h-[calc(100dvh-1rem)] min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] gap-3 p-3 sm:max-h-[calc(100dvh-2rem)] sm:max-w-5xl sm:gap-4 sm:p-4">
+      <DialogHeader><DialogTitle className="truncate">{title}</DialogTitle><DialogDescription>{t("proxy.inbound.editorDescription")}</DialogDescription></DialogHeader>
       <div className="min-h-0 overflow-y-auto pr-1">
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2 sm:gap-3">
           {baseInvalid ? <Alert variant="destructive"><AlertTitle>{t("proxy.inbound.requiredTitle")}</AlertTitle><AlertDescription>{t("proxy.inbound.requiredDescription")}</AlertDescription></Alert> : null}
           {object ? <FormTabs object={object} value={value} title={title} revision={revision} onChange={update} onJSONChange={updateJSON} onFieldValidityChange={updateValidity} /> : <JsonEditor value={value} onChange={updateJSON} ariaLabel={`${title} JSON`} />}
         </div>
       </div>
-      <DialogFooter><Button variant="outline" onClick={onClose}>{t("common.cancel")}</Button><Button disabled={!object || baseInvalid || invalidFields.size > 0} onClick={() => { if (object) onSave(object) }}>{t("common.save")}</Button></DialogFooter>
+      <DialogFooter className="gap-2"><Button variant="outline" size="sm" className="h-8" onClick={onClose}>{t("common.cancel")}</Button><Button size="sm" className="h-8" disabled={!object || baseInvalid || invalidFields.size > 0} onClick={() => { if (object) onSave(object) }}>{t("common.save")}</Button></DialogFooter>
     </DialogContent>
   </Dialog>
 }

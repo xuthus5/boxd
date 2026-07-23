@@ -31,6 +31,10 @@ describe("inbound editor", () => {
     const user = userEvent.setup()
     renderEditor(<InboundEditorDialog title="编辑 vless" item={{ tag: "in", type: "vless", listen_port: 443, custom: "keep" }} onClose={vi.fn()} onSave={onSave} />)
 
+    expect(screen.getByRole("dialog")).toHaveClass("p-3")
+    expect(screen.getByRole("dialog")).toHaveClass("max-h-[calc(100dvh-1rem)]")
+    expect(screen.getByLabelText("Tag")).toHaveClass("h-8")
+    expect(screen.getByRole("button", { name: "保存" })).toHaveClass("h-8")
     await user.click(screen.getByRole("tab", { name: "协议" }))
     await user.click(screen.getByRole("button", { name: "添加用户" }))
     fireEvent.change(screen.getByLabelText("认证用户 1 名称"), { target: { value: "alice" } })

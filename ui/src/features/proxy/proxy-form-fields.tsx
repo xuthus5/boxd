@@ -84,7 +84,7 @@ function SelectField({ field, label, namespace, value, onChange }: { field: Fiel
   return <Field>
     <FieldHeading id={id} label={label} namespace={namespace} labelKey={field.label} />
     <Select items={items} value={value || unset} onValueChange={(next) => onChange(next === unset ? "" : String(next))}>
-      <SelectTrigger id={id} aria-label={label} className="w-full"><SelectValue /></SelectTrigger>
+      <SelectTrigger id={id} aria-label={label} className="h-8 w-full"><SelectValue /></SelectTrigger>
       <SelectContent><SelectGroup>
         <SelectItem value={unset}>{t(`${namespace}.notSet`)}</SelectItem>
         {options.map((option) => <SelectItem key={option} value={option}>{optionLabel(option)}</SelectItem>)}
@@ -130,7 +130,7 @@ function ListenAddressField({ label, namespace, labelKey, revision = 0, value, o
         setMode(selected)
         onChange(selected)
       }}>
-        <SelectTrigger id={selectId} aria-label={label} className="w-full"><SelectValue /></SelectTrigger>
+        <SelectTrigger id={selectId} aria-label={label} className="h-8 w-full"><SelectValue /></SelectTrigger>
         <SelectContent><SelectGroup>
           <SelectItem value="unset">{t(`${namespace}.notSet`)}</SelectItem>
           <SelectItem value="0.0.0.0">{t(`${namespace}.listenIPv4All`)}</SelectItem>
@@ -138,7 +138,7 @@ function ListenAddressField({ label, namespace, labelKey, revision = 0, value, o
           <SelectItem value="manual">{t(`${namespace}.listenManual`)}</SelectItem>
         </SelectGroup></SelectContent>
       </Select>
-      {mode === "manual" ? <Input id={inputId} aria-label={t(`${namespace}.listenManualInput`)} value={isPreset(value) ? "" : value} placeholder={t(`${namespace}.listenManualPlaceholder`)} onChange={(event) => onChange(event.target.value)} /> : null}
+      {mode === "manual" ? <Input id={inputId} className="h-8" aria-label={t(`${namespace}.listenManualInput`)} value={isPreset(value) ? "" : value} placeholder={t(`${namespace}.listenManualPlaceholder`)} onChange={(event) => onChange(event.target.value)} /> : null}
     </div>
   </Field>
 }
@@ -186,14 +186,14 @@ function NetworkInterfaceField({ label, namespace, labelKey, revision = 0, value
         setMode(selected)
         onChange(selected)
       }}>
-        <SelectTrigger id={selectId} aria-label={label} className="w-full"><SelectValue /></SelectTrigger>
+        <SelectTrigger id={selectId} aria-label={label} className="h-8 w-full"><SelectValue /></SelectTrigger>
         <SelectContent><SelectGroup>
           <SelectItem value="unset">{t(`${namespace}.notSet`)}</SelectItem>
           {interfaces.map((item) => <SelectItem key={item.name} value={item.name}>{interfaceLabel(item)}</SelectItem>)}
           <SelectItem value="manual">{t(`${namespace}.interfaceManual`)}</SelectItem>
         </SelectGroup></SelectContent>
       </Select>
-      {mode === "manual" ? <Input id={inputId} aria-label={t(`${namespace}.interfaceManualInput`)} value={known ? "" : value} placeholder={t(`${namespace}.interfaceManualPlaceholder`)} onChange={(event) => onChange(event.target.value)} /> : null}
+      {mode === "manual" ? <Input id={inputId} className="h-8" aria-label={t(`${namespace}.interfaceManualInput`)} value={known ? "" : value} placeholder={t(`${namespace}.interfaceManualPlaceholder`)} onChange={(event) => onChange(event.target.value)} /> : null}
     </div>
   </Field>
 }
@@ -235,7 +235,7 @@ function RefSelectField({ field, label, namespace, value, context, onChange }: {
   return <Field>
     <FieldHeading id={id} label={label} namespace={namespace} labelKey={field.label} />
     <Select items={items} value={value || unset} onValueChange={(next) => onChange(next === unset ? "" : String(next))}>
-      <SelectTrigger id={id} aria-label={label} className="w-full"><SelectValue /></SelectTrigger>
+      <SelectTrigger id={id} aria-label={label} className="h-8 w-full"><SelectValue /></SelectTrigger>
       <SelectContent><SelectGroup>
         <SelectItem value={unset}>{t(`${namespace}.notSet`)}</SelectItem>
         {items.filter((item) => item.value !== unset).map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
@@ -272,12 +272,12 @@ export function ProxyFormFields(props: ProxyFormFieldsProps) {
   const { t, i18n } = useTranslation()
   const shown = visibleFields(fields, object)
   const groups = groupFieldsBySection(shown)
-  return <div className="flex flex-col gap-6">
+  return <div className="flex flex-col gap-3 sm:gap-4">
     {groups.map((group, index) => {
       const hasTitle = Boolean(group.section && i18n.exists(`${props.namespace}.section.${group.section}`))
-      return <section key={`${group.section ?? "default"}-${index}`} className="flex flex-col gap-3">
-        {hasTitle ? <h3 className="text-sm font-medium text-muted-foreground">{t(`${props.namespace}.section.${group.section}`)}</h3> : null}
-        <FieldGroup className="grid gap-4 sm:grid-cols-2">
+      return <section key={`${group.section ?? "default"}-${index}`} className="flex flex-col gap-2 sm:gap-3">
+        {hasTitle ? <h3 className="text-xs font-medium text-muted-foreground sm:text-sm">{t(`${props.namespace}.section.${group.section}`)}</h3> : null}
+        <FieldGroup className="grid gap-2 sm:grid-cols-2 sm:gap-3">
           {group.fields.map((field) => <ProxyField key={field.path} field={field} object={object} {...rest} />)}
         </FieldGroup>
       </section>

@@ -45,16 +45,16 @@ function BaseFields({ object, onChange }: { object: JsonObject; onChange: (objec
   const items = useMemo(() => options.map((value) => ({ value, label: value })), [options])
   const invalid = new Set(collectOutboundBaseInvalid(object))
   const showServer = serverTypes.has(type)
-  return <FieldGroup className="grid gap-4 sm:grid-cols-2">
+  return <FieldGroup className="grid gap-2 sm:grid-cols-2 sm:gap-3">
     <Field data-invalid={invalid.has("tag") || undefined}>
       <FieldLabel htmlFor="outbound-tag">Tag</FieldLabel>
-      <Input id="outbound-tag" aria-invalid={invalid.has("tag") || undefined} value={String(object.tag ?? "")} onChange={(event) => onChange(setPath(object, "tag", event.target.value || undefined))} />
+      <Input id="outbound-tag" className="h-8" aria-invalid={invalid.has("tag") || undefined} value={String(object.tag ?? "")} onChange={(event) => onChange(setPath(object, "tag", event.target.value || undefined))} />
       {invalid.has("tag") ? <FieldDescription>{t("proxy.outbound.requiredTag")}</FieldDescription> : null}
     </Field>
     <Field data-invalid={invalid.has("type") || undefined}>
       <FieldLabel htmlFor="outbound-type">{t("common.type")}</FieldLabel>
       <Select items={items} value={type || null} onValueChange={(value) => onChange(changeOutboundType(object, String(value)))}>
-        <SelectTrigger id="outbound-type" aria-invalid={invalid.has("type") || undefined} aria-label={t("common.type")} className="w-full"><SelectValue placeholder={t("proxy.outbound.selectType")} /></SelectTrigger>
+        <SelectTrigger id="outbound-type" aria-invalid={invalid.has("type") || undefined} aria-label={t("common.type")} className="h-8 w-full"><SelectValue placeholder={t("proxy.outbound.selectType")} /></SelectTrigger>
         <SelectContent><SelectGroup>{options.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectGroup></SelectContent>
       </Select>
       {invalid.has("type") ? <FieldDescription>{t("proxy.outbound.requiredType")}</FieldDescription> : null}
@@ -62,12 +62,12 @@ function BaseFields({ object, onChange }: { object: JsonObject; onChange: (objec
     {showServer ? <>
       <Field data-invalid={invalid.has("server") || undefined}>
         <FieldLabel htmlFor="outbound-server">{t("proxy.outbound.server")}</FieldLabel>
-        <Input id="outbound-server" aria-invalid={invalid.has("server") || undefined} value={String(object.server ?? "")} onChange={(event) => onChange(setPath(object, "server", event.target.value || undefined))} />
+        <Input id="outbound-server" className="h-8" aria-invalid={invalid.has("server") || undefined} value={String(object.server ?? "")} onChange={(event) => onChange(setPath(object, "server", event.target.value || undefined))} />
         {invalid.has("server") ? <FieldDescription>{t("proxy.outbound.requiredServer")}</FieldDescription> : null}
       </Field>
       <Field data-invalid={invalid.has("server_port") || undefined}>
         <FieldLabel htmlFor="outbound-port">{t("proxy.outbound.serverPort")}</FieldLabel>
-        <Input id="outbound-port" type="number" aria-invalid={invalid.has("server_port") || undefined} value={String(object.server_port ?? "")} onChange={(event) => onChange(setPath(object, "server_port", event.target.value ? Number(event.target.value) : undefined))} />
+        <Input id="outbound-port" type="number" className="h-8" aria-invalid={invalid.has("server_port") || undefined} value={String(object.server_port ?? "")} onChange={(event) => onChange(setPath(object, "server_port", event.target.value ? Number(event.target.value) : undefined))} />
         {invalid.has("server_port") ? <FieldDescription>{t("proxy.outbound.requiredPort")}</FieldDescription> : null}
       </Field>
     </> : null}
@@ -113,10 +113,10 @@ function GroupFields({ type, object, onChange }: { type: string; object: JsonObj
   }
   const candidateItems = useMemo(() => candidates.map((value) => ({ value, label: value })), [candidates])
   const defaultItems = useMemo(() => members.map((value) => ({ value, label: value })), [members])
-  return <FieldGroup className="flex flex-col gap-4">
+  return <FieldGroup className="flex flex-col gap-2 sm:gap-3">
     <Field>
       <FieldLabel>{t("proxy.outbound.groupOutbounds")}</FieldLabel>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5 sm:gap-2">
         {members.map((member) => <Badge key={member} variant="secondary" className="cursor-pointer" onClick={() => setMembers(members.filter((item) => item !== member))}>{member}</Badge>)}
         {candidates.length ? null : <span className="text-sm text-muted-foreground">—</span>}
       </div>
@@ -124,14 +124,14 @@ function GroupFields({ type, object, onChange }: { type: string; object: JsonObj
     {candidates.length ? <Field>
       <FieldLabel htmlFor="outbound-group-add">{t("proxy.outbound.groupOutbounds")}</FieldLabel>
       <Select items={candidateItems} value={null} onValueChange={(value) => setMembers([...members, String(value)])}>
-        <SelectTrigger id="outbound-group-add" aria-label={t("proxy.outbound.groupOutbounds")} className="w-full"><SelectValue placeholder={t("proxy.outbound.selectType")} /></SelectTrigger>
+        <SelectTrigger id="outbound-group-add" aria-label={t("proxy.outbound.groupOutbounds")} className="h-8 w-full"><SelectValue placeholder={t("proxy.outbound.selectType")} /></SelectTrigger>
         <SelectContent><SelectGroup>{candidates.map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectGroup></SelectContent>
       </Select>
     </Field> : null}
     {type === "selector" ? <Field>
       <FieldLabel htmlFor="outbound-default">{t("proxy.outbound.groupDefault")}</FieldLabel>
       <Select items={defaultItems} value={typeof object.default === "string" ? object.default : null} onValueChange={(value) => onChange(setPath(object, "default", value ? String(value) : undefined))}>
-        <SelectTrigger id="outbound-default" aria-label={t("proxy.outbound.groupDefault")} className="w-full"><SelectValue placeholder={t("proxy.outbound.notSet")} /></SelectTrigger>
+        <SelectTrigger id="outbound-default" aria-label={t("proxy.outbound.groupDefault")} className="h-8 w-full"><SelectValue placeholder={t("proxy.outbound.notSet")} /></SelectTrigger>
         <SelectContent><SelectGroup>{members.map((member) => <SelectItem key={member} value={member}>{member}</SelectItem>)}</SelectGroup></SelectContent>
       </Select>
     </Field> : null}
@@ -157,8 +157,8 @@ function FormTabs({ object, value, title, revision, onChange, onJSONChange, onFi
     outboundTags: configTags(config.data?.outbounds, currentTag),
     dnsServerTags: dnsServerTags(config.data?.dns),
   }
-  return <Tabs defaultValue="basic" className="min-h-0">
-    <TabsList className="h-auto w-full justify-start overflow-x-auto" variant="line">
+  return <Tabs defaultValue="basic" className="min-h-0 min-w-0">
+    <TabsList activateOnFocus className="h-auto max-w-full justify-start overflow-x-auto overflow-y-hidden" variant="line">
       <TabsTrigger value="basic">{t("proxy.outbound.basic")}</TabsTrigger>
       {dialerTypes.has(type) ? <TabsTrigger value="dialer">{t("proxy.outbound.dialing")}</TabsTrigger> : null}
       <TabsTrigger value="protocol">{t(groupTypes.has(type) ? "proxy.outbound.group" : "proxy.outbound.protocol")}</TabsTrigger>
@@ -166,11 +166,11 @@ function FormTabs({ object, value, title, revision, onChange, onJSONChange, onFi
       {hasTransport ? <TabsTrigger value="transport">{t("proxy.outbound.transportMultiplex")}</TabsTrigger> : null}
       <TabsTrigger value="advanced">{t("proxy.advancedJSON")}</TabsTrigger>
     </TabsList>
-    <TabsContent value="basic" className="pt-4"><BaseFields object={object} onChange={onChange} /></TabsContent>
-    {dialerTypes.has(type) ? <TabsContent value="dialer" className="pt-4">
+    <TabsContent value="basic" className="pt-3 sm:pt-4"><BaseFields object={object} onChange={onChange} /></TabsContent>
+    {dialerTypes.has(type) ? <TabsContent value="dialer" className="pt-3 sm:pt-4">
       <OutboundFormFields fields={dialerFields} object={object} type={type} context={context} onChange={onChange} />
     </TabsContent> : null}
-    <TabsContent value="protocol" className="pt-4" keepMounted>
+    <TabsContent value="protocol" className="pt-3 sm:pt-4" keepMounted>
       <FieldGroup>
         {groupTypes.has(type) ? <ManagedGroupAlert /> : null}
         {groupTypes.has(type)
@@ -178,10 +178,10 @@ function FormTabs({ object, value, title, revision, onChange, onJSONChange, onFi
           : <OutboundFormFields fields={protocol} object={object} type={type} revision={revision} context={context} onChange={onChange} onFieldValidityChange={onFieldValidityChange} />}
       </FieldGroup>
     </TabsContent>
-    {outboundTLSTypes.has(type) ? <TabsContent value="tls" className="pt-4">
+    {outboundTLSTypes.has(type) ? <TabsContent value="tls" className="pt-3 sm:pt-4">
       <OutboundFormFields fields={outboundTLSFields} object={object} type={type} context={context} onChange={onChange} />
     </TabsContent> : null}
-    {hasTransport ? <TabsContent value="transport" className="pt-4" keepMounted>
+    {hasTransport ? <TabsContent value="transport" className="pt-3 sm:pt-4" keepMounted>
       <OutboundFormFields
         fields={[...(outboundTransportTypes.has(type) ? transportTypeFields(transportType) : []), ...(outboundMultiplexTypes.has(type) ? outboundMultiplexFields : [])]}
         object={object}
@@ -192,7 +192,7 @@ function FormTabs({ object, value, title, revision, onChange, onJSONChange, onFi
         onFieldValidityChange={onFieldValidityChange}
       />
     </TabsContent> : null}
-    <TabsContent value="advanced" className="pt-4">
+    <TabsContent value="advanced" className="pt-3 sm:pt-4">
       <Field>
         <FieldLabel className="sr-only">{t("proxy.advancedJSON")}</FieldLabel>
         <JsonEditor value={value} onChange={onJSONChange} ariaLabel={`${title} JSON`} />
@@ -217,13 +217,13 @@ export function OutboundEditorDialog({ title, item, onClose, onSave }: OutboundE
     return next
   }), [])
   return <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
-    <DialogContent className="max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-5xl">
+    <DialogContent className="max-h-[calc(100dvh-1rem)] min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] gap-3 p-3 sm:max-h-[calc(100dvh-2rem)] sm:max-w-5xl sm:gap-4 sm:p-4">
       <DialogHeader>
-        <DialogTitle>{title}</DialogTitle>
+        <DialogTitle className="truncate">{title}</DialogTitle>
         <DialogDescription>{t("proxy.outbound.editorDescription")}</DialogDescription>
       </DialogHeader>
       <div className="min-h-0 overflow-y-auto pr-1">
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2 sm:gap-3">
           {baseInvalid ? <Alert variant="destructive">
             <AlertTitle>{t("proxy.outbound.requiredTitle")}</AlertTitle>
             <AlertDescription>{t("proxy.outbound.requiredDescription")}</AlertDescription>
@@ -233,9 +233,9 @@ export function OutboundEditorDialog({ title, item, onClose, onSave }: OutboundE
             : <JsonEditor value={value} onChange={updateJSON} ariaLabel={`${title} JSON`} />}
         </div>
       </div>
-      <DialogFooter>
-        <Button variant="outline" onClick={onClose}>{t("common.cancel")}</Button>
-        <Button disabled={!object || baseInvalid || invalidFields.size > 0} onClick={() => { if (object) onSave(object) }}>{t("common.save")}</Button>
+      <DialogFooter className="gap-2">
+        <Button variant="outline" size="sm" className="h-8" onClick={onClose}>{t("common.cancel")}</Button>
+        <Button size="sm" className="h-8" disabled={!object || baseInvalid || invalidFields.size > 0} onClick={() => { if (object) onSave(object) }}>{t("common.save")}</Button>
       </DialogFooter>
     </DialogContent>
   </Dialog>

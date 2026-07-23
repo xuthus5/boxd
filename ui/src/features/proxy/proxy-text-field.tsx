@@ -77,8 +77,8 @@ export function ProxyTextField({
     if (!numeric || isNumericFieldRawValid(field.kind, next)) onChange(next)
   }
   const control = area
-    ? <Textarea id={id} aria-label={label} aria-invalid={invalid || undefined} value={draft} onChange={(event) => handleChange(event.target.value)} />
-    : <Input id={id} aria-label={label} aria-invalid={invalid || undefined} type="text" inputMode={field.kind === "number" ? "decimal" : undefined} value={draft} onChange={(event) => handleChange(event.target.value)} />
+    ? <Textarea id={id} className="min-h-20" aria-label={label} aria-invalid={invalid || undefined} value={draft} onChange={(event) => handleChange(event.target.value)} />
+    : <Input id={id} className="h-8" aria-label={label} aria-invalid={invalid || undefined} type="text" inputMode={field.kind === "number" ? "decimal" : undefined} value={draft} onChange={(event) => handleChange(event.target.value)} />
   const errorKey = field.kind === "number-list" ? "invalidNumberList" : "invalidNumber"
   return <Field data-invalid={invalid || undefined}>
     <FieldHeading id={id} label={label} namespace={namespace} labelKey={field.label} />

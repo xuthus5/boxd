@@ -31,6 +31,10 @@ describe("outbound editor", () => {
     renderEditor(<OutboundEditorDialog title="编辑" item={{ tag: "vless-out", type: "vless", server: "old.example.com", server_port: 443, custom: "keep" }} onClose={vi.fn()} onSave={onSave} />)
 
     expect(screen.getByRole("dialog")).toHaveClass("sm:max-w-5xl")
+    expect(screen.getByRole("dialog")).toHaveClass("p-3")
+    expect(screen.getByRole("dialog")).toHaveClass("max-h-[calc(100dvh-1rem)]")
+    expect(screen.getByLabelText("Tag")).toHaveClass("h-8")
+    expect(screen.getByRole("button", { name: "保存" })).toHaveClass("h-8")
     expect(screen.getByLabelText("服务器地址")).toHaveValue("old.example.com")
     await user.click(screen.getByRole("tab", { name: "协议" }))
     fireEvent.change(screen.getByLabelText("UUID"), { target: { value: "uuid" } })
