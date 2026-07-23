@@ -7,6 +7,7 @@ import { formatBytes } from "@/features/dashboard/format"
 import { buildNodesHref } from "@/features/nodes/nodes-filter"
 import { connectionTargetLogQuery } from "@/features/observability/connection-facets"
 import { buildLogsHref } from "@/features/observability/log-filter-presets"
+import { buildRouteHref } from "@/features/policy/route-rule-filter"
 import type { Connection } from "@/lib/api/types"
 
 export function targetLogsHref(target?: string) {
@@ -18,6 +19,12 @@ export function nodeHref(outbound?: string) {
   const tag = outbound?.trim()
   if (!tag || tag === "—") return ""
   return buildNodesHref({ query: tag })
+}
+
+export function ruleRouteHref(rule?: string) {
+  const value = rule?.trim()
+  if (!value || value === "—") return ""
+  return buildRouteHref({ query: value })
 }
 
 export function formatDuration(start: string) {

@@ -1,4 +1,4 @@
-import { CopyIcon, NetworkIcon, ScrollTextIcon } from "lucide-react"
+import { CopyIcon, NetworkIcon, RouteIcon, ScrollTextIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 import { toast } from "sonner"
@@ -18,6 +18,7 @@ import {
   cellValue,
   formatDuration,
   nodeHref,
+  ruleRouteHref,
   targetLogsHref,
   titleFor,
 } from "@/features/observability/connection-list-helpers"
@@ -92,6 +93,16 @@ function ConnectionMobileCard({
             >
               <NetworkIcon data-icon="inline-start" />
               {t("observability.viewNode")}
+            </Link>
+          ) : null}
+          {ruleRouteHref(connection.rule) ? (
+            <Link
+              to={ruleRouteHref(connection.rule)}
+              aria-label={`${t("observability.viewRule")}: ${connection.rule}`}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+            >
+              <RouteIcon data-icon="inline-start" />
+              {t("observability.viewRule")}
             </Link>
           ) : null}
           <Button size="sm" className="h-8" variant="destructive" disabled={busy} onClick={() => onClose(id)}>
@@ -205,6 +216,16 @@ export function ConnectionListTable({
                           >
                             <NetworkIcon data-icon="inline-start" />
                             {t("observability.viewNode")}
+                          </Link>
+                        ) : null}
+                        {ruleRouteHref(connection.rule) ? (
+                          <Link
+                            to={ruleRouteHref(connection.rule)}
+                            aria-label={`${t("observability.viewRule")}: ${connection.rule}`}
+                            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
+                          >
+                            <RouteIcon data-icon="inline-start" />
+                            {t("observability.viewRule")}
                           </Link>
                         ) : null}
                         <Button size="sm" className="h-8" variant="destructive" disabled={busy} onClick={() => onClose(id)}>

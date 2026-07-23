@@ -206,6 +206,22 @@ describe("ConnectionsPage", () => {
     expect(screen.getByRole("link", { name: "查看节点: direct" })).toHaveAttribute("href", "/nodes?q=direct")
   })
 
+  it("deep-links connection rules to the route policy page", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    mockConnectionsFetch()
+    renderApp(<App />, "/observability/connections")
+
+    expect(await screen.findByText("example.com:443")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "查看规则: geosite-google" })).toHaveAttribute(
+      "href",
+      "/policy/route?q=geosite-google",
+    )
+    expect(screen.getByRole("link", { name: "查看规则: geoip-cn" })).toHaveAttribute(
+      "href",
+      "/policy/route?q=geoip-cn",
+    )
+  })
+
 
   it("filters connections by process facet from the URL", async () => {
     sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })

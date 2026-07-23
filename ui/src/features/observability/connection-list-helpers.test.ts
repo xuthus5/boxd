@@ -4,6 +4,7 @@ import {
   cellValue,
   formatDuration,
   nodeHref,
+  ruleRouteHref,
   targetLogsHref,
   titleFor,
 } from "@/features/observability/connection-list-helpers"
@@ -31,6 +32,8 @@ describe("connection list helpers", () => {
     expect(nodeHref("proxy")).toBe("/nodes?q=proxy")
     expect(nodeHref("—")).toBe("")
     expect(nodeHref("  ")).toBe("")
+    expect(ruleRouteHref("geosite-google")).toBe("/policy/route?q=geosite-google")
+    expect(ruleRouteHref("—")).toBe("")
   })
 
   it("formats duration and cell values", () => {
