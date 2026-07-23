@@ -541,6 +541,20 @@ func (f *fakeStatsInstance) CloseConnection(id int64) bool {
 
 func (f *fakeStatsInstance) CloseAllConnections() int { return f.closeCount }
 
+func (f *fakeStatsInstance) CloseConnectionsByOutbound(outbound string) int {
+	if outbound == "" {
+		return 0
+	}
+	return f.closeCount
+}
+
+func (f *fakeStatsInstance) CloseConnectionsByRule(rule string) int {
+	if rule == "" {
+		return 0
+	}
+	return f.closeCount
+}
+
 func TestStatsHandlerCloseConnection(t *testing.T) {
 	tests := []struct {
 		name string
@@ -658,4 +672,30 @@ func TestTestHandlerRunBatch(t *testing.T) {
 			t.Fatalf("status = %d", rr.Code)
 		}
 	})
+}
+
+func TestStatsHandlerCloseConnectionsFiltered(t *testing.T) {
+	fake := &fakeStatsInstance{closeCount: 3}
+	handler := NewStatsHandler(nil, nil, fake)
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, "/api/stats/connections?outbound=proxy", nil)
+	handler.CloseAllConnections(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	envelope := decodeEnvelope(t, rr)
+	data, ok := envelope.Data.(map[string]any)
+	if !ok {
+		t.Fatalf("data = %#v", envelope.Data)
+	}
+	if data["closed"] != float64(3) || data["outbound"] != "proxy" {
+		t.Fatalf("data = %#v", data)
+	}
+
+	rr = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodDelete, "/api/stats/connections?outbound=proxy&rule=geoip-cn", nil)
+	handler.CloseAllConnections(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("both filters status = %d", rr.Code)
+	}
 }

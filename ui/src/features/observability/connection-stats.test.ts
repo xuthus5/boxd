@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { aggregateConnections, matchesConnection, summarizeConnections } from "@/features/observability/connection-stats"
+import { aggregateConnections, filterConnectionsByGroup, matchesConnection, summarizeConnections } from "@/features/observability/connection-stats"
 import type { Connection } from "@/lib/api/types"
 
 const sample: Connection[] = [
@@ -30,5 +30,10 @@ describe("connection-stats", () => {
   it("matches search haystack", () => {
     expect(matchesConnection(sample[0], "google")).toBe(true)
     expect(matchesConnection(sample[0], "direct")).toBe(false)
+  })
+
+  it("filters connections by outbound or rule group", () => {
+    expect(filterConnectionsByGroup(sample, "outbound", "proxy")).toHaveLength(3)
+    expect(filterConnectionsByGroup(sample, "rule", "—")).toHaveLength(1)
   })
 })

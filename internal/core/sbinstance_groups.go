@@ -140,3 +140,25 @@ func (s *SBInstance) DialOutbound(ctx context.Context, tag, network, addr string
 	}
 	return outbound.DialContext(ctx, network, M.ParseSocksaddr(addr))
 }
+
+// CloseConnectionsByOutbound closes active connections using the outbound tag.
+func (s *SBInstance) CloseConnectionsByOutbound(outbound string) int {
+	s.mu.Lock()
+	traffic := s.Traffic
+	s.mu.Unlock()
+	if traffic == nil {
+		return 0
+	}
+	return traffic.CloseConnsByOutbound(outbound)
+}
+
+// CloseConnectionsByRule closes active connections matched by the rule name.
+func (s *SBInstance) CloseConnectionsByRule(rule string) int {
+	s.mu.Lock()
+	traffic := s.Traffic
+	s.mu.Unlock()
+	if traffic == nil {
+		return 0
+	}
+	return traffic.CloseConnsByRule(rule)
+}

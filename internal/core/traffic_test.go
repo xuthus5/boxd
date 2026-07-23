@@ -296,3 +296,45 @@ func TestTrafficTrackerConnectionRuleEmptyWhenNoMatch(t *testing.T) {
 		t.Fatalf("outbound = %q", conns[0].Outbound)
 	}
 }
+
+func TestTrafficTrackerCloseConnsByOutboundAndRule(t *testing.T) {
+	tracker := NewTrafficTracker()
+	left1, right1 := net.Pipe()
+	left2, right2 := net.Pipe()
+	left3, right3 := net.Pipe()
+	defer left1.Close()
+	defer right1.Close()
+	defer left2.Close()
+	defer right2.Close()
+	defer left3.Close()
+	defer right3.Close()
+
+	// seed via internal store helpers: use CloseAll path style by RoutedConnection requires adapters.
+	// Build minimal internal entries through CloseConn tests pattern - store via public RoutedConnection is heavy.
+	// Use CloseConnsWhere indirectly by planting through package-level structure via Connections map helpers.
+	// Fall back: call CloseConnsByOutbound on empty and ensure 0.
+	if n := tracker.CloseConnsByOutbound("proxy"); n != 0 {
+		t.Fatalf("empty outbound close = %d", n)
+	}
+	if n := tracker.CloseConnsByRule("geoip-cn"); n != 0 {
+		t.Fatalf("empty rule close = %d", n)
+	}
+
+	// Plant three synthetic connections.
+	tracker.connections.Store(int64(1), &trafficConnInternal{id: 1, outbound: "proxy", rule: "geosite-google", conn: left1})
+	tracker.connections.Store(int64(2), &trafficConnInternal{id: 2, outbound: "proxy", rule: "geoip-cn", conn: left2})
+	tracker.connections.Store(int64(3), &trafficConnInternal{id: 3, outbound: "direct", rule: "geoip-cn", conn: left3})
+
+	if n := tracker.CloseConnsByOutbound("proxy"); n != 2 {
+		t.Fatalf("close by outbound = %d, want 2", n)
+	}
+	if conns := tracker.Connections(); len(conns) != 1 || conns[0].Outbound != "direct" {
+		t.Fatalf("remaining = %#v", conns)
+	}
+	if n := tracker.CloseConnsByRule("geoip-cn"); n != 1 {
+		t.Fatalf("close by rule = %d, want 1", n)
+	}
+	if conns := tracker.Connections(); len(conns) != 0 {
+		t.Fatalf("expected empty, got %#v", conns)
+	}
+}

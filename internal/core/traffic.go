@@ -59,18 +59,42 @@ func (t *TrafficTracker) CloseConn(id int64) bool {
 }
 
 func (t *TrafficTracker) CloseAllConns() int {
+	return t.CloseConnsWhere(func(*trafficConnInternal) bool { return true })
+}
+
+// CloseConnsWhere closes connections matching pred and returns the closed count.
+func (t *TrafficTracker) CloseConnsWhere(pred func(*trafficConnInternal) bool) int {
+	if pred == nil {
+		return 0
+	}
 	count := 0
 	t.connections.Range(func(key, value any) bool {
-		if tc, ok := value.(*trafficConnInternal); ok {
-			t.connections.Delete(key)
-			if tc.conn != nil {
-				_ = tc.conn.Close()
-			}
-			count++
+		tc, ok := value.(*trafficConnInternal)
+		if !ok || !pred(tc) {
+			return true
 		}
+		t.connections.Delete(key)
+		if tc.conn != nil {
+			_ = tc.conn.Close()
+		}
+		count++
 		return true
 	})
 	return count
+}
+
+// CloseConnsByOutbound closes connections for the given outbound tag.
+func (t *TrafficTracker) CloseConnsByOutbound(outbound string) int {
+	return t.CloseConnsWhere(func(tc *trafficConnInternal) bool {
+		return tc.outbound == outbound
+	})
+}
+
+// CloseConnsByRule closes connections matched by the given rule name.
+func (t *TrafficTracker) CloseConnsByRule(rule string) int {
+	return t.CloseConnsWhere(func(tc *trafficConnInternal) bool {
+		return tc.rule == rule
+	})
 }
 
 func (t *TrafficTracker) RoutedConnection(ctx context.Context, conn net.Conn, metadata adapter.InboundContext, matchedRule adapter.Rule, matchOutbound adapter.Outbound) net.Conn {

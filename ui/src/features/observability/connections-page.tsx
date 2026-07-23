@@ -27,16 +27,21 @@ import type { ConnectionEvent } from "@/lib/api/types"
 function formatDuration(start: string) {
   const startedAt = new Date(start).getTime()
   if (!Number.isFinite(startedAt)) return "—"
-  const milliseconds = Math.max(0, Date.now() - startedAt)
-  return `${Math.floor(milliseconds / 1000)}s`
+  return `${Math.floor(Math.max(0, Date.now() - startedAt) / 1000)}s`
 }
 
 function GroupStatsTable({
   groups,
+  field,
+  busy,
+  onCloseGroup,
   emptyTitle,
   emptyDescription,
 }: {
   groups: ConnectionGroupStat[]
+  field: "outbound" | "rule"
+  busy: boolean
+  onCloseGroup: (field: "outbound" | "rule", key: string) => void
   emptyTitle: string
   emptyDescription: string
 }) {
@@ -52,6 +57,7 @@ function GroupStatsTable({
           <TableHead>{t("observability.count")}</TableHead>
           <TableHead>{t("dashboard.upload")}</TableHead>
           <TableHead>{t("dashboard.download")}</TableHead>
+          <TableHead>{t("common.actions")}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -61,6 +67,20 @@ function GroupStatsTable({
             <TableCell>{group.count}</TableCell>
             <TableCell>{formatBytes(group.upload)}</TableCell>
             <TableCell>{formatBytes(group.download)}</TableCell>
+            <TableCell>
+              <ConfirmAction
+                trigger={
+                  <Button size="sm" variant="destructive" disabled={busy || group.key === "—"}>
+                    {t("observability.closeGroup")}
+                  </Button>
+                }
+                title={t("observability.closeGroupTitle", { group: group.key })}
+                description={t("observability.closeGroupDescription", { count: group.count, group: group.key })}
+                confirmLabel={t("observability.confirmClose")}
+                confirmVariant="destructive"
+                onConfirm={() => onCloseGroup(field, group.key)}
+              />
+            </TableCell>
           </TableRow>
         ))}
       </TableBody>
@@ -84,11 +104,27 @@ export function ConnectionsPage() {
   const summary = useMemo(() => summarizeConnections(filtered), [filtered])
   const byOutbound = useMemo(() => aggregateConnections(filtered, "outbound"), [filtered])
   const byRule = useMemo(() => aggregateConnections(filtered, "rule"), [filtered])
-  const action = async (request: Promise<unknown>, message: string, id: string | "all" = "all") => {
+  const busy = closingId !== null
+
+  const run = async (request: Promise<unknown>, message: string, id: string | "all" = "all") => {
     setClosingId(id)
     try {
       await request
       toast.success(message)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : String(error))
+    } finally {
+      setClosingId(null)
+    }
+  }
+
+  const closeGroup = async (field: "outbound" | "rule", key: string) => {
+    if (key === "—") return
+    const filters = field === "outbound" ? { outbound: key } : { rule: key }
+    setClosingId(`group:${field}:${key}`)
+    try {
+      const result = await api.stats.closeAll(filters)
+      toast.success(t("observability.closedCount", { count: result.closed }))
     } catch (error) {
       toast.error(error instanceof Error ? error.message : String(error))
     } finally {
@@ -101,12 +137,12 @@ export function ConnectionsPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold">{t("observability.connections")}</h1>
         <ConfirmAction
-          trigger={<Button className="w-full sm:w-auto" variant="destructive" disabled={closingId !== null}><Trash2Icon data-icon="inline-start" />{t("observability.closeAll")}</Button>}
+          trigger={<Button className="w-full sm:w-auto" variant="destructive" disabled={busy}><Trash2Icon data-icon="inline-start" />{t("observability.closeAll")}</Button>}
           title={t("observability.closeAllTitle")}
           description={t("observability.closeAllDescription")}
           confirmLabel={t("observability.confirmClose")}
           confirmVariant="destructive"
-          onConfirm={() => action(api.stats.closeAll(), t("observability.closeAll"))}
+          onConfirm={() => void run(api.stats.closeAll(), t("observability.closeAll"))}
         />
       </div>
       {stream.error ? <Alert variant="destructive"><AlertTitle>{t("observability.streamError")}</AlertTitle><AlertDescription>{stream.error}</AlertDescription></Alert> : null}
@@ -114,29 +150,47 @@ export function ConnectionsPage() {
         <CardHeader className="gap-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle>{t("observability.liveConnections")} <Badge variant="secondary">{snapshot?.active_connections ?? 0}</Badge></CardTitle>
+              <CardTitle>
+                {t("observability.liveConnections")}{" "}
+                <Badge variant="secondary">{t("observability.shownCount", { count: filtered.length })}</Badge>
+              </CardTitle>
               <CardDescription>{t("observability.connectionsDescription")}</CardDescription>
-              {connections.length > 0 ? (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <Badge variant="outline">{t("observability.shownCount", { count: filtered.length })}</Badge>
-                  <Badge variant="outline">{t("dashboard.upload")}: {formatBytes(summary.upload)}</Badge>
-                  <Badge variant="outline">{t("dashboard.download")}: {formatBytes(summary.download)}</Badge>
-                  <Badge variant="outline">{t("observability.outboundCount", { count: summary.outbounds })}</Badge>
-                </div>
-              ) : null}
             </div>
-            <div className="w-full sm:max-w-sm">
-              <label className="sr-only" htmlFor="connections-search">{t("observability.searchConnections")}</label>
-              <Input
-                id="connections-search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={t("observability.searchConnectionsPlaceholder")}
-              />
+            <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+              <span>{t("dashboard.upload")}: {formatBytes(summary.upload)}</span>
+              <span>{t("dashboard.download")}: {formatBytes(summary.download)}</span>
+              <span>{t("observability.outboundCount", { count: summary.outbounds })}</span>
             </div>
           </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <label className="sr-only" htmlFor="connections-search">{t("observability.searchConnections")}</label>
+            <Input
+              id="connections-search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t("observability.searchConnectionsPlaceholder")}
+              className="sm:max-w-sm"
+            />
+            {normalized && filtered.length > 0 ? (
+              <ConfirmAction
+                trigger={<Button variant="outline" disabled={busy}>{t("observability.closeFiltered")}</Button>}
+                title={t("observability.closeFilteredTitle")}
+                description={t("observability.closeFilteredDescription", { count: filtered.length })}
+                confirmLabel={t("observability.confirmClose")}
+                confirmVariant="destructive"
+                onConfirm={() => {
+                  const ids = filtered.map((item) => String(item.id))
+                  void run(
+                    Promise.all(ids.map((id) => api.stats.closeConnection(id))),
+                    t("observability.closedCount", { count: ids.length }),
+                    "filtered",
+                  )
+                }}
+              />
+            ) : null}
+          </div>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4">
+        <CardContent>
           {connections.length > 0 ? (
             <Tabs defaultValue="list">
               <TabsList>
@@ -145,9 +199,10 @@ export function ConnectionsPage() {
                 <TabsTrigger value="rule">{t("observability.byRule")}</TabsTrigger>
               </TabsList>
               <TabsContent value="list" className="mt-3">
-                {filtered.length === 0
-                  ? <Empty><EmptyHeader><EmptyTitle>{t("observability.noMatch")}</EmptyTitle><EmptyDescription>{t("observability.noMatchDescription")}</EmptyDescription></EmptyHeader></Empty>
-                  : <Table>
+                {filtered.length === 0 ? (
+                  <Empty><EmptyHeader><EmptyTitle>{t("observability.noMatch")}</EmptyTitle><EmptyDescription>{t("observability.noMatchDescription")}</EmptyDescription></EmptyHeader></Empty>
+                ) : (
+                  <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>{t("observability.target")}</TableHead>
@@ -171,7 +226,7 @@ export function ConnectionsPage() {
                             <TableCell>{formatBytes(connection.download)}</TableCell>
                             <TableCell>{formatDuration(connection.start)}</TableCell>
                             <TableCell>
-                              <Button size="sm" variant="destructive" disabled={closingId !== null} onClick={() => { void action(api.stats.closeConnection(id), t("observability.close"), id) }}>
+                              <Button size="sm" variant="destructive" disabled={busy} onClick={() => void run(api.stats.closeConnection(id), t("observability.close"), id)}>
                                 {t("observability.close")}
                               </Button>
                             </TableCell>
@@ -179,11 +234,15 @@ export function ConnectionsPage() {
                         )
                       })}
                     </TableBody>
-                  </Table>}
+                  </Table>
+                )}
               </TabsContent>
               <TabsContent value="outbound" className="mt-3">
                 <GroupStatsTable
                   groups={byOutbound}
+                  field="outbound"
+                  busy={busy}
+                  onCloseGroup={closeGroup}
                   emptyTitle={t("observability.noMatch")}
                   emptyDescription={t("observability.noMatchDescription")}
                 />
@@ -191,6 +250,9 @@ export function ConnectionsPage() {
               <TabsContent value="rule" className="mt-3">
                 <GroupStatsTable
                   groups={byRule}
+                  field="rule"
+                  busy={busy}
+                  onCloseGroup={closeGroup}
                   emptyTitle={t("observability.noMatch")}
                   emptyDescription={t("observability.noMatchDescription")}
                 />
@@ -204,3 +266,4 @@ export function ConnectionsPage() {
     </div>
   )
 }
+

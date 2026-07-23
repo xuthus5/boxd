@@ -8,11 +8,13 @@ import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
+import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { RouteGlobalCard } from "@/features/policy/route-global-card"
 import { cloneJsonObject, moveItem, type JsonObject } from "@/features/policy/policy-form-model"
 import type { PolicyVisualEditorProps } from "@/features/policy/policy-page"
 import { RouteRuleCard } from "@/features/policy/route-rule-card"
+import { matchesRouteRule } from "@/features/policy/route-rule-filter"
 import { RouteRuleDialog } from "@/features/policy/route-rule-dialog"
 import { RouteRuleSetCard } from "@/features/policy/route-rule-set-card"
 import { RouteRuleSetDialog } from "@/features/policy/route-rule-set-dialog"
@@ -72,7 +74,11 @@ function RuleSection({ object, metadata, metadataLoading, metadataError, onChang
   onInstall?: () => void
 }) {
   const { t } = useTranslation()
+  const [search, setSearch] = useState("")
   const rules = routeRules(object)
+  const normalized = search.trim().toLowerCase()
+  const indexed = rules.map((item, index) => ({ item, index, meta: metadata[index] }))
+  const visible = indexed.filter(({ item, meta }) => matchesRouteRule(item, meta, normalized))
   const update = (next: readonly JsonObject[]) => onChange(setRouteRules(object, next))
   const updateBoth = (nextRules: readonly JsonObject[], nextMetadata: RouteRuleMetadata[]) => {
     const nextObject = setRouteRules(object, nextRules)
@@ -83,17 +89,26 @@ function RuleSection({ object, metadata, metadataLoading, metadataError, onChang
     <CardAction className="col-start-1 row-start-auto w-full justify-self-start sm:col-start-2 sm:row-start-1 sm:w-auto sm:justify-self-end">
       <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row"><Button variant="outline" className="w-full sm:w-auto" onClick={onInstall}>{t("policy.installRoute")}</Button><Button className="w-full sm:w-auto" onClick={() => onEdit(null)}><ListPlusIcon data-icon="inline-start" />{t("policy.route.addRule")}</Button></div>
     </CardAction></CardHeader>
-    <CardContent>{metadataLoading ? <Skeleton className="h-24 w-full" /> : metadataError
+    <CardContent className="flex flex-col gap-3">{metadataLoading ? <Skeleton className="h-24 w-full" /> : metadataError
       ? <Alert variant="destructive"><AlertTitle>{t("common.loadFailed")}</AlertTitle><AlertDescription>{metadataError}</AlertDescription></Alert>
       : rules.length === 0
       ? <EmptySection title={t("policy.route.emptyRulesTitle")} description={t("policy.route.emptyRulesDescription")}
         action={t("policy.route.addRule")} onAdd={() => onEdit(null)} />
-      : <div className="flex flex-col gap-3">{rules.map((item, index) => <RouteRuleCard key={index} index={index} item={item} metadata={metadata[index]}
-        first={index === 0} last={index === rules.length - 1} onEdit={() => onEdit(index)}
-        onCopy={() => updateBoth(insertCopy(rules, index), insertMetadataCopy(metadata, index))}
-        onMoveUp={() => updateBoth(moveItem(rules, index, -1), moveItem(metadata, index, -1))}
-        onMoveDown={() => updateBoth(moveItem(rules, index, 1), moveItem(metadata, index, 1))}
-        onDelete={() => updateBoth(rules.filter((_, itemIndex) => itemIndex !== index), metadata.filter((_, itemIndex) => itemIndex !== index))} />)}</div>}
+      : <>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <label className="sr-only" htmlFor="route-rules-search">{t("policy.route.searchRules")}</label>
+          <Input id="route-rules-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("policy.route.searchRulesPlaceholder")} className="sm:max-w-sm" />
+          {normalized ? <p className="text-sm text-muted-foreground">{t("policy.route.searchRulesCount", { shown: visible.length, total: rules.length })}</p> : null}
+        </div>
+        {visible.length === 0
+          ? <Empty><EmptyHeader><EmptyTitle>{t("policy.route.noMatchRules")}</EmptyTitle><EmptyDescription>{t("policy.route.noMatchRulesDescription")}</EmptyDescription></EmptyHeader></Empty>
+          : <div className="flex flex-col gap-3">{visible.map(({ item, index }) => <RouteRuleCard key={index} index={index} item={item} metadata={metadata[index]}
+            first={index === 0} last={index === rules.length - 1} onEdit={() => onEdit(index)}
+            onCopy={() => updateBoth(insertCopy(rules, index), insertMetadataCopy(metadata, index))}
+            onMoveUp={() => updateBoth(moveItem(rules, index, -1), moveItem(metadata, index, -1))}
+            onMoveDown={() => updateBoth(moveItem(rules, index, 1), moveItem(metadata, index, 1))}
+            onDelete={() => updateBoth(rules.filter((_, itemIndex) => itemIndex !== index), metadata.filter((_, itemIndex) => itemIndex !== index))} />)}</div>}
+      </>}
     </CardContent><CardFooter><p className="text-muted-foreground">{t("policy.route.rulesCount", { count: rules.length })}</p></CardFooter></Card>
 }
 

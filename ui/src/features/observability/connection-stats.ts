@@ -49,3 +49,19 @@ export function matchesConnection(connection: Connection, query: string) {
   ].join(" ").toLowerCase()
   return haystack.includes(query)
 }
+
+export function connectionIds(connections: Connection[]) {
+  return connections.map((connection) => String(connection.id))
+}
+
+export function filterConnectionsByGroup(
+  connections: Connection[],
+  field: "outbound" | "rule",
+  key: string,
+) {
+  return connections.filter((connection) => {
+    const raw = field === "outbound" ? connection.outbound : connection.rule
+    const value = (raw && raw.trim()) || "—"
+    return value === key
+  })
+}

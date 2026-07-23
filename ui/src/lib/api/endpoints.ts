@@ -87,7 +87,13 @@ export const api = {
   },
   stats: {
     history: () => apiRequest<{ points: TrafficHistoryPoint[] }>("/api/stats/traffic/history"),
-    closeAll: () => apiRequest<{ closed: number }>("/api/stats/connections", json("DELETE")),
+    closeAll: (filters?: { outbound?: string; rule?: string }) => {
+      const query = new URLSearchParams()
+      if (filters?.outbound) query.set("outbound", filters.outbound)
+      if (filters?.rule) query.set("rule", filters.rule)
+      const suffix = query.size ? `?${query}` : ""
+      return apiRequest<{ closed: number; outbound?: string; rule?: string }>(`/api/stats/connections${suffix}`, json("DELETE"))
+    },
     closeConnection: (id: string) => apiRequest<void>(`/api/stats/connections/${segment(id)}`, json("DELETE")),
     paths: {
       traffic: "/api/stats/traffic",

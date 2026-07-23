@@ -146,4 +146,11 @@ describe("api endpoint coverage", () => {
     expect(paths).toContain("/api/runtime/fakeip/flush")
     expect(paths).toContain("/api/runtime/clash-mode")
   })
+
+  it("builds filtered connection close query", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: "ok", data: { closed: 2 }, error: null, meta: null })))
+    vi.stubGlobal("fetch", fetchMock)
+    await api.stats.closeAll({ outbound: "proxy" })
+    expect(String(fetchMock.mock.calls[0][0])).toContain("/api/stats/connections?outbound=proxy")
+  })
 })

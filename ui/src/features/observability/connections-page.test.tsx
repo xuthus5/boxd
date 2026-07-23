@@ -72,6 +72,7 @@ describe("ConnectionsPage", () => {
     expect(screen.getByRole("tab", { name: "按出口" })).toBeInTheDocument()
     await user.click(screen.getByRole("tab", { name: "按出口" }))
     expect(await screen.findByText("proxy")).toBeInTheDocument()
+    expect(screen.getAllByRole("button", { name: "关闭该组" }).length).toBeGreaterThan(0)
 
     await user.click(screen.getByRole("tab", { name: "连接列表" }))
     await user.type(screen.getByLabelText("搜索连接"), "direct")
