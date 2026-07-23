@@ -12,6 +12,18 @@ function responseFor(path: string) {
   if (path === "/api/runtime/memory") return { alloc: 1024, total: 2048, sys: 4096, num_gc: 2, heap_inuse: 512, stack_inuse: 128, num_goroutine: 12 }
   if (path === "/api/runtime/version") return { version: "dev", kernel_version: "1.13.14" }
   if (path === "/api/nodes/groups") return { groups: [{ tag: "proxy", type: "selector", now: "a", all: ["a", "b"] }] }
+  if (path === "/api/config/" || path === "/api/config") {
+    return {
+      inbounds: [{ tag: "mixed-in", type: "mixed", listen: "::", listen_port: 1080 }],
+      outbounds: [{ tag: "proxy", type: "selector", outbounds: ["direct"] }],
+      route: { rules: [{ outbound: "proxy" }] },
+      experimental: { clash_api: { external_controller: "127.0.0.1:9090" } },
+    }
+  }
+  if (path === "/api/subscriptions/" || path === "/api/subscriptions") {
+    return [{ id: "sub-1", name: "主订阅", url: "https://example.com/sub", interval_min: 60, last_updated: "2026-01-01T00:00:00Z", outbounds: [] }]
+  }
+  if (path === "/api/runtime/clash-mode") return { mode: "Rule", mode_list: ["Rule", "Global", "Direct"] }
   return null
 }
 
@@ -52,6 +64,7 @@ describe("DashboardPage", () => {
     expect(screen.getByText("1.13.14")).toBeInTheDocument()
     expect(await screen.findByText(/下载 20 B\/s/)).toBeInTheDocument()
     expect(screen.getByText("ready")).toBeInTheDocument()
+    expect(await screen.findByText("快速上手")).toBeInTheDocument()
   })
 
   it("keeps the latest twenty dashboard logs", async () => {

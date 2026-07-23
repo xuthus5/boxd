@@ -8,7 +8,7 @@ Single-node control plane for [sing-box](https://github.com/SagerNet/sing-box). 
 
 ## Features
 
-- **Dashboard**: start/stop/restart kernel, global outbound switch with latency, live traffic, memory, recent logs
+- **Dashboard**: start/stop/restart kernel, setup checklist, global outbound/Clash mode switch, live traffic, memory, recent logs
 - **Proxy config**: structured inbound/outbound forms (TLS/Reality, transports), plus Advanced JSON
 - **Traffic policy**: route rules and rule-sets, DNS servers and rules; rule name/description stored by boxd
 - **Nodes & subscriptions**: Clash YAML + base64 subscriptions, traffic/expiry, node search, runtime groups, probes

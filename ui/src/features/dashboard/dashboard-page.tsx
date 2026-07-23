@@ -7,6 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ClashModeCard } from "@/features/dashboard/clash-mode-card"
+import { SetupChecklistCard } from "@/features/dashboard/setup-checklist-card"
 import { ProxySelectorCard } from "@/features/dashboard/proxy-selector-card"
 import { RuntimeActions } from "@/features/dashboard/runtime-actions"
 import { RecentLogs } from "@/features/dashboard/recent-logs"
@@ -53,6 +54,7 @@ export function DashboardPage() {
     <div className="flex flex-col gap-4">
       <h1 className="text-2xl font-semibold">{t("pages.dashboard")}</h1>
       <div className="grid gap-4 lg:grid-cols-3">
+        <SetupChecklistCard status={status.data} />
         <ServiceCard status={status.data!} pending={pendingAction} onAction={(action) => serviceMutation.mutate(action)} />
         <ProxySelectorCard />
         <ClashModeCard enabled={Boolean(status.data?.running)} />

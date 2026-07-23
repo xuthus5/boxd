@@ -25,9 +25,22 @@ function objects(value: JsonValue | undefined) {
   return Array.isArray(value) ? value.filter((item): item is JsonObject => Boolean(item && typeof item === "object" && !Array.isArray(item))) : []
 }
 
-function InboundCards({ items, onEdit, onDelete }: { items: JsonObject[]; onEdit: (index: number) => void; onDelete: (index: number) => void }) {
+function InboundCards({ items, onEdit, onDelete, onPatch, busy }: {
+  items: JsonObject[]
+  onEdit: (index: number) => void
+  onDelete: (index: number) => void
+  onPatch: (index: number, item: JsonObject) => void
+  busy?: boolean
+}) {
   return <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{items.map((item, index) => (
-    <InboundCard key={`${String(item.tag)}-${index}`} item={item} onEdit={() => onEdit(index)} onDelete={() => onDelete(index)} />
+    <InboundCard
+      key={`${String(item.tag)}-${index}`}
+      item={item}
+      busy={busy}
+      onEdit={() => onEdit(index)}
+      onDelete={() => onDelete(index)}
+      onPatch={(next) => onPatch(index, next)}
+    />
   ))}</div>
 }
 
@@ -95,7 +108,7 @@ export function ProxyListPage({ configKey, title, addLabel }: { configKey: "inbo
         {configKey === "inbounds" ? <Button variant="outline" onClick={() => api.config.installInbounds().then(() => query.refetch()).then(() => toast.success(t("proxy.inboundDefaultsInstalled"))).catch((error: Error) => toast.error(error.message))}><WandSparklesIcon data-icon="inline-start" />{t("proxy.installInboundDefaults")}</Button> : null}
         <Button onClick={() => setEditing({ index: -1, item: {} })}><PlusIcon data-icon="inline-start" />{addLabel}</Button>
       </div></div>
-      {(configKey === "inbounds" || configKey === "outbounds") && items.length > 0 ? configKey === "inbounds" ? <InboundCards items={items} onEdit={(index) => setEditing({ index, item: items[index] })} onDelete={(index) => persist(items.filter((_, itemIndex) => itemIndex !== index))} /> : <OutboundCards items={items} onEdit={(index) => setEditing({ index, item: items[index] })} onDelete={(index) => persist(items.filter((_, itemIndex) => itemIndex !== index))} /> : <Card><CardHeader><CardTitle>{title}{t("proxy.listSuffix")}</CardTitle><CardDescription>{t("proxy.description")}</CardDescription></CardHeader><CardContent>
+      {(configKey === "inbounds" || configKey === "outbounds") && items.length > 0 ? configKey === "inbounds" ? <InboundCards items={items} busy={save.isPending} onEdit={(index) => setEditing({ index, item: items[index] })} onDelete={(index) => persist(items.filter((_, itemIndex) => itemIndex !== index))} onPatch={(index, item) => { const next = [...items]; next[index] = item; persist(next) }} /> : <OutboundCards items={items} onEdit={(index) => setEditing({ index, item: items[index] })} onDelete={(index) => persist(items.filter((_, itemIndex) => itemIndex !== index))} /> : <Card><CardHeader><CardTitle>{title}{t("proxy.listSuffix")}</CardTitle><CardDescription>{t("proxy.description")}</CardDescription></CardHeader><CardContent>
         <Empty><EmptyHeader><EmptyTitle>{t("proxy.empty")}</EmptyTitle><EmptyDescription>{t("proxy.emptyDescription")}</EmptyDescription></EmptyHeader><EmptyContent><Button onClick={() => setEditing({ index: -1, item: {} })}>{addLabel}</Button></EmptyContent></Empty>
       </CardContent></Card>}
       {editing ? <ProxyEditorDialog key={`${editing.index}-${String(editing.item.tag)}`} title={editing.index < 0 ? addLabel : `${t("proxy.editPrefix")} ${String(editing.item.tag ?? "")}`} kind={configKey} item={editing.item} onClose={() => setEditing(null)} onSave={saveItem} /> : null}
