@@ -10,16 +10,24 @@ import { ConfirmAction } from "@/components/confirm-action"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/features/auth/auth-context"
 import { formatBytes } from "@/features/dashboard/format"
+import {
+  buildConnectionExportFilename,
+  formatConnectionExport,
+  sortConnections,
+  type ConnectionSortKey,
+} from "@/features/observability/connection-export"
 import {
   aggregateConnections,
   matchesConnection,
   summarizeConnections,
   type ConnectionGroupStat,
 } from "@/features/observability/connection-stats"
+import { downloadTextFile } from "@/features/observability/log-export"
 import { useStreamBuffer } from "@/features/observability/use-stream-buffer"
 import { api } from "@/lib/api/endpoints"
 import type { ConnectionEvent } from "@/lib/api/types"
@@ -94,17 +102,38 @@ export function ConnectionsPage() {
   const stream = useStreamBuffer<ConnectionEvent>(api.stats.paths.connections, token, 2)
   const [closingId, setClosingId] = useState<string | "all" | null>(null)
   const [query, setQuery] = useState("")
+  const [sort, setSort] = useState<ConnectionSortKey>("traffic")
   const snapshot = stream.items.at(-1)
-  const connections = snapshot?.list ?? []
+  const connections = useMemo(() => snapshot?.list ?? [], [snapshot?.list])
   const normalized = query.trim().toLowerCase()
   const filtered = useMemo(
     () => connections.filter((connection) => matchesConnection(connection, normalized)),
     [connections, normalized],
   )
+  const sorted = useMemo(() => sortConnections(filtered, sort), [filtered, sort])
   const summary = useMemo(() => summarizeConnections(filtered), [filtered])
   const byOutbound = useMemo(() => aggregateConnections(filtered, "outbound"), [filtered])
   const byRule = useMemo(() => aggregateConnections(filtered, "rule"), [filtered])
   const busy = closingId !== null
+  const canExport = sorted.length > 0
+  const sortOptions: { label: string; value: ConnectionSortKey }[] = [
+    { label: t("observability.sortByTraffic"), value: "traffic" },
+    { label: t("observability.sortByDownload"), value: "download" },
+    { label: t("observability.sortByUpload"), value: "upload" },
+    { label: t("observability.sortByDuration"), value: "duration" },
+    { label: t("observability.sortByTarget"), value: "target" },
+    { label: t("observability.sortByOutbound"), value: "outbound" },
+  ]
+
+  const onExport = () => {
+    if (!canExport) return
+    try {
+      downloadTextFile(buildConnectionExportFilename(), formatConnectionExport(sorted))
+      toast.success(t("observability.connectionsExported", { count: sorted.length }))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("observability.connectionsExportFailed"))
+    }
+  }
 
   const run = async (request: Promise<unknown>, message: string, id: string | "all" = "all") => {
     setClosingId(id)
@@ -169,8 +198,23 @@ export function ConnectionsPage() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={t("observability.searchConnectionsPlaceholder")}
-              className="sm:max-w-sm"
+              className="sm:max-w-xs"
             />
+            <Select items={sortOptions} value={sort} onValueChange={(value) => setSort(String(value) as ConnectionSortKey)}>
+              <SelectTrigger aria-label={t("observability.sortConnections")} className="w-full sm:w-44">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {sortOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <Button variant="outline" disabled={!canExport} onClick={onExport}>
+              {t("observability.exportConnections")}
+            </Button>
             {normalized && filtered.length > 0 ? (
               <ConfirmAction
                 trigger={<Button variant="outline" disabled={busy}>{t("observability.closeFiltered")}</Button>}
@@ -199,7 +243,7 @@ export function ConnectionsPage() {
                 <TabsTrigger value="rule">{t("observability.byRule")}</TabsTrigger>
               </TabsList>
               <TabsContent value="list" className="mt-3">
-                {filtered.length === 0 ? (
+                {sorted.length === 0 ? (
                   <Empty><EmptyHeader><EmptyTitle>{t("observability.noMatch")}</EmptyTitle><EmptyDescription>{t("observability.noMatchDescription")}</EmptyDescription></EmptyHeader></Empty>
                 ) : (
                   <Table>
@@ -215,7 +259,7 @@ export function ConnectionsPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filtered.map((connection) => {
+                      {sorted.map((connection) => {
                         const id = String(connection.id)
                         return (
                           <TableRow key={connection.id}>

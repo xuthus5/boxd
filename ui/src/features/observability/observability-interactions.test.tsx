@@ -80,4 +80,36 @@ describe("observability interactions", () => {
       appendChild.mockRestore()
     }
   })
+
+it("exports filtered connections", async () => {
+    const user = setup("/observability/connections")
+    renderApp(<App />, "/observability/connections")
+    await screen.findByText("example.com:443")
+
+    const createObjectURL = vi.fn().mockReturnValue("blob:connections")
+    const revokeObjectURL = vi.fn()
+    const originalCreate = URL.createObjectURL
+    const originalRevoke = URL.revokeObjectURL
+    // @ts-expect-error test stub
+    URL.createObjectURL = createObjectURL
+    // @ts-expect-error test stub
+    URL.revokeObjectURL = revokeObjectURL
+    const click = vi.fn()
+    const appendChild = vi.spyOn(document.body, "appendChild").mockImplementation((node) => {
+      if (node instanceof HTMLAnchorElement) {
+        Object.defineProperty(node, "click", { value: click })
+      }
+      return node
+    })
+    try {
+      await user.click(screen.getByRole("button", { name: "导出可见连接" }))
+      expect(createObjectURL).toHaveBeenCalled()
+      expect(click).toHaveBeenCalled()
+      expect(revokeObjectURL).toHaveBeenCalledWith("blob:connections")
+    } finally {
+      URL.createObjectURL = originalCreate
+      URL.revokeObjectURL = originalRevoke
+      appendChild.mockRestore()
+    }
+  })
 })
