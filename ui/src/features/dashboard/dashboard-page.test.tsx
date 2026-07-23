@@ -53,6 +53,7 @@ describe("DashboardPage", () => {
     vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
       const path = typeof input === "string" ? input : input instanceof URL ? input.pathname : "url" in input ? new URL(input.url).pathname : String(input)
       if (path === "/api/stats/traffic") return Promise.resolve(eventStream({ upload_bytes: 30, download_bytes: 40, timestamp: "2026-01-01T00:00:01Z" }))
+      if (path === "/api/stats/connections") return Promise.resolve(eventStream({ active_connections: 2, list: [{ id: 1, target: "example.com:443", outbound: "proxy", rule: "geosite-google", network: "tcp", upload: 10, download: 20, start: "2026-01-01T00:00:00Z" }, { id: 2, target: "cdn.example.net:443", outbound: "direct", rule: "geoip-cn", network: "udp", upload: 1, download: 2, start: "2026-01-01T00:00:01Z" }] }))
       if (path === "/api/stats/logs") return Promise.resolve(eventStream({ level: "info", message: "ready" }))
       return Promise.resolve(new Response(JSON.stringify(responseFor(path))))
     }))
@@ -60,6 +61,9 @@ describe("DashboardPage", () => {
     renderApp(<App />, "/dashboard")
 
     expect(await screen.findByText("运行中")).toBeInTheDocument()
+    expect(await screen.findByText("运行健康")).toBeInTheDocument()
+    expect(screen.getByText("2 条活跃连接")).toBeInTheDocument()
+    expect(screen.getByText(/主要出口/)).toBeInTheDocument()
     expect(screen.getByText("1.00 KB")).toBeInTheDocument()
     expect(screen.getByText("1.13.14")).toBeInTheDocument()
     expect(await screen.findByText(/下载 20 B\/s/)).toBeInTheDocument()
@@ -72,6 +76,7 @@ describe("DashboardPage", () => {
     vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
       const path = typeof input === "string" ? input : input instanceof URL ? input.pathname : "url" in input ? new URL(input.url).pathname : String(input)
       if (path === "/api/stats/traffic") return Promise.resolve(eventStream({ upload_bytes: 0, download_bytes: 0, timestamp: "2026-01-01T00:00:01Z" }))
+      if (path === "/api/stats/connections") return Promise.resolve(eventStream({ active_connections: 0, list: [] }))
       if (path === "/api/stats/logs") return Promise.resolve(eventStreams(Array.from({ length: 25 }, (_, index) => ({ level: "info", message: `log-${index}` }))))
       return Promise.resolve(new Response(JSON.stringify(responseFor(path))))
     }))

@@ -2,6 +2,7 @@ import { screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 
+import { HealthSummaryCard } from "@/features/dashboard/health-summary-card"
 import { ServiceCard } from "@/features/dashboard/service-card"
 import { TrafficChart } from "@/features/dashboard/traffic-chart"
 import { calculateTrafficRates } from "@/features/dashboard/traffic-rate"
@@ -77,5 +78,19 @@ describe("dashboard component states", () => {
     expect(document.querySelector("time")).toHaveAttribute("datetime", "2026-01-01T00:00:00Z")
     expect(screen.getByText("ready").closest("td")).toHaveClass("col-span-2", "sm:table-cell")
     expect(document.querySelector("time")?.closest("td")).toHaveClass("items-center", "min-h-9")
+  })
+
+  it("renders health summary from connection snapshot", () => {
+    renderApp(<HealthSummaryCard snapshot={{
+      active_connections: 2,
+      list: [
+        { id: 1, target: "a.com:443", outbound: "proxy", rule: "r1", network: "tcp", upload: 10, download: 20, start: "2026-01-01T00:00:00Z" },
+        { id: 2, target: "b.com:443", outbound: "proxy", rule: "r2", network: "udp", upload: 1, download: 2, start: "2026-01-01T00:00:01Z" },
+      ],
+    }} status={{ running: true }} />)
+    expect(screen.getByText("运行健康")).toBeInTheDocument()
+    expect(screen.getByText("2 条活跃连接")).toBeInTheDocument()
+    expect(screen.getByText("正常")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "查看连接" })).toHaveAttribute("href", "/observability/connections")
   })
 })

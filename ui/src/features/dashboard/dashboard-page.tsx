@@ -7,6 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ClashModeCard } from "@/features/dashboard/clash-mode-card"
+import { HealthSummaryCard } from "@/features/dashboard/health-summary-card"
 import { SetupChecklistCard } from "@/features/dashboard/setup-checklist-card"
 import { ProxySelectorCard } from "@/features/dashboard/proxy-selector-card"
 import { RuntimeActions } from "@/features/dashboard/runtime-actions"
@@ -17,7 +18,7 @@ import { formatBytes } from "@/features/dashboard/format"
 import { useAuth } from "@/features/auth/auth-context"
 import { useStreamBuffer } from "@/features/observability/use-stream-buffer"
 import { api } from "@/lib/api/endpoints"
-import type { LogEvent, TrafficEvent } from "@/lib/api/types"
+import type { ConnectionEvent, LogEvent, TrafficEvent } from "@/lib/api/types"
 
 const serviceActions = { start: api.service.start, stop: api.service.stop, restart: api.service.restart }
 
@@ -27,6 +28,7 @@ export function DashboardPage() {
   const token = useAuth().session!.token
   const [pendingAction, setPendingAction] = useState("")
   const traffic = useStreamBuffer<TrafficEvent>(api.stats.paths.traffic, token, 60)
+  const connections = useStreamBuffer<ConnectionEvent>(api.stats.paths.connections, token, 2)
   const logs = useStreamBuffer<LogEvent>(api.stats.paths.logs, token, 20)
   const [status, history, memory, version] = useQueries({ queries: [
     { queryKey: ["service"], queryFn: api.service.status, refetchInterval: 5000 },
@@ -55,6 +57,7 @@ export function DashboardPage() {
       <h1 className="text-2xl font-semibold">{t("pages.dashboard")}</h1>
       <div className="grid gap-4 lg:grid-cols-3">
         <SetupChecklistCard status={status.data} />
+        <HealthSummaryCard snapshot={connections.items.at(-1)} status={status.data} streamError={connections.error || undefined} />
         <ServiceCard status={status.data!} pending={pendingAction} onAction={(action) => serviceMutation.mutate(action)} />
         <ProxySelectorCard />
         <ClashModeCard enabled={Boolean(status.data?.running)} />
