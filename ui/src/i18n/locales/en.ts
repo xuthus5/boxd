@@ -30,6 +30,9 @@ export const en = {
       rawConfig: "Full configuration",
       settings: "Application settings",
       logout: "Sign out",
+      kernelChecking: "Checking kernel…",
+      kernelUnknown: "Status unknown",
+      kernelRunningWithUptime: "Running · {{uptime}}",
     },
     pages: {
       dashboard: "Dashboard",

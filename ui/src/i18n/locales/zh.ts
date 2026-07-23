@@ -30,6 +30,9 @@ export const zh = {
       rawConfig: "完整配置",
       settings: "应用设置",
       logout: "退出登录",
+      kernelChecking: "检测内核…",
+      kernelUnknown: "状态未知",
+      kernelRunningWithUptime: "运行中 · {{uptime}}",
     },
     pages: {
       dashboard: "仪表盘",

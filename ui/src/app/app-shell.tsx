@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/sidebar"
 import { footerItems, navigationGroups, primaryItems, type NavigationItem } from "@/app/navigation"
 import { useAuth } from "@/features/auth/auth-context"
+import { KernelStatusBadge } from "@/features/dashboard/kernel-status-badge"
 import { AppearanceMenu } from "@/features/preferences/appearance-menu"
 import { DefaultPasswordGate } from "@/features/settings/default-password-gate"
 
@@ -126,6 +127,7 @@ export function AppShell() {
             <span className="truncate text-xs text-muted-foreground">{context.group ? t(context.group) : "boxd"}</span>
             <span className="truncate text-sm font-medium">{context.item ? t(context.item) : "boxd"}</span>
           </div>
+          <KernelStatusBadge />
           <AppearanceMenu />
         </header>
         <main className="mx-auto flex min-w-0 w-full max-w-screen-2xl flex-1 flex-col gap-4 p-4 md:p-6"><DefaultPasswordGate><Outlet /></DefaultPasswordGate></main>

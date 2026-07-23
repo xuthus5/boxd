@@ -29,6 +29,8 @@ describe("collapsed sidebar hit targets", () => {
     })))
     renderApp(<App />, "/dashboard")
     await screen.findByRole("heading", { name: "仪表盘" })
+    expect(await screen.findByRole("link", { name: /运行中/ })).toHaveAttribute("href", "/dashboard")
+    expect(document.querySelector('[data-kernel-status="running"]')).toBeInTheDocument()
     const user = userEvent.setup()
     await user.click(screen.getByRole("button", { name: /toggle sidebar/i }))
 
@@ -38,8 +40,9 @@ describe("collapsed sidebar hit targets", () => {
       expect((label as HTMLElement).className).toContain("pointer-events-none")
     }
 
-    // Use aria-label from NavLink after collapse.
-    const nodes = screen.getByRole("link", { name: "节点" })
+    // Prefer the sidebar nav target when dashboard shortcuts also link to nodes.
+    const nodes = screen.getAllByRole("link", { name: "节点" }).find((el) => el.getAttribute("href") === "/nodes" && el.getAttribute("data-sidebar") === "menu-button")
+      ?? screen.getAllByRole("link", { name: "节点" })[0]!
     expect(nodes).toBeInTheDocument()
     await user.click(nodes)
     expect(await screen.findByRole("heading", { name: "节点" })).toBeInTheDocument()
