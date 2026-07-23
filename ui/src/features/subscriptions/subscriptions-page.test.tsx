@@ -58,7 +58,7 @@ describe("SubscriptionsPage", () => {
         : path.endsWith("/nodes/") ? [] : [
           { id: "old", name: "旧订阅", url: "https://example.com/old", interval_min: 60, last_updated: "2026-01-01T00:00:00Z", outbounds: [] },
           { id: "new", name: "新订阅", url: "https://example.com/new", interval_min: 60, last_updated: "2026-06-01T00:00:00Z", outbounds: [] },
-          { id: "bad", name: "失败订阅", url: "https://example.com/bad", interval_min: 60, last_updated: "2026-02-01T00:00:00Z", outbounds: [], error: "timeout" },
+          { id: "bad", name: "失败订阅", url: "https://example.com/bad", interval_min: 60, last_updated: "2026-02-01T00:00:00Z", outbounds: [], error: "timeout", error_code: "timeout" },
         ]
       return Promise.resolve(new Response(JSON.stringify(data)))
     }))
@@ -69,8 +69,11 @@ describe("SubscriptionsPage", () => {
     expect(failed.compareDocumentPosition(newer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(newer.compareDocumentPosition(older) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(screen.getByRole("button", { name: /重试失败/ })).toBeInTheDocument()
-    expect(screen.getByText("timeout")).toBeInTheDocument()
+    expect(screen.getAllByText("timeout").length).toBeGreaterThan(0)
     expect(screen.getByText("拉取超时，可稍后重试或调大网络稳定性。")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "复制错误: 失败订阅" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "复制 URL: 失败订阅" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "打开 URL: 失败订阅" })).toHaveAttribute("href", "https://example.com/bad")
   })
 })
 
@@ -90,7 +93,7 @@ describe("SubscriptionsPage deep links", () => {
   it("seeds filters from deep-link query params", async () => {
     mockSubs([
       { id: "ok", name: "正常订阅", url: "https://example.com/ok", interval_min: 60, last_updated: "2026-06-01T00:00:00Z", outbounds: [] },
-      { id: "bad", name: "失败订阅", url: "https://example.com/bad", interval_min: 60, last_updated: "2026-02-01T00:00:00Z", outbounds: [], error: "timeout" },
+      { id: "bad", name: "失败订阅", url: "https://example.com/bad", interval_min: 60, last_updated: "2026-02-01T00:00:00Z", outbounds: [], error: "timeout", error_code: "timeout" },
     ])
     renderApp(<App />, "/subscriptions?status=error&q=失败")
     expect(await screen.findByLabelText("搜索订阅")).toHaveValue("失败")
@@ -102,7 +105,7 @@ describe("SubscriptionsPage deep links", () => {
   it("updates URL filters from the toolbar", async () => {
     mockSubs([
       { id: "ok", name: "正常订阅", url: "https://example.com/ok", interval_min: 60, last_updated: "2026-06-01T00:00:00Z", outbounds: [] },
-      { id: "bad", name: "失败订阅", url: "https://example.com/bad", interval_min: 60, last_updated: "2026-02-01T00:00:00Z", outbounds: [], error: "timeout" },
+      { id: "bad", name: "失败订阅", url: "https://example.com/bad", interval_min: 60, last_updated: "2026-02-01T00:00:00Z", outbounds: [], error: "timeout", error_code: "timeout" },
     ])
     const user = userEvent.setup()
     renderApp(<App />, "/subscriptions")
@@ -118,7 +121,7 @@ describe("SubscriptionsPage deep links", () => {
   it("clears filters from the empty-state action", async () => {
     mockSubs([
       { id: "ok", name: "正常订阅", url: "https://example.com/ok", interval_min: 60, last_updated: "2026-06-01T00:00:00Z", outbounds: [] },
-      { id: "bad", name: "失败订阅", url: "https://example.com/bad", interval_min: 60, last_updated: "2026-02-01T00:00:00Z", outbounds: [], error: "timeout" },
+      { id: "bad", name: "失败订阅", url: "https://example.com/bad", interval_min: 60, last_updated: "2026-02-01T00:00:00Z", outbounds: [], error: "timeout", error_code: "timeout" },
     ])
     const user = userEvent.setup()
     renderApp(<App />, "/subscriptions?q=missing-sub")
