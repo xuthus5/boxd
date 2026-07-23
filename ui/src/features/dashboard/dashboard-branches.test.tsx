@@ -1,6 +1,7 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { HealthSummaryCard } from "@/features/dashboard/health-summary-card"
 import { ServiceCard } from "@/features/dashboard/service-card"
@@ -9,7 +10,27 @@ import { calculateTrafficRates } from "@/features/dashboard/traffic-rate"
 import { RecentLogs } from "@/features/dashboard/recent-logs"
 import { AuthProvider } from "@/features/auth/auth-context"
 import { PreferencesProvider } from "@/features/preferences/preferences-provider"
+import { sessionStore } from "@/lib/session"
 import { renderApp } from "@/test/render"
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+  sessionStore.clear()
+})
+
+function renderHealth(ui: JSX.Element) {
+  sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+  vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify([])))))
+  return renderApp(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <AuthProvider>
+        <PreferencesProvider>
+          {ui}
+        </PreferencesProvider>
+      </AuthProvider>
+    </QueryClientProvider>,
+  )
+}
 
 describe("dashboard component states", () => {
   it("enables only valid service actions for a stopped service", async () => {
@@ -83,7 +104,7 @@ describe("dashboard component states", () => {
   })
 
   it("renders health summary from connection snapshot", () => {
-    renderApp(<HealthSummaryCard snapshot={{
+    renderHealth(<HealthSummaryCard snapshot={{
       active_connections: 2,
       list: [
         { id: 1, target: "a.com:443", outbound: "proxy", rule: "r1", network: "tcp", upload: 10, download: 20, start: "2026-01-01T00:00:00Z" },
