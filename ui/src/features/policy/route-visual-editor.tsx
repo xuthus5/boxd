@@ -111,7 +111,7 @@ function RuleSection({ object, metadata, metadataLoading, metadataError, onChang
   return <Card><CardHeader className="min-w-0 grid-cols-1 has-data-[slot=card-action]:grid-cols-1 sm:has-data-[slot=card-action]:grid-cols-[1fr_auto]">
     <CardTitle>{t("policy.route.rulesTitle")}</CardTitle><CardDescription>{t("policy.route.rulesDescription")}</CardDescription>
     <CardAction className="col-start-1 row-start-auto w-full justify-self-start sm:col-start-2 sm:row-start-1 sm:w-auto sm:justify-self-end">
-      <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row"><Button variant="outline" className="w-full sm:w-auto" onClick={onInstall}>{t("policy.installRoute")}</Button><Button className="w-full sm:w-auto" onClick={() => onEdit(null)}><ListPlusIcon data-icon="inline-start" />{t("policy.route.addRule")}</Button></div>
+      <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto"><Button variant="outline" size="sm" className="h-8" onClick={onInstall}>{t("policy.installRoute")}</Button><Button size="sm" className="h-8" onClick={() => onEdit(null)}><ListPlusIcon data-icon="inline-start" />{t("policy.route.addRule")}</Button></div>
     </CardAction></CardHeader>
     <CardContent className="flex flex-col gap-3">{metadataLoading ? <Skeleton className="h-24 w-full" /> : metadataError
       ? <Alert variant="destructive"><AlertTitle>{t("common.loadFailed")}</AlertTitle><AlertDescription>{metadataError}</AlertDescription></Alert>
@@ -122,7 +122,7 @@ function RuleSection({ object, metadata, metadataLoading, metadataError, onChang
         <div className="flex flex-col gap-2">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <label className="sr-only" htmlFor="route-rules-search">{t("policy.route.searchRules")}</label>
-            <Input id="route-rules-search" value={search} onChange={(event) => writeQuery(event.target.value)} placeholder={t("policy.route.searchRulesPlaceholder")} className="sm:max-w-sm" aria-label={t("policy.route.searchRules")} />
+            <Input id="route-rules-search" value={search} onChange={(event) => writeQuery(event.target.value)} placeholder={t("policy.route.searchRulesPlaceholder")} className="h-8 sm:max-w-sm" aria-label={t("policy.route.searchRules")} />
             {facetsActive ? <p className="text-sm text-muted-foreground">{t("policy.route.searchRulesCount", { shown: visible.length, total: rules.length })}</p> : null}
           </div>
           <RouteActionSummaryBar summary={actionSummary} filters={filters} onChange={writeFilters} />
@@ -139,7 +139,7 @@ function RuleSection({ object, metadata, metadataLoading, metadataError, onChang
               </Button>
             </EmptyContent>
           </Empty>
-          : <div className="flex flex-col gap-3">{visible.map(({ item, index }) => <RouteRuleCard key={index} index={index} item={item} metadata={metadata[index]}
+          : <div className="flex flex-col gap-2 sm:gap-3">{visible.map(({ item, index }) => <RouteRuleCard key={index} index={index} item={item} metadata={metadata[index]}
             first={index === 0} last={index === rules.length - 1} onEdit={() => onEdit(index)}
             onCopy={() => updateBoth(insertCopy(rules, index), insertMetadataCopy(metadata, index))}
             onMoveUp={() => updateBoth(moveItem(rules, index, -1), moveItem(metadata, index, -1))}

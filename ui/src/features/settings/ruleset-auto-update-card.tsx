@@ -8,17 +8,27 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
+import { isRuleSetAutoUpdateReady } from "@/features/settings/settings-dirty"
 import { api } from "@/lib/api/endpoints"
 import type { RuleSetAutoUpdate } from "@/lib/api/types"
 
 export function RuleSetAutoUpdateCard({ defaults }: { defaults: RuleSetAutoUpdate }) {
   const { t } = useTranslation()
+  const [saved, setSaved] = useState(defaults)
   const [enabled, setEnabled] = useState(defaults.enabled)
   const [interval, setInterval] = useState(defaults.interval || "24h")
   const invalid = !interval.trim() || !/^\d+(\.\d+)?(ns|us|µs|ms|s|m|h)$/.test(interval.trim())
+  const ready = isRuleSetAutoUpdateReady(
+    { enabled, interval: interval.trim() },
+    { enabled: saved.enabled, interval: (saved.interval || "").trim() },
+    !invalid,
+  )
   const save = useMutation({
     mutationFn: () => api.config.setRuleSetsAutoUpdate({ enabled, interval: interval.trim() }),
-    onSuccess: () => toast.success(t("settings.ruleSetAutoUpdateSaved")),
+    onSuccess: () => {
+      setSaved({ enabled, interval: interval.trim() })
+      toast.success(t("settings.ruleSetAutoUpdateSaved"))
+    },
     onError: (error: Error) => toast.error(error.message),
   })
   return <Card>
@@ -40,7 +50,7 @@ export function RuleSetAutoUpdateCard({ defaults }: { defaults: RuleSetAutoUpdat
       </FieldGroup>
     </CardContent>
     <CardFooter>
-      <Button disabled={invalid || save.isPending} onClick={() => save.mutate()}>{t("common.save")}</Button>
+      <Button disabled={!ready || save.isPending} onClick={() => save.mutate()}>{t("common.save")}</Button>
     </CardFooter>
   </Card>
 }

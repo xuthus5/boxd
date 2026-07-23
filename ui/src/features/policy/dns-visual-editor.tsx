@@ -114,12 +114,12 @@ function ServerSection({ object, onChange, onRulesChange, onEdit, onInstall }: {
   return <Card><CardHeader className="min-w-0 grid-cols-1 has-data-[slot=card-action]:grid-cols-1 sm:has-data-[slot=card-action]:grid-cols-[1fr_auto]">
     <CardTitle>{t("policy.dns.serversTitle")}</CardTitle><CardDescription>{t("policy.dns.serversDescription")}</CardDescription>
     <CardAction className="col-start-1 row-start-auto w-full justify-self-start sm:col-start-2 sm:row-start-1 sm:w-auto sm:justify-self-end">
-      <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-        <Button variant="outline" className="w-full sm:w-auto" disabled={!inputs.length || batchMutation.isPending} onClick={() => batchMutation.mutate()}>
+      <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
+        <Button variant="outline" className="h-8 w-full sm:w-auto" disabled={!inputs.length || batchMutation.isPending} onClick={() => batchMutation.mutate()}>
           <GaugeIcon data-icon="inline-start" />{batchMutation.isPending ? t("policy.dns.probing") : t("policy.dns.probeAll")}
         </Button>
-        <Button variant="outline" className="w-full sm:w-auto" onClick={onInstall}>{t("policy.installDNS")}</Button>
-        <Button className="w-full sm:w-auto" onClick={() => onEdit(null)}><ListPlusIcon data-icon="inline-start" />{t("policy.dns.addServer")}</Button>
+        <Button variant="outline" className="h-8 w-full sm:w-auto" onClick={onInstall}>{t("policy.installDNS")}</Button>
+        <Button className="h-8 w-full sm:w-auto" onClick={() => onEdit(null)}><ListPlusIcon data-icon="inline-start" />{t("policy.dns.addServer")}</Button>
       </div>
     </CardAction></CardHeader>
     <CardContent className="flex flex-col gap-3">{servers.length === 0
@@ -129,7 +129,7 @@ function ServerSection({ object, onChange, onRulesChange, onEdit, onInstall }: {
         <div className="flex flex-col gap-2">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <label className="sr-only" htmlFor="dns-servers-search">{t("policy.dns.searchServers")}</label>
-            <Input id="dns-servers-search" value={search} onChange={(event) => writeServersQuery(event.target.value)} placeholder={t("policy.dns.searchServersPlaceholder")} className="sm:max-w-sm" aria-label={t("policy.dns.searchServers")} />
+            <Input id="dns-servers-search" value={search} onChange={(event) => writeServersQuery(event.target.value)} placeholder={t("policy.dns.searchServersPlaceholder")} className="h-8 sm:max-w-sm" aria-label={t("policy.dns.searchServers")} />
             {facetsActive ? <p className="text-sm text-muted-foreground">{t("policy.dns.searchCount", { shown: visible.length, total: servers.length })}</p> : null}
           </div>
           <DNSTypeSummaryBar summary={typeSummary} filters={filters} onChange={writeFilters} />
@@ -146,7 +146,7 @@ function ServerSection({ object, onChange, onRulesChange, onEdit, onInstall }: {
               </Button>
             </EmptyContent>
           </Empty>
-          : <div className="flex flex-col gap-3">{visible.map(({ item, index }) => {
+          : <div className="flex flex-col gap-2 sm:gap-3">{visible.map(({ item, index }) => {
             const key = probeKey(item, index)
             return <DNSServerCard key={index} item={item}
               probeResult={probeResults[key] ?? (typeof item.tag === "string" ? probeResults[item.tag] : undefined)}
@@ -190,7 +190,7 @@ function RuleSection({ object, onChange, onRulesChange, onEdit }: {
   return <Card><CardHeader className="min-w-0 grid-cols-1 has-data-[slot=card-action]:grid-cols-1 sm:has-data-[slot=card-action]:grid-cols-[1fr_auto]">
     <CardTitle>{t("policy.dns.rulesTitle")}</CardTitle><CardDescription>{t("policy.dns.rulesDescription")}</CardDescription>
     <CardAction className="col-start-1 row-start-auto w-full justify-self-start sm:col-start-2 sm:row-start-1 sm:w-auto sm:justify-self-end">
-      <Button className="w-full sm:w-auto" onClick={() => onEdit(null)}><ListPlusIcon data-icon="inline-start" />{t("policy.dns.addRule")}</Button>
+      <Button className="h-8 w-full sm:w-auto" onClick={() => onEdit(null)}><ListPlusIcon data-icon="inline-start" />{t("policy.dns.addRule")}</Button>
     </CardAction></CardHeader>
     <CardContent className="flex flex-col gap-3">{rules.length === 0
       ? <EmptySection title={t("policy.dns.emptyRulesTitle")} description={t("policy.dns.emptyRulesDescription")}
@@ -199,7 +199,7 @@ function RuleSection({ object, onChange, onRulesChange, onEdit }: {
         <div className="flex flex-col gap-2">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <label className="sr-only" htmlFor="dns-rules-search">{t("policy.dns.searchRules")}</label>
-            <Input id="dns-rules-search" value={search} onChange={(event) => writeRulesQuery(event.target.value)} placeholder={t("policy.dns.searchRulesPlaceholder")} className="sm:max-w-sm" aria-label={t("policy.dns.searchRules")} />
+            <Input id="dns-rules-search" value={search} onChange={(event) => writeRulesQuery(event.target.value)} placeholder={t("policy.dns.searchRulesPlaceholder")} className="h-8 sm:max-w-sm" aria-label={t("policy.dns.searchRules")} />
             {facetsActive ? <p className="text-sm text-muted-foreground">{t("policy.dns.searchCount", { shown: visible.length, total: rules.length })}</p> : null}
           </div>
           <DNSActionSummaryBar summary={actionSummary} filters={filters} onChange={writeFilters} />
@@ -216,7 +216,7 @@ function RuleSection({ object, onChange, onRulesChange, onEdit }: {
               </Button>
             </EmptyContent>
           </Empty>
-          : <div className="flex flex-col gap-3">{visible.map(({ item, index }) => <DNSRuleCard key={index} index={index} item={item}
+          : <div className="flex flex-col gap-2 sm:gap-3">{visible.map(({ item, index }) => <DNSRuleCard key={index} index={index} item={item}
             first={index === 0} last={index === rules.length - 1} onEdit={() => onEdit(index)}
             onCopy={() => update(insertCopy(rules, index))}
             onMoveUp={() => update(moveItem(rules, index, -1))}

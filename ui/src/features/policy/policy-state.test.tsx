@@ -34,7 +34,7 @@ describe("policy alternate states", () => {
     const user = userEvent.setup()
     renderApp(<App />, "/policy/dns")
     await user.click(await screen.findByRole("button", { name: "安装默认 DNS" }))
-    expect(await screen.findByText("download failed")).toBeInTheDocument()
+    expect(await screen.findAllByText("download failed")).not.toHaveLength(0)
   })
 
   it("installs route rule sets before route defaults and refetches", async () => {
@@ -74,7 +74,7 @@ describe("policy save and rollback states", () => {
     const user = userEvent.setup()
     renderApp(<App />, "/policy/route")
     await user.click(await screen.findByRole("button", { name: "保存配置" }))
-    expect(await screen.findByText("save route failed")).toBeInTheDocument()
+    expect(await screen.findAllByText("save route failed")).not.toHaveLength(0)
   })
 
   it("reports a rolled back policy save", async () => {
@@ -86,7 +86,7 @@ describe("policy save and rollback states", () => {
     const user = userEvent.setup()
     renderApp(<App />, "/policy/route")
     await user.click(await screen.findByRole("button", { name: "保存配置" }))
-    expect(await screen.findByText("配置已回滚")).toBeInTheDocument()
+    expect(await screen.findAllByText("配置已回滚")).not.toHaveLength(0)
   })
 
   it("reports a rolled back default installer", async () => {
@@ -98,7 +98,7 @@ describe("policy save and rollback states", () => {
     const user = userEvent.setup()
     renderApp(<App />, "/policy/dns")
     await user.click(await screen.findByRole("button", { name: "安装默认 DNS" }))
-    expect(await screen.findByText("配置已回滚")).toBeInTheDocument()
+    expect(await screen.findAllByText("配置已回滚")).not.toHaveLength(0)
   })
 
   it("stops route installation when rule sets roll back", async () => {
@@ -111,7 +111,7 @@ describe("policy save and rollback states", () => {
     const user = userEvent.setup()
     renderApp(<App />, "/policy/route")
     await user.click(await screen.findByRole("button", { name: "安装默认路由" }))
-    await screen.findByText("配置已回滚")
+    await screen.findAllByText("配置已回滚")
     expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1)
   })
 })

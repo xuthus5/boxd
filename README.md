@@ -14,7 +14,7 @@ Single-node control plane for [sing-box](https://github.com/SagerNet/sing-box). 
 - **Nodes & subscriptions**: Clash YAML + base64 subscriptions, traffic/expiry, failed-first + retry, denser mobile toolbars/cards, node search, latency color bands + history sparkline/detail chart, runtime groups, probes
 - **Observability**: kernel/app logs with copy/export, TCP/UDP connections with source/network/inbound/process, search/sort/export, outbound/rule aggregation, and group close
 - **Advanced**: Endpoints, Experimental, full kernel JSON with path-level diff and sticky save-error jump
-- **Settings**: theme, language, and log level persisted in DB; password/JWT rotation, probe URLs, global URLTest defaults
+- **Settings**: theme, language, and log level persisted in DB; password/JWT rotation, dirty-state save gates, probe URLs, global URLTest defaults
 
 ## Stack
 

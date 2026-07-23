@@ -28,7 +28,8 @@ describe("settings alternate states", () => {
       return Promise.resolve(new Response(JSON.stringify(data)))
     }))
     renderApp(<App />, "/settings")
-    expect(await screen.findByText("默认密码仍在使用")).toBeInTheDocument()
+    expect(await screen.findAllByText("默认密码仍在使用")).not.toHaveLength(0)
+    expect(screen.getByText("请立即轮换管理员密码。")).toBeInTheDocument()
   })
 })
 
@@ -47,9 +48,12 @@ describe("settings save failures", () => {
     }))
     const user = userEvent.setup()
     renderApp(<App />, "/settings")
-    expect(await screen.findByDisplayValue("https://example.com")).toHaveAttribute("id", "test-url-manual")
+    const manual = await screen.findByDisplayValue("https://example.com")
+    expect(manual).toHaveAttribute("id", "test-url-manual")
+    await user.clear(manual)
+    await user.type(manual, "https://example.com/fail")
     await user.click(await screen.findByRole("button", { name: "保存测速地址" }))
-    expect(await screen.findByText("save failed")).toBeInTheDocument()
+    expect(await screen.findAllByText("save failed")).not.toHaveLength(0)
   })
 
   it("restores kernel autostart when saving fails", async () => {

@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
+import { isURLTestDefaultsReady } from "@/features/settings/settings-dirty"
 import { api } from "@/lib/api/endpoints"
 import type { URLTestDefaults } from "@/lib/api/types"
 import { isHTTPURL, isPositiveDuration, isTolerance } from "@/lib/urltest"
@@ -24,30 +25,83 @@ export function URLTestDefaultsCard({ defaults }: { defaults: URLTestDefaults })
   const isIntervalInvalid = !isPositiveDuration(interval)
   const toleranceValue = Number(tolerance)
   const isToleranceInvalid = !isTolerance(tolerance)
-  const isInvalid = isURLInvalid || isIntervalInvalid || isToleranceInvalid
+  const [saved, setSaved] = useState(defaults)
+  const ready = isURLTestDefaultsReady({
+    enabled,
+    url,
+    interval,
+    tolerance: toleranceValue,
+    toleranceInput: tolerance,
+  }, saved)
   const save = useMutation({
     mutationFn: async () => {
-      const input = { enabled, url, interval, tolerance: toleranceValue }
-      const result = await api.settings.setURLTestDefaults(input)
+      const input = { enabled, url: url.trim(), interval: interval.trim(), tolerance: toleranceValue }
+      await api.settings.setURLTestDefaults(input)
       await api.nodes.sync()
-      return result
+      return input
     },
-    onSuccess: () => toast.success(t("settings.urlTestDefaultsSaved")),
+    onSuccess: (input) => {
+      setSaved(input)
+      toast.success(t("settings.urlTestDefaultsSaved"))
+    },
     onError: (error: Error) => toast.error(error.message),
   })
 
-  return <Card><CardHeader><CardTitle>{t("settings.urlTestDefaultsTitle")}</CardTitle><CardDescription>{t("settings.urlTestDefaultsDescription")}</CardDescription></CardHeader><CardContent><FieldGroup>
-    <Field orientation="horizontal"><FieldLabel htmlFor="urltest-enabled">{t("settings.urlTestDefaultsEnabled")}</FieldLabel><Switch id="urltest-enabled" checked={enabled} onCheckedChange={setEnabled} /></Field>
-    <ProbeURLField
-      id="urltest-url"
-      label={t("settings.urlTestURL")}
-      manualLabel={t("settings.urlTestURLManualInput")}
-      value={url}
-      onChange={setURL}
-      invalid={isURLInvalid}
-      description={isURLInvalid ? t("settings.urlTestURLInvalid") : t("settings.urlTestURLDescription")}
-    />
-    <Field data-invalid={isIntervalInvalid || undefined}><FieldLabel htmlFor="urltest-interval">{t("settings.urlTestInterval")}</FieldLabel><Input id="urltest-interval" aria-invalid={isIntervalInvalid || undefined} value={interval} onChange={(event) => setInterval(event.target.value)} /><FieldDescription>{isIntervalInvalid ? t("settings.urlTestIntervalInvalid") : t("settings.urlTestIntervalDescription")}</FieldDescription></Field>
-    <Field data-invalid={isToleranceInvalid || undefined}><FieldLabel htmlFor="urltest-tolerance">{t("settings.urlTestTolerance")}</FieldLabel><Input id="urltest-tolerance" type="number" min={0} max={65535} aria-invalid={isToleranceInvalid || undefined} value={tolerance} onChange={(event) => setTolerance(event.target.value)} /><FieldDescription>{isToleranceInvalid ? t("settings.urlTestToleranceInvalid") : t("settings.urlTestToleranceDescription")}</FieldDescription></Field>
-  </FieldGroup></CardContent><CardFooter><Button disabled={isInvalid || save.isPending} onClick={() => save.mutate()}>{t("settings.saveURLTestDefaults")}</Button></CardFooter></Card>
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("settings.urlTestDefaultsTitle")}</CardTitle>
+        <CardDescription>{t("settings.urlTestDefaultsDescription")}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <FieldGroup>
+          <Field orientation="horizontal">
+            <FieldLabel htmlFor="urltest-enabled">{t("settings.urlTestDefaultsEnabled")}</FieldLabel>
+            <Switch id="urltest-enabled" checked={enabled} onCheckedChange={setEnabled} />
+          </Field>
+          <ProbeURLField
+            id="urltest-url"
+            label={t("settings.urlTestURL")}
+            manualLabel={t("settings.urlTestURLManualInput")}
+            value={url}
+            onChange={setURL}
+            invalid={isURLInvalid}
+            description={isURLInvalid ? t("settings.urlTestURLInvalid") : t("settings.urlTestURLDescription")}
+          />
+          <Field data-invalid={isIntervalInvalid || undefined}>
+            <FieldLabel htmlFor="urltest-interval">{t("settings.urlTestInterval")}</FieldLabel>
+            <Input
+              id="urltest-interval"
+              aria-invalid={isIntervalInvalid || undefined}
+              value={interval}
+              onChange={(event) => setInterval(event.target.value)}
+            />
+            <FieldDescription>
+              {isIntervalInvalid ? t("settings.urlTestIntervalInvalid") : t("settings.urlTestIntervalDescription")}
+            </FieldDescription>
+          </Field>
+          <Field data-invalid={isToleranceInvalid || undefined}>
+            <FieldLabel htmlFor="urltest-tolerance">{t("settings.urlTestTolerance")}</FieldLabel>
+            <Input
+              id="urltest-tolerance"
+              type="number"
+              min={0}
+              max={65535}
+              aria-invalid={isToleranceInvalid || undefined}
+              value={tolerance}
+              onChange={(event) => setTolerance(event.target.value)}
+            />
+            <FieldDescription>
+              {isToleranceInvalid ? t("settings.urlTestToleranceInvalid") : t("settings.urlTestToleranceDescription")}
+            </FieldDescription>
+          </Field>
+        </FieldGroup>
+      </CardContent>
+      <CardFooter>
+        <Button disabled={!ready || save.isPending} onClick={() => save.mutate()}>
+          {t("settings.saveURLTestDefaults")}
+        </Button>
+      </CardFooter>
+    </Card>
+  )
 }

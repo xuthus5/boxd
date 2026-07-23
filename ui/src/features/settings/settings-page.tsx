@@ -27,7 +27,9 @@ import {
 } from "@/features/settings/security-validation"
 import { URLTestDefaultsCard } from "@/features/settings/urltest-defaults-card"
 import { api } from "@/lib/api/endpoints"
+import { isTestURLReady } from "@/features/settings/settings-dirty"
 import { resolveInitialSpeedTestURL } from "@/lib/speed-test-urls"
+import { isHTTPURL } from "@/lib/urltest"
 import type { Language, LogThreshold, Theme } from "@/lib/storage"
 
 function AppearanceCard() {
@@ -135,7 +137,12 @@ function AccountCard({ defaultPassword, jwt }: { defaultPassword: boolean; jwt: 
         <CardDescription>{t("settings.accountDescription")}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        {defaultPassword ? <p className="text-sm text-destructive">{t("settings.defaultPasswordDescription")}</p> : null}
+        {defaultPassword ? (
+          <Alert variant="destructive">
+            <AlertTitle>{t("settings.defaultPasswordTitle")}</AlertTitle>
+            <AlertDescription>{t("settings.defaultPasswordDescription")}</AlertDescription>
+          </Alert>
+        ) : null}
         <FieldGroup>
           <Field>
             <FieldLabel htmlFor="current-password">{t("settings.currentPassword")}</FieldLabel>
@@ -184,27 +191,56 @@ function AccountCard({ defaultPassword, jwt }: { defaultPassword: boolean; jwt: 
 
 function RuntimeSettingsCard({ url, enabled }: { url: string; enabled: boolean }) {
   const { t } = useTranslation()
+  const [savedURL, setSavedURL] = useState(url)
   const [testURL, setTestURL] = useState(() => resolveInitialSpeedTestURL(url))
   const [autostart, setAutostart] = useState(enabled)
-  const saveURL = useMutation({ mutationFn: () => api.settings.setTestURL(testURL), onSuccess: () => toast.success(t("settings.testURLSaved")), onError: (error: Error) => toast.error(error.message) })
+  const urlReady = isTestURLReady(testURL, savedURL)
+  const urlInvalid = Boolean(testURL.trim()) && !isHTTPURL(testURL.trim())
+  const saveURL = useMutation({
+    mutationFn: () => api.settings.setTestURL(testURL.trim()),
+    onSuccess: () => {
+      setSavedURL(testURL.trim())
+      toast.success(t("settings.testURLSaved"))
+    },
+    onError: (error: Error) => toast.error(error.message),
+  })
   const saveAutostart = (checked: boolean) => {
     const previous = autostart
     setAutostart(checked)
-    api.settings.setAutostart(checked).then(() => toast.success(t("settings.autostartSaved"))).catch((error: Error) => { setAutostart(previous); toast.error(error.message) })
+    api.settings.setAutostart(checked).then(() => toast.success(t("settings.autostartSaved"))).catch((error: Error) => {
+      setAutostart(previous)
+      toast.error(error.message)
+    })
   }
-  return <Card><CardHeader><CardTitle>{t("settings.runtimeTitle")}</CardTitle><CardDescription>{t("settings.runtimeDescription")}</CardDescription></CardHeader><CardContent><FieldGroup>
-    <div className="grid gap-2">
-      <ProbeURLField
-        id="test-url"
-        label={t("settings.testURL")}
-        value={testURL}
-        onChange={setTestURL}
-        description={t("settings.testURLDescription")}
-      />
-      <Button onClick={() => saveURL.mutate()} disabled={!testURL.trim()}>{t("settings.saveTestURL")}</Button>
-    </div>
-    <Field orientation="horizontal"><FieldLabel htmlFor="autostart">{t("settings.autostart")}</FieldLabel><Switch id="autostart" checked={autostart} onCheckedChange={saveAutostart} /></Field>
-  </FieldGroup></CardContent></Card>
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("settings.runtimeTitle")}</CardTitle>
+        <CardDescription>{t("settings.runtimeDescription")}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <FieldGroup>
+          <div className="grid gap-2">
+            <ProbeURLField
+              id="test-url"
+              label={t("settings.testURL")}
+              value={testURL}
+              onChange={setTestURL}
+              invalid={urlInvalid}
+              description={urlInvalid ? t("settings.urlTestURLInvalid") : t("settings.testURLDescription")}
+            />
+            <Button onClick={() => saveURL.mutate()} disabled={!urlReady || saveURL.isPending}>
+              {t("settings.saveTestURL")}
+            </Button>
+          </div>
+          <Field orientation="horizontal">
+            <FieldLabel htmlFor="autostart">{t("settings.autostart")}</FieldLabel>
+            <Switch id="autostart" checked={autostart} onCheckedChange={saveAutostart} />
+          </Field>
+        </FieldGroup>
+      </CardContent>
+    </Card>
+  )
 }
 
 export function SettingsPage() {
@@ -221,5 +257,5 @@ export function SettingsPage() {
   if (queries.some((query) => query.isLoading)) return <Skeleton className="h-64 w-full" />
   const error = queries.find((query) => query.error)?.error
   if (error) return <Alert variant="destructive"><AlertTitle>{t("common.loadFailed")}</AlertTitle><AlertDescription>{error.message}</AlertDescription></Alert>
-  return <div className="flex flex-col gap-4"><h1 className="text-2xl font-semibold">{t("settings.title")}</h1><div className="grid gap-4 lg:grid-cols-2"><AppearanceCard /><AccountCard defaultPassword={password.data!.defaultPassword} jwt={jwt.data!} /><RuntimeSettingsCard url={testURL.data!.url} enabled={autostart.data!.enabled} /><URLTestDefaultsCard defaults={urlTestDefaults.data!} /><RuleSetAutoUpdateCard defaults={ruleSetAuto.data!} /></div></div>
+  return <div className="flex flex-col gap-3 sm:gap-4"><h1 className="text-2xl font-semibold">{t("settings.title")}</h1><div className="grid gap-3 sm:gap-4 lg:grid-cols-2"><AppearanceCard /><AccountCard defaultPassword={password.data!.defaultPassword} jwt={jwt.data!} /><RuntimeSettingsCard url={testURL.data!.url} enabled={autostart.data!.enabled} /><URLTestDefaultsCard defaults={urlTestDefaults.data!} /><RuleSetAutoUpdateCard defaults={ruleSetAuto.data!} /></div></div>
 }
