@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { api, type SubscriptionInput } from "@/lib/api/endpoints"
 import type { Subscription, URLTestDefaults, URLTestOverrides } from "@/lib/api/types"
+import { reportSubscriptionRequestError } from "@/features/subscriptions/subscription-error-actions"
 import { isHTTPURL, isPositiveDuration, isTolerance } from "@/lib/urltest"
 
 type URLTestPolicy = "inherit" | "enabled" | "disabled"
@@ -180,7 +181,12 @@ export function SubscriptionDialog({ defaults, item, onClose, onSaved }: Subscri
       await api.nodes.sync()
     },
     onSuccess: () => { toast.success(t("subscriptions.saved")); onSaved() },
-    onError: (error: Error) => toast.error(error.message),
+    onError: (error: Error) => reportSubscriptionRequestError(error, t, {
+      scope: item ? "update" : "create",
+      id: item?.id,
+      name,
+      fallback: t("subscriptions.saveFailed"),
+    }),
   })
   const save = () => request.mutate({
     name,

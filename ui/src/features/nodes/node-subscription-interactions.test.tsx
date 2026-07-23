@@ -1,13 +1,19 @@
 import { screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { toast } from "sonner"
+
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() },
+  Toaster: () => null,
+}))
 
 import App from "@/App"
 import { sessionStore } from "@/lib/session"
 import { installMockAPI } from "@/test/mock-api"
 import { renderApp } from "@/test/render"
 
-afterEach(() => { vi.unstubAllGlobals(); sessionStore.clear() })
+afterEach(() => { vi.unstubAllGlobals(); vi.clearAllMocks(); sessionStore.clear() })
 
 function setup(route: string) {
   sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
@@ -84,7 +90,12 @@ describe("subscription synchronization workflows", () => {
         return Promise.resolve(new Response("[]"))
       }
       if (path === "/api/subscriptions/refresh-all") {
-        return Promise.resolve(new Response(JSON.stringify({ status: "partial", data: null, error: null, meta: null })))
+        return Promise.resolve(new Response(JSON.stringify({
+          status: "partial",
+          data: { failed: [{ id: "1", name: "主订阅", code: "forbidden", message: "subscription HTTP 403" }] },
+          error: { code: "subscription_refresh_failed", message: "部分订阅刷新失败" },
+          meta: { failed_count: 1 },
+        })))
       }
       return Promise.resolve(new Response("{}"))
     })
@@ -92,7 +103,10 @@ describe("subscription synchronization workflows", () => {
     renderApp(<App />, "/subscriptions")
 
     await userEvent.setup().click(await screen.findByRole("button", { name: "刷新全部" }))
-    expect(await screen.findByText("部分订阅刷新失败")).toBeInTheDocument()
+    await waitFor(() => expect(toast.error).toHaveBeenCalled())
+    const message = String(vi.mocked(toast.error).mock.calls.at(-1)?.[0] ?? "")
+    expect(message).toContain("个订阅刷新失败")
+    expect(message).toContain("主订阅")
     expect(fetchMock).not.toHaveBeenCalledWith(
       "/api/nodes/sync-config",
       expect.objectContaining({ method: "POST" }),

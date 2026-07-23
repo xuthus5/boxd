@@ -24,6 +24,15 @@ import {
   type SubscriptionListFilters,
 } from "@/features/subscriptions/subscription-list"
 import { SubscriptionStatusSummaryBar } from "@/features/subscriptions/subscription-status-summary"
+import {
+  reportSubscriptionRefreshBatch,
+  reportSubscriptionRequestError,
+} from "@/features/subscriptions/subscription-error-actions"
+import {
+  extractSubscriptionRefreshFailures,
+  formatSubscriptionRefreshBatchMessage,
+  summarizeSubscriptionRefreshFailures,
+} from "@/features/subscriptions/subscription-error"
 import { api } from "@/lib/api/endpoints"
 import type { Subscription } from "@/lib/api/types"
 
@@ -46,20 +55,43 @@ export function SubscriptionsPage() {
     client.invalidateQueries({ queryKey: ["subscriptions"] }),
     client.invalidateQueries({ queryKey: ["nodes"] }),
   ])
-  const action = (request: Promise<unknown>, message: string) => request
+  const action = (
+    request: Promise<unknown>,
+    message: string,
+    options: { scope?: string; id?: string; name?: string; fallback?: string } = {},
+  ) => request
     .then(refresh)
     .then(() => toast.success(message))
-    .catch((error: Error) => toast.error(error.message))
-  const refreshAll = () => api.subscriptions.refreshAll().then((response) => {
-    if (response.status === "partial") {
-      const failedCount = Number((response.meta as { failed_count?: number } | null)?.failed_count ?? 0)
-      const detail = failedCount > 0
-        ? t("subscriptions.partialFailureCount", { count: failedCount })
-        : (response.error?.message || t("subscriptions.partialFailure"))
-      throw new Error(detail)
+    .catch((error: Error) => reportSubscriptionRequestError(error, t, options))
+
+  const refreshAll = async () => {
+    try {
+      const response = await api.subscriptions.refreshAll()
+      if (response.status === "partial") {
+        const failures = extractSubscriptionRefreshFailures(response.data)
+        const metaCount = Number((response.meta as { failed_count?: number } | null)?.failed_count ?? 0)
+        const summary = summarizeSubscriptionRefreshFailures(
+          failures.length
+            ? failures
+            : Array.from({ length: Math.max(metaCount, 1) }, () => ({
+              message: response.error?.message || t("subscriptions.partialFailure"),
+            })),
+        )
+        if (summary.failed === 0) summary.failed = Math.max(metaCount, summary.failedSamples.length, 1)
+        const detail = formatSubscriptionRefreshBatchMessage(summary, t)
+        reportSubscriptionRefreshBatch(summary, detail || t("subscriptions.partialFailure"), t)
+        await refresh()
+        return
+      }
+      await refresh()
+      toast.success(t("subscriptions.refreshedAll"))
+    } catch (error) {
+      reportSubscriptionRequestError(error, t, {
+        scope: "refresh-all",
+        fallback: t("subscriptions.refreshFailed"),
+      })
     }
-    return response
-  }).then(refresh).then(() => toast.success(t("subscriptions.refreshedAll"))).catch((error: Error) => toast.error(error.message))
+  }
 
   const items = useMemo(
     () => (Array.isArray(query.data) ? query.data : []),
@@ -81,19 +113,31 @@ export function SubscriptionsPage() {
     writeFilters({ query: filters.query, status: "error" })
     setRetrying(true)
     let ok = 0
-    let failed = 0
+    const failures: Array<{ id?: string; name?: string; code?: string; message?: string }> = []
     try {
       for (const id of failedIds) {
+        const item = items.find((entry) => entry.id === id)
         try {
           await api.subscriptions.refresh(id)
           ok += 1
-        } catch {
-          failed += 1
+        } catch (error) {
+          const message = error instanceof Error ? error.message : t("subscriptions.refreshFailed")
+          failures.push({
+            id,
+            name: item?.name,
+            code: item?.error_code,
+            message,
+          })
         }
       }
       await refresh()
-      if (failed === 0) toast.success(t("subscriptions.retryFailedDone", { count: ok }))
-      else toast.error(t("subscriptions.retryFailedPartial", { ok, failed }))
+      if (failures.length === 0) {
+        toast.success(t("subscriptions.retryFailedDone", { count: ok }))
+        return
+      }
+      const summary = summarizeSubscriptionRefreshFailures(failures)
+      const message = t("subscriptions.retryFailedPartial", { ok, failed: failures.length })
+      reportSubscriptionRefreshBatch(summary, message, t)
     } finally {
       setRetrying(false)
     }
@@ -121,7 +165,7 @@ export function SubscriptionsPage() {
               {t("subscriptions.retryFailed", { count: failedIds.length })}
             </Button>
           ) : null}
-          <Button variant="outline" size="sm" className="h-8" onClick={refreshAll}>
+          <Button variant="outline" size="sm" className="h-8" onClick={() => void refreshAll()}>
             <RefreshCcwIcon data-icon="inline-start" />
             {t("subscriptions.refreshAll")}
           </Button>
@@ -191,8 +235,8 @@ export function SubscriptionsPage() {
                   key={item.id}
                   item={item}
                   onEdit={() => setEditing(item)}
-                  onRefresh={() => action(api.subscriptions.refresh(item.id), item.error ? t("subscriptions.retry") : t("subscriptions.refresh"))}
-                  onDelete={() => action(api.subscriptions.delete(item.id), t("common.delete"))}
+                  onRefresh={() => action(api.subscriptions.refresh(item.id), item.error ? t("subscriptions.retryDone") : t("subscriptions.refreshDone"), { scope: "refresh", id: item.id, name: item.name, fallback: t("subscriptions.refreshFailed") })}
+                  onDelete={() => action(api.subscriptions.delete(item.id), t("subscriptions.deleted"), { scope: "delete", id: item.id, name: item.name, fallback: t("subscriptions.deleteFailed") })}
                 />
               ))}
             </div>

@@ -1,5 +1,17 @@
 /** 订阅失败诊断的可操作辅助。 */
 
+import { toast } from "sonner"
+
+import { copyText } from "@/features/proxy/copy-tag-button"
+import {
+  classifySubscriptionRequestError,
+  formatSubscriptionRequestErrorToast,
+  subscriptionErrorHintKey,
+  subscriptionRefreshBatchClipboardText,
+  subscriptionRequestErrorClipboardText,
+  type SubscriptionRefreshBatchSummary,
+} from "@/features/subscriptions/subscription-error"
+
 export function subscriptionErrorClipboardText(item: {
   name?: string
   url?: string
@@ -30,4 +42,47 @@ export function isOpenableSubscriptionURL(raw?: string): boolean {
 
 export function subscriptionSourceURL(raw?: string): string {
   return isOpenableSubscriptionURL(raw) ? raw!.trim() : ""
+}
+
+export function reportSubscriptionRequestError(
+  error: unknown,
+  t: (key: string, values?: Record<string, string | number>) => string,
+  options: { scope?: string; id?: string; name?: string; fallback?: string } = {},
+) {
+  const fallback = options.fallback ?? t("subscriptions.refreshFailed")
+  const code = classifySubscriptionRequestError(error)
+  const payload = subscriptionRequestErrorClipboardText(error, options)
+  toast.error(formatSubscriptionRequestErrorToast(error, fallback), {
+    description: t(subscriptionErrorHintKey(code)),
+    action: payload ? {
+      label: t("subscriptions.copyError"),
+      onClick: () => {
+        void copyText(payload).then(
+          () => toast.success(t("subscriptions.errorCopied")),
+          () => toast.error(t("subscriptions.errorCopyFailed")),
+        )
+      },
+    } : undefined,
+  })
+}
+
+export function reportSubscriptionRefreshBatch(
+  summary: SubscriptionRefreshBatchSummary,
+  message: string,
+  t: (key: string, values?: Record<string, string | number>) => string,
+) {
+  const payload = subscriptionRefreshBatchClipboardText(summary)
+  const first = summary.failedSamples[0]
+  toast.error(message, {
+    description: first ? t(subscriptionErrorHintKey(first.code)) : t(subscriptionErrorHintKey("unknown")),
+    action: payload ? {
+      label: t("subscriptions.copyError"),
+      onClick: () => {
+        void copyText(payload).then(
+          () => toast.success(t("subscriptions.errorCopied")),
+          () => toast.error(t("subscriptions.errorCopyFailed")),
+        )
+      },
+    } : undefined,
+  })
 }
