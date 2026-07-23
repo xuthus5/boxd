@@ -10,6 +10,7 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { LatencyHistoryDialog } from "@/features/nodes/latency-history-dialog"
 import { formatLatency } from "@/features/nodes/node-format"
+import { LatencyHealthBar } from "@/features/nodes/latency-health-bar"
 import { LatencySparkline } from "@/features/nodes/latency-sparkline"
 import { latencyBadgeVariant, latencyTone, latencyToneClass } from "@/features/nodes/latency-style"
 import { cn } from "@/lib/utils"
@@ -83,6 +84,7 @@ export function NodeCard({ node, results, history }: { node: Outbound; results?:
           <LatencyHistoryDialog tag={node.tag} history={history} />
           <span className="text-[11px] text-muted-foreground">{series.length ? t("nodes.historySamples", { count: series.length }) : t("nodes.latencyHistoryEmpty")}</span>
         </div>
+        <LatencyHealthBar points={series} />
         <LatencySparkline points={series} aria-label={t("nodes.latencyHistoryFor", { tag: node.tag })} />
       </div>
     </CardContent>
