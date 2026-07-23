@@ -8,6 +8,7 @@ import {
   parseSubscriptionSearchParams,
   sortSubscriptions,
   subscriptionFiltersActive,
+  summarizeSubscriptionStatus,
   toSubscriptionSearchParams,
 } from "@/features/subscriptions/subscription-list"
 import type { Subscription } from "@/lib/api/types"
@@ -49,5 +50,10 @@ describe("subscription-list", () => {
     expect(toSubscriptionSearchParams({ query: "hk", status: "ok" }).toString()).toBe("q=hk&status=ok")
     expect(subscriptionFiltersActive({ status: "error" })).toBe(true)
     expect(subscriptionFiltersActive({})).toBe(false)
+  })
+
+  it("summarizes status buckets for the current search query", () => {
+    expect(summarizeSubscriptionStatus(sample)).toEqual({ total: 3, ok: 1, error: 2 })
+    expect(summarizeSubscriptionStatus(sample, "备用")).toEqual({ total: 1, ok: 1, error: 0 })
   })
 })

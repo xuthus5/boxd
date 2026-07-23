@@ -21,10 +21,12 @@ import {
   filterSubscriptions,
   parseSubscriptionSearchParams,
   subscriptionFiltersActive,
+  summarizeSubscriptionStatus,
   toSubscriptionSearchParams,
   type SubscriptionFilter,
   type SubscriptionListFilters,
 } from "@/features/subscriptions/subscription-list"
+import { SubscriptionStatusSummaryBar } from "@/features/subscriptions/subscription-status-summary"
 import { SubscriptionTrafficBadges } from "@/features/subscriptions/subscription-traffic"
 import { api } from "@/lib/api/endpoints"
 import type { Subscription } from "@/lib/api/types"
@@ -122,6 +124,10 @@ export function SubscriptionsPage() {
     () => filterSubscriptions(items, { query: search, status }),
     [items, search, status],
   )
+  const statusSummary = useMemo(
+    () => summarizeSubscriptionStatus(items, search),
+    [items, search],
+  )
   const loadError = query.error || defaults.error
 
   const retryFailed = async () => {
@@ -213,6 +219,9 @@ export function SubscriptionsPage() {
               ) : null}
             </div>
           </div>
+        ) : null}
+        {items.length ? (
+          <SubscriptionStatusSummaryBar summary={statusSummary} filters={filters} onChange={writeFilters} />
         ) : null}
         {items.length
           ? visible.length

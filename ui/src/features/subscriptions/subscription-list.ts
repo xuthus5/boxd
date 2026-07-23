@@ -80,3 +80,24 @@ export function subscriptionFiltersActive(filters: SubscriptionListFilters): boo
   return Boolean(filters.query?.trim() || (filters.status && filters.status !== "all"))
 }
 
+
+export type SubscriptionStatusSummary = {
+  total: number
+  ok: number
+  error: number
+}
+
+export function summarizeSubscriptionStatus(
+  items: readonly Subscription[],
+  query = "",
+): SubscriptionStatusSummary {
+  const summary: SubscriptionStatusSummary = { total: 0, ok: 0, error: 0 }
+  const normalized = query.trim().toLowerCase()
+  for (const item of items) {
+    if (!matchesSubscription(item, normalized)) continue
+    summary.total += 1
+    if (item.error) summary.error += 1
+    else summary.ok += 1
+  }
+  return summary
+}
