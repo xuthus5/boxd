@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { useCallback, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { ConfigDiffPanel } from "@/features/config/config-diff-panel"
 import { ConfigSaveErrorAlert } from "@/features/config/config-save-error-alert"
 import { useConfigSaveError } from "@/features/config/use-config-save-error"
+import { useConfigPathReveal } from "@/features/config/use-config-path-reveal"
 import { useRawConfigQuery, useSaveConfigMutation } from "@/features/config/config-hooks"
 import { diffConfig, formatConfigDiffSummary } from "@/features/config/config-diff"
 import { JsonEditor, type JsonEditorHandle } from "@/features/config/json-editor"
@@ -33,10 +34,12 @@ function RawEditor({ initial }: { initial: SingBoxConfig }) {
     none: t("advanced.diffNone"),
     more: t("advanced.diffMore"),
   })
-  const reveal = (path: string) => {
+  const reveal = useCallback((path: string) => {
     const ok = editorRef.current?.revealPath(path) ?? false
     if (!ok) toast.message(t("config.pathNotFound", { path }))
-  }
+    return ok
+  }, [t])
+  useConfigPathReveal(reveal)
   const persist = () => {
     if (!nextConfig) return
     clearSaveError()

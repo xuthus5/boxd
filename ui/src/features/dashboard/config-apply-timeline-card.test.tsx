@@ -105,4 +105,35 @@ describe("ConfigApplyTimelineCard", () => {
     expect(spy.mock.calls[0][0]).toContain("code: restart_failed")
     expect(toast.success).toHaveBeenCalledWith("应用错误已复制")
   })
+
+  it("deep-links pathful apply errors to section editors", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
+      events: [
+        {
+          id: "1",
+          source: "raw",
+          status: "rolled_back",
+          hash: "abcdef0123456789",
+          size: 2048,
+          error: "inbounds[0].listen_port: invalid",
+          applied_at: "2026-07-23T12:00:00Z",
+        },
+      ],
+    })))))
+    renderCard()
+    expect(await screen.findByText("inbounds[0].listen_port: invalid")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "跳转到路径: inbounds[0].listen_port" })).toHaveAttribute(
+      "href",
+      "/advanced/raw?path=inbounds%5B0%5D.listen_port",
+    )
+    expect(screen.getByRole("link", { name: "打开来源: 完整配置保存" })).toHaveAttribute(
+      "href",
+      "/advanced/raw?path=inbounds%5B0%5D.listen_port",
+    )
+    expect(screen.getByRole("link", { name: "打开对应分区: inbounds[0].listen_port" })).toHaveAttribute(
+      "href",
+      "/proxy/inbounds",
+    )
+  })
+
 })

@@ -13,6 +13,7 @@ import {
   configApplyErrorClipboardText,
   configApplyErrorPath,
   configApplyErrorSectionHref,
+  configApplyErrorSectionOnlyHref,
   configApplySourceHref,
   configApplySourceKey,
   shortConfigHash,
@@ -50,6 +51,7 @@ function EventErrorBlock({
   const code = resolveKernelErrorCode(event)
   const path = configApplyErrorPath(event)
   const sectionHref = configApplyErrorSectionHref(event)
+  const sectionOnlyHref = configApplyErrorSectionOnlyHref(event)
   return (
     <div className="mt-1.5 flex flex-col gap-1.5">
       <div className="flex flex-wrap items-center gap-1.5">
@@ -57,9 +59,16 @@ function EventErrorBlock({
           <Badge variant="outline" className="font-mono text-[10px]">{code}</Badge>
         ) : null}
         {path ? (
-          <Badge variant="outline" className="max-w-full truncate font-mono text-[10px]" title={path}>
-            {path}
-          </Badge>
+          <Link
+            to={sectionHref}
+            className="max-w-full"
+            aria-label={`${t("config.jumpToPath")}: ${path}`}
+            title={path}
+          >
+            <Badge variant="outline" className="max-w-full truncate font-mono text-[10px]">
+              {path}
+            </Badge>
+          </Link>
         ) : null}
       </div>
       <p className="line-clamp-2 text-xs text-destructive" title={event.error}>
@@ -87,7 +96,16 @@ function EventErrorBlock({
         >
           {t("dashboard.openApplySource")}
         </Link>
-        {path && sectionHref !== sourceHref ? (
+        {path && sectionOnlyHref !== sectionHref ? (
+          <Link
+            to={sectionOnlyHref}
+            className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-7")}
+            aria-label={`${t("config.openSection")}: ${path}`}
+          >
+            {t("config.openSection")}
+          </Link>
+        ) : null}
+        {!path && sectionHref !== sourceHref ? (
           <Link
             to={sourceHref}
             className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-7")}

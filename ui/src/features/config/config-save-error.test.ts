@@ -10,6 +10,8 @@ import {
   configSaveErrorHintKey,
   configSectionFromPath,
   configSectionHref,
+  configPathEditorHref,
+  withConfigPathQuery,
   describeConfigSaveError,
   formatConfigSaveErrorTitle,
   mapConfigApiErrorCode,
@@ -51,6 +53,11 @@ describe("config-save-error", () => {
     expect(configSectionHref("dns")).toBe("/policy/dns")
     expect(configSectionHref("outbounds")).toBe("/proxy/outbounds")
     expect(configSectionHref("mystery")).toBe("/advanced/raw")
+    expect(configPathEditorHref("inbounds[0].listen_port")).toBe(
+      "/advanced/raw?path=inbounds%5B0%5D.listen_port",
+    )
+    expect(withConfigPathQuery("/advanced/raw", "route.final")).toBe("/advanced/raw?path=route.final")
+    expect(withConfigPathQuery("/advanced/raw?x=1", "a")).toBe("/advanced/raw?x=1&path=a")
     expect(configSaveErrorClipboardText({
       message: "inbounds[0].listen_port: invalid",
       path: "inbounds[0].listen_port",

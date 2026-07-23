@@ -1,4 +1,4 @@
-import { configSectionFromPath, configSectionHref } from "@/features/config/config-save-error"
+import { configPathEditorHref, configSectionFromPath, configSectionHref } from "@/features/config/config-save-error"
 import { resolveKernelErrorCode } from "@/features/dashboard/kernel-error"
 import { extractConfigPath } from "@/lib/api/config-error"
 
@@ -45,6 +45,15 @@ export function configApplyErrorPath(event: { error?: string }): string | undefi
 }
 
 export function configApplyErrorSectionHref(event: { error?: string; source?: string }): string {
+  const path = configApplyErrorPath(event)
+  if (path) return configPathEditorHref(path)
+  const section = configSectionFromPath(path)
+  if (section) return configSectionHref(section)
+  return configApplySourceHref(event.source ?? "")
+}
+
+/** Section page without path query (visual editors). */
+export function configApplyErrorSectionOnlyHref(event: { error?: string; source?: string }): string {
   const path = configApplyErrorPath(event)
   const section = configSectionFromPath(path)
   if (section) return configSectionHref(section)

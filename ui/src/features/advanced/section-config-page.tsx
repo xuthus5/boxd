@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { useCallback, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
@@ -12,6 +12,7 @@ import { useConfigQuery, useSaveConfigMutation } from "@/features/config/config-
 import { JsonEditor, type JsonEditorHandle } from "@/features/config/json-editor"
 import { isValidJSON } from "@/features/config/json-utils"
 import { useConfigSaveError } from "@/features/config/use-config-save-error"
+import { useConfigPathReveal } from "@/features/config/use-config-path-reveal"
 import type { JsonValue, SingBoxConfig } from "@/lib/api/types"
 
 function SectionEditor({
@@ -29,14 +30,16 @@ function SectionEditor({
   const { saveError, clearSaveError, reportError, reportRollback } = useConfigSaveError()
   const save = useSaveConfigMutation()
 
-  const reveal = (path: string) => {
+  const reveal = useCallback((path: string) => {
     const candidates = [path]
     if (path.startsWith(`${section}.`)) candidates.push(path.slice(section.length + 1))
     if (path.startsWith(`${section}[`)) candidates.push(path.slice(section.length))
     if (!path.startsWith(section)) candidates.push(`${section}.${path.replace(/^\./, "")}`)
-    const ok = candidates.some((candidate) => editorRef.current?.revealPath(candidate))
+    const ok = candidates.some((candidate) => editorRef.current?.revealPath(candidate) ?? false)
     if (!ok) toast.message(t("config.pathNotFound", { path }))
-  }
+    return ok
+  }, [section, t])
+  useConfigPathReveal(reveal, { section })
 
   const persist = () => {
     if (!isValidJSON(value)) return

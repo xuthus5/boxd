@@ -4,6 +4,7 @@ import {
   configApplyErrorClipboardText,
   configApplyErrorPath,
   configApplyErrorSectionHref,
+  configApplyErrorSectionOnlyHref,
   configApplySourceHref,
   configApplySourceKey,
   shortConfigHash,
@@ -81,10 +82,18 @@ describe("config apply path linkage", () => {
     expect(configApplyErrorSectionHref({
       error: "dns.servers[0].address: missing",
       source: "raw",
-    })).toBe("/policy/dns")
+    })).toBe("/advanced/raw?path=dns.servers%5B0%5D.address")
     expect(configApplyErrorSectionHref({
       error: "restart failed after config save",
       source: "raw",
     })).toBe("/advanced/raw")
+    expect(configApplyErrorSectionHref({
+      error: "inbounds[0].listen_port: invalid",
+      source: "update",
+    })).toBe("/advanced/raw?path=inbounds%5B0%5D.listen_port")
+    expect(configApplyErrorSectionOnlyHref({
+      error: "inbounds[0].listen_port: invalid",
+      source: "raw",
+    })).toBe("/proxy/inbounds")
   })
 })

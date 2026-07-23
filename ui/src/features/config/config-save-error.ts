@@ -135,6 +135,19 @@ export function configSaveErrorClipboardText(error: ConfigSaveErrorState | null 
   return lines.join("\n")
 }
 
+/** Append ?path= for JSON editor deep-link auto-reveal. */
+export function withConfigPathQuery(href: string, path?: string): string {
+  const value = path?.trim()
+  if (!value) return href
+  const joiner = href.includes("?") ? "&" : "?"
+  return `${href}${joiner}path=${encodeURIComponent(value)}`
+}
+
+/** Always open the raw JSON editor positioned at a config path. */
+export function configPathEditorHref(path?: string): string {
+  return withConfigPathQuery("/advanced/raw", path)
+}
+
 export function configSectionHref(section?: string): string {
   switch (section) {
     case "inbounds":
