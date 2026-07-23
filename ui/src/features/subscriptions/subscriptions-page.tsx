@@ -46,35 +46,42 @@ function SubscriptionItem({ item, onEdit, onRefresh, onDelete }: ItemProps) {
   return (
     <article aria-label={item.name}>
       <Card size="sm" className={item.error ? "border-destructive/40" : undefined}>
-        <CardHeader>
-          <CardTitle>{item.name}</CardTitle>
-          <CardDescription className="break-all">{item.url}</CardDescription>
-          <CardAction><Badge variant="outline">{t("subscriptions.nodeCount", { count: item.outbounds?.length ?? 0 })}</Badge></CardAction>
+        <CardHeader className="min-w-0 gap-1.5">
+          <CardTitle className="truncate" title={item.name}>{item.name}</CardTitle>
+          <CardDescription className="line-clamp-2 break-all" title={item.url}>{item.url}</CardDescription>
+          <CardAction>
+            <Badge variant="outline">{t("subscriptions.nodeCount", { count: item.outbounds?.length ?? 0 })}</Badge>
+          </CardAction>
         </CardHeader>
-        <CardContent className="flex flex-col gap-2">
-          <span className="text-sm text-muted-foreground" title={item.last_updated ? new Date(item.last_updated).toLocaleString() : undefined}>
+        <CardContent className="flex flex-col gap-1.5">
+          <span className="text-xs text-muted-foreground sm:text-sm" title={item.last_updated ? new Date(item.last_updated).toLocaleString() : undefined}>
             {item.last_updated && !Number.isNaN(Date.parse(item.last_updated))
               ? t("subscriptions.updatedRelative", { time: formatRelativeTime(item.last_updated, mountedAt, i18n.language) })
               : t("subscriptions.neverUpdated")}
           </span>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             <Badge variant={item.error ? "destructive" : "secondary"} title={item.error || undefined}>
               {item.error ? t("subscriptions.statusError") : t("common.normal")}
             </Badge>
             <Badge variant="outline">{urlTestStatus(item, t)}</Badge>
           </div>
           {item.error ? (
-            <p className="line-clamp-3 text-sm text-destructive" title={item.error}>{item.error}</p>
+            <p className="line-clamp-2 text-xs text-destructive sm:text-sm" title={item.error}>{item.error}</p>
           ) : null}
           <SubscriptionTrafficBadges traffic={item.traffic} />
         </CardContent>
-        <CardFooter className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          <Button size="sm" variant="outline" onClick={onEdit}>{t("common.edit")}</Button>
-          <Button size="sm" variant="outline" onClick={onRefresh}>
+        <CardFooter className="grid grid-cols-3 gap-1.5">
+          <Button size="sm" className="h-8" variant="outline" onClick={onEdit}>{t("common.edit")}</Button>
+          <Button size="sm" className="h-8" variant="outline" onClick={onRefresh}>
             {item.error ? t("subscriptions.retry") : t("subscriptions.refresh")}
           </Button>
           <ConfirmAction
-            trigger={<Button size="sm" variant="destructive" className="col-span-2 sm:col-span-1"><Trash2Icon data-icon="inline-start" />{t("common.delete")}</Button>}
+            trigger={(
+              <Button size="sm" className="h-8" variant="destructive">
+                <Trash2Icon data-icon="inline-start" />
+                {t("common.delete")}
+              </Button>
+            )}
             title={t("common.deleteTitle")}
             description={t("common.deleteDescription")}
             confirmLabel={t("common.confirmDelete")}
@@ -159,37 +166,49 @@ export function SubscriptionsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 sm:gap-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold">{t("subscriptions.title")}</h1>
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
           {failedIds.length ? (
-            <Button variant="outline" disabled={retrying} onClick={() => void retryFailed()}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="col-span-2 h-8 sm:col-span-1"
+              disabled={retrying}
+              onClick={() => void retryFailed()}
+            >
               <RefreshCcwIcon data-icon="inline-start" />
               {t("subscriptions.retryFailed", { count: failedIds.length })}
             </Button>
           ) : null}
-          <Button variant="outline" onClick={refreshAll}><RefreshCcwIcon data-icon="inline-start" />{t("subscriptions.refreshAll")}</Button>
-          <Button onClick={() => setEditing("new")}><PlusIcon data-icon="inline-start" />{t("subscriptions.add")}</Button>
+          <Button variant="outline" size="sm" className="h-8" onClick={refreshAll}>
+            <RefreshCcwIcon data-icon="inline-start" />
+            {t("subscriptions.refreshAll")}
+          </Button>
+          <Button size="sm" className="h-8" onClick={() => setEditing("new")}>
+            <PlusIcon data-icon="inline-start" />
+            {t("subscriptions.add")}
+          </Button>
         </div>
       </div>
-      <section aria-labelledby={listTitleId} className="flex flex-col gap-3">
+      <section aria-labelledby={listTitleId} className="flex flex-col gap-2.5 sm:gap-3">
         <div>
-          <h2 id={listTitleId} className="text-lg font-medium">{t("subscriptions.list")}</h2>
-          <p className="text-sm text-muted-foreground">{t("subscriptions.description")}</p>
+          <h2 id={listTitleId} className="text-base font-medium sm:text-lg">{t("subscriptions.list")}</h2>
+          <p className="text-xs text-muted-foreground sm:text-sm">{t("subscriptions.description")}</p>
         </div>
         {items.length ? (
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2">
             <label className="sr-only" htmlFor="subscriptions-search">{t("subscriptions.search")}</label>
             <Input
               id="subscriptions-search"
               value={search}
               onChange={(event) => writeFilters({ query: event.target.value, status: filters.status })}
               placeholder={t("subscriptions.searchPlaceholder")}
-              className="sm:max-w-sm"
+              className="h-8 sm:max-w-sm"
               aria-label={t("subscriptions.search")}
             />
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5">
               {([
                 ["all", t("subscriptions.filterAll")],
                 ["error", t("subscriptions.filterError")],
@@ -198,6 +217,7 @@ export function SubscriptionsPage() {
                 <Button
                   key={value}
                   size="sm"
+                  className="h-7"
                   variant={status === value ? "default" : "outline"}
                   aria-pressed={status === value}
                   onClick={() => writeFilters({
@@ -211,6 +231,7 @@ export function SubscriptionsPage() {
               {subscriptionFiltersActive(filters) ? (
                 <Button
                   size="sm"
+                  className="h-7"
                   variant="ghost"
                   onClick={() => writeFilters({})}
                 >
@@ -225,7 +246,7 @@ export function SubscriptionsPage() {
         ) : null}
         {items.length
           ? visible.length
-            ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            ? <div className="grid gap-2 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3">
               {visible.map((item) => (
                 <SubscriptionItem
                   key={item.id}

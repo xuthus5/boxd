@@ -43,13 +43,21 @@ export function InboundCard({ item, onEdit, onDelete, onPatch, busy }: InboundCa
   return (
     <article aria-labelledby={titleId}>
       <Card size="sm" className="h-full">
-        <CardHeader className="min-w-0">
-          <CardTitle><h2 id={titleId} className="truncate">{tag}</h2></CardTitle>
+        <CardHeader className="min-w-0 gap-1.5">
+          <CardTitle className="min-w-0">
+            <h2 id={titleId} className="truncate" title={tag}>{tag}</h2>
+          </CardTitle>
           <CardDescription className="truncate">{address}</CardDescription>
-          <CardAction className="flex gap-1"><CopyTagButton tag={tag} /><Button variant="outline" size="xs" onClick={onEdit}><PencilIcon data-icon="inline-start" />{t("common.edit")}</Button></CardAction>
+          <CardAction className="flex gap-1">
+            <CopyTagButton tag={tag} />
+            <Button variant="outline" size="xs" onClick={onEdit}>
+              <PencilIcon data-icon="inline-start" />
+              {t("common.edit")}
+            </Button>
+          </CardAction>
         </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          <div className="flex flex-wrap gap-2">
+        <CardContent className="flex flex-col gap-2">
+          <div className="flex flex-wrap gap-1.5">
             <Badge>{type}</Badge>
             {port ? <Badge variant="secondary">{t("proxy.inbound.listenPort")}: {port}</Badge> : null}
             {supportsSystemProxy && systemProxy

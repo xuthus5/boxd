@@ -18,7 +18,22 @@ describe("node resource states", () => {
 
   it("shows an empty node state", async () => {
     sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("[]")))
+    vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
+      const path = typeof input === "string" ? input : input.toString()
+      if (path.includes("/api/nodes/groups")) {
+        return Promise.resolve(new Response(JSON.stringify({ groups: [] })))
+      }
+      if (path.includes("/api/nodes/test-history")) {
+        return Promise.resolve(new Response(JSON.stringify({ history: {} })))
+      }
+      if (path.includes("/api/nodes/test-results")) {
+        return Promise.resolve(new Response(JSON.stringify({})))
+      }
+      if (path.includes("/api/nodes")) {
+        return Promise.resolve(new Response(JSON.stringify([])))
+      }
+      return Promise.resolve(new Response(JSON.stringify({})))
+    }))
     renderApp(<App />, "/nodes")
     expect(await screen.findAllByText("暂无节点")).toHaveLength(3)
   })

@@ -134,10 +134,10 @@ export function NodesPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="flex flex-col gap-3 sm:gap-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <h1 className="text-2xl font-semibold">{t("nodes.title")}</h1>
-        <div className="flex w-full flex-col gap-2 sm:max-w-3xl sm:flex-row sm:items-center sm:justify-end">
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:max-w-3xl sm:flex-row sm:items-center sm:justify-end">
           <label className="sr-only" htmlFor="nodes-search">{t("nodes.search")}</label>
           <Input
             id="nodes-search"
@@ -148,7 +148,7 @@ export function NodesPage() {
               sort: filters.sort,
             })}
             placeholder={t("nodes.searchPlaceholder")}
-            className="sm:max-w-xs"
+            className="col-span-2 h-8 sm:max-w-xs"
             aria-label={t("nodes.search")}
           />
           <Select
@@ -160,7 +160,7 @@ export function NodesPage() {
               sort: filters.sort,
             })}
           >
-            <SelectTrigger aria-label={t("nodes.filterStability")} className="w-full sm:w-36">
+            <SelectTrigger aria-label={t("nodes.filterStability")} className="h-8 w-full sm:w-36">
               <SelectValue placeholder={t("nodes.filterStability")} />
             </SelectTrigger>
             <SelectContent>
@@ -180,7 +180,7 @@ export function NodesPage() {
               sort: String(value) as NodeSortKey,
             })}
           >
-            <SelectTrigger aria-label={t("nodes.sortNodes")} className="w-full sm:w-40">
+            <SelectTrigger aria-label={t("nodes.sortNodes")} className="h-8 w-full sm:w-40">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -194,6 +194,8 @@ export function NodesPage() {
           {facetsActive ? (
             <Button
               variant="ghost"
+              size="sm"
+              className="col-span-2 h-8 sm:col-span-1"
               onClick={() => writeFilters({ sort: filters.sort })}
             >
               {t("nodes.clearFilters")}

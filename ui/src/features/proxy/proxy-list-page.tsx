@@ -48,7 +48,7 @@ function InboundCards({ items, onEdit, onDelete, onPatch, busy }: {
   busy?: boolean
 }) {
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-2 sm:gap-3 md:grid-cols-2 xl:grid-cols-3">
       {items.map(({ item, index }) => (
         <InboundCard
           key={`${String(item.tag)}-${index}`}
@@ -112,7 +112,7 @@ function OutboundCards({ items, onEdit, onDelete }: {
             <h2 className="text-lg font-medium">{t("proxy.outbound.group")}</h2>
             <p className="text-sm text-muted-foreground">{t("proxy.description")}</p>
           </div>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-2 sm:gap-3 md:grid-cols-2 xl:grid-cols-3">
             {groups.map(({ group, configType }) => <RuntimeGroupCard key={group.tag} group={group} configType={configType} />)}
           </div>
         </section>
@@ -123,7 +123,7 @@ function OutboundCards({ items, onEdit, onDelete }: {
             <h2 className="text-lg font-medium">{t("proxy.outbound.protocol")}</h2>
             <p className="text-sm text-muted-foreground">{t("proxy.description")}</p>
           </div>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-2 sm:gap-3 md:grid-cols-2 xl:grid-cols-3">
             {independent.map(({ item, index }) => (
               <OutboundCard key={`${String(item.tag)}-${index}`} item={item} onEdit={() => onEdit(index)} onDelete={() => onDelete(index)} />
             ))}
@@ -193,15 +193,15 @@ export function ProxyListPage({ configKey, title, addLabel }: {
     })
   }
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 sm:gap-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold">{title}</h1>
         <div className="grid grid-cols-2 gap-2 sm:flex">
-          <Button variant="outline" onClick={installDefaults}>
+          <Button variant="outline" size="sm" className="h-8" onClick={installDefaults}>
             <WandSparklesIcon data-icon="inline-start" />
             {configKey === "outbounds" ? t("proxy.installDefaults") : t("proxy.installInboundDefaults")}
           </Button>
-          <Button onClick={() => setEditing({ index: -1, item: {} })}>
+          <Button size="sm" className="h-8" onClick={() => setEditing({ index: -1, item: {} })}>
             <PlusIcon data-icon="inline-start" />{addLabel}
           </Button>
         </div>
@@ -211,7 +211,7 @@ export function ProxyListPage({ configKey, title, addLabel }: {
         <div className="flex flex-col gap-2">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <label className="sr-only" htmlFor={`proxy-search-${configKey}`}>{t("proxy.search")}</label>
-            <Input id={`proxy-search-${configKey}`} value={search} onChange={(event) => writeQuery(event.target.value)} placeholder={t("proxy.searchPlaceholder")} className="sm:max-w-sm" aria-label={t("proxy.search")} />
+            <Input id={`proxy-search-${configKey}`} value={search} onChange={(event) => writeQuery(event.target.value)} placeholder={t("proxy.searchPlaceholder")} className="h-8 sm:max-w-sm" aria-label={t("proxy.search")} />
             {facetsActive ? <p className="text-sm text-muted-foreground">{t("proxy.searchCount", { shown: filteredIndexed.length, total: items.length })}</p> : null}
           </div>
           <ProxyTypeSummaryBar summary={typeSummary} filters={filters} onChange={writeFilters} />
