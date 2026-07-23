@@ -65,6 +65,7 @@ describe("PolicyPage editor shell", () => {
     await user.click(editor)
     await user.keyboard("{Control>}a{/Control}[BracketLeft][BracketRight]")
 
+    expect(screen.getByRole("button", { name: "保存配置" })).toHaveClass("h-8")
     expect(screen.getByRole("button", { name: "保存配置" })).toBeDisabled()
   })
 

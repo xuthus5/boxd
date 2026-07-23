@@ -40,19 +40,30 @@ export function LoginPage() {
   })
 
   return (
-    <main className="flex min-h-svh items-center justify-center p-6">
+    <main className="flex min-h-svh items-center justify-center p-4 sm:p-6">
       <form className="w-full max-w-sm" onSubmit={submit}>
-        <Card>
-          <CardHeader><CardTitle role="heading" aria-level={1}>{t("auth.title")}</CardTitle><CardDescription>{t("auth.description")}</CardDescription></CardHeader>
-          <CardContent className="flex flex-col gap-4">
+        <Card size="sm">
+          <CardHeader className="gap-1.5">
+            <CardTitle role="heading" aria-level={1} className="truncate">{t("auth.title")}</CardTitle>
+            <CardDescription>{t("auth.description")}</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2 sm:gap-3">
             {error ? <Alert variant="destructive"><AlertTitle>{t("auth.failed")}</AlertTitle><AlertDescription>{error}</AlertDescription></Alert> : null}
-            <FieldGroup>
-              <Field data-invalid={Boolean(form.formState.errors.username)}><FieldLabel htmlFor="username">{t("auth.username")}</FieldLabel><Input id="username" autoComplete="username" aria-invalid={Boolean(form.formState.errors.username)} {...form.register("username")} />{form.formState.errors.username ? <FieldDescription>{form.formState.errors.username.message}</FieldDescription> : null}</Field>
-              <Field data-invalid={Boolean(form.formState.errors.password)}><FieldLabel htmlFor="password">{t("auth.password")}</FieldLabel><Input id="password" type="password" autoComplete="current-password" aria-invalid={Boolean(form.formState.errors.password)} {...form.register("password")} />{form.formState.errors.password ? <FieldDescription>{form.formState.errors.password.message}</FieldDescription> : null}</Field>
+            <FieldGroup className="gap-2 sm:gap-3">
+              <Field data-invalid={Boolean(form.formState.errors.username)}>
+                <FieldLabel htmlFor="username">{t("auth.username")}</FieldLabel>
+                <Input id="username" className="h-8" autoComplete="username" aria-invalid={Boolean(form.formState.errors.username)} {...form.register("username")} />
+                {form.formState.errors.username ? <FieldDescription>{form.formState.errors.username.message}</FieldDescription> : null}
+              </Field>
+              <Field data-invalid={Boolean(form.formState.errors.password)}>
+                <FieldLabel htmlFor="password">{t("auth.password")}</FieldLabel>
+                <Input id="password" type="password" className="h-8" autoComplete="current-password" aria-invalid={Boolean(form.formState.errors.password)} {...form.register("password")} />
+                {form.formState.errors.password ? <FieldDescription>{form.formState.errors.password.message}</FieldDescription> : null}
+              </Field>
             </FieldGroup>
           </CardContent>
           <CardFooter>
-            <Button className="w-full" type="submit" disabled={form.formState.isSubmitting}>
+            <Button size="sm" className="h-8 w-full" type="submit" disabled={form.formState.isSubmitting}>
               {form.formState.isSubmitting ? <Spinner aria-hidden="true" data-icon="inline-start" /> : null}
               {t("auth.submit")}
             </Button>

@@ -21,6 +21,9 @@ describe("login page", () => {
   it("validates required credentials", async () => {
     const user = userEvent.setup()
     renderApp(<App />, "/login")
+    expect(screen.getByLabelText("用户名")).toHaveClass("h-8")
+    expect(screen.getByLabelText("密码")).toHaveClass("h-8")
+    expect(screen.getByRole("button", { name: "登录" })).toHaveClass("h-8")
     await user.click(screen.getByRole("button", { name: "登录" }))
     expect(await screen.findByText("请输入用户名")).toBeInTheDocument()
     expect(screen.getByText("请输入密码")).toBeInTheDocument()

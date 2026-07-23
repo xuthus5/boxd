@@ -30,9 +30,9 @@ export function ClashModeCard({ enabled }: { enabled: boolean }) {
 
   if (!enabled) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("dashboard.clashMode")}</CardTitle>
+      <Card size="sm">
+        <CardHeader className="gap-1.5">
+          <CardTitle className="truncate">{t("dashboard.clashMode")}</CardTitle>
           <CardDescription>{t("dashboard.clashModeNeedRunning")}</CardDescription>
         </CardHeader>
       </Card>
@@ -46,9 +46,9 @@ export function ClashModeCard({ enabled }: { enabled: boolean }) {
       ? t("dashboard.clashModeDisabled")
       : query.error.message
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("dashboard.clashMode")}</CardTitle>
+      <Card size="sm">
+        <CardHeader className="gap-1.5">
+          <CardTitle className="truncate">{t("dashboard.clashMode")}</CardTitle>
           <CardDescription>{message}</CardDescription>
         </CardHeader>
         <CardContent>
@@ -63,12 +63,12 @@ export function ClashModeCard({ enabled }: { enabled: boolean }) {
   const modes = status.mode_list?.length ? status.mode_list : [status.mode]
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("dashboard.clashMode")}</CardTitle>
+    <Card size="sm">
+      <CardHeader className="gap-1.5">
+        <CardTitle className="truncate">{t("dashboard.clashMode")}</CardTitle>
         <CardDescription>{t("dashboard.clashModeDescription")}</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+      <CardContent className="flex flex-col gap-2 sm:gap-3">
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">{t("dashboard.clashModeCurrent")}</span>
           <Badge>{status.mode}</Badge>

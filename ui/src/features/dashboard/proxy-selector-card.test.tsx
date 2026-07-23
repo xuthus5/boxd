@@ -60,6 +60,8 @@ describe("ProxySelectorCard", () => {
     const user = userEvent.setup()
     wrap(<ProxySelectorCard />)
     await screen.findByText("当前出口")
+    expect(screen.getByRole("combobox", { name: "当前出口" })).toHaveClass("h-8")
+    expect(screen.getByRole("button", { name: "测试出口延迟" })).toHaveClass("h-8")
     await user.click(screen.getByRole("button", { name: "测试出口延迟" }))
     expect(await screen.findByText("12 ms")).toBeInTheDocument()
     await user.click(screen.getByRole("combobox", { name: "当前出口" }))

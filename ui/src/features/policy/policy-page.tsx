@@ -108,7 +108,7 @@ export function PolicyPage({
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3 sm:gap-4">
       <ConfigSaveErrorAlert error={saveError} onDismiss={clearSaveError} />
       <PolicyEditor
         section={section}

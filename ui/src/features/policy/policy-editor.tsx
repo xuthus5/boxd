@@ -161,12 +161,12 @@ export function PolicyEditor({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle role="heading" aria-level={1}>{title}</CardTitle>
+    <Card size="sm">
+      <CardHeader className="gap-1.5">
+        <CardTitle role="heading" aria-level={1} className="truncate">{title}</CardTitle>
         <CardDescription>{t("policy.description")}</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-col gap-2 sm:gap-3">
         <PolicyEditorTabs
           section={section}
           object={editor.object}
@@ -184,8 +184,8 @@ export function PolicyEditor({
       <CardFooter className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
         {!installInVisual ? <div data-testid="policy-diff-summary"><ConfigDiffPanel items={diffItems} /></div> : <span />}
         <div className="flex flex-wrap justify-end gap-2">
-          {!installInVisual ? <Button variant="outline" onClick={onInstall}>{installLabel}</Button> : null}
-          {!installInVisual ? <Button disabled={!editor.object || !structureValid || editor.invalidFields.size > 0} onClick={savePolicy}>
+          {!installInVisual ? <Button variant="outline" size="sm" className="h-8" onClick={onInstall}>{installLabel}</Button> : null}
+          {!installInVisual ? <Button size="sm" className="h-8" disabled={!editor.object || !structureValid || editor.invalidFields.size > 0} onClick={savePolicy}>
             {t("policy.save")}
           </Button> : null}
         </div>

@@ -86,9 +86,9 @@ export function ProxySelectorCard() {
   if (query.isLoading) return <Skeleton className="h-36 w-full" />
   if (query.error) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("dashboard.proxySelector")}</CardTitle>
+      <Card size="sm">
+        <CardHeader className="gap-1.5">
+          <CardTitle className="truncate">{t("dashboard.proxySelector")}</CardTitle>
           <CardDescription>{query.error.message}</CardDescription>
         </CardHeader>
       </Card>
@@ -96,9 +96,9 @@ export function ProxySelectorCard() {
   }
   if (!group) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("dashboard.proxySelector")}</CardTitle>
+      <Card size="sm">
+        <CardHeader className="gap-1.5">
+          <CardTitle className="truncate">{t("dashboard.proxySelector")}</CardTitle>
           <CardDescription>{t("dashboard.proxySelectorEmpty")}</CardDescription>
         </CardHeader>
       </Card>
@@ -108,10 +108,10 @@ export function ProxySelectorCard() {
   const items = members.map((tag) => ({ label: tag, value: tag }))
   const currentDelay = delays[group.now]
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex flex-wrap items-center gap-2">
-          {t("dashboard.proxySelector")}
+    <Card size="sm">
+      <CardHeader className="gap-1.5">
+        <CardTitle className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="truncate">{t("dashboard.proxySelector")}</span>
           <Badge variant="outline">{group.tag}</Badge>
           <DelayBadge
             delay={typeof currentDelay === "number" ? currentDelay : undefined}
@@ -120,13 +120,13 @@ export function ProxySelectorCard() {
         </CardTitle>
         <CardDescription>{t("dashboard.proxySelectorDescription")}</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+      <CardContent className="flex flex-col gap-2 sm:gap-3">
         <Select
           items={items}
           value={group.now}
           onValueChange={(value) => selectMutation.mutate(String(value))}
         >
-          <SelectTrigger aria-label={t("dashboard.proxySelector")} className="w-full" disabled={selectMutation.isPending}>
+          <SelectTrigger aria-label={t("dashboard.proxySelector")} className="h-8 w-full" disabled={selectMutation.isPending}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -146,6 +146,7 @@ export function ProxySelectorCard() {
         <Button
           variant="outline"
           size="sm"
+          className="h-8 w-full sm:w-auto"
           disabled={delayMutation.isPending || members.length === 0}
           onClick={() => delayMutation.mutate()}
         >

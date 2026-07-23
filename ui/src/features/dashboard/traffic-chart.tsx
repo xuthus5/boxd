@@ -42,12 +42,15 @@ export function TrafficChart({ points }: { points: TrafficHistoryPoint[] }) {
     ? `${t("dashboard.upload")} ${formatRate(latestRate?.upload_rate ?? 0)} · ${t("dashboard.download")} ${formatRate(latestRate?.download_rate ?? 0)}`
     : `${t("dashboard.upload")} ${formatBytes(latestTotal?.upload_bytes ?? 0)} · ${t("dashboard.download")} ${formatBytes(latestTotal?.download_bytes ?? 0)}`
   return (
-    <Card className="lg:col-span-2">
+    <Card size="sm" className="lg:col-span-2">
       <Tabs value={mode} onValueChange={(value) => setMode(String(value) as "rate" | "total")}>
-      <CardHeader className="gap-3">
-        <CardTitle>{t("dashboard.traffic")}</CardTitle>
+      <CardHeader className="gap-2 sm:gap-3">
+        <CardTitle className="truncate">{t("dashboard.traffic")}</CardTitle>
         <CardDescription>{description}</CardDescription>
-        <TabsList><TabsTrigger value="rate">{t("dashboard.realtimeRate")}</TabsTrigger><TabsTrigger value="total">{t("dashboard.cumulativeTraffic")}</TabsTrigger></TabsList>
+        <TabsList activateOnFocus className="h-auto max-w-full justify-start overflow-x-auto overflow-y-hidden" variant="line">
+          <TabsTrigger value="rate">{t("dashboard.realtimeRate")}</TabsTrigger>
+          <TabsTrigger value="total">{t("dashboard.cumulativeTraffic")}</TabsTrigger>
+        </TabsList>
       </CardHeader>
       <TabsContent value="rate"><CardContent><TrafficLines data={rates} uploadKey="upload_rate" downloadKey="download_rate" formatter={formatRate} config={rateConfig} /></CardContent></TabsContent>
       <TabsContent value="total"><CardContent><TrafficLines data={points} uploadKey="upload_bytes" downloadKey="download_bytes" formatter={formatBytes} config={totalConfig} /></CardContent></TabsContent>
