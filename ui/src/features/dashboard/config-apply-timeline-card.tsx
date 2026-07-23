@@ -11,6 +11,8 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   configApplyErrorClipboardText,
+  configApplyErrorPath,
+  configApplyErrorSectionHref,
   configApplySourceHref,
   configApplySourceKey,
   shortConfigHash,
@@ -46,13 +48,20 @@ function EventErrorBlock({
 }) {
   const { t } = useTranslation()
   const code = resolveKernelErrorCode(event)
+  const path = configApplyErrorPath(event)
+  const sectionHref = configApplyErrorSectionHref(event)
   return (
     <div className="mt-1.5 flex flex-col gap-1.5">
-      {code && code !== "unknown" ? (
-        <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex flex-wrap items-center gap-1.5">
+        {code && code !== "unknown" ? (
           <Badge variant="outline" className="font-mono text-[10px]">{code}</Badge>
-        </div>
-      ) : null}
+        ) : null}
+        {path ? (
+          <Badge variant="outline" className="max-w-full truncate font-mono text-[10px]" title={path}>
+            {path}
+          </Badge>
+        ) : null}
+      </div>
       <p className="line-clamp-2 text-xs text-destructive" title={event.error}>
         {event.error}
       </p>
@@ -72,12 +81,20 @@ function EventErrorBlock({
           {t("dashboard.copyApplyError")}
         </Button>
         <Link
-          to={sourceHref}
+          to={sectionHref}
           className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-7")}
           aria-label={`${t("dashboard.openApplySource")}: ${sourceLabel}`}
         >
           {t("dashboard.openApplySource")}
         </Link>
+        {path && sectionHref !== sourceHref ? (
+          <Link
+            to={sourceHref}
+            className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-7")}
+          >
+            {t("dashboard.openApplySourceAlt")}
+          </Link>
+        ) : null}
       </div>
     </div>
   )

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest"
 
 import {
   configApplyErrorClipboardText,
+  configApplyErrorPath,
+  configApplyErrorSectionHref,
   configApplySourceHref,
   configApplySourceKey,
   shortConfigHash,
@@ -58,19 +60,31 @@ describe("configApplyErrorClipboardText", () => {
       "at: 2026-07-23T12:00:00Z",
     ].join("\n"))
   })
-})
 
-describe("config apply error codes", () => {
-  it("includes classified code in clipboard text", () => {
+  it("includes path when validation message is pathful", () => {
     const payload = configApplyErrorClipboardText({
       source: "raw",
       status: "rolled_back",
       hash: "abcdef",
       size: 10,
-      error: "restart failed after config save",
+      error: "inbounds[0].listen_port: invalid",
       applied_at: "2026-07-23T12:00:00Z",
     })
-    expect(payload).toContain("code: restart_failed")
-    expect(payload).toContain("error: restart failed after config save")
+    expect(payload).toContain("path: inbounds[0].listen_port")
+    expect(payload).toContain("code: config_invalid")
+  })
+})
+
+describe("config apply path linkage", () => {
+  it("routes pathful errors to the matching section", () => {
+    expect(configApplyErrorPath({ error: "dns.servers[0].address: missing" })).toBe("dns.servers[0].address")
+    expect(configApplyErrorSectionHref({
+      error: "dns.servers[0].address: missing",
+      source: "raw",
+    })).toBe("/policy/dns")
+    expect(configApplyErrorSectionHref({
+      error: "restart failed after config save",
+      source: "raw",
+    })).toBe("/advanced/raw")
   })
 })

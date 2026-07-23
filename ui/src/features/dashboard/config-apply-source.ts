@@ -1,4 +1,6 @@
+import { configSectionFromPath, configSectionHref } from "@/features/config/config-save-error"
 import { resolveKernelErrorCode } from "@/features/dashboard/kernel-error"
+import { extractConfigPath } from "@/lib/api/config-error"
 
 /** Maps backend config apply source codes to i18n keys and ops destinations. */
 
@@ -38,6 +40,17 @@ export function shortConfigHash(hash: string, length = 8): string {
   return value.slice(0, length)
 }
 
+export function configApplyErrorPath(event: { error?: string }): string | undefined {
+  return extractConfigPath(event.error ?? "")
+}
+
+export function configApplyErrorSectionHref(event: { error?: string; source?: string }): string {
+  const path = configApplyErrorPath(event)
+  const section = configSectionFromPath(path)
+  if (section) return configSectionHref(section)
+  return configApplySourceHref(event.source ?? "")
+}
+
 export function configApplyErrorClipboardText(event: {
   source?: string
   status?: string
@@ -48,15 +61,16 @@ export function configApplyErrorClipboardText(event: {
   applied_at?: string
 }): string {
   const code = resolveKernelErrorCode(event)
+  const path = configApplyErrorPath(event)
   const lines = [
     event.source?.trim() ? `source: ${event.source.trim()}` : "",
     event.status?.trim() ? `status: ${event.status.trim()}` : "",
     event.hash?.trim() ? `hash: ${event.hash.trim()}` : "",
     Number.isFinite(event.size) ? `size: ${event.size}` : "",
+    path ? `path: ${path}` : "",
     code ? `code: ${code}` : "",
     event.error?.trim() ? `error: ${event.error.trim()}` : "",
     event.applied_at?.trim() ? `at: ${event.applied_at.trim()}` : "",
   ].filter(Boolean)
   return lines.join("\n")
 }
-
