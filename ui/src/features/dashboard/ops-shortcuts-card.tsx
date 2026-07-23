@@ -1,0 +1,59 @@
+import {
+  ActivityIcon,
+  GlobeIcon,
+  NetworkIcon,
+  RouteIcon,
+  ScrollTextIcon,
+  Share2Icon,
+} from "lucide-react"
+import { useTranslation } from "react-i18next"
+import { Link } from "react-router-dom"
+
+import { buttonVariants } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { buildConnectionsHref } from "@/features/observability/connection-facets"
+import { buildLogsHref } from "@/features/observability/log-filter-presets"
+import { cn } from "@/lib/utils"
+
+interface Shortcut {
+  labelKey: string
+  to: string
+  icon: typeof ActivityIcon
+}
+
+const shortcuts: Shortcut[] = [
+  { labelKey: "dashboard.shortcutConnections", to: buildConnectionsHref(), icon: ActivityIcon },
+  { labelKey: "dashboard.shortcutLogs", to: buildLogsHref(), icon: ScrollTextIcon },
+  { labelKey: "dashboard.shortcutErrorLogs", to: buildLogsHref({ preset: "errors" }), icon: ScrollTextIcon },
+  { labelKey: "dashboard.shortcutNodes", to: "/nodes", icon: NetworkIcon },
+  { labelKey: "dashboard.shortcutOutbounds", to: "/proxy/outbounds", icon: Share2Icon },
+  { labelKey: "dashboard.shortcutRoute", to: "/policy/route", icon: RouteIcon },
+  { labelKey: "dashboard.shortcutDNS", to: "/policy/dns", icon: GlobeIcon },
+]
+
+export function OpsShortcutsCard() {
+  const { t } = useTranslation()
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("dashboard.opsShortcutsTitle")}</CardTitle>
+        <CardDescription>{t("dashboard.opsShortcutsDescription")}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-wrap gap-2">
+        {shortcuts.map((item) => {
+          const Icon = item.icon
+          return (
+            <Link
+              key={item.labelKey}
+              to={item.to}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5")}
+            >
+              <Icon data-icon="inline-start" />
+              {t(item.labelKey)}
+            </Link>
+          )
+        })}
+      </CardContent>
+    </Card>
+  )
+}

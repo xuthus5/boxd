@@ -4,17 +4,17 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ClashModeCard } from "@/features/dashboard/clash-mode-card"
 import { HealthSummaryCard } from "@/features/dashboard/health-summary-card"
 import { SetupChecklistCard } from "@/features/dashboard/setup-checklist-card"
 import { ProxySelectorCard } from "@/features/dashboard/proxy-selector-card"
+import { OpsShortcutsCard } from "@/features/dashboard/ops-shortcuts-card"
 import { RuntimeActions } from "@/features/dashboard/runtime-actions"
+import { RuntimeStatsCard } from "@/features/dashboard/runtime-stats-card"
 import { RecentLogs } from "@/features/dashboard/recent-logs"
 import { ServiceCard } from "@/features/dashboard/service-card"
 import { TrafficChart } from "@/features/dashboard/traffic-chart"
-import { formatBytes } from "@/features/dashboard/format"
 import { useAuth } from "@/features/auth/auth-context"
 import { useStreamBuffer } from "@/features/observability/use-stream-buffer"
 import { api } from "@/lib/api/endpoints"
@@ -61,8 +61,8 @@ export function DashboardPage() {
         <ServiceCard status={status.data!} pending={pendingAction} onAction={(action) => serviceMutation.mutate(action)} />
         <ProxySelectorCard />
         <ClashModeCard enabled={Boolean(status.data?.running)} />
-        <Card><CardHeader><CardTitle>{t("dashboard.memory")}</CardTitle><CardDescription>{t("dashboard.memoryDescription")}</CardDescription></CardHeader><CardContent><p className="text-2xl font-semibold">{formatBytes(memory.data!.alloc)}</p></CardContent></Card>
-        <Card><CardHeader><CardTitle>{t("dashboard.version")}</CardTitle><CardDescription>{t("dashboard.versionDescription")}</CardDescription></CardHeader><CardContent><p className="text-2xl font-semibold">{version.data!.kernel_version}</p></CardContent></Card>
+        <RuntimeStatsCard memory={memory.data!} panelVersion={version.data!.version} kernelVersion={version.data!.kernel_version} />
+        <OpsShortcutsCard />
         <TrafficChart points={points} />
         <RuntimeActions pending={maintenance.isPending} onGC={() => maintenance.mutate(api.runtime.gc)} onFlushDNS={() => maintenance.mutate(api.runtime.flushDNS)} onFlushFakeIP={() => maintenance.mutate(api.runtime.flushFakeIP)} />
         <RecentLogs items={logs.items} />

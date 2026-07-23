@@ -64,8 +64,11 @@ describe("DashboardPage", () => {
     expect(await screen.findByText("运行健康")).toBeInTheDocument()
     expect(screen.getByText("2 条活跃连接")).toBeInTheDocument()
     expect(screen.getByText(/主要出口/)).toBeInTheDocument()
+    expect(screen.getByText("运行时统计")).toBeInTheDocument()
     expect(screen.getByText("1.00 KB")).toBeInTheDocument()
     expect(screen.getByText("1.13.14")).toBeInTheDocument()
+    expect(screen.getByText("运维入口")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "错误日志" })).toHaveAttribute("href", "/observability/logs?preset=errors")
     expect(await screen.findByText(/下载 20 B\/s/)).toBeInTheDocument()
     expect(screen.getByText("ready")).toBeInTheDocument()
     // Setup checklist hides itself once all steps are complete and no subscription failures exist.
