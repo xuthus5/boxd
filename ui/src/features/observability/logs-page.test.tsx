@@ -57,7 +57,7 @@ describe("LogsPage", () => {
     expect(screen.getByText("—")).toBeInTheDocument()
   })
 
-  it("preserves each tab filter while switching sources", async () => {
+  it("shares URL filters across log source tabs", async () => {
     sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
     vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(sse({ level: "info", message: "ready" }))))
     const user = userEvent.setup()
@@ -65,8 +65,26 @@ describe("LogsPage", () => {
     const filter = (await screen.findAllByLabelText("搜索日志"))[0]
     await user.type(filter, "kernel")
     await user.click(screen.getByRole("tab", { name: "应用日志" }))
+    const appFilter = within(await screen.findByRole("tabpanel")).getByLabelText("搜索日志")
+    expect(appFilter).toHaveValue("kernel")
     await user.click(screen.getByRole("tab", { name: "内核日志" }))
-    expect(filter).toHaveValue("kernel")
+    expect(within(await screen.findByRole("tabpanel")).getByLabelText("搜索日志")).toHaveValue("kernel")
+  })
+
+  it("seeds filters from deep-link query params", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(sse([
+      { level: "info", message: "dns query ok" },
+      { level: "error", message: "connection failed" },
+    ]))))
+    renderApp(<App />, "/observability/logs?tab=application&preset=errors")
+    expect(await screen.findByRole("tab", { name: "应用日志" })).toHaveAttribute("data-active")
+    const panel = await screen.findByRole("tabpanel")
+    expect(within(panel).getByLabelText("搜索日志")).toHaveValue("error")
+    expect(within(panel).getByRole("combobox", { name: "最低日志级别" })).toHaveTextContent("Error")
+    expect(within(panel).getByRole("button", { name: "错误" })).toHaveAttribute("aria-pressed", "true")
+    expect(within(panel).queryByText("dns query ok")).not.toBeInTheDocument()
+    expect(await within(panel).findByText("connection failed")).toBeInTheDocument()
   })
 })
 
@@ -97,7 +115,7 @@ describe("LogsPage level threshold", () => {
     expect(within(panel).getAllByText("error entry").length).toBeGreaterThan(0)
   })
 
-  it("maps Warn and Error and preserves each tab threshold", async () => {
+  it("maps Warn and Error and shares threshold via URL", async () => {
     const user = setupLevelThreshold()
     const panel = await screen.findByRole("tabpanel")
     await within(panel).findByText("debug entry")
@@ -111,7 +129,7 @@ describe("LogsPage level threshold", () => {
     expect(within(panel).queryByText("warn entry")).not.toBeInTheDocument()
     expect(within(panel).getAllByText("error entry").length).toBeGreaterThan(0)
     await user.click(screen.getByRole("tab", { name: "应用日志" }))
-    expect(within(await screen.findByRole("tabpanel")).getByRole("combobox", { name: "最低日志级别" })).toHaveTextContent("全部")
+    expect(within(await screen.findByRole("tabpanel")).getByRole("combobox", { name: "最低日志级别" })).toHaveTextContent("Error")
     await user.click(screen.getByRole("tab", { name: "内核日志" }))
     expect(within(await screen.findByRole("tabpanel")).getByRole("combobox", { name: "最低日志级别" })).toHaveTextContent("Error")
   })

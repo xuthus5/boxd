@@ -71,6 +71,7 @@ describe("dashboard component states", () => {
   it("renders empty and populated recent logs", () => {
     const view = renderApp(<AuthProvider><PreferencesProvider><RecentLogs items={[]} /></PreferencesProvider></AuthProvider>)
     expect(screen.getByText("暂无日志")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "查看日志" })).toHaveAttribute("href", "/observability/logs")
     view.unmount()
     renderApp(<AuthProvider><PreferencesProvider><RecentLogs items={[{ level: "error", message: "ready", timestamp: "2026-01-01T00:00:00Z" }]} /></PreferencesProvider></AuthProvider>)
     expect(screen.getByText("ready")).toBeInTheDocument()
@@ -78,6 +79,7 @@ describe("dashboard component states", () => {
     expect(document.querySelector("time")).toHaveAttribute("datetime", "2026-01-01T00:00:00Z")
     expect(screen.getByText("ready").closest("td")).toHaveClass("col-span-2", "sm:table-cell")
     expect(document.querySelector("time")?.closest("td")).toHaveClass("items-center", "min-h-9")
+    expect(screen.getByRole("link", { name: "查看错误日志" })).toHaveAttribute("href", "/observability/logs?preset=errors")
   })
 
   it("renders health summary from connection snapshot", () => {

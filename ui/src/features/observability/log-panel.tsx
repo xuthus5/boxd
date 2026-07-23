@@ -1,5 +1,6 @@
-import { useId, useMemo, useState } from "react"
+import { useId, useMemo } from "react"
 import { useTranslation } from "react-i18next"
+import { useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -23,7 +24,12 @@ import {
   applyLogPreset,
   LOG_FILTER_PRESETS,
   matchesLogFilter,
+  parseLogSearchParams,
+  resolveLogSeed,
+  toLogSearchParams,
   type LogFilterPresetId,
+  type LogSearchFilters,
+  type LogThresholdParam,
 } from "@/features/observability/log-filter-presets"
 import { meetsLogThreshold, type LogThreshold } from "@/features/observability/log-level"
 import { useStreamBuffer } from "@/features/observability/use-stream-buffer"
@@ -109,9 +115,12 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
   const { t } = useTranslation()
   const preferences = usePreferences()
   const stream = useStreamBuffer<LogEvent>(path, useAuth().session!.token)
-  const [filter, setFilter] = useState("")
-  const [minimum, setMinimum] = useState<LogThreshold>(preferences.minimumLogLevel)
-  const [activePreset, setActivePreset] = useState<LogFilterPresetId | null>(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const filters = useMemo(() => parseLogSearchParams(searchParams), [searchParams])
+  const seed = useMemo(() => resolveLogSeed(filters), [filters])
+  const filter = seed.filter
+  const minimum = (seed.minimum ?? preferences.minimumLogLevel) as LogThreshold
+  const activePreset = seed.preset
   const items = useMemo(
     () => stream.items.filter((item) => meetsLogThreshold(item.level, minimum)
       && matchesLogFilter(item.level, item.message, filter)),
@@ -119,6 +128,12 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
   )
   const exportText = useMemo(() => formatLogExport(items), [items])
   const canExport = items.length > 0
+
+  const writeFilters = (next: LogSearchFilters) => {
+    setSearchParams(toLogSearchParams(next), { replace: true })
+  }
+
+  const sharedTab = (): LogSearchFilters["tab"] => filters.tab
 
   const onCopy = async () => {
     if (!canExport) return
@@ -142,25 +157,35 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
 
   const onPreset = (id: LogFilterPresetId) => {
     const applied = applyLogPreset(LOG_FILTER_PRESETS.find((preset) => preset.id === id))
-    setActivePreset(id)
-    setFilter(applied.filter)
-    if (applied.minimum) setMinimum(applied.minimum)
+    writeFilters({
+      tab: sharedTab(),
+      query: applied.filter,
+      minimum: applied.minimum ?? "all",
+      preset: id,
+    })
   }
 
   const onFilterChange = (value: string) => {
-    setActivePreset(null)
-    setFilter(value)
+    writeFilters({
+      tab: sharedTab(),
+      query: value,
+      // Preserve resolved threshold (URL or preset) while clearing preset id.
+      minimum: filters.minimum ?? seed.minimum,
+      preset: undefined,
+    })
   }
 
   const onMinimumChange = (value: LogThreshold) => {
-    setActivePreset(null)
-    setMinimum(value)
+    writeFilters({
+      tab: sharedTab(),
+      query: filter,
+      minimum: value as LogThresholdParam,
+      preset: undefined,
+    })
   }
 
   const onClear = () => {
-    setActivePreset(null)
-    setFilter("")
-    setMinimum(preferences.minimumLogLevel)
+    writeFilters({ tab: sharedTab() })
   }
 
   return <Card>

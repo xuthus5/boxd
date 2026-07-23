@@ -1,13 +1,17 @@
 import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
+import { Link } from "react-router-dom"
 
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { buttonVariants } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { buildLogsHref } from "@/features/observability/log-filter-presets"
 import { meetsLogThreshold } from "@/features/observability/log-level"
 import { usePreferences } from "@/features/preferences/preferences-provider"
 import type { LogEvent } from "@/lib/api/types"
+import { cn } from "@/lib/utils"
 
 function formatLogTime(timestamp?: string) {
   if (!timestamp) return "—"
@@ -22,6 +26,8 @@ export function RecentLogs({ items }: { items: LogEvent[] }) {
     () => items.filter((item) => meetsLogThreshold(item.level, preferences.minimumLogLevel)),
     [items, preferences.minimumLogLevel],
   )
+  const hasError = visible.some((item) => item.level === "error")
+  const logsHref = hasError ? buildLogsHref({ preset: "errors" }) : buildLogsHref()
   return (
     <Card className="lg:col-span-3">
       <CardHeader>
@@ -57,6 +63,11 @@ export function RecentLogs({ items }: { items: LogEvent[] }) {
             </TableBody>
           </Table>}
       </CardContent>
+      <CardFooter>
+        <Link to={logsHref} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+          {hasError ? t("dashboard.openErrorLogs") : t("dashboard.openLogs")}
+        </Link>
+      </CardFooter>
     </Card>
   )
 }
