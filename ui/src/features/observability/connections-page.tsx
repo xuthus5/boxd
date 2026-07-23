@@ -167,11 +167,11 @@ export function ConnectionsPage() {
   const emptyAction = facetsActive ? clearFacets : undefined
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 sm:gap-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold">{t("observability.connections")}</h1>
         <ConfirmAction
-          trigger={<Button className="w-full sm:w-auto" variant="destructive" disabled={busy}><Trash2Icon data-icon="inline-start" />{t("observability.closeAll")}</Button>}
+          trigger={<Button size="sm" className="h-8 w-full sm:w-auto" variant="destructive" disabled={busy}><Trash2Icon data-icon="inline-start" />{t("observability.closeAll")}</Button>}
           title={t("observability.closeAllTitle")}
           description={t("observability.closeAllDescription")}
           confirmLabel={t("observability.confirmClose")}
@@ -181,8 +181,8 @@ export function ConnectionsPage() {
       </div>
       {stream.error ? <Alert variant="destructive"><AlertTitle>{t("observability.streamError")}</AlertTitle><AlertDescription>{stream.error}</AlertDescription></Alert> : null}
       <Card>
-        <CardHeader className="gap-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <CardHeader className="gap-2 sm:gap-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle>
                 {t("observability.liveConnections")}{" "}
@@ -191,7 +191,7 @@ export function ConnectionsPage() {
               </CardTitle>
               <CardDescription>{t("observability.connectionsDescription")}</CardDescription>
             </div>
-            <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+            <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground sm:text-sm">
               <span>{t("dashboard.upload")}: {formatBytes(summary.upload)}</span>
               <span>{t("dashboard.download")}: {formatBytes(summary.download)}</span>
               <span>{t("observability.outboundCount", { count: summary.outbounds })}</span>

@@ -145,11 +145,11 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
   const hasActiveFilter = Boolean(filter.trim()) || minimum !== "all" || Boolean(level) || Boolean(activePreset)
 
   return <Card>
-    <CardHeader>
-      <CardTitle className="flex flex-wrap items-center gap-2">{title}<StreamStatusBadge status={stream.status} paused={stream.paused} /></CardTitle>
+    <CardHeader className="gap-2">
+      <CardTitle className="flex flex-wrap items-center gap-2 text-base sm:text-lg">{title}<StreamStatusBadge status={stream.status} paused={stream.paused} /></CardTitle>
       <CardDescription>{t("observability.logDescription")}</CardDescription>
     </CardHeader>
-    <CardContent className="flex flex-col gap-3">
+    <CardContent className="flex flex-col gap-2 sm:gap-3">
       {stream.error ? <Alert variant="destructive">
         <AlertTitle>{t("observability.streamError")}</AlertTitle>
         <AlertDescription>{stream.error}</AlertDescription>
@@ -166,7 +166,7 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
         onPreset={onPreset}
         onClear={onClear}
       />
-      <ScrollArea className="h-[32rem]">
+      <ScrollArea className="h-[24rem] sm:h-[32rem]">
         {items.length === 0
           ? <Empty>
             <EmptyHeader>
@@ -186,7 +186,7 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
             ) : null}
           </Empty>
           : isMobile
-            ? <div className="flex flex-col gap-2">
+            ? <div className="flex flex-col gap-1.5 sm:gap-2">
               {items.map((item, index) => {
                 const connectionsHref = logConnectionsHref(item.message)
                 return (
@@ -254,18 +254,18 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
             </Table>}
       </ScrollArea>
     </CardContent>
-    <CardFooter className="flex flex-wrap gap-2">
-      <Button variant="outline" onClick={() => stream.setPaused(!stream.paused)}>
+    <CardFooter className="flex flex-wrap gap-1.5 sm:gap-2">
+      <Button size="sm" className="h-8" variant="outline" onClick={() => stream.setPaused(!stream.paused)}>
         {stream.paused ? t("observability.resume") : t("observability.pause")}
       </Button>
-      <Button variant="outline" onClick={stream.clear}>{t("observability.clear")}</Button>
-      <Button variant="outline" disabled={!canExport} onClick={() => { void onCopy() }}>
+      <Button size="sm" className="h-8" variant="outline" onClick={stream.clear}>{t("observability.clear")}</Button>
+      <Button size="sm" className="h-8" variant="outline" disabled={!canExport} onClick={() => { void onCopy() }}>
         {t("observability.copyLogs")}
       </Button>
-      <Button variant="outline" disabled={!canExport} onClick={onDownload}>
+      <Button size="sm" className="h-8" variant="outline" disabled={!canExport} onClick={onDownload}>
         {t("observability.exportLogs")}
       </Button>
-      <span className="text-sm text-muted-foreground">{t("observability.shownCount", { count: items.length })}</span>
+      <span className="text-xs text-muted-foreground sm:text-sm">{t("observability.shownCount", { count: items.length })}</span>
     </CardFooter>
   </Card>
 }

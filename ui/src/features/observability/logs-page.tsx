@@ -29,7 +29,7 @@ export function LogsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3 sm:gap-4">
       <h1 className="text-2xl font-semibold">{t("observability.logs")}</h1>
       <Tabs value={tab} onValueChange={onTabChange}>
         <TabsList>

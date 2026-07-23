@@ -40,7 +40,7 @@ function FacetSelect({ label, value, options, allLabel, onChange }: FacetSelectP
       value={value || "__all__"}
       onValueChange={(next) => onChange(String(next) === "__all__" ? "" : String(next))}
     >
-      <SelectTrigger aria-label={label} className="w-full sm:w-36">
+      <SelectTrigger aria-label={label} className="h-8 w-full sm:w-36">
         <SelectValue placeholder={label} />
       </SelectTrigger>
       <SelectContent>
@@ -93,74 +93,84 @@ export function ConnectionToolbar(props: Props) {
   const { t } = useTranslation()
   const allLabel = t("observability.filterAll")
   return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-      <label className="sr-only" htmlFor="connections-search">{t("observability.searchConnections")}</label>
-      <Input
-        id="connections-search"
-        value={props.query}
-        onChange={(event) => props.onQueryChange(event.target.value)}
-        placeholder={t("observability.searchConnectionsPlaceholder")}
-        className="sm:max-w-xs"
-        aria-label={t("observability.searchConnections")}
-      />
-      <FacetSelect label={t("observability.filterNetwork")} value={props.network} options={props.networkOptions} allLabel={allLabel} onChange={props.onNetworkChange} />
-      <FacetSelect label={t("observability.filterProtocol")} value={props.protocol} options={props.protocolOptions} allLabel={allLabel} onChange={props.onProtocolChange} />
-      <FacetSelect label={t("observability.filterOutbound")} value={props.outbound} options={props.outboundOptions} allLabel={allLabel} onChange={props.onOutboundChange} />
-      <FacetSelect label={t("observability.filterRule")} value={props.rule} options={props.ruleOptions} allLabel={allLabel} onChange={props.onRuleChange} />
-      <FacetSelect label={t("observability.filterProcess")} value={props.process} options={props.processOptions} allLabel={allLabel} onChange={props.onProcessChange} />
-      {props.facetsActive ? (
-        <Button variant="ghost" onClick={props.onClearFacets}>{t("observability.clearFacets")}</Button>
-      ) : null}
-      <Select items={props.sortOptions} value={props.sort} onValueChange={(value) => props.onSortChange(String(value) as ConnectionSortKey)}>
-        <SelectTrigger aria-label={t("observability.sortConnections")} className="w-full sm:w-44">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectGroup>
-            {props.sortOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-            ))}
-          </SelectGroup>
-        </SelectContent>
-      </Select>
-      <DropdownMenu>
-        <DropdownMenuTrigger render={<Button variant="outline" />}>
-          <Columns3Icon data-icon="inline-start" />
-          {t("observability.columns")}
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-52">
-          <DropdownMenuGroup>
-            <DropdownMenuLabel>{t("observability.columns")}</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {CONNECTION_COLUMNS.map((column) => (
-              <DropdownMenuCheckboxItem
-                key={column.id}
-                checked={props.columns.includes(column.id)}
-                disabled={column.required}
-                onCheckedChange={(checked) => props.onToggleColumn(column.id, checked === true)}
-              >
-                {t(column.labelKey)}
-              </DropdownMenuCheckboxItem>
-            ))}
-          </DropdownMenuGroup>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <Button variant="outline" onClick={props.onTogglePause}>
-        {props.paused ? t("observability.resume") : t("observability.pause")}
-      </Button>
-      <Button variant="outline" disabled={!props.canExport} onClick={props.onExport}>
-        {t("observability.exportConnections")}
-      </Button>
-      {props.facetsActive && props.filteredCount > 0 ? (
-        <ConfirmAction
-          trigger={<Button variant="outline" disabled={props.busy}>{t("observability.closeFiltered")}</Button>}
-          title={t("observability.closeFilteredTitle")}
-          description={t("observability.closeFilteredDescription", { count: props.filteredCount })}
-          confirmLabel={t("observability.confirmClose")}
-          confirmVariant="destructive"
-          onConfirm={props.onCloseFiltered}
+    <div className="flex flex-col gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+        <label className="sr-only" htmlFor="connections-search">{t("observability.searchConnections")}</label>
+        <Input
+          id="connections-search"
+          value={props.query}
+          onChange={(event) => props.onQueryChange(event.target.value)}
+          placeholder={t("observability.searchConnectionsPlaceholder")}
+          className="col-span-2 h-8 sm:max-w-xs"
+          aria-label={t("observability.searchConnections")}
         />
-      ) : null}
+        <FacetSelect label={t("observability.filterNetwork")} value={props.network} options={props.networkOptions} allLabel={allLabel} onChange={props.onNetworkChange} />
+        <FacetSelect label={t("observability.filterProtocol")} value={props.protocol} options={props.protocolOptions} allLabel={allLabel} onChange={props.onProtocolChange} />
+        <FacetSelect label={t("observability.filterOutbound")} value={props.outbound} options={props.outboundOptions} allLabel={allLabel} onChange={props.onOutboundChange} />
+        <FacetSelect label={t("observability.filterRule")} value={props.rule} options={props.ruleOptions} allLabel={allLabel} onChange={props.onRuleChange} />
+        <FacetSelect label={t("observability.filterProcess")} value={props.process} options={props.processOptions} allLabel={allLabel} onChange={props.onProcessChange} />
+        <Select items={props.sortOptions} value={props.sort} onValueChange={(value) => props.onSortChange(String(value) as ConnectionSortKey)}>
+          <SelectTrigger aria-label={t("observability.sortConnections")} className="h-8 w-full sm:w-44">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {props.sortOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+        {props.facetsActive ? (
+          <Button size="sm" className="h-8" variant="ghost" onClick={props.onClearFacets}>
+            {t("observability.clearFacets")}
+          </Button>
+        ) : null}
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button size="sm" className="h-8" variant="outline" />}>
+            <Columns3Icon data-icon="inline-start" />
+            {t("observability.columns")}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-52">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>{t("observability.columns")}</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {CONNECTION_COLUMNS.map((column) => (
+                <DropdownMenuCheckboxItem
+                  key={column.id}
+                  checked={props.columns.includes(column.id)}
+                  disabled={column.required}
+                  onCheckedChange={(checked) => props.onToggleColumn(column.id, checked === true)}
+                >
+                  {t(column.labelKey)}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <Button size="sm" className="h-8" variant="outline" onClick={props.onTogglePause}>
+          {props.paused ? t("observability.resume") : t("observability.pause")}
+        </Button>
+        <Button size="sm" className="h-8" variant="outline" disabled={!props.canExport} onClick={props.onExport}>
+          {t("observability.exportConnections")}
+        </Button>
+        {props.facetsActive && props.filteredCount > 0 ? (
+          <ConfirmAction
+            trigger={(
+              <Button size="sm" className="h-8 col-span-2 sm:col-span-1" variant="outline" disabled={props.busy}>
+                {t("observability.closeFiltered")}
+              </Button>
+            )}
+            title={t("observability.closeFilteredTitle")}
+            description={t("observability.closeFilteredDescription", { count: props.filteredCount })}
+            confirmLabel={t("observability.confirmClose")}
+            confirmVariant="destructive"
+            onConfirm={props.onCloseFiltered}
+          />
+        ) : null}
+      </div>
     </div>
   )
 }
