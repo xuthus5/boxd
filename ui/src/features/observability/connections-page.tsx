@@ -42,6 +42,7 @@ import {
   summarizeConnections,
 } from "@/features/observability/connection-stats"
 import { downloadTextFile } from "@/features/observability/log-export"
+import { StreamStatusBadge } from "@/features/observability/stream-status-badge"
 import { useStreamBuffer } from "@/features/observability/use-stream-buffer"
 import { api } from "@/lib/api/endpoints"
 import type { ConnectionEvent } from "@/lib/api/types"
@@ -195,7 +196,7 @@ export function ConnectionsPage() {
               <CardTitle>
                 {t("observability.liveConnections")}{" "}
                 <Badge variant="secondary">{t("observability.shownCount", { count: filtered.length })}</Badge>
-                {stream.paused ? <Badge variant="outline" className="ml-2">{t("observability.paused")}</Badge> : null}
+                <StreamStatusBadge status={stream.status} paused={stream.paused} className="ml-2" />
               </CardTitle>
               <CardDescription>{t("observability.connectionsDescription")}</CardDescription>
             </div>

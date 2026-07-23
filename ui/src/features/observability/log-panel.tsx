@@ -35,6 +35,7 @@ import {
   type LogThresholdParam,
 } from "@/features/observability/log-filter-presets"
 import { meetsLogThreshold, type LogThreshold } from "@/features/observability/log-level"
+import { StreamStatusBadge } from "@/features/observability/stream-status-badge"
 import { useStreamBuffer } from "@/features/observability/use-stream-buffer"
 import { usePreferences } from "@/features/preferences/preferences-provider"
 import type { LogEvent } from "@/lib/api/types"
@@ -196,7 +197,7 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
 
   return <Card>
     <CardHeader>
-      <CardTitle>{title}</CardTitle>
+      <CardTitle className="flex flex-wrap items-center gap-2">{title}<StreamStatusBadge status={stream.status} paused={stream.paused} /></CardTitle>
       <CardDescription>{t("observability.logDescription")}</CardDescription>
     </CardHeader>
     <CardContent className="flex flex-col gap-3">

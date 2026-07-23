@@ -122,3 +122,37 @@ describe("openSSE retries", () => {
     vi.useRealTimers()
   })
 })
+
+describe("openSSE status", () => {
+  it("reports connection status transitions", async () => {
+    vi.useFakeTimers()
+    const onStatus = vi.fn()
+    const fetchMock = vi.fn()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce(new Response(streamChunks(["data: {\"running\":true}\n\n"])))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const cleanup = openSSE({
+      path: "/api/stats/traffic",
+      token: "token",
+      onEvent: vi.fn(),
+      onStatus,
+    })
+
+    await Promise.resolve()
+    expect(onStatus).toHaveBeenCalledWith("connecting")
+
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(onStatus).toHaveBeenCalledWith("reconnecting")
+
+    await vi.advanceTimersByTimeAsync(1000)
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(onStatus).toHaveBeenCalledWith("open")
+
+    cleanup()
+    expect(onStatus).toHaveBeenCalledWith("closed")
+    vi.useRealTimers()
+  })
+})

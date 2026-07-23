@@ -1,11 +1,14 @@
 import { notifyUnauthorized } from "@/lib/api/client"
 
+export type SSEStatus = "connecting" | "open" | "reconnecting" | "closed"
+
 export interface SSEOptions<T> {
   path: string
   token: string
   signal?: AbortSignal
   onEvent: (event: T) => void
   onError?: (error: Error) => void
+  onStatus?: (status: SSEStatus) => void
 }
 
 function eventData(block: string) {
@@ -55,19 +58,29 @@ export function openSSE<T>(options: SSEOptions<T>) {
   let attempt = 0
   let stopped = false
 
+  const setStatus = (status: SSEStatus) => {
+    if (!stopped || status === "closed") options.onStatus?.(status)
+  }
+
   const stop = () => {
+    if (stopped) return
     stopped = true
     if (timer) clearTimeout(timer)
     active?.abort()
+    setStatus("closed")
   }
+
   const retry = () => {
     if (stopped) return
     const delay = Math.min(1000 * (2 ** attempt), 10000)
     attempt += 1
+    setStatus("reconnecting")
     timer = setTimeout(connect, delay)
   }
+
   const connect = async () => {
     active = new AbortController()
+    setStatus(attempt > 0 ? "reconnecting" : "connecting")
     try {
       const response = await fetch(options.path, {
         headers: { Authorization: `Bearer ${options.token}`, Accept: "text/event-stream" },
@@ -77,10 +90,14 @@ export function openSSE<T>(options: SSEOptions<T>) {
         stopped = true
         notifyUnauthorized()
         options.onError?.(new Error("SSE request failed with status 401"))
+        setStatus("closed")
         return
       }
-      if (!response.ok || !response.body) throw new Error(`SSE request failed with status ${response.status}`)
+      if (!response.ok || !response.body) {
+        throw new Error(`SSE request failed with status ${response.status}`)
+      }
       attempt = 0
+      setStatus("open")
       await consumeSSEStream(response.body, options.onEvent)
       retry()
     } catch (reason: unknown) {

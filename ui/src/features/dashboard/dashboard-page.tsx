@@ -57,7 +57,7 @@ export function DashboardPage() {
       <h1 className="text-2xl font-semibold">{t("pages.dashboard")}</h1>
       <div className="grid gap-4 lg:grid-cols-3">
         <SetupChecklistCard status={status.data} />
-        <HealthSummaryCard snapshot={connections.items.at(-1)} status={status.data} streamError={connections.error || undefined} />
+        <HealthSummaryCard snapshot={connections.items.at(-1)} status={status.data} streamError={connections.error || undefined} streamStatus={connections.status} />
         <ServiceCard status={status.data!} pending={pendingAction} onAction={(action) => serviceMutation.mutate(action)} />
         <ProxySelectorCard />
         <ClashModeCard enabled={Boolean(status.data?.running)} />

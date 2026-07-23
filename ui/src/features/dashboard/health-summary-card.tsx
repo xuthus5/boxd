@@ -35,10 +35,12 @@ export function HealthSummaryCard({
   snapshot,
   status,
   streamError,
+  streamStatus,
 }: {
   snapshot?: ConnectionEvent
   status?: ServiceStatus
   streamError?: string
+  streamStatus?: string
 }) {
   const { t } = useTranslation()
   const summary = useMemo(() => buildHealthSummary(snapshot, status), [snapshot, status])
@@ -83,7 +85,11 @@ export function HealthSummaryCard({
             <DeepLink to={topRuleHref}>{summary.topRule}</DeepLink>
           </p>
         </div>
-        {streamError ? <p className="text-sm text-destructive">{streamError}</p> : null}
+        {streamStatus === "reconnecting" ? (
+          <p className="text-sm text-destructive">{t("observability.streamReconnecting")}{streamError ? ` · ${streamError}` : ""}</p>
+        ) : streamError ? (
+          <p className="text-sm text-destructive">{streamError}</p>
+        ) : null}
       </CardContent>
       <CardFooter>
         <Link to="/observability/connections" className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
