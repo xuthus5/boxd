@@ -53,6 +53,11 @@ export interface Connection {
   target: string
   outbound: string
   rule?: string
+  network?: string
+  source?: string
+  inbound?: string
+  protocol?: string
+  process?: string
   upload: number
   download: number
   start: string

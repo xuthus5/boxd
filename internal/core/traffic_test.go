@@ -170,7 +170,7 @@ func TestTrafficTrackerRoutedConnection(t *testing.T) {
 		fakeOutbound{tag: "proxy"},
 	)
 	conns := tracker.Connections()
-	if len(conns) != 1 || conns[0].Target != "example.com" || conns[0].Outbound != "proxy" {
+	if len(conns) != 1 || conns[0].Target != "example.com:443" || conns[0].Outbound != "proxy" {
 		t.Fatalf("connections = %#v", conns)
 	}
 	if err := wrapped.Close(); err != nil {
@@ -336,5 +336,154 @@ func TestTrafficTrackerCloseConnsByOutboundAndRule(t *testing.T) {
 	}
 	if conns := tracker.Connections(); len(conns) != 0 {
 		t.Fatalf("expected empty, got %#v", conns)
+	}
+}
+
+func TestTrafficTrackerConnectionMetadata(t *testing.T) {
+	tracker := NewTrafficTracker()
+	left, right := net.Pipe()
+	defer func() { _ = right.Close() }()
+
+	meta := adapter.InboundContext{
+		Inbound:     "mixed-in",
+		InboundType: "mixed",
+		Network:     "tcp",
+		Protocol:    "tls",
+		Domain:      "cdn.example.com",
+		Source:      M.ParseSocksaddr("10.0.0.2:51234"),
+		Destination: M.ParseSocksaddr("1.2.3.4:443"),
+		ProcessInfo: &adapter.ConnectionOwner{ProcessPath: "/usr/bin/curl"},
+	}
+	wrapped := tracker.RoutedConnection(context.Background(), left, meta, nil, fakeOutbound{tag: "proxy"})
+	conns := tracker.Connections()
+	if len(conns) != 1 {
+		t.Fatalf("connections = %#v", conns)
+	}
+	got := conns[0]
+	if got.Target != "cdn.example.com:443" {
+		t.Fatalf("target = %q", got.Target)
+	}
+	if got.Source != "10.0.0.2:51234" {
+		t.Fatalf("source = %q", got.Source)
+	}
+	if got.Network != "tcp" || got.Inbound != "mixed-in" || got.Protocol != "tls" {
+		t.Fatalf("meta = %#v", got)
+	}
+	if got.Process != "/usr/bin/curl" {
+		t.Fatalf("process = %q", got.Process)
+	}
+	_ = wrapped.Close()
+}
+
+func TestConnectionMetadataHelpers(t *testing.T) {
+	if got := connectionTarget(adapter.InboundContext{Destination: M.ParseSocksaddr("example.com:443")}); got != "example.com:443" {
+		t.Fatalf("fqdn target = %q", got)
+	}
+	if got := connectionTarget(adapter.InboundContext{Destination: M.ParseSocksaddr("8.8.8.8:53")}); got != "8.8.8.8:53" {
+		t.Fatalf("ip target = %q", got)
+	}
+	if got := connectionSource(adapter.InboundContext{}); got != "" {
+		t.Fatalf("empty source = %q", got)
+	}
+	if got := connectionInbound(adapter.InboundContext{InboundType: "tun"}); got != "tun" {
+		t.Fatalf("inbound type fallback = %q", got)
+	}
+	if got := connectionProcess(adapter.InboundContext{ProcessInfo: &adapter.ConnectionOwner{UserName: "alice"}}); got != "alice" {
+		t.Fatalf("process user = %q", got)
+	}
+	if got := connectionProcess(adapter.InboundContext{ProcessInfo: &adapter.ConnectionOwner{AndroidPackageNames: []string{"com.app"}}}); got != "com.app" {
+		t.Fatalf("process package = %q", got)
+	}
+	if got := connectionProcess(adapter.InboundContext{}); got != "" {
+		t.Fatalf("empty process = %q", got)
+	}
+}
+
+func TestConnectionTargetFallbacks(t *testing.T) {
+	if got := connectionTarget(adapter.InboundContext{
+		Domain:      "only.domain",
+		Destination: M.Socksaddr{Fqdn: "ignored.example", Port: 0},
+	}); got != "only.domain" {
+		t.Fatalf("domain without port = %q", got)
+	}
+	// Invalid destination with Fqdn field set but IsValid false - use zero Socksaddr with Fqdn
+	var dest M.Socksaddr
+	dest.Fqdn = "bare.fqdn"
+	if got := connectionTarget(adapter.InboundContext{Destination: dest}); got != "bare.fqdn" {
+		t.Fatalf("fqdn fallback = %q", got)
+	}
+	if got := connectionTarget(adapter.InboundContext{}); got != "" {
+		t.Fatalf("empty target = %q", got)
+	}
+	if got := connectionProcess(adapter.InboundContext{ProcessInfo: &adapter.ConnectionOwner{}}); got != "" {
+		t.Fatalf("empty process info = %q", got)
+	}
+	if got := ruleName(nil); got != "" {
+		t.Fatalf("nil rule = %q", got)
+	}
+	if got := pickRuleName("default", "rule(default)"); got != "default" {
+		t.Fatalf("pick type = %q", got)
+	}
+	if got := pickRuleName("", " rule "); got != "rule" {
+		t.Fatalf("pick raw = %q", got)
+	}
+	if got := formatHostPort(" example.com ", 443); got != "example.com:443" {
+		t.Fatalf("format hostport = %q", got)
+	}
+	if got := formatHostPort("example.com", 0); got != "example.com" {
+		t.Fatalf("format host = %q", got)
+	}
+	if got := formatHostPort("  ", 80); got != "" {
+		t.Fatalf("empty host = %q", got)
+	}
+}
+
+type fakeRule struct {
+	typ string
+	raw string
+}
+
+func (r fakeRule) Match(metadata *adapter.InboundContext) bool { return false }
+
+func (r fakeRule) String() string { return r.raw }
+
+func (r fakeRule) Start() error { return nil }
+
+func (r fakeRule) Close() error { return nil }
+
+func (r fakeRule) Type() string { return r.typ }
+
+func (r fakeRule) Action() adapter.RuleAction { return nil }
+
+func TestRuleNameWithAdapterRule(t *testing.T) {
+	if got := ruleName(fakeRule{typ: "logical", raw: "rule(logical)"}); got != "logical" {
+		t.Fatalf("typed rule = %q", got)
+	}
+	if got := ruleName(fakeRule{typ: "", raw: "fallback-rule"}); got != "fallback-rule" {
+		t.Fatalf("raw rule = %q", got)
+	}
+}
+
+func TestConnectionsSkipsInvalidEntries(t *testing.T) {
+	tracker := NewTrafficTracker()
+	tracker.connections.Store(int64(99), "not-a-conn")
+	if conns := tracker.Connections(); len(conns) != 0 {
+		t.Fatalf("expected skip invalid entry, got %#v", conns)
+	}
+}
+
+func TestConnectionTargetIPOnly(t *testing.T) {
+	var dest M.Socksaddr
+	dest.Addr = M.ParseSocksaddr("9.9.9.9:53").Addr
+	dest.Port = 53
+	if got := connectionTarget(adapter.InboundContext{Destination: dest}); got != "9.9.9.9:53" {
+		t.Fatalf("ip target = %q", got)
+	}
+}
+
+func TestCloseConnsWhereNilPred(t *testing.T) {
+	tracker := NewTrafficTracker()
+	if got := tracker.CloseConnsWhere(nil); got != 0 {
+		t.Fatalf("nil pred = %d", got)
 	}
 }

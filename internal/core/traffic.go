@@ -3,6 +3,8 @@ package core
 import (
 	"context"
 	"net"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -38,6 +40,11 @@ func (t *TrafficTracker) Connections() []TrafficConn {
 			Target:   tc.target,
 			Outbound: tc.outbound,
 			Rule:     tc.rule,
+			Network:  tc.network,
+			Source:   tc.source,
+			Inbound:  tc.inbound,
+			Protocol: tc.protocol,
+			Process:  tc.process,
 			Upload:   tc.upload.Load(),
 			Download: tc.download.Load(),
 			Start:    tc.start,
@@ -102,13 +109,15 @@ func (t *TrafficTracker) RoutedConnection(ctx context.Context, conn net.Conn, me
 	tc := &trafficConnInternal{
 		id:       id,
 		tracker:  t,
-		target:   metadata.Destination.Fqdn,
+		target:   connectionTarget(metadata),
 		outbound: matchOutbound.Tag(),
 		rule:     ruleName(matchedRule),
+		network:  connectionNetwork(metadata),
+		source:   connectionSource(metadata),
+		inbound:  connectionInbound(metadata),
+		protocol: connectionProtocol(metadata),
+		process:  connectionProcess(metadata),
 		start:    time.Now(),
-	}
-	if metadata.Destination.Fqdn == "" {
-		tc.target = metadata.Destination.Addr.String()
 	}
 	t.connections.Store(id, tc)
 	return tc.wrap(conn)
@@ -124,6 +133,11 @@ type trafficConnInternal struct {
 	target   string
 	outbound string
 	rule     string
+	network  string
+	source   string
+	inbound  string
+	protocol string
+	process  string
 	upload   atomic.Int64
 	download atomic.Int64
 	start    time.Time
@@ -183,6 +197,11 @@ type TrafficConn struct {
 	Target   string    `json:"target"`
 	Outbound string    `json:"outbound"`
 	Rule     string    `json:"rule,omitempty"`
+	Network  string    `json:"network,omitempty"`
+	Source   string    `json:"source,omitempty"`
+	Inbound  string    `json:"inbound,omitempty"`
+	Protocol string    `json:"protocol,omitempty"`
+	Process  string    `json:"process,omitempty"`
 	Upload   int64     `json:"upload"`
 	Download int64     `json:"download"`
 	Start    time.Time `json:"start"`
@@ -192,11 +211,80 @@ func ruleName(rule adapter.Rule) string {
 	if rule == nil {
 		return ""
 	}
-	// Rule.String() 通常包含类型信息；优先用 Type() 保持短可读。
+	typeName := ""
 	if typed, ok := any(rule).(interface{ Type() string }); ok {
-		if name := typed.Type(); name != "" {
-			return name
-		}
+		typeName = typed.Type()
 	}
-	return rule.String()
+	return pickRuleName(typeName, rule.String())
+}
+
+// pickRuleName prefers a short rule type when present.
+func pickRuleName(typeName, raw string) string {
+	if name := strings.TrimSpace(typeName); name != "" {
+		return name
+	}
+	return strings.TrimSpace(raw)
+}
+
+func connectionTarget(metadata adapter.InboundContext) string {
+	if domain := strings.TrimSpace(metadata.Domain); domain != "" {
+		return formatHostPort(domain, metadata.Destination.Port)
+	}
+	if host := strings.TrimSpace(metadata.Destination.Fqdn); host != "" {
+		return formatHostPort(host, metadata.Destination.Port)
+	}
+	if metadata.Destination.Addr.IsValid() {
+		return formatHostPort(metadata.Destination.Addr.String(), metadata.Destination.Port)
+	}
+	return ""
+}
+
+func formatHostPort(host string, port uint16) string {
+	host = strings.TrimSpace(host)
+	if host == "" {
+		return ""
+	}
+	if port == 0 {
+		return host
+	}
+	return net.JoinHostPort(host, strconv.Itoa(int(port)))
+}
+
+func connectionSource(metadata adapter.InboundContext) string {
+	if metadata.Source.IsValid() {
+		return metadata.Source.String()
+	}
+	return ""
+}
+
+func connectionNetwork(metadata adapter.InboundContext) string {
+	return strings.TrimSpace(metadata.Network)
+}
+
+func connectionInbound(metadata adapter.InboundContext) string {
+	if tag := strings.TrimSpace(metadata.Inbound); tag != "" {
+		return tag
+	}
+	return strings.TrimSpace(metadata.InboundType)
+}
+
+func connectionProtocol(metadata adapter.InboundContext) string {
+	return strings.TrimSpace(metadata.Protocol)
+}
+
+func connectionProcess(metadata adapter.InboundContext) string {
+	info := metadata.ProcessInfo
+	if info == nil {
+		return ""
+	}
+	if path := strings.TrimSpace(info.ProcessPath); path != "" {
+		return path
+	}
+	if name := strings.TrimSpace(info.UserName); name != "" {
+		return name
+	}
+	if len(info.AndroidPackageNames) > 0 {
+		return strings.TrimSpace(info.AndroidPackageNames[0])
+	}
+	return ""
 }

@@ -45,6 +45,11 @@ export function matchesConnection(connection: Connection, query: string) {
     connection.target,
     connection.outbound,
     connection.rule ?? "",
+    connection.network ?? "",
+    connection.source ?? "",
+    connection.inbound ?? "",
+    connection.protocol ?? "",
+    connection.process ?? "",
     String(connection.id),
   ].join(" ").toLowerCase()
   return haystack.includes(query)

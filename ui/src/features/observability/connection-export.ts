@@ -43,6 +43,11 @@ export function formatConnectionLine(item: Connection): string {
     item.target || "-",
     item.outbound || "-",
     rule,
+    item.network?.trim() || "-",
+    item.source?.trim() || "-",
+    item.inbound?.trim() || "-",
+    item.protocol?.trim() || "-",
+    item.process?.trim() || "-",
     String(item.upload || 0),
     String(item.download || 0),
     item.start || "-",
@@ -51,7 +56,7 @@ export function formatConnectionLine(item: Connection): string {
 
 export function formatConnectionExport(items: readonly Connection[]): string {
   if (items.length === 0) return ""
-  const header = "id\ttarget\toutbound\trule\tupload\tdownload\tstart"
+  const header = "id\ttarget\toutbound\trule\tnetwork\tsource\tinbound\tprotocol\tprocess\tupload\tdownload\tstart"
   return [header, ...items.map(formatConnectionLine)].join("\n")
 }
 

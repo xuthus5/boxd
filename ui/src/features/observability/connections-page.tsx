@@ -250,8 +250,13 @@ export function ConnectionsPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>{t("observability.target")}</TableHead>
+                        <TableHead>{t("observability.source")}</TableHead>
+                        <TableHead>{t("observability.network")}</TableHead>
+                        <TableHead>{t("observability.inbound")}</TableHead>
                         <TableHead>{t("observability.outbound")}</TableHead>
                         <TableHead>{t("observability.rule")}</TableHead>
+                        <TableHead>{t("observability.protocol")}</TableHead>
+                        <TableHead>{t("observability.process")}</TableHead>
                         <TableHead>{t("dashboard.upload")}</TableHead>
                         <TableHead>{t("dashboard.download")}</TableHead>
                         <TableHead>{t("observability.duration")}</TableHead>
@@ -264,8 +269,13 @@ export function ConnectionsPage() {
                         return (
                           <TableRow key={connection.id}>
                             <TableCell className="max-w-[12rem] truncate" title={connection.target}>{connection.target}</TableCell>
+                            <TableCell className="max-w-[10rem] truncate" title={connection.source || undefined}>{connection.source || "—"}</TableCell>
+                            <TableCell>{connection.network || "—"}</TableCell>
+                            <TableCell className="max-w-[8rem] truncate" title={connection.inbound || undefined}>{connection.inbound || "—"}</TableCell>
                             <TableCell>{connection.outbound}</TableCell>
                             <TableCell className="max-w-[10rem] truncate" title={connection.rule || undefined}>{connection.rule || "—"}</TableCell>
+                            <TableCell>{connection.protocol || "—"}</TableCell>
+                            <TableCell className="max-w-[10rem] truncate" title={connection.process || undefined}>{connection.process || "—"}</TableCell>
                             <TableCell>{formatBytes(connection.upload)}</TableCell>
                             <TableCell>{formatBytes(connection.download)}</TableCell>
                             <TableCell>{formatDuration(connection.start)}</TableCell>

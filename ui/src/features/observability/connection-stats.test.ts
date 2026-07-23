@@ -37,3 +37,18 @@ describe("connection-stats", () => {
     expect(filterConnectionsByGroup(sample, "rule", "—")).toHaveLength(1)
   })
 })
+
+  it("matches source and process fields", () => {
+    const item = {
+      ...sample[0],
+      source: "10.0.0.8:1",
+      inbound: "mixed-in",
+      network: "tcp",
+      protocol: "http",
+      process: "/usr/bin/curl",
+    }
+    expect(matchesConnection(item, "10.0.0.8")).toBe(true)
+    expect(matchesConnection(item, "mixed-in")).toBe(true)
+    expect(matchesConnection(item, "curl")).toBe(true)
+    expect(matchesConnection(item, "udp")).toBe(false)
+  })
