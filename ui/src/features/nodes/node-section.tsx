@@ -6,6 +6,7 @@ import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
+import { summarizeBatchTestResults } from "@/features/nodes/batch-test-summary"
 import { NodeCard } from "@/features/nodes/node-card"
 import { nodeTestInputs } from "@/features/nodes/node-test-inputs"
 import { api } from "@/lib/api/endpoints"
@@ -29,10 +30,25 @@ export function NodeSection({ title, description, nodes, results, history, onBat
   const inputs = nodeTestInputs(nodes)
   const mutation = useMutation({
     mutationFn: () => api.nodes.testBatch(inputs, groupTestConcurrency),
-    onSuccess: () => {
+    onSuccess: (payload) => {
       void client.invalidateQueries({ queryKey: ["nodes", "results"] })
       void client.invalidateQueries({ queryKey: ["nodes", "history"] })
-      toast.success(t("nodes.batchComplete"))
+      const summary = summarizeBatchTestResults(payload.results)
+      const message = summary.total === 0
+        ? t("nodes.batchComplete")
+        : t("nodes.batchSummary", {
+          success: summary.success,
+          failed: summary.failed,
+          total: summary.total,
+          avg: summary.avgLatencyMs === undefined ? "—" : `${summary.avgLatencyMs}ms`,
+        })
+      if (summary.failed > 0 && summary.success === 0) {
+        toast.error(message)
+      } else if (summary.failed > 0) {
+        toast.warning(message)
+      } else {
+        toast.success(message)
+      }
       onBatchComplete?.()
     },
     onError: (error: Error) => toast.error(error.message),

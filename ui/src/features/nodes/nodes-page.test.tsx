@@ -317,7 +317,13 @@ describe("NodesPage deep links", () => {
       const path = typeof input === "string" ? input : input.toString()
       const body = path === "/api/nodes/" ? [
         { tag: "hk-1", type: "vless", server: "hk.example", port: 443, source: "subscription", source_name: "主订阅" },
-      ] : path === "/api/nodes/test-batch" ? { results: [] } : path === "/api/nodes/groups" ? { groups: [] } : {}
+      ] : path === "/api/nodes/test-batch" ? {
+        results: [
+          { tag: "hk-1", test_type: "tcp", success: true, latency_ms: 18 },
+          { tag: "hk-1", test_type: "http", success: true, latency_ms: 22 },
+          { tag: "hk-1", test_type: "icmp", success: false, error: "timeout" },
+        ],
+      } : path === "/api/nodes/groups" ? { groups: [] } : {}
       return Promise.resolve(new Response(JSON.stringify(body)))
     })
     vi.stubGlobal("fetch", fetchMock)
@@ -329,6 +335,7 @@ describe("NodesPage deep links", () => {
     await waitFor(() => {
       expect(screen.getByRole("combobox", { name: "排序节点" })).toHaveTextContent("按稳定性")
     })
+    expect(await screen.findByText(/2\/3 成功/)).toBeInTheDocument()
   })
 })
 

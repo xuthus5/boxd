@@ -246,4 +246,18 @@ describe("ConnectionsPage", () => {
     expect(await screen.findByText("geosite-google")).toBeInTheDocument()
   })
 
+
+  it("shows process column by default", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    mockConnectionsFetch()
+    renderApp(<App />, "/observability/connections")
+
+    expect(await screen.findByText("example.com:443")).toBeInTheDocument()
+    expect(screen.getByRole("columnheader", { name: "进程" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "进程: /usr/bin/curl" })).toHaveAttribute(
+      "href",
+      "/observability/connections?process=%2Fusr%2Fbin%2Fcurl",
+    )
+  })
+
 })

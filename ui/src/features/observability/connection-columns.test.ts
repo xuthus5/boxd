@@ -20,7 +20,7 @@ describe("connection-columns", () => {
     expect(defaults).toContain("target")
     expect(defaults).toContain("outbound")
     expect(defaults).toContain("actions")
-    expect(defaults).not.toContain("process")
+    expect(defaults).toContain("process")
     expect(normalizeConnectionColumns(["process"])).toEqual(
       expect.arrayContaining(["target", "outbound", "actions", "process"]),
     )

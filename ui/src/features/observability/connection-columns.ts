@@ -31,7 +31,7 @@ export const CONNECTION_COLUMNS: readonly ConnectionColumnSpec[] = [
   { id: "outbound", labelKey: "observability.outbound", required: true, defaultVisible: true },
   { id: "rule", labelKey: "observability.rule", defaultVisible: true },
   { id: "protocol", labelKey: "observability.protocol", defaultVisible: false },
-  { id: "process", labelKey: "observability.process", defaultVisible: false },
+  { id: "process", labelKey: "observability.process", defaultVisible: true },
   { id: "upload", labelKey: "dashboard.upload", defaultVisible: true },
   { id: "download", labelKey: "dashboard.download", defaultVisible: true },
   { id: "duration", labelKey: "observability.duration", defaultVisible: true },
