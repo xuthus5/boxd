@@ -204,4 +204,21 @@ describe("ConnectionsPage", () => {
     expect(screen.getAllByRole("button", { name: "关闭该组" }).length).toBeGreaterThan(0)
   })
 
+
+  it("renders clickable outbound facet links", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    mockConnectionsFetch()
+    renderApp(<App />, "/observability/connections")
+
+    expect(await screen.findByText("example.com:443")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "出站: proxy" })).toHaveAttribute(
+      "href",
+      "/observability/connections?outbound=proxy",
+    )
+    expect(screen.getByRole("link", { name: "网络: tcp" })).toHaveAttribute(
+      "href",
+      "/observability/connections?network=tcp",
+    )
+  })
+
 })

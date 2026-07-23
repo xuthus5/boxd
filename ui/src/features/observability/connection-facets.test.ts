@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   buildConnectionsHref,
   connectionTargetLogQuery,
+  facetHref,
   connectionFacetValue,
   connectionFiltersActive,
   filterConnectionsByFacets,
@@ -72,6 +73,11 @@ describe("connection-facets", () => {
     expect(connectionTargetLogQuery("[2001:db8::1]:443")).toBe("2001:db8::1")
     expect(connectionTargetLogQuery("plain-host")).toBe("plain-host")
     expect(connectionTargetLogQuery("")).toBe("")
+  })
+
+  it("builds clickable facet deep-links", () => {
+    expect(facetHref("process", "/usr/bin/curl")).toBe("/observability/connections?process=%2Fusr%2Fbin%2Fcurl")
+    expect(facetHref("network", "—")).toBe("")
   })
 })
 

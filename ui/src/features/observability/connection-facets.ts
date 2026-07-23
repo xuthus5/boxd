@@ -134,3 +134,10 @@ export function connectionTargetLogQuery(target: string | undefined): string {
   return raw
 }
 
+export type ConnectionFacetLinkField = "network" | "protocol" | "outbound" | "rule" | "process"
+
+export function facetHref(field: ConnectionFacetLinkField, value?: string) {
+  const trimmed = value?.trim()
+  if (!trimmed || trimmed === "—") return ""
+  return buildConnectionsHref({ [field]: trimmed })
+}

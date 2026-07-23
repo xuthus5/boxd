@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 import { toast } from "sonner"
 
-import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
@@ -15,6 +14,7 @@ import {
 } from "@/features/observability/connection-columns"
 import { formatBytes } from "@/features/dashboard/format"
 import { connectionTargetLogQuery } from "@/features/observability/connection-facets"
+import { FacetLink, MetaChip } from "@/features/observability/connection-facet-links"
 import { buildLogsHref } from "@/features/observability/log-filter-presets"
 import { copyText } from "@/features/proxy/copy-tag-button"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -70,11 +70,6 @@ function titleFor(connection: Connection, id: ConnectionColumnId): string | unde
   return undefined
 }
 
-function MetaChip({ label, value }: { label: string; value: string }) {
-  if (!value || value === "—") return null
-  return <Badge variant="outline" className="max-w-full truncate font-normal" title={value}>{label}: {value}</Badge>
-}
-
 function ConnectionMobileCard({
   connection,
   columns,
@@ -114,9 +109,13 @@ function ConnectionMobileCard({
           ) : null}
         </CardTitle>
         <CardDescription className="truncate">
-          {show("outbound") ? (connection.outbound || "—") : null}
+          {show("outbound") ? (
+            <FacetLink field="outbound" value={connection.outbound} label={t("observability.outbound")} />
+          ) : null}
           {show("outbound") && show("rule") ? " · " : null}
-          {show("rule") ? (connection.rule || "—") : null}
+          {show("rule") ? (
+            <FacetLink field="rule" value={connection.rule} label={t("observability.rule")} />
+          ) : null}
         </CardDescription>
         <CardAction className="flex flex-wrap justify-end gap-1">
           {connection.target ? (
@@ -136,11 +135,11 @@ function ConnectionMobileCard({
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
         <div className="flex flex-wrap gap-1.5">
-          {show("network") ? <MetaChip label={t("observability.network")} value={connection.network || "—"} /> : null}
-          {show("protocol") ? <MetaChip label={t("observability.protocol")} value={connection.protocol || "—"} /> : null}
+          {show("network") ? <MetaChip field="network" label={t("observability.network")} value={connection.network || "—"} /> : null}
+          {show("protocol") ? <MetaChip field="protocol" label={t("observability.protocol")} value={connection.protocol || "—"} /> : null}
           {show("inbound") ? <MetaChip label={t("observability.inbound")} value={connection.inbound || "—"} /> : null}
           {show("source") ? <MetaChip label={t("observability.source")} value={connection.source || "—"} /> : null}
-          {show("process") ? <MetaChip label={t("observability.process")} value={connection.process || "—"} /> : null}
+          {show("process") ? <MetaChip field="process" label={t("observability.process")} value={connection.process || "—"} /> : null}
         </div>
         <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
           {show("upload") ? <span>{t("dashboard.upload")}: {formatBytes(connection.upload)}</span> : null}
@@ -250,6 +249,14 @@ export function ConnectionListTable({
                           <CopyIcon className="size-3.5" />
                         </Button>
                       </div>
+                    </TableCell>
+                  )
+                }
+                if (column.id === "network" || column.id === "protocol" || column.id === "outbound" || column.id === "rule" || column.id === "process") {
+                  const label = t(column.labelKey)
+                  return (
+                    <TableCell key={column.id} className="max-w-[12rem] truncate">
+                      <FacetLink field={column.id} value={value === "—" ? undefined : value} label={label} className="block truncate" />
                     </TableCell>
                   )
                 }
