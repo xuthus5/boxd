@@ -51,7 +51,7 @@ export const zh = {
       pending: "该模块将在当前实施计划中接入现有 API。",
     },
     settings: {
-      title: "应用设置", appearanceMenu: "外观", appearanceTitle: "外观与语言", appearanceDescription: "偏好仅保存在当前浏览器。",
+      title: "应用设置", appearanceMenu: "外观", appearanceTitle: "外观与语言", appearanceDescription: "主题、语言与默认日志级别会同步到当前账号（服务端持久化）。", preferencesSaveFailed: "偏好设置保存失败", preferencesLoadFailed: "偏好设置加载失败",
       theme: "主题", light: "浅色", dark: "深色", system: "跟随系统", language: "语言", minimumLogLevel: "默认最低日志级别", minimumLogLevelDescription: "仪表盘最近日志与日志页默认仅展示该级别及以上内容。",
       accountTitle: "登录与安全", accountDescription: "登录用户名由 BOXD_USERNAME 或启动参数管理，前端不可轮换。", defaultPasswordBadge: "默认密码", customPasswordBadge: "已自定义密码", jwtPresentBadge: "JWT · {{length}}", jwtMissingBadge: "JWT 未配置", passwordSectionTitle: "管理员密码", passwordSectionHint: "轮换密码会同步轮换 JWT，并使所有会话立即失效。", jwtSectionTitle: "JWT 签名密钥", jwtSectionHint: "用于签发面板登录令牌；轮换后需重新登录。", clearForm: "清空", rotatePasswordTitle: "轮换管理员密码？", rotatePasswordDescription: "密码与 JWT 会同时更新，所有现有登录会话会立即失效。", jwtSecretPlaceholder: "输入新的 JWT 签名密钥",
       defaultPasswordTitle: "默认密码仍在使用", defaultPasswordDescription: "请立即轮换管理员密码。", defaultPasswordForced: "请先轮换默认管理员密码后，才能使用其他面板功能。",

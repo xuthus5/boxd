@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { useAuth } from "@/features/auth/auth-context"
 import { isLogThreshold } from "@/features/observability/log-level"
 import { i18n } from "@/i18n"
+import { reportSettingsRequestError } from "@/features/settings/settings-request-error-actions"
 import { api } from "@/lib/api/endpoints"
 import type { UIPreferences } from "@/lib/api/types"
 import { preferencesStore, type Language, type LogThreshold, type Preferences, type Theme } from "@/lib/storage"
@@ -42,6 +43,10 @@ function normalizePreferences(value: unknown): Preferences {
 function persistRemote(prefs: UIPreferences) {
   return api.settings.setPreferences(prefs).catch((error: unknown) => {
     console.error("Failed to save preferences", error)
+    reportSettingsRequestError(error, (key) => i18n.t(key), {
+      scope: "preferences-save",
+      fallback: i18n.t("settings.preferencesSaveFailed"),
+    })
   })
 }
 
@@ -76,6 +81,10 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
         setPreferences(remote)
       } catch (error: unknown) {
         console.error("Failed to load preferences", error)
+        reportSettingsRequestError(error, (key) => i18n.t(key), {
+          scope: "preferences-load",
+          fallback: i18n.t("settings.preferencesLoadFailed"),
+        })
       }
     })()
     return () => {
