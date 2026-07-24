@@ -2,7 +2,6 @@ import { useCallback, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
@@ -14,6 +13,7 @@ import { isValidJSON } from "@/features/config/json-utils"
 import { useConfigSaveError } from "@/features/config/use-config-save-error"
 import { useConfigPathReveal } from "@/features/config/use-config-path-reveal"
 import type { JsonValue, SingBoxConfig } from "@/lib/api/types"
+import { PageLoadErrorAlert } from "@/features/common/page-load-error-alert"
 
 function SectionEditor({
   initial,
@@ -87,15 +87,11 @@ function SectionEditor({
 }
 
 export function SectionConfigPage({ section, title, description }: { section: string; title: string; description: string }) {
-  const { t } = useTranslation()
   const query = useConfigQuery()
   if (query.isLoading) return <Skeleton className="h-64 w-full" />
   if (query.error) {
     return (
-      <Alert variant="destructive">
-        <AlertTitle>{t("common.loadFailed")}</AlertTitle>
-        <AlertDescription>{query.error.message}</AlertDescription>
-      </Alert>
+      <PageLoadErrorAlert error={query.error} scope="advanced-section" />
     )
   }
   return (

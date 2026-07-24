@@ -26,6 +26,7 @@ import type { ConfigSaveErrorState } from "@/features/config/config-save-error"
 import { isJsonObject, type JsonObject } from "@/features/policy/policy-form-model"
 import { api } from "@/lib/api/endpoints"
 import type { JsonValue } from "@/lib/api/types"
+import { PageLoadErrorAlert } from "@/features/common/page-load-error-alert"
 
 function parseExperimentalObject(value: string): JsonObject | null {
   try {
@@ -181,10 +182,7 @@ export function ExperimentalPage() {
   const [installing, setInstalling] = useState(false)
   if (query.isLoading) return <Skeleton className="h-64 w-full" />
   if (query.error) {
-    return <Alert variant="destructive">
-      <AlertTitle>{t("common.loadFailed")}</AlertTitle>
-      <AlertDescription>{query.error.message}</AlertDescription>
-    </Alert>
+    return <PageLoadErrorAlert error={query.error} scope="advanced-experimental" />
   }
   const initial = query.data?.experimental
   const installClashAPI = () => {

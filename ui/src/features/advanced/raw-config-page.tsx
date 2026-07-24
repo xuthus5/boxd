@@ -2,7 +2,6 @@ import { useCallback, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ConfirmAction } from "@/components/confirm-action"
@@ -18,6 +17,7 @@ import { diffConfig, formatConfigDiffSummary } from "@/features/config/config-di
 import { JsonEditor, type JsonEditorHandle } from "@/features/config/json-editor"
 import { isValidJSON } from "@/features/config/json-utils"
 import type { SingBoxConfig } from "@/lib/api/types"
+import { PageLoadErrorAlert } from "@/features/common/page-load-error-alert"
 
 function RawEditor({ initial }: { initial: SingBoxConfig }) {
   const { t } = useTranslation()
@@ -107,7 +107,7 @@ export function RawConfigPage() {
   const { t } = useTranslation()
   const query = useRawConfigQuery()
   if (query.isLoading) return <Skeleton className="h-64 w-full" />
-  if (query.error) return <Alert variant="destructive"><AlertTitle>{t("common.loadFailed")}</AlertTitle><AlertDescription>{query.error.message}</AlertDescription></Alert>
+  if (query.error) return <PageLoadErrorAlert error={query.error} scope="advanced-raw" />
   return (
     <Card size="sm">
       <CardHeader className="gap-1.5">

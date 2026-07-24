@@ -5,7 +5,6 @@ import { useTranslation } from "react-i18next"
 import { useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
@@ -31,6 +30,7 @@ import {
 import { ProxyTypeSummaryBar } from "@/features/proxy/proxy-type-summary"
 import { api } from "@/lib/api/endpoints"
 import type { JsonValue, OutboundGroup, Subscription } from "@/lib/api/types"
+import { PageLoadErrorAlert } from "@/features/common/page-load-error-alert"
 
 type JsonObject = Record<string, JsonValue>
 interface Editing { index: number; item: JsonObject }
@@ -90,7 +90,7 @@ function OutboundCards({ items, onEdit, onDelete }: {
   if (subscriptions.isLoading || runtime.isLoading) return <Skeleton className="h-64 w-full" />
   const error = subscriptions.error ?? runtime.error
   if (error) {
-    return <Alert variant="destructive"><AlertTitle>{t("common.loadFailed")}</AlertTitle><AlertDescription>{error.message}</AlertDescription></Alert>
+    return <PageLoadErrorAlert error={error} scope="proxy-outbounds" />
   }
   const subscriptionList = Array.isArray(subscriptions.data) ? subscriptions.data : []
   const memberTags = subscriptionTags(subscriptionList)
@@ -167,7 +167,7 @@ export function ProxyListPage({ configKey, title, addLabel }: {
   })
   if (query.isLoading) return <Skeleton className="h-64 w-full" />
   if (query.error) {
-    return <Alert variant="destructive"><AlertTitle>{t("common.loadFailed")}</AlertTitle><AlertDescription>{query.error.message}</AlertDescription></Alert>
+    return <PageLoadErrorAlert error={query.error} scope="proxy" />
   }
   const typeFilter = filters.type
   const filteredIndexed = items

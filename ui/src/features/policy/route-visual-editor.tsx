@@ -6,7 +6,6 @@ import { useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
 import { Input } from "@/components/ui/input"
@@ -44,6 +43,7 @@ import { usePolicyVisualPathJump } from "@/features/policy/use-policy-visual-pat
 import type { PolicyDialogSelection } from "@/features/policy/policy-path"
 import { api } from "@/lib/api/endpoints"
 import type { JsonValue, RouteRuleMetadata, RuleSetStatusItem, RuleSetUpdateResult } from "@/lib/api/types"
+import { PageLoadErrorAlert } from "@/features/common/page-load-error-alert"
 
 interface RouteVisualEditorProps extends PolicyVisualEditorProps {
   outbounds?: JsonValue
@@ -119,7 +119,7 @@ function RuleSection({ object, metadata, metadataLoading, metadataError, onChang
       <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto"><Button variant="outline" size="sm" className="h-8" onClick={onInstall}>{t("policy.installRoute")}</Button><Button size="sm" className="h-8" onClick={() => onEdit(null)}><ListPlusIcon data-icon="inline-start" />{t("policy.route.addRule")}</Button></div>
     </CardAction></CardHeader>
     <CardContent className="flex flex-col gap-2 sm:gap-3">{metadataLoading ? <Skeleton className="h-24 w-full" /> : metadataError
-      ? <Alert variant="destructive"><AlertTitle>{t("common.loadFailed")}</AlertTitle><AlertDescription>{metadataError}</AlertDescription></Alert>
+      ? <PageLoadErrorAlert error={metadataError} scope="route-metadata" />
       : rules.length === 0
       ? <EmptySection title={t("policy.route.emptyRulesTitle")} description={t("policy.route.emptyRulesDescription")}
         action={t("policy.route.addRule")} onAdd={() => onEdit(null)} />

@@ -2,7 +2,6 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ConfigSaveErrorAlert } from "@/features/config/config-save-error-alert"
 import { useConfigQuery, useSaveConfigMutation } from "@/features/config/config-hooks"
@@ -16,6 +15,7 @@ import {
 import type { APIEnvelope, JsonValue, RouteRuleMetadata } from "@/lib/api/types"
 import { api } from "@/lib/api/endpoints"
 import { rolledBackMessage } from "@/lib/api/status"
+import { PageLoadErrorAlert } from "@/features/common/page-load-error-alert"
 
 export type { PolicyVisualEditorProps } from "@/features/policy/policy-editor"
 
@@ -47,12 +47,7 @@ export function PolicyPage({
   const [jumpPath, setJumpPath] = useState<string | null>(null)
   if (query.isLoading) return <Skeleton className="h-64 w-full" />
   if (query.error) {
-    return (
-      <Alert variant="destructive">
-        <AlertTitle>{t("common.loadFailed")}</AlertTitle>
-        <AlertDescription>{query.error.message}</AlertDescription>
-      </Alert>
-    )
+    return <PageLoadErrorAlert error={query.error} scope="policy" />
   }
   const persist = (object: JsonObject) => {
     clearSaveError()

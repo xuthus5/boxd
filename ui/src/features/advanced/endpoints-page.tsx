@@ -25,6 +25,7 @@ import type { ConfigSaveErrorState } from "@/features/config/config-save-error"
 import { useConfigSaveError } from "@/features/config/use-config-save-error"
 import { type JsonObject } from "@/features/policy/policy-form-model"
 import type { JsonValue } from "@/lib/api/types"
+import { PageLoadErrorAlert } from "@/features/common/page-load-error-alert"
 
 const SECTION = "endpoints"
 
@@ -161,12 +162,7 @@ export function EndpointsPage() {
   const { saveError, clearSaveError, reportError, reportRollback } = useConfigSaveError()
   if (query.isLoading) return <Skeleton className="h-64 w-full" />
   if (query.error) {
-    return (
-      <Alert variant="destructive">
-        <AlertTitle>{t("common.loadFailed")}</AlertTitle>
-        <AlertDescription>{query.error.message}</AlertDescription>
-      </Alert>
-    )
+    return <PageLoadErrorAlert error={query.error} scope="advanced-endpoints" />
   }
   const initial = query.data?.endpoints
   return (

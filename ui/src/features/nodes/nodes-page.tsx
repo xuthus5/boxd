@@ -3,7 +3,6 @@ import { useId, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { useSearchParams } from "react-router-dom"
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Input } from "@/components/ui/input"
@@ -24,6 +23,7 @@ import {
 import { RuntimeGroupsCard } from "@/features/nodes/runtime-groups-card"
 import { api } from "@/lib/api/endpoints"
 import type { LatencyPoint, Outbound, TestResult } from "@/lib/api/types"
+import { PageLoadErrorAlert } from "@/features/common/page-load-error-alert"
 
 function groupSubscriptions(nodes: Outbound[]) {
   const groups = new Map<string, Outbound[]>()
@@ -130,7 +130,7 @@ export function NodesPage() {
 
   if (nodesQuery.isLoading) return <Skeleton className="h-64 w-full" />
   if (error) {
-    return <Alert variant="destructive"><AlertTitle>{t("common.loadFailed")}</AlertTitle><AlertDescription>{error.message}</AlertDescription></Alert>
+    return <PageLoadErrorAlert error={error} scope="nodes" />
   }
 
   return (

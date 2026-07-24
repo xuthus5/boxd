@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 import { ProbeURLField } from "@/components/probe-url-field"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldTitle } from "@/components/ui/field"
@@ -22,6 +21,7 @@ import { reportSettingsRequestError } from "@/features/settings/settings-request
 import { resolveInitialSpeedTestURL } from "@/lib/speed-test-urls"
 import { isHTTPURL } from "@/lib/urltest"
 import type { Language, LogThreshold, Theme } from "@/lib/storage"
+import { PageLoadErrorAlert } from "@/features/common/page-load-error-alert"
 
 function AppearanceCard() {
   const preferences = usePreferences()
@@ -156,6 +156,6 @@ export function SettingsPage() {
   const queries = [password, jwt, testURL, autostart, urlTestDefaults, ruleSetAuto]
   if (queries.some((query) => query.isLoading)) return <Skeleton className="h-64 w-full" />
   const error = queries.find((query) => query.error)?.error
-  if (error) return <Alert variant="destructive"><AlertTitle>{t("common.loadFailed")}</AlertTitle><AlertDescription>{error.message}</AlertDescription></Alert>
+  if (error) return <PageLoadErrorAlert error={error} scope="settings" />
   return <div className="flex flex-col gap-3 sm:gap-4"><h1 className="text-2xl font-semibold">{t("settings.title")}</h1><div className="grid gap-3 sm:gap-4 lg:grid-cols-2"><AppearanceCard /><AccountSecurityCard defaultPassword={password.data!.defaultPassword} jwt={jwt.data!} /><RuntimeSettingsCard url={testURL.data!.url} enabled={autostart.data!.enabled} /><URLTestDefaultsCard defaults={urlTestDefaults.data!} /><RuleSetAutoUpdateCard defaults={ruleSetAuto.data!} /><BackupExportCard /></div></div>
 }

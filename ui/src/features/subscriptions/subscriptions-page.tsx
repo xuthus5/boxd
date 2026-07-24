@@ -6,7 +6,6 @@ import { useTranslation } from "react-i18next"
 import { useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Input } from "@/components/ui/input"
@@ -35,6 +34,7 @@ import {
 } from "@/features/subscriptions/subscription-error"
 import { api } from "@/lib/api/endpoints"
 import type { Subscription } from "@/lib/api/types"
+import { PageLoadErrorAlert } from "@/features/common/page-load-error-alert"
 
 export function SubscriptionsPage() {
   const { t } = useTranslation()
@@ -145,7 +145,7 @@ export function SubscriptionsPage() {
 
   if (query.isLoading || defaults.isLoading) return <Skeleton className="h-64 w-full" />
   if (loadError) {
-    return <Alert variant="destructive"><AlertTitle>{t("common.loadFailed")}</AlertTitle><AlertDescription>{loadError.message}</AlertDescription></Alert>
+    return <PageLoadErrorAlert error={loadError} scope="subscriptions" />
   }
 
   return (

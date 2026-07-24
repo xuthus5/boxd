@@ -29,7 +29,9 @@ describe("proxy alternate states", () => {
       status: "error", data: null, error: { code: "internal_error", message: "failed" }, meta: null,
     }), { status: 500 }))))
     renderApp(<App />, "/proxy/inbounds")
-    expect(await screen.findByText("加载失败", {}, { timeout: 3000 })).toBeInTheDocument()
+    const alert = await screen.findByTestId("page-load-error", {}, { timeout: 3000 })
+    expect(alert).toHaveAttribute("data-error-code", "internal")
+    expect(screen.getByText("failed")).toBeInTheDocument()
   })
 
   it("reports a rolled back save", async () => {

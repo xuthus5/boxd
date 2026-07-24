@@ -3,7 +3,6 @@ import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ClashModeCard } from "@/features/dashboard/clash-mode-card"
 import { HealthSummaryCard } from "@/features/dashboard/health-summary-card"
@@ -18,6 +17,7 @@ import { ServiceCard } from "@/features/dashboard/service-card"
 import { TrafficChart } from "@/features/dashboard/traffic-chart"
 import { useAuth } from "@/features/auth/auth-context"
 import { reportDashboardRequestError } from "@/features/dashboard/dashboard-request-error-actions"
+import { PageLoadErrorAlert } from "@/features/common/page-load-error-alert"
 import { useStreamBuffer } from "@/features/observability/use-stream-buffer"
 import { api } from "@/lib/api/endpoints"
 import type { ConnectionEvent, LogEvent, TrafficEvent } from "@/lib/api/types"
@@ -63,7 +63,14 @@ export function DashboardPage() {
 
   if ([status, history, memory, version].some((query) => query.isLoading)) return <div className="flex flex-col gap-4"><h1 className="text-2xl font-semibold">{t("pages.dashboard")}</h1><Skeleton className="h-64 w-full" /></div>
   const error = [status, history, memory, version].find((query) => query.error)?.error
-  if (error) return <div className="flex flex-col gap-4"><h1 className="text-2xl font-semibold">{t("pages.dashboard")}</h1><Alert variant="destructive"><AlertTitle>{t("dashboard.loadFailed")}</AlertTitle><AlertDescription>{error.message}</AlertDescription></Alert></div>
+  if (error) {
+    return (
+      <div className="flex flex-col gap-4">
+        <h1 className="text-2xl font-semibold">{t("pages.dashboard")}</h1>
+        <PageLoadErrorAlert error={error} scope="dashboard" titleKey="dashboard.loadFailed" />
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-4">

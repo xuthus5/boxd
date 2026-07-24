@@ -3,7 +3,6 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
@@ -20,6 +19,7 @@ import {
 import { copyText } from "@/features/proxy/copy-tag-button"
 import { api } from "@/lib/api/endpoints"
 import type { JsonValue, Outbound } from "@/lib/api/types"
+import { PageLoadErrorAlert } from "@/features/common/page-load-error-alert"
 
 interface Props { tag: string; onClose: () => void; onSaved: () => void }
 
@@ -103,10 +103,7 @@ export function NodeEditorDialog({ tag, onClose, onSaved }: Props) {
         </DialogHeader>
         {query.isLoading ? <Skeleton className="h-64 w-full" /> : null}
         {query.error ? (
-          <Alert variant="destructive">
-            <AlertTitle>{t("common.loadFailed")}</AlertTitle>
-            <AlertDescription>{query.error.message}</AlertDescription>
-          </Alert>
+          <PageLoadErrorAlert error={query.error} scope="node-editor" />
         ) : null}
         {query.data ? <NodeEditorForm node={query.data} originalTag={tag} onSaved={onSaved} /> : null}
       </DialogContent>

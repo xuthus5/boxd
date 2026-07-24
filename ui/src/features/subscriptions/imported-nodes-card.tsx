@@ -4,7 +4,6 @@ import { useId, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -22,6 +21,7 @@ import { NodeImportDialog } from "@/features/nodes/node-import-dialog"
 import { copyText } from "@/features/proxy/copy-tag-button"
 import { api } from "@/lib/api/endpoints"
 import type { Outbound } from "@/lib/api/types"
+import { PageLoadErrorAlert } from "@/features/common/page-load-error-alert"
 
 function ImportedNodeItem({ node, onEdit, onDelete }: { node: Outbound; onEdit: () => void; onDelete: () => void }) {
   const { t } = useTranslation()
@@ -94,10 +94,7 @@ export function ImportedNodesCard() {
     ? <Skeleton className="h-32 w-full" />
     : query.error
       ? (
-        <Alert variant="destructive">
-          <AlertTitle>{t("common.loadFailed")}</AlertTitle>
-          <AlertDescription>{query.error.message}</AlertDescription>
-        </Alert>
+        <PageLoadErrorAlert error={query.error} scope="imported-nodes" />
       )
       : nodes.length
         ? (
