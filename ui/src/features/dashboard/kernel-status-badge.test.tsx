@@ -59,8 +59,11 @@ describe("KernelStatusBadge", () => {
     }), { status: 500 }))))
     renderBadge()
     await waitFor(() => {
-      expect(screen.getByRole("link", { name: "状态未知" })).toBeInTheDocument()
+      expect(screen.getByRole("link", { name: /状态未知/ })).toBeInTheDocument()
     })
-    expect(document.querySelector('[data-kernel-status="unknown"]')).toBeInTheDocument()
+    const link = screen.getByRole("link", { name: /状态未知/ })
+    expect(link).toHaveAttribute("title", expect.stringMatching(/internal|boom|状态未知/))
+    expect(document.querySelector('[data-kernel-status="error"]')).toBeInTheDocument()
+    expect(document.querySelector('[data-error-code="internal"]')).toBeInTheDocument()
   })
 })

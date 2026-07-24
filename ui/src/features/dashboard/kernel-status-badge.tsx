@@ -4,6 +4,10 @@ import { Link } from "react-router-dom"
 
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
+import {
+  classifyPageLoadError,
+  pageLoadErrorMessage,
+} from "@/features/common/page-load-error"
 import { api } from "@/lib/api/endpoints"
 import { cn } from "@/lib/utils"
 
@@ -26,14 +30,28 @@ export function KernelStatusBadge() {
   }
 
   if (status.error || !status.data) {
+    const code = classifyPageLoadError(status.error)
+    const detail = pageLoadErrorMessage(status.error, t("nav.kernelUnknown"))
+    const label = code !== "unknown"
+      ? `${t("nav.kernelUnknown")} · ${code}`
+      : t("nav.kernelUnknown")
+    const title = detail && detail !== t("nav.kernelUnknown")
+      ? `${label}: ${detail}`
+      : label
     return (
       <Link
         to="/dashboard"
         className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-7 px-2")}
-        aria-label={t("nav.kernelUnknown")}
+        aria-label={title}
+        title={title}
       >
-        <Badge variant="outline" className="max-w-[12rem] truncate" data-kernel-status="unknown">
-          {t("nav.kernelUnknown")}
+        <Badge
+          variant="outline"
+          className="max-w-[12rem] truncate"
+          data-kernel-status="error"
+          data-error-code={code}
+        >
+          {label}
         </Badge>
       </Link>
     )
