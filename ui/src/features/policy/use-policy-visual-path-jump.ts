@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useEffectEvent } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
@@ -34,22 +34,19 @@ export function usePolicyVisualPathJump({
   onSelect,
 }: UsePolicyVisualPathJumpOptions) {
   const { t } = useTranslation()
-  const listsRef = useRef(lists)
-  const onSelectRef = useRef(onSelect)
-  const handledRef = useRef(onJumpPathHandled)
-  listsRef.current = lists
-  onSelectRef.current = onSelect
-  handledRef.current = onJumpPathHandled
+  const handleJump = useEffectEvent((path: string) => {
+    const next = policyDialogSelectionFromPath(path, section, lists)
+    if (!next) {
+      toast.message(t("config.pathNotFound", { path }))
+      onJumpPathHandled?.()
+      return
+    }
+    onSelect(next)
+    onJumpPathHandled?.()
+  })
 
   useEffect(() => {
     if (!jumpPath) return
-    const next = policyDialogSelectionFromPath(jumpPath, section, listsRef.current)
-    if (!next) {
-      toast.message(t("config.pathNotFound", { path: jumpPath }))
-      handledRef.current?.()
-      return
-    }
-    onSelectRef.current(next)
-    handledRef.current?.()
-  }, [jumpPath, section, t])
+    handleJump(jumpPath)
+  }, [jumpPath])
 }

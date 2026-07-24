@@ -211,7 +211,10 @@ describe("proxy dry-run validate", () => {
     expect(await screen.findByRole("dialog")).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "校验配置" }))
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith("/api/config/validate", expect.objectContaining({ method: "POST" }))
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/config/validate?source=validate_inbounds",
+        expect.objectContaining({ method: "POST" }),
+      )
     })
     expect(fetchMock.mock.calls.some((call) => String(call[0]) === "/api/config/" && call[1]?.method === "PUT")).toBe(false)
   })
@@ -244,7 +247,10 @@ describe("proxy dry-run validate", () => {
     expect(await screen.findByRole("dialog")).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "校验配置" }))
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith("/api/config/validate", expect.objectContaining({ method: "POST" }))
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/config/validate?source=validate_inbounds",
+        expect.objectContaining({ method: "POST" }),
+      )
     })
     expect(screen.getByRole("tab", { name: "高级 JSON" })).toHaveAttribute("aria-selected", "true")
     expect(fetchMock.mock.calls.some((call) => String(call[0]) === "/api/config/" && call[1]?.method === "PUT")).toBe(false)

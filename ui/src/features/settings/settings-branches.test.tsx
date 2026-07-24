@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react"
+import { screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
@@ -53,7 +53,7 @@ describe("settings save failures", () => {
     await user.clear(manual)
     await user.type(manual, "https://example.com/fail")
     await user.click(await screen.findByRole("button", { name: "保存测速地址" }))
-    expect(await screen.findAllByText("save failed")).not.toHaveLength(0)
+    expect(await screen.findAllByText("internal: save failed")).not.toHaveLength(0)
   })
 
   it("restores kernel autostart when saving fails", async () => {
@@ -72,7 +72,7 @@ describe("settings save failures", () => {
     renderApp(<App />, "/settings")
     const autostart = await screen.findByRole("switch", { name: "内核自启" })
     await user.click(autostart)
-    expect(await screen.findByText("save failed")).toBeInTheDocument()
+    expect(await screen.findByText("internal: save failed")).toBeInTheDocument()
     expect(autostart).not.toBeChecked()
   })
 })
@@ -98,13 +98,15 @@ describe("settings credential failures", () => {
     await user.type(screen.getByLabelText("确认新密码"), "replacement-password-456")
     await user.click(screen.getByRole("button", { name: "轮换密码" }))
     await user.click(screen.getByRole("button", { name: "确认轮换" }))
-    expect(await screen.findByText("rotation failed")).toBeInTheDocument()
+    expect(await screen.findByText("invalid_input: rotation failed")).toBeInTheDocument()
     expect(screen.getByLabelText("当前密码")).toHaveValue("current")
     expect(screen.getByLabelText("新密码")).toHaveValue("replacement-password-456")
-    await user.click(screen.getByRole("button", { name: "取消" }))
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+    })
     await user.type(screen.getByLabelText("JWT 签名密钥"), "replacement-secret")
     await user.click(screen.getByRole("button", { name: "轮换 JWT 密钥" }))
     await user.click(screen.getByRole("button", { name: "确认轮换" }))
-    expect((await screen.findAllByText("rotation failed")).length).toBeGreaterThanOrEqual(2)
+    expect((await screen.findAllByText("invalid_input: rotation failed")).length).toBeGreaterThanOrEqual(2)
   })
 })

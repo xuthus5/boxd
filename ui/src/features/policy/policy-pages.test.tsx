@@ -218,7 +218,10 @@ describe("policy dry-run validate", () => {
     await screen.findByRole("heading", { name: "路由" })
     await userEvent.click(screen.getByRole("button", { name: "校验配置" }))
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith("/api/config/validate", expect.objectContaining({ method: "POST" }))
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/config/validate?source=validate_route",
+        expect.objectContaining({ method: "POST" }),
+      )
     })
     expect(fetchMock.mock.calls.some((call) => String(call[0]) === "/api/config/" && call[1]?.method === "PUT")).toBe(false)
   }, 20_000)
@@ -283,7 +286,10 @@ describe("policy item path jump", () => {
     expect(await screen.findByRole("dialog")).toBeInTheDocument()
     await userEvent.click(screen.getByRole("button", { name: "校验配置" }))
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith("/api/config/validate", expect.objectContaining({ method: "POST" }))
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/config/validate?source=validate_route",
+        expect.objectContaining({ method: "POST" }),
+      )
     })
     expect(fetchMock.mock.calls.some((call) => String(call[0]) === "/api/config/" && call[1]?.method === "PUT")).toBe(false)
   }, 20_000)

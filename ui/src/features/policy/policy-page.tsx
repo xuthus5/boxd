@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useCallback, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
@@ -44,7 +44,10 @@ export function PolicyPage({
   const query = useConfigQuery()
   const save = useSaveConfigMutation()
   const { saveError, clearSaveError, reportError, reportRollback } = useConfigSaveError()
-  const [jumpPath, setJumpPath] = useState<string | null>(null)
+  const revealRef = useRef<(path: string) => boolean>(() => false)
+  const setReveal = useCallback((reveal: ((path: string) => boolean) | null) => {
+    revealRef.current = reveal ?? (() => false)
+  }, [])
   if (query.isLoading) return <Skeleton className="h-64 w-full" />
   if (query.error) {
     return (
@@ -115,7 +118,7 @@ export function PolicyPage({
       <ConfigSaveErrorAlert
         error={saveError}
         onDismiss={clearSaveError}
-        onJumpToPath={(path) => setJumpPath(path)}
+        onJumpToPath={(path) => revealRef.current(path)}
       />
       <PolicyEditor
         section={section}
@@ -128,8 +131,7 @@ export function PolicyPage({
         renderVisual={renderVisual}
         installInVisual={installInVisual}
         onRulesChange={section === "route" || section === "dns" ? persistRules : undefined}
-        jumpPath={jumpPath}
-        onJumpPathHandled={() => setJumpPath(null)}
+        onRevealReady={setReveal}
         reportError={reportError}
         clearSaveError={clearSaveError}
       />

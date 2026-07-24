@@ -77,7 +77,10 @@ describe("RawConfigPage diff", () => {
     await screen.findByLabelText("完整配置 JSON")
     await userEvent.click(screen.getByRole("button", { name: "校验配置" }))
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith("/api/config/validate", expect.objectContaining({ method: "POST" }))
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/config/validate?source=validate_raw",
+        expect.objectContaining({ method: "POST" }),
+      )
     })
     expect(fetchMock.mock.calls.some((call) => String(call[0]).includes("/api/config/raw") && call[1]?.method === "PUT")).toBe(false)
     vi.unstubAllGlobals()

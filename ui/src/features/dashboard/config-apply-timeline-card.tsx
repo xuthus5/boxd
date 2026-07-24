@@ -221,7 +221,7 @@ export function ConfigApplyTimelineCard() {
     )
   }
   const events = query.data?.events ?? []
-  const now = Date.now()
+  const now = query.dataUpdatedAt
   const locale = i18n.language?.startsWith("en") ? "en-US" : "zh-CN"
   return (
     <Card size="sm">

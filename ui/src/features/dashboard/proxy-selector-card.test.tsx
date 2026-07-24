@@ -57,7 +57,7 @@ describe("ProxySelectorCard", () => {
   })
 
   it("tests member delays via group urltest", async () => {
-    const fetchMock = vi.fn((input: string | URL | Request, init?: RequestInit) => {
+    const fetchMock = vi.fn((input: string | URL | Request) => {
       const path = String(typeof input === "string" ? input : input instanceof URL ? input.pathname : new URL(input.url).pathname)
       if (path.includes("/api/nodes/groups") && !path.includes("urltest")) {
         return Promise.resolve(new Response(JSON.stringify({

@@ -58,7 +58,9 @@ const pageCases: PageCase[] = [
 
 function stubConfig(section: "route" | "dns", object: JsonObject) {
   const config: SingBoxConfig = { [section]: object }
-  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(config))))
+  vi.stubGlobal("fetch", vi.fn().mockImplementation(() => (
+    Promise.resolve(new Response(JSON.stringify(config)))
+  )))
 }
 
 function renderPolicy(testCase: PageCase) {

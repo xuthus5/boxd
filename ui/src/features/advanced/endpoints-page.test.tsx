@@ -167,7 +167,10 @@ describe("endpoints page", () => {
     await screen.findByRole("heading", { name: "端点" })
     await user.click(screen.getByRole("button", { name: "校验配置" }))
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith("/api/config/validate", expect.objectContaining({ method: "POST" }))
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/config/validate?source=validate_endpoints",
+        expect.objectContaining({ method: "POST" }),
+      )
     })
     expect(fetchMock.mock.calls.some((call) => String(call[0]) === "/api/config/" && call[1]?.method === "PUT")).toBe(false)
   })

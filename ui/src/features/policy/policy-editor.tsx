@@ -53,8 +53,7 @@ interface PolicyEditorProps {
   renderVisual: (props: PolicyVisualEditorProps) => React.ReactNode
   installInVisual?: boolean
   onRulesChange?: (object: JsonObject, metadata: RouteRuleMetadata[]) => void
-  jumpPath?: string | null
-  onJumpPathHandled?: () => void
+  onRevealReady?: (reveal: ((path: string) => boolean) | null) => void
   reportError?: (error: unknown) => ConfigSaveErrorState
   clearSaveError?: () => void
 }
@@ -165,8 +164,7 @@ export function PolicyEditor({
   renderVisual,
   installInVisual,
   onRulesChange,
-  jumpPath,
-  onJumpPathHandled,
+  onRevealReady,
   reportError,
   clearSaveError,
 }: PolicyEditorProps) {
@@ -202,10 +200,9 @@ export function PolicyEditor({
   }, [revealJSON, section])
   useConfigPathReveal((path) => reveal(path), { section })
   useEffect(() => {
-    if (!jumpPath) return
-    reveal(jumpPath)
-    onJumpPathHandled?.()
-  }, [jumpPath, onJumpPathHandled, reveal])
+    onRevealReady?.(reveal)
+    return () => onRevealReady?.(null)
+  }, [onRevealReady, reveal])
   const buildConfig = useCallback(() => {
     if (!editor.object || !configQuery.data) return null
     return { ...configQuery.data, [section]: editor.object }
@@ -280,4 +277,3 @@ export function PolicyEditor({
     </Card>
   )
 }
-
