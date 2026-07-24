@@ -5,6 +5,8 @@ import { Link } from "react-router-dom"
 import { toast } from "sonner"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { CardQueryError } from "@/features/common/card-query-error"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -213,9 +215,32 @@ export function RuntimeGroupsCard() {
   const titleId = useId()
   const query = useQuery({ queryKey: ["nodes", "groups"], queryFn: api.nodes.groups })
   const groups = query.data?.groups ?? []
+  if (query.isLoading) return <Skeleton className="h-32 w-full" />
+  if (query.error) {
+    return (
+      <section aria-labelledby={titleId} className="flex flex-col gap-3">
+        <div>
+          <h2 id={titleId} className="text-lg font-medium">{t("nodes.runtimeGroups")}</h2>
+          <p className="text-sm text-muted-foreground">{t("nodes.runtimeGroupsDescription")}</p>
+        </div>
+        <CardQueryError
+          error={query.error}
+          scope="runtime-groups"
+          onRetry={() => { void query.refetch() }}
+        />
+      </section>
+    )
+  }
   if (!groups.length) return null
-  return <section aria-labelledby={titleId} className="flex flex-col gap-3">
-    <div><h2 id={titleId} className="text-lg font-medium">{t("nodes.runtimeGroups")}</h2><p className="text-sm text-muted-foreground">{t("nodes.runtimeGroupsDescription")}</p></div>
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{groups.map((group) => <RuntimeGroupCard key={group.tag} group={group} />)}</div>
-  </section>
+  return (
+    <section aria-labelledby={titleId} className="flex flex-col gap-3">
+      <div>
+        <h2 id={titleId} className="text-lg font-medium">{t("nodes.runtimeGroups")}</h2>
+        <p className="text-sm text-muted-foreground">{t("nodes.runtimeGroupsDescription")}</p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {groups.map((group) => <RuntimeGroupCard key={group.tag} group={group} />)}
+      </div>
+    </section>
+  )
 }

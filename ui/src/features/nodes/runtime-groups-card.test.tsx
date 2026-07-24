@@ -122,4 +122,16 @@ describe("RuntimeGroupsCard", () => {
     expect(await screen.findByText("运行时分组")).toBeInTheDocument()
     expect(screen.getByText("proxy")).toBeInTheDocument()
   })
+
+  it("densifies groups query failure with retry", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      status: "error", data: null, error: { code: "unavailable", message: "groups unavailable" }, meta: null,
+    }), { status: 503 })))
+    wrap(<RuntimeGroupsCard />)
+    const alert = await screen.findByTestId("card-query-error")
+    expect(alert).toHaveAttribute("data-error-code", "unavailable")
+    expect(screen.getByText("groups unavailable")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "重试" })).toBeInTheDocument()
+    expect(screen.getByText("运行时分组")).toBeInTheDocument()
+  })
 })
