@@ -58,14 +58,31 @@ describe("node and subscription interactions", () => {
       "/api/nodes/hk-01",
       expect.objectContaining({ method: "DELETE" }),
     ))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      "/api/nodes/sync-config",
+      expect.objectContaining({ method: "POST" }),
+    ))
+  })
+})
+
+describe("subscription synchronization workflows", () => {
+  it("synchronizes configuration after deleting a subscription", async () => {
+    const { fetchMock, user } = setup("/subscriptions")
+    const subscription = await screen.findByRole("article", { name: "主订阅" })
+
+    await user.click(within(subscription).getByRole("button", { name: "删除" }))
+    await user.click(screen.getByRole("button", { name: "确认删除" }))
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      "/api/subscriptions/sub-1",
+      expect.objectContaining({ method: "DELETE" }),
+    ))
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/nodes/sync-config",
       expect.objectContaining({ method: "POST" }),
     )
   })
-})
 
-describe("subscription synchronization workflows", () => {
   it("creates, edits, refreshes, and deletes subscriptions", async () => {
     const { fetchMock, user } = setup("/subscriptions")
     await screen.findByText("主订阅")

@@ -255,7 +255,7 @@ export function SubscriptionsPage() {
                   item={item}
                   onEdit={() => setEditing(item)}
                   onRefresh={() => action(api.subscriptions.refresh(item.id), item.error ? t("subscriptions.retryDone") : t("subscriptions.refreshDone"), { scope: "refresh", id: item.id, name: item.name, fallback: t("subscriptions.refreshFailed") })}
-                  onDelete={() => action(api.subscriptions.delete(item.id), t("subscriptions.deleted"), { scope: "delete", id: item.id, name: item.name, fallback: t("subscriptions.deleteFailed") })}
+                  onDelete={() => action(api.subscriptions.delete(item.id).then(() => api.nodes.sync()), t("subscriptions.deleted"), { scope: "delete", id: item.id, name: item.name, fallback: t("subscriptions.deleteFailed") })}
                 />
               ))}
             </div>
