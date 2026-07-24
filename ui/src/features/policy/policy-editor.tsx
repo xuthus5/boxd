@@ -18,6 +18,9 @@ import { ConfigDiffPanel } from "@/features/config/config-diff-panel"
 import { diffConfig } from "@/features/config/config-diff"
 import { JsonEditor, type JsonEditorHandle } from "@/features/config/json-editor"
 import { useConfigPathReveal } from "@/features/config/use-config-path-reveal"
+import { useConfigQuery } from "@/features/config/config-hooks"
+import { useConfigValidate } from "@/features/config/use-config-validate"
+import type { ConfigSaveErrorState } from "@/features/config/config-save-error"
 import {
   isJsonObject,
   isPolicySectionStructureValid,
@@ -48,6 +51,8 @@ interface PolicyEditorProps {
   onRulesChange?: (object: JsonObject, metadata: RouteRuleMetadata[]) => void
   jumpPath?: string | null
   onJumpPathHandled?: () => void
+  reportError?: (error: unknown) => ConfigSaveErrorState
+  clearSaveError?: () => void
 }
 
 interface PolicyEditorTabsProps {
@@ -154,8 +159,11 @@ export function PolicyEditor({
   onRulesChange,
   jumpPath,
   onJumpPathHandled,
+  reportError,
+  clearSaveError,
 }: PolicyEditorProps) {
   const { t } = useTranslation()
+  const configQuery = useConfigQuery()
   const editor = usePolicyEditorState(initialSection)
   const editorRef = useRef<JsonEditorHandle>(null)
   const [activeTab, setActiveTab] = useState("visual")
@@ -181,6 +189,20 @@ export function PolicyEditor({
     reveal(jumpPath)
     onJumpPathHandled?.()
   }, [jumpPath, onJumpPathHandled, reveal])
+  const buildConfig = useCallback(() => {
+    if (!editor.object || !configQuery.data) return null
+    return { ...configQuery.data, [section]: editor.object }
+  }, [configQuery.data, editor.object, section])
+  const { validating, validate } = useConfigValidate({
+    buildConfig,
+    reportError: reportError ?? ((error: unknown): ConfigSaveErrorState => {
+      const message = error instanceof Error ? error.message : String(error)
+      toast.error(message)
+      return { message }
+    }),
+    clearSaveError,
+    onReportedError: (err) => { if (err.path) reveal(err.path) },
+  })
   const savePolicy = () => {
     if (editor.object) onSave(editor.object)
   }
@@ -225,7 +247,16 @@ export function PolicyEditor({
         ) : <span />}
         <div className="flex flex-wrap justify-end gap-2">
           {!installInVisual ? <Button variant="outline" size="sm" className="h-8" onClick={onInstall}>{installLabel}</Button> : null}
-          {!installInVisual ? <Button size="sm" className="h-8" disabled={!editor.object || !structureValid || editor.invalidFields.size > 0} onClick={savePolicy}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8"
+            disabled={!editor.object || !structureValid || editor.invalidFields.size > 0 || validating || !configQuery.data}
+            onClick={() => { void validate() }}
+          >
+            {validating ? t("advanced.validating") : t("advanced.validate")}
+          </Button>
+          {!installInVisual ? <Button size="sm" className="h-8" disabled={!editor.object || !structureValid || editor.invalidFields.size > 0 || validating} onClick={savePolicy}>
             {t("policy.save")}
           </Button> : null}
         </div>

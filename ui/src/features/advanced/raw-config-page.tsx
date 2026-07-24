@@ -11,9 +11,9 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { ConfigDiffPanel } from "@/features/config/config-diff-panel"
 import { ConfigSaveErrorAlert } from "@/features/config/config-save-error-alert"
 import { useConfigSaveError } from "@/features/config/use-config-save-error"
+import { useConfigValidate } from "@/features/config/use-config-validate"
 import { useConfigPathReveal } from "@/features/config/use-config-path-reveal"
 import { useRawConfigQuery, useSaveConfigMutation } from "@/features/config/config-hooks"
-import { api } from "@/lib/api/endpoints"
 import { diffConfig, formatConfigDiffSummary } from "@/features/config/config-diff"
 import { JsonEditor, type JsonEditorHandle } from "@/features/config/json-editor"
 import { isValidJSON } from "@/features/config/json-utils"
@@ -25,7 +25,6 @@ function RawEditor({ initial }: { initial: SingBoxConfig }) {
   const [value, setValue] = useState(() => JSON.stringify(initial, null, 2))
   const { saveError, clearSaveError, reportError, reportRollback } = useConfigSaveError()
   const save = useSaveConfigMutation(true)
-  const [validating, setValidating] = useState(false)
   const valid = isValidJSON(value)
   const nextConfig = valid ? JSON.parse(value) as SingBoxConfig : null
   const diffItems = nextConfig ? diffConfig(initial, nextConfig) : []
@@ -42,20 +41,12 @@ function RawEditor({ initial }: { initial: SingBoxConfig }) {
     return ok
   }, [t])
   useConfigPathReveal(reveal)
-  const runValidate = async () => {
-    if (!nextConfig) return
-    clearSaveError()
-    setValidating(true)
-    try {
-      await api.config.validate(nextConfig)
-      toast.success(t("advanced.validateOK"))
-    } catch (error) {
-      const err = reportError(error)
-      if (err.path) reveal(err.path)
-    } finally {
-      setValidating(false)
-    }
-  }
+  const { validating, validate: runValidate } = useConfigValidate({
+    buildConfig: () => nextConfig,
+    reportError,
+    clearSaveError,
+    onReportedError: (err) => { if (err.path) reveal(err.path) },
+  })
   const persist = () => {
     if (!nextConfig) return
     clearSaveError()

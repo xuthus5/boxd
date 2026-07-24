@@ -129,6 +129,8 @@ export function PolicyPage({
         onRulesChange={section === "route" || section === "dns" ? persistRules : undefined}
         jumpPath={jumpPath}
         onJumpPathHandled={() => setJumpPath(null)}
+        reportError={reportError}
+        clearSaveError={clearSaveError}
       />
     </div>
   )

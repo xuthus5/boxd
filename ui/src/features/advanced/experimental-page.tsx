@@ -21,6 +21,8 @@ import { useConfigQuery, useSaveConfigMutation } from "@/features/config/config-
 import { useConfigSaveError } from "@/features/config/use-config-save-error"
 import { JsonEditor, type JsonEditorHandle } from "@/features/config/json-editor"
 import { useConfigPathReveal } from "@/features/config/use-config-path-reveal"
+import { useConfigValidate } from "@/features/config/use-config-validate"
+import type { ConfigSaveErrorState } from "@/features/config/config-save-error"
 import { isJsonObject, type JsonObject } from "@/features/policy/policy-form-model"
 import { api } from "@/lib/api/endpoints"
 import type { JsonValue } from "@/lib/api/types"
@@ -56,13 +58,16 @@ function useExperimentalEditorState(initial: JsonValue | undefined) {
   return { value, revision, invalidFields, object, updateObject, updateJSON, updateFieldValidity }
 }
 
-function ExperimentalEditor({ initial, onSave, onInstallClashAPI, installing, saveError, onDismissError }: {
+function ExperimentalEditor({ initial, fullConfig, onSave, onInstallClashAPI, installing, saveError, onDismissError, reportError, clearSaveError }: {
   initial: JsonValue | undefined
+  fullConfig: import("@/lib/api/types").SingBoxConfig
   onSave: (object: JsonObject) => void
   onInstallClashAPI: () => void
   installing: boolean
   saveError: ReturnType<typeof useConfigSaveError>["saveError"]
   onDismissError: () => void
+  reportError: (error: unknown) => ConfigSaveErrorState
+  clearSaveError: () => void
 }) {
   const { t } = useTranslation()
   const editor = useExperimentalEditorState(initial)
@@ -85,6 +90,15 @@ function ExperimentalEditor({ initial, onSave, onInstallClashAPI, installing, sa
     return true
   }, [t])
   useConfigPathReveal((path) => reveal(path), { section })
+  const { validating, validate } = useConfigValidate({
+    buildConfig: () => {
+      if (!editor.object) return null
+      return { ...fullConfig, experimental: prepareExperimentalObject(editor.object) }
+    },
+    reportError,
+    clearSaveError,
+    onReportedError: (err) => { if (err.path) reveal(err.path) },
+  })
 
   return (
     <Card size="sm">
@@ -138,9 +152,18 @@ function ExperimentalEditor({ initial, onSave, onInstallClashAPI, installing, sa
           {t("advanced.installClashAPI")}
         </Button>
         <Button
+          variant="outline"
           size="sm"
           className="h-8 w-full sm:w-auto"
-          disabled={!canSave}
+          disabled={!canSave || validating || installing}
+          onClick={() => { void validate() }}
+        >
+          {validating ? t("advanced.validating") : t("advanced.validate")}
+        </Button>
+        <Button
+          size="sm"
+          className="h-8 w-full sm:w-auto"
+          disabled={!canSave || validating || installing}
           onClick={() => editor.object && onSave(prepareExperimentalObject(editor.object))}
         >
           {t("advanced.save")}
@@ -182,9 +205,12 @@ export function ExperimentalPage() {
     <ExperimentalEditor
       key={JSON.stringify(initial ?? {})}
       initial={initial}
+      fullConfig={query.data!}
       installing={installing}
       saveError={saveError}
       onDismissError={clearSaveError}
+      reportError={reportError}
+      clearSaveError={clearSaveError}
       onInstallClashAPI={installClashAPI}
       onSave={(object) => {
         clearSaveError()

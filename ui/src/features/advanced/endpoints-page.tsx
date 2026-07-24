@@ -20,6 +20,8 @@ import { ConfigSaveErrorAlert } from "@/features/config/config-save-error-alert"
 import { useConfigQuery, useSaveConfigMutation } from "@/features/config/config-hooks"
 import { JsonEditor, type JsonEditorHandle } from "@/features/config/json-editor"
 import { useConfigPathReveal } from "@/features/config/use-config-path-reveal"
+import { useConfigValidate } from "@/features/config/use-config-validate"
+import type { ConfigSaveErrorState } from "@/features/config/config-save-error"
 import { useConfigSaveError } from "@/features/config/use-config-save-error"
 import { type JsonObject } from "@/features/policy/policy-form-model"
 import type { JsonValue } from "@/lib/api/types"
@@ -43,11 +45,14 @@ function useEndpointsEditorState(initial: JsonValue | undefined) {
   return { value, items, updateItems, updateJSON }
 }
 
-function EndpointsEditor({ initial, onSave, saveError, onDismissError }: {
+function EndpointsEditor({ initial, fullConfig, onSave, saveError, onDismissError, reportError, clearSaveError }: {
   initial: JsonValue | undefined
+  fullConfig: import("@/lib/api/types").SingBoxConfig
   onSave: (items: JsonObject[]) => void
   saveError: ReturnType<typeof useConfigSaveError>["saveError"]
   onDismissError: () => void
+  reportError: (error: unknown) => ConfigSaveErrorState
+  clearSaveError: () => void
 }) {
   const { t } = useTranslation()
   const editor = useEndpointsEditorState(initial)
@@ -70,6 +75,15 @@ function EndpointsEditor({ initial, onSave, saveError, onDismissError }: {
     return true
   }, [t])
   useConfigPathReveal((path) => reveal(path), { section: SECTION })
+  const { validating, validate } = useConfigValidate({
+    buildConfig: () => {
+      if (!editor.items) return null
+      return { ...fullConfig, endpoints: prepareEndpoints(editor.items) }
+    },
+    reportError,
+    clearSaveError,
+    onReportedError: (err) => { if (err.path) reveal(err.path) },
+  })
 
   return (
     <Card size="sm">
@@ -119,9 +133,18 @@ function EndpointsEditor({ initial, onSave, saveError, onDismissError }: {
       </CardContent>
       <CardFooter className="flex-wrap justify-end gap-2">
         <Button
+          variant="outline"
           size="sm"
           className="h-8 w-full sm:w-auto"
-          disabled={!canSave}
+          disabled={!canSave || validating}
+          onClick={() => { void validate() }}
+        >
+          {validating ? t("advanced.validating") : t("advanced.validate")}
+        </Button>
+        <Button
+          size="sm"
+          className="h-8 w-full sm:w-auto"
+          disabled={!canSave || validating}
           onClick={() => editor.items && onSave(prepareEndpoints(editor.items))}
         >
           {t("advanced.save")}
@@ -150,8 +173,11 @@ export function EndpointsPage() {
     <EndpointsEditor
       key={JSON.stringify(initial ?? [])}
       initial={initial}
+      fullConfig={query.data!}
       saveError={saveError}
       onDismissError={clearSaveError}
+      reportError={reportError}
+      clearSaveError={clearSaveError}
       onSave={(items) => {
         clearSaveError()
         save.mutate(

@@ -138,4 +138,37 @@ describe("endpoints page", () => {
     expect(screen.getByRole("tab", { name: "高级 JSON" })).toHaveAttribute("aria-selected", "true")
   })
 
+  it("validates endpoints configuration without writing", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    const fetchMock = vi.fn((input: string | URL | Request, init?: RequestInit) => {
+      const path = String(typeof input === "string" ? input : input instanceof URL ? input.pathname : input.url).split("?")[0]
+      if (path === "/api/config/validate" && init?.method === "POST") {
+        return Promise.resolve(new Response(JSON.stringify({
+          status: "ok", data: { valid: true }, error: null, meta: { validated: true, applied: false },
+        })))
+      }
+      if (path === "/api/config/" || path === "/api/config/raw") {
+        return Promise.resolve(new Response(JSON.stringify({
+          log: { level: "info" },
+          endpoints: [{ type: "wireguard", tag: "wg-home", address: ["10.0.0.2/32"], private_key: "private", peers: [{ public_key: "peer", allowed_ips: ["0.0.0.0/0"] }] }],
+        })))
+      }
+      if (path === "/api/network/interfaces") {
+        return Promise.resolve(new Response(JSON.stringify({ interfaces: [{ name: "eth0", ips: ["10.0.0.2"] }] })))
+      }
+      if (path === "/api/settings/password") {
+        return Promise.resolve(new Response(JSON.stringify({ defaultPassword: false })))
+      }
+      return Promise.resolve(new Response(JSON.stringify({})))
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    const user = userEvent.setup()
+    renderApp(<App />, "/advanced/endpoints")
+    await screen.findByRole("heading", { name: "端点" })
+    await user.click(screen.getByRole("button", { name: "校验配置" }))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith("/api/config/validate", expect.objectContaining({ method: "POST" }))
+    })
+    expect(fetchMock.mock.calls.some((call) => String(call[0]) === "/api/config/" && call[1]?.method === "PUT")).toBe(false)
+  })
 })
