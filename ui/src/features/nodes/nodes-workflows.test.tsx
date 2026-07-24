@@ -20,7 +20,7 @@ function setup(handler: (path: string, init?: RequestInit) => unknown, route = "
 }
 
 describe("node management workflows", () => {
-  it("edits an imported node while preserving its advanced configuration", async () => {
+  it("edits an imported node without duplicate config sync", async () => {
     const { fetchMock, user } = setup((path) => {
       if (path === "/api/nodes/") return [{ tag: "hk-01", type: "vless", server: "example.com", port: 443, source: "import" }]
       if (path === "/api/nodes/hk-01") return { tag: "hk-01", type: "vless", server: "example.com", port: 443, raw: { uuid: "secret", tls: { enabled: true } } }
@@ -48,10 +48,8 @@ describe("node management workflows", () => {
         }),
       }),
     ))
-    expect(fetchMock).toHaveBeenCalledWith(
-      "/api/nodes/sync-config",
-      expect.objectContaining({ method: "POST" }),
-    )
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+    expect(fetchMock.mock.calls.some(([input]) => String(input) === "/api/nodes/sync-config")).toBe(false)
   })
 
   it("switches test type and displays persisted results", async () => {

@@ -81,7 +81,10 @@ func (h *ImportHandler) SaveNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = h.syncConfig()
+	if err := h.syncConfig(); err != nil {
+		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorNodeUpdateFailed, "failed to synchronize node configuration: "+err.Error())
+		return
+	}
 
 	writeJSON(w, http.StatusOK, nil)
 }

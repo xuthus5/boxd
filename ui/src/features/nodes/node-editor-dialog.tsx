@@ -37,7 +37,7 @@ function NodeEditorForm({ node, originalTag, onSaved }: { node: Outbound; origin
   const [config, setConfig] = useState(() => JSON.stringify(node.raw ?? {}, null, 2))
   const parsed = parseJSON(config)
   const save = useMutation({
-    mutationFn: () => api.nodes.update(originalTag, { tag, type, server, port: Number(port), config: parsed! }).then(() => api.nodes.sync()),
+    mutationFn: () => api.nodes.update(originalTag, { tag, type, server, port: Number(port), config: parsed! }),
     onSuccess: () => { toast.success(t("nodes.updated")); onSaved() },
     onError: (error: Error) => {
       const code = classifyNodeRequestError(error)

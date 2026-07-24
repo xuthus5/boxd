@@ -33,7 +33,7 @@ describe("node and subscription interactions", () => {
     expect(within(card).queryByRole("button", { name: "删除" })).not.toBeInTheDocument()
   })
 
-  it("imports nodes from subscriptions and synchronizes automatically", async () => {
+  it("imports nodes without duplicate config sync", async () => {
     const { fetchMock, user } = setup("/subscriptions")
     await screen.findByText("主订阅")
     await user.click(screen.getByRole("button", { name: "导入节点" }))
@@ -44,7 +44,8 @@ describe("node and subscription interactions", () => {
     await user.click(screen.getByRole("button", { name: "解析" }))
     expect(await screen.findByText("new-node")).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "保存节点" }))
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/nodes/sync-config", expect.objectContaining({ method: "POST" })))
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+    expect(fetchMock.mock.calls.some(([input]) => String(input) === "/api/nodes/sync-config")).toBe(false)
   })
 
   it("deletes imported nodes and synchronizes automatically", async () => {

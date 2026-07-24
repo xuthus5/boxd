@@ -49,7 +49,7 @@ export function NodeImportDialog({ onClose, onSaved }: Props) {
   const [preview, setPreview] = useState<ImportResult | null>(null)
   const parse = useMutation({ mutationFn: () => api.import.link(link), onSuccess: setPreview, onError: (error: Error) => reportNodeRequestError(error, t, "import-parse", t("nodes.importFailed")) })
   const save = useMutation({
-    mutationFn: () => api.import.save({ tag: preview!.tag, type: preview!.type, server: preview!.server, port: preview!.port, config: preview!.config }).then(() => api.nodes.sync()),
+    mutationFn: () => api.import.save({ tag: preview!.tag, type: preview!.type, server: preview!.server, port: preview!.port, config: preview!.config }),
     onSuccess: () => { toast.success(t("nodes.saved")); onSaved() },
     onError: (error: Error) => reportNodeRequestError(error, t, "import-save", t("nodes.saveFailed")),
   })

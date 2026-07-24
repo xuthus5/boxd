@@ -114,7 +114,7 @@ func (h *NodesHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.sync(); err != nil {
-		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorInternal, err.Error())
+		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorNodeUpdateFailed, "failed to synchronize node configuration: "+err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, nil)
