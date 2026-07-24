@@ -21,7 +21,7 @@ func (m *SubscriptionManager) Refresh(id string) error {
 	if sub == nil {
 		return newSubscriptionRefreshError(SubRefreshNotFound, fmt.Sprintf("subscription not found: %s", id), 0)
 	}
-	outbounds, traffic, err := downloadSubscriptionOutbounds(sub.URL)
+	outbounds, traffic, err := downloadSubscriptionOutbounds(m.client, sub.URL)
 	if err != nil {
 		classified := classifySubscriptionRefreshError(err)
 		return m.recordRefreshError(id, classified)
@@ -40,8 +40,11 @@ func (m *SubscriptionManager) recordRefreshError(id string, refreshErr *Subscrip
 	return refreshErr
 }
 
-func downloadSubscriptionOutbounds(rawURL string) ([]model.Outbound, *model.SubscriptionTraffic, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+func downloadSubscriptionOutbounds(client *http.Client, rawURL string) ([]model.Outbound, *model.SubscriptionTraffic, error) {
+	if err := ValidateSubscriptionURL(rawURL); err != nil {
+		return nil, nil, err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), subscriptionHTTPTimeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
@@ -49,7 +52,7 @@ func downloadSubscriptionOutbounds(rawURL string) ([]model.Outbound, *model.Subs
 	}
 	// 部分机场根据 UA 返回不同内容；使用常见 clash 兼容 UA 提高兼容性。
 	req.Header.Set("User-Agent", "clash.meta")
-	resp, err := subscriptionHTTPClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, nil, classifySubscriptionRefreshError(err)
 	}

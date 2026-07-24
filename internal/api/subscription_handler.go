@@ -78,6 +78,10 @@ func (h *SubscriptionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, "name and url are required")
 		return
 	}
+	if err := core.ValidateSubscriptionURL(req.URL); err != nil {
+		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, err.Error())
+		return
+	}
 
 	if req.IntervalMin <= 0 {
 		req.IntervalMin = 60
@@ -115,6 +119,12 @@ func (h *SubscriptionHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, "invalid request body")
 		return
+	}
+	if req.URL != "" {
+		if err := core.ValidateSubscriptionURL(req.URL); err != nil {
+			writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, err.Error())
+			return
+		}
 	}
 
 	if err := core.ValidateURLTestOverrides(req.URLTest); err != nil {

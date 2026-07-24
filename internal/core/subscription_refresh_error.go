@@ -19,6 +19,7 @@ const (
 	SubRefreshHTTP            = "http_status"
 	SubRefreshEmpty           = "empty_content"
 	SubRefreshContentTooLarge = "content_too_large"
+	SubRefreshBlockedURL      = "blocked_url"
 	SubRefreshNotFound        = "not_found"
 	SubRefreshUnknown         = "unknown"
 )
@@ -59,6 +60,12 @@ func classifySubscriptionRefreshError(err error) *SubscriptionRefreshError {
 			refreshErr.Code = SubRefreshUnknown
 		}
 		return refreshErr
+	}
+	if errors.Is(err, errSubscriptionURLBlocked) {
+		return newSubscriptionRefreshError(SubRefreshBlockedURL, err.Error(), 0)
+	}
+	if errors.Is(err, errSubscriptionURLInvalid) {
+		return newSubscriptionRefreshError(SubRefreshInvalidURL, err.Error(), 0)
 	}
 
 	msg := err.Error()

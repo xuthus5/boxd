@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"sort"
 	"sync"
-	"time"
 
 	"go.etcd.io/bbolt"
 
@@ -19,6 +18,7 @@ type SubscriptionManager struct {
 	mu      sync.RWMutex
 	db      *bbolt.DB
 	dataDir string
+	client  *http.Client
 }
 
 type SubscriptionParams struct {
@@ -28,16 +28,16 @@ type SubscriptionParams struct {
 	URLTest     *model.URLTestOverrides
 }
 
-var subscriptionHTTPClient = &http.Client{
-	Timeout: 30 * time.Second,
-	Transport: &http.Transport{
-		MaxIdleConns:        10,
-		MaxIdleConnsPerHost: 5,
-		IdleConnTimeout:     90 * time.Second,
-	},
-}
+var subscriptionHTTPClient = newSubscriptionHTTPClient()
 
-func NewSubscriptionManager(db *bbolt.DB, dataDir string) *SubscriptionManager {
+func NewSubscriptionManager(db *bbolt.DB, dataDir string, clients ...*http.Client) *SubscriptionManager {
+	client := subscriptionHTTPClient
+	if len(clients) > 0 && clients[0] != nil {
+		client = clients[0]
+	}
+	if client == nil {
+		client = newSubscriptionHTTPClient()
+	}
 	_ = db.Update(func(tx *bbolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists(subBucket)
 		return err
@@ -45,6 +45,7 @@ func NewSubscriptionManager(db *bbolt.DB, dataDir string) *SubscriptionManager {
 	return &SubscriptionManager{
 		db:      db,
 		dataDir: dataDir,
+		client:  client,
 	}
 }
 
@@ -90,6 +91,9 @@ func sortSubscriptionsByLastUpdated(subs []model.Subscription) {
 }
 
 func (m *SubscriptionManager) Create(params SubscriptionParams) (*model.Subscription, error) {
+	if err := ValidateSubscriptionURL(params.URL); err != nil {
+		return nil, err
+	}
 	if err := ValidateURLTestOverrides(params.URLTest); err != nil {
 		return nil, err
 	}
@@ -149,6 +153,11 @@ func (m *SubscriptionManager) Get(id string) *model.Subscription {
 }
 
 func (m *SubscriptionManager) Update(id string, params SubscriptionParams) error {
+	if params.URL != "" {
+		if err := ValidateSubscriptionURL(params.URL); err != nil {
+			return err
+		}
+	}
 	if err := ValidateURLTestOverrides(params.URLTest); err != nil {
 		return err
 	}

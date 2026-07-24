@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/xuthus5/boxd/internal/model"
 )
 
 func TestSubscriptionRefreshJSON(t *testing.T) {
@@ -54,17 +56,33 @@ func TestSubscriptionRefreshErrors(t *testing.T) {
 	if err := manager.Refresh("missing"); err == nil {
 		t.Fatal("expected missing subscription error")
 	}
-	subscription, err := manager.Create(SubscriptionParams{Name: "bad", URL: "://bad-url", IntervalMin: 60})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := manager.Refresh(subscription.ID); err == nil {
+	insertLegacySubscription(t, manager, model.Subscription{ID: "legacy-bad", Name: "bad", URL: "://bad-url", IntervalMin: 60})
+	if err := manager.Refresh("legacy-bad"); err == nil {
 		t.Fatal("expected bad URL error")
 	}
-	if got := manager.Get(subscription.ID); got.Error == "" {
+	if got := manager.Get("legacy-bad"); got.Error == "" {
 		t.Fatal("refresh error should be stored")
 	} else if got.ErrorCode == "" {
 		t.Fatal("error_code should be stored")
+	}
+}
+
+func TestSubscriptionRefreshStoresBlockedURLCode(t *testing.T) {
+	db, cleanup := setupSubDB(t)
+	defer cleanup()
+
+	manager := NewSubscriptionManager(db, t.TempDir())
+	insertLegacySubscription(t, manager, model.Subscription{ID: "legacy-private", Name: "private", URL: "http://127.0.0.1:8080/feed", IntervalMin: 60})
+	if err := manager.Refresh("legacy-private"); err == nil {
+		t.Fatal("expected blocked URL error")
+	} else {
+		var refreshErr *SubscriptionRefreshError
+		if !errors.As(err, &refreshErr) || refreshErr.Code != SubRefreshBlockedURL {
+			t.Fatalf("error = %v", err)
+		}
+	}
+	if got := manager.Get("legacy-private"); got.ErrorCode != SubRefreshBlockedURL {
+		t.Fatalf("stored error code = %q", got.ErrorCode)
 	}
 }
 
@@ -175,9 +193,7 @@ func TestSubscriptionRefreshAll(t *testing.T) {
 	if failures := manager.RefreshAll(); len(failures) != 0 {
 		t.Fatalf("failures = %v", failures)
 	}
-	if _, err := manager.Create(SubscriptionParams{Name: "bad", URL: "://bad-url", IntervalMin: 60}); err != nil {
-		t.Fatal(err)
-	}
+	insertLegacySubscription(t, manager, model.Subscription{ID: "legacy-bad", Name: "bad", URL: "://bad-url", IntervalMin: 60})
 	failures := manager.RefreshAll()
 	if len(failures) != 1 {
 		t.Fatalf("failures = %v", failures)

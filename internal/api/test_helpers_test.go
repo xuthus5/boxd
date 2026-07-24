@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	chi "github.com/go-chi/chi/v5"
@@ -30,7 +32,7 @@ func newTestDB(t *testing.T) *bbolt.DB {
 	return db
 }
 
-func newAPIManagers(t *testing.T) (*core.NodeManager, *core.SubscriptionManager, *core.SettingsManager, string) {
+func newAPIManagers(t *testing.T, clients ...*http.Client) (*core.NodeManager, *core.SubscriptionManager, *core.SettingsManager, string) {
 	t.Helper()
 
 	db := newTestDB(t)
@@ -40,9 +42,40 @@ func newAPIManagers(t *testing.T) (*core.NodeManager, *core.SubscriptionManager,
 	})
 
 	return core.NewNodeManager(db),
-		core.NewSubscriptionManager(db, t.TempDir()),
+		core.NewSubscriptionManager(db, t.TempDir(), clients...),
 		core.NewSettingsManager(db),
 		configPath
+}
+
+type subscriptionRoundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f subscriptionRoundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+func newSubscriptionTestClient(body string) *http.Client {
+	return &http.Client{Transport: subscriptionRoundTripFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode:    http.StatusOK,
+			Body:          io.NopCloser(strings.NewReader(body)),
+			ContentLength: int64(len(body)),
+			Header:        make(http.Header),
+			Request:       req,
+		}, nil
+	})}
+}
+
+func insertLegacySubscription(t *testing.T, manager *core.SubscriptionManager, subscription model.Subscription) {
+	t.Helper()
+	data, err := json.Marshal(subscription)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := manager.DB().Update(func(tx *bbolt.Tx) error {
+		return tx.Bucket([]byte("subscriptions")).Put([]byte(subscription.ID), data)
+	}); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func writeConfigFile(t *testing.T, path string, value any) {

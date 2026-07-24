@@ -2,6 +2,7 @@ import { ApiError } from "@/lib/api/client"
 
 export type SubscriptionRefreshCode =
   | "invalid_url"
+  | "blocked_url"
   | "network"
   | "timeout"
   | "unauthorized"
@@ -15,6 +16,7 @@ export type SubscriptionRefreshCode =
 
 const HINT_KEYS: Record<string, string> = {
   invalid_url: "subscriptions.errorHintInvalidURL",
+  blocked_url: "subscriptions.errorHintBlockedURL",
   network: "subscriptions.errorHintNetwork",
   timeout: "subscriptions.errorHintTimeout",
   unauthorized: "subscriptions.errorHintUnauthorized",
@@ -37,6 +39,7 @@ export function classifySubscriptionErrorMessage(message?: string): Subscription
   if (!lower) return "unknown"
   if (lower.includes("subscription http 401") || lower.includes("unauthorized")) return "unauthorized"
   if (lower.includes("subscription http 403") || lower.includes("forbidden")) return "forbidden"
+  if (lower.includes("private or local address") || lower.includes("private/local address")) return "blocked_url"
   if (lower.includes("subscription http")) return "http_status"
   if (lower.includes("content is too large") || lower.includes("content too large")) return "content_too_large"
   if (lower.includes("configuration sync failed") || lower.includes("sync failed")) return "sync_failed"
@@ -56,7 +59,10 @@ export function resolveSubscriptionErrorCode(item: { error?: string; error_code?
 export function classifySubscriptionRequestError(error: unknown): SubscriptionRefreshCode {
   if (error instanceof ApiError) {
     const code = error.code?.toLowerCase() || ""
-    if (code === "invalid_request") return "invalid_url"
+    if (code === "invalid_request") {
+      const messageCode = classifySubscriptionErrorMessage(error.message)
+      return messageCode === "unknown" ? "invalid_url" : messageCode
+    }
     if (code === "subscription_not_found" || code === "not_found") return "not_found"
     if (code === "subscription_sync_failed") return "sync_failed"
     if (code === "subscription_refresh_failed") {

@@ -19,6 +19,7 @@ describe("subscription error diagnostics", () => {
   it("maps codes to actionable hints", () => {
     expect(subscriptionErrorHintKey("empty_content")).toBe("subscriptions.errorHintEmpty")
     expect(subscriptionErrorHintKey("content_too_large")).toBe("subscriptions.errorHintContentTooLarge")
+    expect(subscriptionErrorHintKey("blocked_url")).toBe("subscriptions.errorHintBlockedURL")
     expect(subscriptionErrorHintKey("sync_failed")).toBe("subscriptions.errorHintSyncFailed")
     expect(subscriptionErrorHintKey("nope")).toBe("subscriptions.errorHintUnknown")
   })
@@ -30,6 +31,7 @@ describe("subscription error diagnostics", () => {
     expect(classifySubscriptionErrorMessage("configuration sync failed")).toBe("sync_failed")
     expect(classifySubscriptionErrorMessage("i/o timeout")).toBe("timeout")
     expect(classifySubscriptionErrorMessage("connection refused")).toBe("network")
+    expect(classifySubscriptionErrorMessage("subscription URL targets a private or local address")).toBe("blocked_url")
   })
 
   it("prefers stored error_code", () => {
@@ -40,6 +42,7 @@ describe("subscription error diagnostics", () => {
 
   it("classifies request-level failures and formats toast/clipboard", () => {
     expect(classifySubscriptionRequestError(new ApiError("missing", 404, "subscription_not_found"))).toBe("not_found")
+    expect(classifySubscriptionRequestError(new ApiError("subscription URL targets a private or local address", 400, "invalid_request"))).toBe("blocked_url")
     expect(classifySubscriptionRequestError(new ApiError("subscription HTTP 403", 500, "subscription_refresh_failed"))).toBe("forbidden")
     expect(classifySubscriptionRequestError(new ApiError("sync failed", 500, "subscription_sync_failed"))).toBe("sync_failed")
     expect(formatSubscriptionRequestErrorToast(new ApiError("boom", 500, "subscription_refresh_failed"), "fallback")).toBe("boom")

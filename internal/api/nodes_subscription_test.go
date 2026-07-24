@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/xuthus5/boxd/internal/core"
 	"github.com/xuthus5/boxd/internal/model"
 )
 
@@ -186,6 +185,31 @@ func TestSubscriptionHandlerCRUDAndRefresh(t *testing.T) {
 	}
 }
 
+func TestSubscriptionHandlerRejectsUnsafeURLs(t *testing.T) {
+	nodeMgr, subMgr, _, configPath := newAPIManagers(t)
+	handler := NewSubscriptionHandler(subMgr, nodeMgr, configPath)
+
+	recorder := httptest.NewRecorder()
+	handler.Create(recorder, jsonRequest(http.MethodPost, "/api/subscriptions", `{"name":"private","url":"http://127.0.0.1:8080/feed"}`))
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("create status = %d", recorder.Code)
+	}
+
+	recorder = httptest.NewRecorder()
+	handler.Create(recorder, jsonRequest(http.MethodPost, "/api/subscriptions", `{"name":"valid","url":"https://example.com/feed"}`))
+	if recorder.Code != http.StatusCreated {
+		t.Fatalf("valid create status = %d", recorder.Code)
+	}
+	created := decodeBody[model.Subscription](t, recorder)
+
+	recorder = httptest.NewRecorder()
+	request := withURLParam(jsonRequest(http.MethodPut, "/api/subscriptions/"+created.ID, `{"url":"ftp://example.com/feed"}`), "id", created.ID)
+	handler.Update(recorder, request)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("update status = %d", recorder.Code)
+	}
+}
+
 func TestSubscriptionHandlerErrorsAndRefreshAll(t *testing.T) {
 	nodeMgr, subMgr, _, configPath := newAPIManagers(t)
 	handler := NewSubscriptionHandler(subMgr, nodeMgr, configPath)
@@ -229,9 +253,7 @@ func TestSubscriptionHandlerErrorsAndRefreshAll(t *testing.T) {
 		t.Fatalf("missing delete status = %d", rr.Code)
 	}
 
-	if _, err := subMgr.Create(core.SubscriptionParams{Name: "bad", URL: "://bad-url", IntervalMin: 60}); err != nil {
-		t.Fatal(err)
-	}
+	insertLegacySubscription(t, subMgr, model.Subscription{ID: "legacy-bad", Name: "bad", URL: "://bad-url", IntervalMin: 60})
 	subscriptions, err := subMgr.List()
 	if err != nil {
 		t.Fatal(err)

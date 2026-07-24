@@ -2,11 +2,14 @@ package core
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"testing"
 
 	"go.etcd.io/bbolt"
 	bboltErrors "go.etcd.io/bbolt/errors"
+
+	"github.com/xuthus5/boxd/internal/model"
 )
 
 func setupSubDB(t *testing.T) (*bbolt.DB, func()) {
@@ -19,6 +22,19 @@ func setupSubDB(t *testing.T) (*bbolt.DB, func()) {
 	}
 	return db, func() {
 		_ = db.Close()
+	}
+}
+
+func insertLegacySubscription(t *testing.T, manager *SubscriptionManager, subscription model.Subscription) {
+	t.Helper()
+	data, err := json.Marshal(subscription)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := manager.DB().Update(func(tx *bbolt.Tx) error {
+		return tx.Bucket(subBucket).Put([]byte(subscription.ID), data)
+	}); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -57,6 +73,23 @@ func TestSubscriptionCreateAndList(t *testing.T) {
 	}
 	if subs[0].Name != "test-sub" {
 		t.Errorf("expected 'test-sub', got '%s'", subs[0].Name)
+	}
+}
+
+func TestSubscriptionManagerRejectsUnsafeURLs(t *testing.T) {
+	db, cleanup := setupSubDB(t)
+	defer cleanup()
+
+	manager := NewSubscriptionManager(db, t.TempDir())
+	if _, err := manager.Create(SubscriptionParams{Name: "bad", URL: "http://127.0.0.1:8080", IntervalMin: 60}); !errors.Is(err, errSubscriptionURLBlocked) {
+		t.Fatalf("create error = %v, want blocked URL", err)
+	}
+	created, err := manager.Create(SubscriptionParams{Name: "good", URL: "https://example.com/feed", IntervalMin: 60})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := manager.Update(created.ID, SubscriptionParams{URL: "ftp://example.com/feed"}); !errors.Is(err, errSubscriptionURLInvalid) {
+		t.Fatalf("update error = %v, want invalid URL", err)
 	}
 }
 

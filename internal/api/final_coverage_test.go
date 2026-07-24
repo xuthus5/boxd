@@ -128,23 +128,16 @@ func TestRecordTrafficHistoryPoint(t *testing.T) {
 }
 
 func TestSubscriptionRefreshWithMockServer(t *testing.T) {
-	// 使用本地 HTTP 服务器模拟订阅源
 	body := "vmess://eyJhZGQiOiIxLjIuMy40IiwicG9ydCI6NDQzLCJpZCI6InV1aWQiLCJhaWQiOjAsIm5ldCI6IndzIiwidGxzIjoiIiwiaG9zdCI6IiIsInBhdGgiOiIiLCJwcyI6InRlc3QifQ=="
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(body))
-	}))
-	defer server.Close()
 
 	db := newTestDB(t)
-	subMgr := core.NewSubscriptionManager(db, t.TempDir())
+	subMgr := core.NewSubscriptionManager(db, t.TempDir(), newSubscriptionTestClient(body))
 	nodeMgr := core.NewNodeManager(db)
 	configPath := filepath.Join(t.TempDir(), "config.json")
 	writeConfigFile(t, configPath, map[string]any{"outbounds": []any{}})
 
 	handler := NewSubscriptionHandler(subMgr, nodeMgr, configPath)
-	sub, err := subMgr.Create(core.SubscriptionParams{Name: "test-refresh", URL: server.URL, IntervalMin: 60})
+	sub, err := subMgr.Create(core.SubscriptionParams{Name: "test-refresh", URL: "https://example.test/sub", IntervalMin: 60})
 	if err != nil {
 		t.Fatal(err)
 	}

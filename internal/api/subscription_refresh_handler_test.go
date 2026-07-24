@@ -28,11 +28,10 @@ func TestSubscriptionSyncErrorMessage(t *testing.T) {
 }
 
 func TestSubscriptionRefreshReportsConfigSyncFailure(t *testing.T) {
-	nodeMgr, subMgr, _, configPath := newAPIManagers(t)
-	server := newSubscriptionServer(t)
+	nodeMgr, subMgr, _, configPath := newAPIManagers(t, newSubscriptionTestClient(validSubscriptionBody))
 	restarter := &fakeRestartable{errs: []error{errors.New("restart unavailable")}}
 	handler := NewSubscriptionHandler(subMgr, nodeMgr, configPath, restarter)
-	subscription, err := subMgr.Create(core.SubscriptionParams{Name: "sync-failure", URL: server.URL, IntervalMin: 60})
+	subscription, err := subMgr.Create(core.SubscriptionParams{Name: "sync-failure", URL: "https://example.test/sub", IntervalMin: 60})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,11 +55,10 @@ func TestSubscriptionRefreshReportsConfigSyncFailure(t *testing.T) {
 }
 
 func TestSubscriptionRefreshAllReportsConfigSyncFailure(t *testing.T) {
-	nodeMgr, subMgr, _, configPath := newAPIManagers(t)
-	server := newSubscriptionServer(t)
+	nodeMgr, subMgr, _, configPath := newAPIManagers(t, newSubscriptionTestClient(validSubscriptionBody))
 	restarter := &fakeRestartable{errs: []error{errors.New("restart unavailable")}}
 	handler := NewSubscriptionHandler(subMgr, nodeMgr, configPath, restarter)
-	if _, err := subMgr.Create(core.SubscriptionParams{Name: "batch-sync-failure", URL: server.URL, IntervalMin: 60}); err != nil {
+	if _, err := subMgr.Create(core.SubscriptionParams{Name: "batch-sync-failure", URL: "https://example.test/sub", IntervalMin: 60}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -75,16 +73,13 @@ func TestSubscriptionRefreshAllReportsConfigSyncFailure(t *testing.T) {
 }
 
 func TestSubscriptionRefreshAllReportsRefreshAndSyncFailures(t *testing.T) {
-	nodeMgr, subMgr, _, configPath := newAPIManagers(t)
-	server := newSubscriptionServer(t)
+	nodeMgr, subMgr, _, configPath := newAPIManagers(t, newSubscriptionTestClient(validSubscriptionBody))
 	restarter := &fakeRestartable{errs: []error{errors.New("restart unavailable")}}
 	handler := NewSubscriptionHandler(subMgr, nodeMgr, configPath, restarter)
-	if _, err := subMgr.Create(core.SubscriptionParams{Name: "valid", URL: server.URL, IntervalMin: 60}); err != nil {
+	if _, err := subMgr.Create(core.SubscriptionParams{Name: "valid", URL: "https://example.test/sub", IntervalMin: 60}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := subMgr.Create(core.SubscriptionParams{Name: "invalid", URL: "://bad-url", IntervalMin: 60}); err != nil {
-		t.Fatal(err)
-	}
+	insertLegacySubscription(t, subMgr, model.Subscription{ID: "legacy-invalid", Name: "invalid", URL: "://bad-url", IntervalMin: 60})
 
 	recorder := httptest.NewRecorder()
 	handler.RefreshAll(recorder, httptest.NewRequest(http.MethodPost, "/api/subscriptions/refresh-all", nil))
@@ -95,15 +90,6 @@ func TestSubscriptionRefreshAllReportsRefreshAndSyncFailures(t *testing.T) {
 		errorCode:   model.ErrorSubscriptionRefresh,
 		failedCount: 1,
 	})
-}
-
-func newSubscriptionServer(t *testing.T) *httptest.Server {
-	t.Helper()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(validSubscriptionBody))
-	}))
-	t.Cleanup(server.Close)
-	return server
 }
 
 func assertRefreshAllSyncFailure(t *testing.T, envelope model.APIResponse, want refreshAllSyncExpectation) {
