@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { screen } from "@testing-library/react"
+import { screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
@@ -79,7 +79,6 @@ describe("SubscriptionsPage", () => {
   })
 })
 
-
 describe("SubscriptionsPage deep links", () => {
   function mockSubs(items: unknown[]) {
     sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
@@ -115,6 +114,12 @@ describe("SubscriptionsPage deep links", () => {
     await user.click(screen.getByRole("button", { name: "仅失败" }))
     expect(screen.getByText("失败订阅")).toBeInTheDocument()
     expect(screen.queryByText("正常订阅")).not.toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "全部" }))
+    expect(screen.getByText("正常订阅")).toBeInTheDocument()
+    expect(screen.getByText("失败订阅")).toBeInTheDocument()
+    await user.type(screen.getByLabelText("搜索订阅"), "正常")
+    expect(screen.getByText("正常订阅")).toBeInTheDocument()
+    expect(screen.queryByText("失败订阅")).not.toBeInTheDocument()
     expect(screen.getByRole("button", { name: "清除筛选" })).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "清除筛选" }))
     expect(screen.getByText("正常订阅")).toBeInTheDocument()
@@ -134,14 +139,15 @@ describe("SubscriptionsPage deep links", () => {
     expect(await screen.findByText("正常订阅")).toBeInTheDocument()
     expect(screen.getByText("失败订阅")).toBeInTheDocument()
   })
-
 })
 
 describe("SubscriptionsPage load densify", () => {
   it("densifies page load failure with retry", async () => {
-    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
+    const fetchMock = vi.fn(() => Promise.resolve(new Response(JSON.stringify({
       status: "error", data: null, error: { code: "unavailable", message: "subs unavailable" }, meta: null,
-    }), { status: 503 }))))
+    }), { status: 503 })))
+    vi.stubGlobal("fetch", fetchMock)
+    const user = userEvent.setup()
     renderApp(
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <SubscriptionsPage />
@@ -150,6 +156,7 @@ describe("SubscriptionsPage load densify", () => {
     const alert = await screen.findByTestId("page-load-error")
     expect(alert).toHaveAttribute("data-error-code", "unavailable")
     expect(screen.getByText("subs unavailable")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "重试" })).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "重试" }))
+    await waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(4))
   })
 })
