@@ -4,8 +4,7 @@ import { toast } from "sonner"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -20,15 +19,21 @@ import {
   outboundTypes, protocolFields, serverTypes, transportTypeFields,
 } from "@/features/proxy/outbound-form-model"
 import { collectOutboundBaseInvalid } from "@/features/proxy/proxy-base-validation"
+import { ProxyEditorFooter } from "@/features/proxy/proxy-editor-footer"
+import { useProxyItemValidate } from "@/features/proxy/use-proxy-item-validate"
+import type { ConfigSaveErrorState } from "@/features/config/config-save-error"
 import { configTags, dnsServerTags, getPath, type JsonObject, setPath } from "@/features/proxy/proxy-form-model"
 
 interface OutboundEditorDialogProps {
   title: string
   item: JsonObject
+  index?: number
   onClose: () => void
   onSave: (item: JsonObject) => void
   jumpPath?: string | null
   onJumpPathHandled?: () => void
+  reportError?: (error: unknown) => ConfigSaveErrorState
+  clearSaveError?: () => void
 }
 
 function parseObject(value: string) {
@@ -207,7 +212,7 @@ function FormTabs({ object, value, title, revision, activeTab, onTabChange, edit
   </Tabs>
 }
 
-export function OutboundEditorDialog({ title, item, onClose, onSave, jumpPath, onJumpPathHandled }: OutboundEditorDialogProps) {
+export function OutboundEditorDialog({ title, item, index = -1, onClose, onSave, jumpPath, onJumpPathHandled, reportError, clearSaveError }: OutboundEditorDialogProps) {
   const { t } = useTranslation()
   const [value, setValue] = useState(() => JSON.stringify(item, null, 2))
   const [revision, setRevision] = useState(0)
@@ -219,11 +224,16 @@ export function OutboundEditorDialog({ title, item, onClose, onSave, jumpPath, o
   const update = (next: JsonObject) => setValue(JSON.stringify(next, null, 2))
   const updateJSON = (next: string) => { setValue(next); setRevision((current) => current + 1) }
   const updateValidity = useCallback((path: string, valid: boolean) => setInvalidFields((current) => {
-    const next = new Set(current)
-    if (valid) next.delete(path)
-    else next.add(path)
-    return next
+    const next = new Set(current); if (valid) next.delete(path); else next.add(path); return next
   }), [])
+  const canSave = Boolean(object && !baseInvalid && invalidFields.size === 0)
+  const { validating, validate, ready } = useProxyItemValidate({
+    kind: "outbounds",
+    index,
+    object,
+    reportError,
+    clearSaveError,
+  })
   useEffect(() => {
     if (jumpPath === undefined || jumpPath === null) return
     setActiveTab("advanced")
@@ -251,10 +261,7 @@ export function OutboundEditorDialog({ title, item, onClose, onSave, jumpPath, o
       </DialogHeader>
       <div className="min-h-0 overflow-y-auto pr-1">
         <div className="flex flex-col gap-2 sm:gap-3">
-          {baseInvalid ? <Alert variant="destructive">
-            <AlertTitle>{t("proxy.outbound.requiredTitle")}</AlertTitle>
-            <AlertDescription>{t("proxy.outbound.requiredDescription")}</AlertDescription>
-          </Alert> : null}
+          {baseInvalid ? <Alert variant="destructive"><AlertTitle>{t("proxy.outbound.requiredTitle")}</AlertTitle><AlertDescription>{t("proxy.outbound.requiredDescription")}</AlertDescription></Alert> : null}
           {object
             ? <FormTabs
               object={object}
@@ -271,10 +278,14 @@ export function OutboundEditorDialog({ title, item, onClose, onSave, jumpPath, o
             : <JsonEditor ref={editorRef} value={value} onChange={updateJSON} ariaLabel={`${title} JSON`} />}
         </div>
       </div>
-      <DialogFooter className="gap-2">
-        <Button variant="outline" size="sm" className="h-8" onClick={onClose}>{t("common.cancel")}</Button>
-        <Button size="sm" className="h-8" disabled={!object || baseInvalid || invalidFields.size > 0} onClick={() => { if (object) onSave(object) }}>{t("common.save")}</Button>
-      </DialogFooter>
+      <ProxyEditorFooter
+        canSave={canSave}
+        canValidate={canSave && ready}
+        validating={validating}
+        onClose={onClose}
+        onSave={() => { if (object) onSave(object) }}
+        onValidate={() => { void validate() }}
+      />
     </DialogContent>
   </Dialog>
 }

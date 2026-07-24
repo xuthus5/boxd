@@ -153,11 +153,7 @@ export function ProxyListPage({ configKey, title, addLabel }: {
   const items = useMemo(() => objects(query.data?.[configKey]), [configKey, query.data])
   const openPath = useCallback((path: string) => {
     const target = parseProxyItemPath(path, configKey)
-    if (!target) {
-      toast.message(t("config.pathNotFound", { path }))
-      return false
-    }
-    if (target.index < 0 || target.index >= items.length) {
+    if (!target || target.index < 0 || target.index >= items.length) {
       toast.message(t("config.pathNotFound", { path }))
       return false
     }
@@ -288,10 +284,13 @@ export function ProxyListPage({ configKey, title, addLabel }: {
           title={editing.index < 0 ? addLabel : `${t("proxy.editPrefix")} ${String(editing.item.tag ?? "")}`}
           kind={configKey}
           item={editing.item}
+          index={editing.index}
           onClose={() => { setEditing(null); setJumpPath(null) }}
           onSave={saveItem}
           jumpPath={jumpPath}
           onJumpPathHandled={() => setJumpPath(null)}
+          reportError={reportError}
+          clearSaveError={clearSaveError}
         />
       ) : null}
     </div>

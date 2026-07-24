@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react"
+import { screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
@@ -181,5 +181,38 @@ describe("proxy path jump", () => {
     renderApp(<App />, "/proxy/outbounds?path=outbounds%5B0%5D.server")
     expect(await screen.findByRole("dialog")).toBeInTheDocument()
     expect(screen.getByRole("tab", { name: "高级 JSON" })).toHaveAttribute("aria-selected", "true")
+  })
+})
+
+
+describe("proxy dry-run validate", () => {
+  it("validates inbound draft without writing", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    const fetchMock = vi.fn((input: string | URL | Request, init?: RequestInit) => {
+      const path = String(typeof input === "string" ? input : input instanceof URL ? input.pathname : input.url).split("?")[0]
+      if (path === "/api/config/validate" && init?.method === "POST") {
+        return Promise.resolve(new Response(JSON.stringify({
+          status: "ok", data: { valid: true }, error: null, meta: { validated: true, applied: false },
+        })))
+      }
+      if (path === "/api/config/" || path === "/api/config/raw") {
+        return Promise.resolve(new Response(JSON.stringify({
+          inbounds: [{ tag: "mixed-in", type: "mixed", listen: "::", listen_port: 1080 }],
+          outbounds: [],
+        })))
+      }
+      return Promise.resolve(new Response(JSON.stringify({})))
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    const user = userEvent.setup()
+    renderApp(<App />, "/proxy/inbounds")
+    await screen.findByText("mixed-in")
+    await user.click(screen.getByRole("button", { name: "编辑" }))
+    expect(await screen.findByRole("dialog")).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "校验配置" }))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith("/api/config/validate", expect.objectContaining({ method: "POST" }))
+    })
+    expect(fetchMock.mock.calls.some((call) => String(call[0]) === "/api/config/" && call[1]?.method === "PUT")).toBe(false)
   })
 })
