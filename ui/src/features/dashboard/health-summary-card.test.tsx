@@ -45,6 +45,9 @@ describe("HealthSummaryCard", () => {
       if (path.includes("/api/nodes")) {
         return Promise.resolve(new Response(JSON.stringify([])))
       }
+      if (path.includes("/api/config/apply-history")) {
+        return Promise.resolve(new Response(JSON.stringify({ events: [] })))
+      }
       return Promise.resolve(new Response("{}"))
     }))
     renderCard()
@@ -83,6 +86,9 @@ describe("HealthSummaryCard", () => {
           { tag: "hk-bad", type: "vless", server: "a.example.com", port: 443, source: "import" },
         ])))
       }
+      if (path.includes("/api/config/apply-history")) {
+        return Promise.resolve(new Response(JSON.stringify({ events: [] })))
+      }
       return Promise.resolve(new Response("{}"))
     }))
     renderCard()
@@ -95,5 +101,69 @@ describe("HealthSummaryCard", () => {
       "href",
       "/nodes?q=hk-bad&stability=failed",
     )
+  })
+
+  it("shows densified stream error with copy control", async () => {
+    vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
+      const path = typeof input === "string" ? input : input.toString()
+      if (path.includes("/api/config/apply-history")) {
+        return Promise.resolve(new Response(JSON.stringify({ events: [] })))
+      }
+      if (path.includes("/api/subscriptions") || path.includes("/api/nodes")) {
+        return Promise.resolve(new Response(JSON.stringify(path.includes("history") ? { history: {} } : [])))
+      }
+      return Promise.resolve(new Response("{}"))
+    }))
+    renderApp(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <HealthSummaryCard
+          status={{ running: true, uptime: "1m" }}
+          snapshot={{ active_connections: 0, list: [] }}
+          streamError="failed to fetch connections"
+          streamStatus="error"
+        />
+      </QueryClientProvider>,
+    )
+    expect(await screen.findByText("failed to fetch connections")).toBeInTheDocument()
+    expect(document.querySelector('[data-slot="health-stream-error"]')).not.toBeNull()
+    expect(screen.getByRole("button", { name: "复制流错误" })).toBeInTheDocument()
+  })
+
+  it("shows apply failure preview with path jump", async () => {
+    vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
+      const path = typeof input === "string" ? input : input.toString()
+      if (path.includes("/api/config/apply-history")) {
+        return Promise.resolve(new Response(JSON.stringify({
+          events: [{
+            id: "1",
+            source: "validate_inbounds",
+            status: "validate_failed",
+            hash: "deadbeef",
+            size: 12,
+            error: "inbounds[0].listen_port: invalid",
+            error_code: "config_invalid",
+            applied_at: "2026-07-24T12:00:00Z",
+          }],
+        })))
+      }
+      if (path.includes("/api/subscriptions") || path.includes("/api/nodes")) {
+        return Promise.resolve(new Response(JSON.stringify(path.includes("history") ? { history: {} } : [])))
+      }
+      return Promise.resolve(new Response("{}"))
+    }))
+    renderCard()
+    await waitFor(() => {
+      expect(document.querySelector('[data-slot="apply-failure-preview"]')).not.toBeNull()
+    })
+    const preview = document.querySelector('[data-slot="apply-failure-preview"]')
+    expect(preview).not.toBeNull()
+    expect(preview?.textContent).toMatch(/1 次配置应用\/校验失败/)
+    expect(screen.getByText("inbounds[0].listen_port")).toBeInTheDocument()
+    const openLinks = screen.getAllByRole("link", { name: "打开失败来源" })
+    expect(openLinks.length).toBeGreaterThan(0)
+    for (const link of openLinks) {
+      expect(link).toHaveAttribute("href", "/advanced/raw?path=inbounds%5B0%5D.listen_port")
+    }
+    expect(preview?.querySelector('button[aria-label="复制错误"]')).not.toBeNull()
   })
 })

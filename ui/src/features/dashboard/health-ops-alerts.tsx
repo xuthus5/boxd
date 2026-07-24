@@ -3,7 +3,7 @@ import { Link } from "react-router-dom"
 
 import { buttonVariants } from "@/components/ui/button"
 import {
-  configApplySourceHref,
+  configApplyErrorSectionHref,
   configApplySourceKey,
 } from "@/features/dashboard/config-apply-source"
 import {
@@ -18,7 +18,7 @@ export function HealthOpsAlertChips({ signals }: { signals: HealthOpsSignals }) 
   const { t } = useTranslation()
   if (!hasHealthOpsAlerts(signals)) return null
   const applyHref = signals.latestApplyFailure
-    ? configApplySourceHref(signals.latestApplyFailure.source)
+    ? configApplyErrorSectionHref(signals.latestApplyFailure)
     : "/"
   const applyLabel = signals.latestApplyFailure
     ? t(`dashboard.${configApplySourceKey(signals.latestApplyFailure.source)}`)
@@ -81,7 +81,7 @@ export function HealthOpsAlertActions({ signals }: { signals: HealthOpsSignals }
   const unstableHref = buildNodesHref({ stability: "unstable" })
   const failedNodesHref = buildNodesHref({ stability: "failed" })
   const applyHref = signals.latestApplyFailure
-    ? configApplySourceHref(signals.latestApplyFailure.source)
+    ? configApplyErrorSectionHref(signals.latestApplyFailure)
     : "/"
   return (
     <>

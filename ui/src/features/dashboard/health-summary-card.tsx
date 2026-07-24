@@ -8,12 +8,14 @@ import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatBytes } from "@/features/dashboard/format"
 import { FailedSubscriptionsPreview } from "@/features/dashboard/failed-subscriptions-preview"
-import { ProblemNodesPreview } from "@/features/dashboard/problem-nodes-preview"
+import { HealthApplyFailurePreview } from "@/features/dashboard/health-apply-failure-preview"
 import { HealthOpsAlertActions, HealthOpsAlertChips } from "@/features/dashboard/health-ops-alerts"
+import { HealthStreamErrorBlock } from "@/features/dashboard/health-stream-error-block"
+import { ProblemNodesPreview } from "@/features/dashboard/problem-nodes-preview"
 import { buildHealthSummary, type HealthTone } from "@/features/dashboard/health-summary"
 import { useHealthOpsSignals } from "@/features/dashboard/use-health-ops-signals"
 import { buildConnectionsHref } from "@/features/observability/connection-facets"
-import { classifyStreamErrorMessage, streamErrorHintKey } from "@/features/observability/stream-error"
+import { api } from "@/lib/api/endpoints"
 import type { ConnectionEvent, ServiceStatus } from "@/lib/api/types"
 import { cn } from "@/lib/utils"
 
@@ -92,6 +94,10 @@ export function HealthSummaryCard({
           </p>
         </div>
         <HealthOpsAlertChips signals={ops} />
+        <HealthApplyFailurePreview
+          event={ops.latestApplyFailure}
+          count={ops.applyFailures}
+        />
         <FailedSubscriptionsPreview
           items={ops.failedSubscriptionItems}
           total={ops.failedSubscriptions}
@@ -100,32 +106,11 @@ export function HealthSummaryCard({
           items={ops.problemNodeItems}
           total={ops.problemNodes}
         />
-        {streamStatus === "reconnecting" || streamError ? (
-          <div className="rounded-md border border-destructive/40 bg-destructive/5 px-2.5 py-1.5">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <p className="text-xs font-medium text-destructive">
-                {streamStatus === "reconnecting"
-                  ? t("observability.streamReconnecting")
-                  : t("observability.streamDisconnected")}
-              </p>
-              {streamError ? (
-                <Badge variant="outline" className="font-mono text-[10px]">
-                  {classifyStreamErrorMessage(streamError)}
-                </Badge>
-              ) : null}
-            </div>
-            {streamError ? (
-              <p className="mt-1 break-words text-sm text-destructive" title={streamError}>
-                {streamError}
-              </p>
-            ) : null}
-            {streamError ? (
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                {t(streamErrorHintKey(classifyStreamErrorMessage(streamError)))}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
+        <HealthStreamErrorBlock
+          error={streamError}
+          status={streamStatus}
+          path={api.stats.paths.connections}
+        />
       </CardContent>
       <CardFooter className="flex flex-wrap gap-2">
         <Link to="/observability/connections" className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}>

@@ -74,6 +74,29 @@ describe("HealthOpsAlertChips", () => {
       "/proxy/inbounds",
     )
   })
+
+  it("deep-links pathful apply failure to raw editor path", () => {
+    renderApp(
+      <HealthOpsAlertChips
+        signals={signals({
+          applyFailures: 1,
+          latestApplyFailure: {
+            id: "1",
+            source: "raw",
+            status: "validate_failed",
+            hash: "abc",
+            size: 10,
+            error: "inbounds[0].listen_port: invalid",
+            applied_at: "2026-07-24T12:00:00Z",
+          },
+        })}
+      />,
+    )
+    expect(screen.getByRole("link", { name: /1 次配置应用\/校验失败/ })).toHaveAttribute(
+      "href",
+      "/advanced/raw?path=inbounds%5B0%5D.listen_port",
+    )
+  })
 })
 
 describe("HealthOpsAlertActions", () => {
