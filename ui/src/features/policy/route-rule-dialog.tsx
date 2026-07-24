@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState, type RefObject } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
-import { JsonEditor } from "@/features/config/json-editor"
+import { JsonEditor, type JsonEditorHandle } from "@/features/config/json-editor"
+import { usePolicyDialogPathReveal } from "@/features/policy/use-policy-dialog-path-reveal"
 import { usePolicyDialogState } from "@/features/policy/policy-dialog-state"
 import { PolicyFormFields } from "@/features/policy/policy-form-fields"
 import {
@@ -29,6 +30,8 @@ export interface RouteRuleDialogProps {
   item: JsonObject
   metadata?: RouteRuleMetadata
   title: string
+  jumpPath?: string | null
+  onJumpPathHandled?: () => void
   onOpenChange: (open: boolean) => void
   onSave: (item: JsonObject, metadata: RouteRuleMetadata) => void
 }
@@ -110,6 +113,9 @@ function ActionFields({ object, revision, onChange, onValidity, transform, conte
 }
 
 interface RuleTabsProps {
+  activeTab: string
+  onTabChange: (tab: string) => void
+  editorRef?: RefObject<JsonEditorHandle | null>
   object: JsonObject
   value: string
   title: string
@@ -131,19 +137,20 @@ function StructuredFields({ object, fields, revision, onChange, onValidity, tran
     onChange={(next) => onChange(applyRouteRuleFieldChange(object, next))} onFieldValidityChange={onValidity} transformField={transform} />
 }
 
-function AdvancedJSONField({ value, title, revision, onChange }: {
+function AdvancedJSONField({ value, title, revision, onChange, editorRef }: {
   value: string; title: string; revision: number; onChange: (value: string) => void
+  editorRef?: RefObject<JsonEditorHandle | null>
 }) {
   const { t } = useTranslation()
   return <FieldGroup><Field><FieldLabel className="sr-only">{t("policy.route.advancedJSON")}</FieldLabel>
-    <JsonEditor key={revision} value={value} onChange={onChange} ariaLabel={t("policy.route.advancedJSONLabel", { title })} />
+    <JsonEditor ref={editorRef} key={revision} value={value} onChange={onChange} ariaLabel={t("policy.route.advancedJSONLabel", { title })} />
   </Field></FieldGroup>
 }
 
 function RuleTabs(props: RuleTabsProps) {
   const { t } = useTranslation()
   const config = useConfigQuery()
-  const { object, value, title, revision, editorRevision, onChange, onJSONChange, onValidity, transform } = props
+  const { object, value, title, revision, editorRevision, activeTab, onTabChange, editorRef, onChange, onJSONChange, onValidity, transform } = props
   const logical = object.type === "logical"
   const context = {
     inboundTags: policyConfigTags(config.data?.inbounds),
@@ -151,7 +158,7 @@ function RuleTabs(props: RuleTabsProps) {
     dnsServerTags: policyDNSServerTags(config.data?.dns),
     ruleSetTags: policyRuleSetTags(config.data?.route),
   }
-  return <Tabs defaultValue="basic" className="min-h-0 min-w-0">
+  return <Tabs value={activeTab} onValueChange={(v) => onTabChange(String(v || "basic"))} className="min-h-0 min-w-0">
     <TabsList activateOnFocus className="h-auto max-w-full justify-start overflow-x-auto overflow-y-hidden" variant="line">
       <TabsTrigger value="basic">{t("policy.route.basicTab")}</TabsTrigger><TabsTrigger value="domain">{t("policy.route.domainTab")}</TabsTrigger>
       <TabsTrigger value="process">{t("policy.route.processTab")}</TabsTrigger><TabsTrigger value="environment">{t("policy.route.environmentTab")}</TabsTrigger>
@@ -177,14 +184,17 @@ function RuleTabs(props: RuleTabsProps) {
     <TabsContent value="environment" className="pt-4" keepMounted><StructuredFields object={object} fields={logical ? [] : environmentFields} revision={revision} onChange={onChange} onValidity={onValidity} transform={transform} context={context} /></TabsContent>
     <TabsContent value="action" className="pt-4" keepMounted><ActionFields object={object} revision={revision} onChange={onChange} onValidity={onValidity} transform={transform} context={context} /></TabsContent>
     <TabsContent value="advanced" className="pt-4" keepMounted><AdvancedJSONField value={value} title={title}
-      revision={editorRevision} onChange={onJSONChange} /></TabsContent>
+      revision={editorRevision} onChange={onJSONChange} editorRef={editorRef} /></TabsContent>
   </Tabs>
 }
 
-export function RouteRuleDialog({ open, item, metadata = emptyMetadata, title, onOpenChange, onSave }: RouteRuleDialogProps) {
+export function RouteRuleDialog({ open, item, metadata = emptyMetadata, title, jumpPath, onJumpPathHandled, onOpenChange, onSave }: RouteRuleDialogProps) {
   const { t } = useTranslation()
   const state = usePolicyDialogState(item, transformRouteField)
   const [details, setDetails] = useState(metadata)
+  const [activeTab, setActiveTab] = useState("basic")
+  const editorRef = useRef<JsonEditorHandle>(null)
+  usePolicyDialogPathReveal(editorRef, setActiveTab, jumpPath, onJumpPathHandled)
   const requiredValid = requiredRuleValue(state.object) && requiredActionValue(state.object)
   const canSave = state.jsonValid && requiredValid && state.invalidFields.size === 0
   return <Dialog open={open} onOpenChange={onOpenChange}>
@@ -196,7 +206,7 @@ export function RouteRuleDialog({ open, item, metadata = emptyMetadata, title, o
         <MetadataFields metadata={details} onChange={setDetails} />
         <RuleTabs object={state.object} value={state.value} title={title} revision={state.revision}
           editorRevision={state.editorRevision} onChange={state.update} onJSONChange={state.updateJSON}
-          onValidity={state.updateValidity} transform={state.transform} />
+          onValidity={state.updateValidity} transform={state.transform} activeTab={activeTab} onTabChange={setActiveTab} editorRef={editorRef} />
       </div></div>
       <DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)}>{t("policy.route.cancel")}</Button>
         <Button disabled={!canSave} onClick={() => { if (state.jsonValid) onSave(state.object, details) }}>{t("policy.route.save")}</Button></DialogFooter>

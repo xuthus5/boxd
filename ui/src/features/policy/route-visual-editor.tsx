@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { ListPlusIcon, RouteIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { useSearchParams } from "react-router-dom"
@@ -26,7 +26,6 @@ import {
   type RouteSearchFilters,
 } from "@/features/policy/route-rule-filter"
 import { toggleRuleInvert } from "@/features/policy/rule-invert"
-import { RouteRuleDialog } from "@/features/policy/route-rule-dialog"
 import { RouteRuleSetCard } from "@/features/policy/route-rule-set-card"
 import {
   formatRuleSetRequestErrorToast,
@@ -39,17 +38,12 @@ import {
   summarizeRuleSetUpdate,
 } from "@/features/policy/ruleset-update-error"
 import { copyText } from "@/features/proxy/copy-tag-button"
-import { RouteRuleSetDialog } from "@/features/policy/route-rule-set-dialog"
+import { RouteVisualDialogs, type RouteEditorSelection } from "@/features/policy/route-visual-dialogs"
 import { routeRuleSets, routeRules, setRouteRuleSets, setRouteRules } from "@/features/policy/route-form-model"
+import { usePolicyVisualPathJump } from "@/features/policy/use-policy-visual-path-jump"
+import type { PolicyDialogSelection } from "@/features/policy/policy-path"
 import { api } from "@/lib/api/endpoints"
 import type { JsonValue, RouteRuleMetadata, RuleSetStatusItem, RuleSetUpdateResult } from "@/lib/api/types"
-
-interface EditorSelection {
-  kind: "rule" | "rule-set"
-  index: number | null
-  item: JsonObject
-  metadata?: RouteRuleMetadata
-}
 
 interface RouteVisualEditorProps extends PolicyVisualEditorProps {
   outbounds?: JsonValue
@@ -253,10 +247,31 @@ function RuleSetSection({ object, onChange, onRulesChange, onEdit }: {
 }
 
 export function RouteVisualEditor(props: RouteVisualEditorProps): React.ReactNode {
-  const { t } = useTranslation()
-  const { object, onChange, onMetadataChange = () => undefined, onRulesChange } = props
+  const { object, onChange, onMetadataChange = () => undefined, onRulesChange, jumpPath, onJumpPathHandled } = props
   const metadata = alignedMetadata(routeRules(object), props.metadata ?? [])
-  const [selection, setSelection] = useState<EditorSelection | null>(null)
+  const [selection, setSelection] = useState<RouteEditorSelection | null>(null)
+  const lists = useMemo(() => ({
+    rules: routeRules(object),
+    ruleSets: routeRuleSets(object),
+    metadata,
+  }), [metadata, object])
+  const selectFromPath = useCallback((next: PolicyDialogSelection) => {
+    if (next.kind !== "rule" && next.kind !== "rule-set") return
+    setSelection({
+      kind: next.kind,
+      index: next.index,
+      item: next.item,
+      metadata: next.kind === "rule" ? next.metadata : undefined,
+      jumpPath: next.jumpPath,
+    })
+  }, [])
+  usePolicyVisualPathJump({
+    section: "route",
+    jumpPath,
+    onJumpPathHandled,
+    lists,
+    onSelect: selectFromPath,
+  })
   const editRule = (index: number | null) => setSelection({ kind: "rule", index, item: index === null ? { action: "route" } : routeRules(object)[index], metadata: index === null ? emptyMetadata() : metadata[index] })
   const editRuleSet = (index: number | null) => setSelection({ kind: "rule-set", index, item: index === null ? { type: "inline" } : routeRuleSets(object)[index] })
   const saveSelection = (item: JsonObject, nextMetadata?: RouteRuleMetadata) => {
@@ -274,11 +289,7 @@ export function RouteVisualEditor(props: RouteVisualEditorProps): React.ReactNod
     <RuleSection object={object} metadata={metadata} metadataLoading={props.metadataLoading} metadataError={props.metadataError}
       onChange={onChange} onMetadataChange={onMetadataChange} onRulesChange={onRulesChange} onEdit={editRule} onInstall={props.onInstall} />
     <RuleSetSection object={object} onChange={onChange} onRulesChange={onRulesChange} onEdit={editRuleSet} />
-    {selection?.kind === "rule" ? <RouteRuleDialog key={`${selection.index}:${JSON.stringify(selection.item)}`} open item={selection.item} metadata={selection.metadata}
-      title={selection.index === null ? t("policy.route.addRuleTitle") : t("policy.route.editRuleTitle", { index: selection.index + 1 })}
-      onOpenChange={(open) => { if (!open) setSelection(null) }} onSave={saveSelection} /> : null}
-    {selection?.kind === "rule-set" ? <RouteRuleSetDialog key={`${selection.index}:${JSON.stringify(selection.item)}`} open item={selection.item}
-      title={selection.index === null ? t("policy.route.addRuleSetTitle") : t("policy.route.editRuleSetTitle")}
-      onOpenChange={(open) => { if (!open) setSelection(null) }} onSave={saveSelection} /> : null}
+    <RouteVisualDialogs selection={selection} onClose={() => setSelection(null)}
+      onClearJumpPath={() => setSelection((c) => c ? { ...c, jumpPath: undefined } : c)} onSave={saveSelection} />
   </div>
 }

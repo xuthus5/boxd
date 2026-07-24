@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useMemo, useRef, useState, type RefObject } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -7,7 +7,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { JsonEditor } from "@/features/config/json-editor"
+import { JsonEditor, type JsonEditorHandle } from "@/features/config/json-editor"
+import { usePolicyDialogPathReveal } from "@/features/policy/use-policy-dialog-path-reveal"
 import { useConfigQuery } from "@/features/config/config-hooks"
 import { optionsWithCurrent, useDNSDialogState } from "@/features/policy/dns-dialog-state"
 import {
@@ -32,6 +33,8 @@ export interface DNSServerDialogProps {
   title: string
   onOpenChange: (open: boolean) => void
   onSave: (item: JsonObject) => void
+  jumpPath?: string | null
+  onJumpPathHandled?: () => void
 }
 
 const tagField = [{ path: "tag", label: "tag", required: true, section: "basic" }] as const satisfies readonly PolicyFieldSpec[]
@@ -110,17 +113,22 @@ function ServerFields(props: {
   />
 }
 
-function AdvancedJSON({ value, title, revision, onChange }: {
+function AdvancedJSON({ value, title, revision, onChange, editorRef }: {
   value: string; title: string; revision: number; onChange: (value: string) => void
+  editorRef?: RefObject<JsonEditorHandle | null>
 }) {
   const { t } = useTranslation()
   return <FieldGroup><Field>
     <FieldLabel className="sr-only">{t("policy.dns.advancedJSON")}</FieldLabel>
-    <JsonEditor key={revision} value={value} onChange={onChange} ariaLabel={t("policy.dns.advancedJSONLabel", { title })} />
+    <JsonEditor ref={editorRef} key={revision} value={value} onChange={onChange} ariaLabel={t("policy.dns.advancedJSONLabel", { title })} />
   </Field></FieldGroup>
 }
 
-function ServerTabs({ state, title }: { state: ReturnType<typeof useDNSDialogState>; title: string }) {
+function ServerTabs({ state, title, activeTab, onTabChange, editorRef }: {
+  state: ReturnType<typeof useDNSDialogState>; title: string
+  activeTab: string; onTabChange: (tab: string) => void
+  editorRef?: RefObject<JsonEditorHandle | null>
+}) {
   const { t } = useTranslation()
   const config = useConfigQuery()
   const object = state.object
@@ -139,7 +147,7 @@ function ServerTabs({ state, title }: { state: ReturnType<typeof useDNSDialogSta
     onValidity: state.updateValidity,
     transform: state.transform,
   }
-  return <Tabs defaultValue="basic" className="min-h-0 min-w-0">
+  return <Tabs value={activeTab} onValueChange={(v) => onTabChange(String(v || "basic"))} className="min-h-0 min-w-0">
     <TabsList activateOnFocus className="h-auto max-w-full justify-start overflow-x-auto overflow-y-hidden" variant="line">
       <TabsTrigger value="basic">{t("policy.dns.basicTab")}</TabsTrigger>
       <TabsTrigger value="dialer">{t("policy.dns.dialerTab")}</TabsTrigger>
@@ -166,14 +174,17 @@ function ServerTabs({ state, title }: { state: ReturnType<typeof useDNSDialogSta
     <TabsContent value="tls" className="pt-4" keepMounted><ServerFields {...fieldProps} section="tls" /></TabsContent>
     <TabsContent value="special" className="pt-4" keepMounted><ServerFields {...fieldProps} section="special" /></TabsContent>
     <TabsContent value="advanced" className="pt-4" keepMounted>
-      <AdvancedJSON value={state.value} title={title} revision={state.editorRevision} onChange={state.updateJSON} />
+      <AdvancedJSON value={state.value} title={title} revision={state.editorRevision} onChange={state.updateJSON} editorRef={editorRef} />
     </TabsContent>
   </Tabs>
 }
 
-export function DNSServerDialog({ open, item, title, onOpenChange, onSave }: DNSServerDialogProps) {
+export function DNSServerDialog({ open, item, title, jumpPath, onJumpPathHandled, onOpenChange, onSave }: DNSServerDialogProps) {
   const { t } = useTranslation()
   const state = useDNSDialogState(item)
+  const [activeTab, setActiveTab] = useState("basic")
+  const editorRef = useRef<JsonEditorHandle>(null)
+  usePolicyDialogPathReveal(editorRef, setActiveTab, jumpPath, onJumpPathHandled)
   const requiredValid = requiredServerValues(state.object)
   const canSave = Boolean(state.jsonValid && requiredValid && state.invalidFields.size === 0)
   return <Dialog open={open} onOpenChange={onOpenChange}>
@@ -188,7 +199,7 @@ export function DNSServerDialog({ open, item, title, onOpenChange, onSave }: DNS
             <AlertTitle>{t("policy.dns.requiredTitle")}</AlertTitle>
             <AlertDescription>{t("policy.dns.serverRequiredDescription")}</AlertDescription>
           </Alert> : null}
-          <ServerTabs state={state} title={title} />
+          <ServerTabs state={state} title={title} activeTab={activeTab} onTabChange={setActiveTab} editorRef={editorRef} />
         </div>
       </div>
       <DialogFooter>

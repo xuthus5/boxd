@@ -1,10 +1,9 @@
 import { useMutation } from "@tanstack/react-query"
 import { GaugeIcon, ListPlusIcon, ServerIcon } from "lucide-react"
-import { useMemo, useState, type ReactNode } from "react"
+import { useCallback, useMemo, useState, type ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import { useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
-
 import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
@@ -27,9 +26,8 @@ import { DNSTypeSummaryBar } from "@/features/policy/dns-type-summary"
 import { toggleRuleInvert } from "@/features/policy/rule-invert"
 import { DNSFakeIPCard, DNSGlobalCard } from "@/features/policy/dns-global-card"
 import { DNSRuleCard } from "@/features/policy/dns-rule-card"
-import { DNSRuleDialog } from "@/features/policy/dns-rule-dialog"
 import { DNSServerCard } from "@/features/policy/dns-server-card"
-import { DNSServerDialog } from "@/features/policy/dns-server-dialog"
+import { DNSVisualDialogs, type DNSEditorSelection } from "@/features/policy/dns-visual-dialogs"
 import {
   dnsProbeBatchToastTone,
   dnsProbeInput,
@@ -46,26 +44,19 @@ import {
 } from "@/features/policy/dns-probe-error"
 import { copyText } from "@/features/proxy/copy-tag-button"
 import { dnsRules, dnsServers, setDNSRules, setDNSServers } from "@/features/policy/dns-form-model"
+import { usePolicyVisualPathJump } from "@/features/policy/use-policy-visual-path-jump"
+import type { PolicyDialogSelection } from "@/features/policy/policy-path"
 import { cloneJsonObject, moveItem, type JsonObject } from "@/features/policy/policy-form-model"
 import type { PolicyVisualEditorProps } from "@/features/policy/policy-page"
 import { api } from "@/lib/api/endpoints"
 import type { DNSProbeResult } from "@/lib/api/types"
-
-interface EditorSelection {
-  kind: "server" | "rule"
-  index: number | null
-  item: JsonObject
-}
-
 function replaceOrAppend(items: readonly JsonObject[], index: number | null, item: JsonObject) {
   if (index === null) return [...items, item]
   return items.map((current, currentIndex) => currentIndex === index ? item : current)
 }
-
 function insertCopy(items: readonly JsonObject[], index: number) {
   return [...items.slice(0, index + 1), cloneJsonObject(items[index]), ...items.slice(index + 1)]
 }
-
 function EmptySection({ title, description, action, onAdd }: {
   title: string; description: string; action: string; onAdd: () => void
 }) {
@@ -74,11 +65,9 @@ function EmptySection({ title, description, action, onAdd }: {
     <EmptyContent><Button onClick={onAdd}><ListPlusIcon data-icon="inline-start" />{action}</Button></EmptyContent>
   </Empty>
 }
-
 function probeKey(item: JsonObject, index: number) {
   return typeof item.tag === "string" && item.tag ? item.tag : `idx:${index}`
 }
-
 function ServerSection({ object, onChange, onRulesChange, onEdit, onInstall }: {
   object: JsonObject; onChange: (object: JsonObject) => void; onEdit: (index: number | null) => void
   onRulesChange?: (object: JsonObject, metadata: never[]) => void; onInstall?: () => void
@@ -209,7 +198,6 @@ function ServerSection({ object, onChange, onRulesChange, onEdit, onInstall }: {
       </>}</CardContent>
     <CardFooter><p className="text-muted-foreground">{t("policy.dns.serversCount", { count: servers.length })}</p></CardFooter></Card>
 }
-
 function RuleSection({ object, onChange, onRulesChange, onEdit }: {
   object: JsonObject; onChange: (object: JsonObject) => void; onEdit: (index: number | null) => void
   onRulesChange?: (object: JsonObject, metadata: never[]) => void
@@ -278,12 +266,16 @@ function RuleSection({ object, onChange, onRulesChange, onEdit }: {
       </>}</CardContent>
     <CardFooter><p className="text-muted-foreground">{t("policy.dns.rulesCount", { count: rules.length })}</p></CardFooter></Card>
 }
-
-/* c8 ignore start */
 export function DNSVisualEditor(props: PolicyVisualEditorProps): ReactNode {
-  const { t } = useTranslation()
-  const { object, onChange } = props
-  const [selection, setSelection] = useState<EditorSelection | null>(null)
+  const { object, onChange, jumpPath, onJumpPathHandled } = props
+  const [selection, setSelection] = useState<DNSEditorSelection | null>(null)
+  const lists = useMemo(() => ({ rules: dnsRules(object), servers: dnsServers(object) }), [object])
+  const selectFromPath = useCallback((next: PolicyDialogSelection) => {
+    if (next.kind === "rule" || next.kind === "server") {
+      setSelection({ kind: next.kind, index: next.index, item: next.item, jumpPath: next.jumpPath })
+    }
+  }, [])
+  usePolicyVisualPathJump({ section: "dns", jumpPath, onJumpPathHandled, lists, onSelect: selectFromPath })
   const editServer = (index: number | null) => setSelection({ kind: "server", index, item: index === null ? {} : dnsServers(object)[index] })
   const editRule = (index: number | null) => setSelection({ kind: "rule", index, item: index === null ? { action: "route" } : dnsRules(object)[index] })
   const saveSelection = (item: JsonObject) => {
@@ -292,20 +284,14 @@ export function DNSVisualEditor(props: PolicyVisualEditorProps): ReactNode {
       ? setDNSServers(object, replaceOrAppend(dnsServers(object), selection.index, item))
       : setDNSRules(object, replaceOrAppend(dnsRules(object), selection.index, item))
     onChange(next)
-    /* c8 ignore next */
     props.onRulesChange?.(next, [])
     setSelection(null)
   }
-  const serverTags = dnsServers(object).flatMap((server) => typeof server.tag === "string" && server.tag ? [server.tag] : [])
+  const serverTags = dnsServers(object).flatMap((s) => typeof s.tag === "string" && s.tag ? [s.tag] : [])
   return <div className="flex min-w-0 flex-col gap-2 sm:gap-3"><DNSGlobalCard {...props} /><DNSFakeIPCard {...props} />
     <ServerSection object={object} onChange={onChange} onRulesChange={props.onRulesChange} onEdit={editServer} onInstall={props.onInstall} />
     <RuleSection object={object} onChange={onChange} onRulesChange={props.onRulesChange} onEdit={editRule} />
-    {selection?.kind === "server" ? <DNSServerDialog key={`${selection.index}:${JSON.stringify(selection.item)}`} open
-      item={selection.item} title={selection.index === null ? t("policy.dns.addServerTitle") : t("policy.dns.editServerTitle")}
-      onOpenChange={(open) => { if (!open) setSelection(null) }} onSave={saveSelection} /> : null}
-    {selection?.kind === "rule" ? <DNSRuleDialog key={`${selection.index}:${JSON.stringify(selection.item)}`} open
-      item={selection.item} title={selection.index === null ? t("policy.dns.addRuleTitle") : t("policy.dns.editRuleTitle", { index: selection.index + 1 })} serverTags={serverTags}
-      onOpenChange={(open) => { if (!open) setSelection(null) }} onSave={saveSelection} /> : null}
+    <DNSVisualDialogs selection={selection} serverTags={serverTags} onClose={() => setSelection(null)}
+      onClearJumpPath={() => setSelection((c) => c ? { ...c, jumpPath: undefined } : c)} onSave={saveSelection} />
   </div>
 }
-/* c8 ignore stop */

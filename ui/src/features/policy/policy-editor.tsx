@@ -28,6 +28,7 @@ import {
   type PolicySection,
 } from "@/features/policy/policy-form-model"
 import type { JsonValue, RouteRuleMetadata } from "@/lib/api/types"
+import { parsePolicyItemPath } from "@/features/policy/policy-path"
 
 export interface PolicyVisualEditorProps {
   object: JsonObject
@@ -37,6 +38,8 @@ export interface PolicyVisualEditorProps {
   onRulesChange?: (object: JsonObject, metadata: RouteRuleMetadata[]) => void
   onInstall?: () => void
   onGlobalSave?: (object: JsonObject) => void
+  jumpPath?: string | null
+  onJumpPathHandled?: () => void
 }
 
 interface PolicyEditorProps {
@@ -70,6 +73,8 @@ interface PolicyEditorTabsProps {
   editorRef?: React.RefObject<JsonEditorHandle | null>
   activeTab: string
   onTabChange: (value: string | number | null) => void
+  visualJumpPath?: string | null
+  onVisualJumpPathHandled?: () => void
 }
 
 function parsePolicyObject(value: string): JsonObject | null {
@@ -118,6 +123,8 @@ function PolicyEditorTabs({
   editorRef,
   activeTab,
   onTabChange,
+  visualJumpPath,
+  onVisualJumpPathHandled,
 }: PolicyEditorTabsProps) {
   const { t } = useTranslation()
   const structureValid = Boolean(object && isPolicySectionStructureValid(section, object))
@@ -129,7 +136,7 @@ function PolicyEditorTabs({
       </TabsList>
       <TabsContent value="visual">
         {object && structureValid
-          ? renderVisual({ object, revision, onChange, onFieldValidityChange, onRulesChange, onInstall, onGlobalSave })
+          ? renderVisual({ object, revision, onChange, onFieldValidityChange, onRulesChange, onInstall, onGlobalSave, jumpPath: visualJumpPath, onJumpPathHandled: onVisualJumpPathHandled })
           : object ? <Alert variant="destructive">
             <AlertTitle>{t("policy.invalidStructureTitle")}</AlertTitle>
             <AlertDescription>{t("policy.invalidStructureDescription")}</AlertDescription>
@@ -167,10 +174,11 @@ export function PolicyEditor({
   const editor = usePolicyEditorState(initialSection)
   const editorRef = useRef<JsonEditorHandle>(null)
   const [activeTab, setActiveTab] = useState("visual")
+  const [visualJumpPath, setVisualJumpPath] = useState<string | null>(null)
   const structureValid = Boolean(editor.object && isPolicySectionStructureValid(section, editor.object))
   const initialObject = isJsonObject(initialSection) ? initialSection : {}
   const diffItems = editor.object ? diffConfig(initialObject, editor.object) : []
-  const reveal = useCallback((path: string) => {
+  const revealJSON = useCallback((path: string) => {
     setActiveTab("json")
     const candidates = [path]
     if (path.startsWith(`${section}.`)) candidates.push(path.slice(section.length + 1))
@@ -183,6 +191,14 @@ export function PolicyEditor({
     }, 50)
     return true
   }, [section, t])
+  const reveal = useCallback((path: string) => {
+    if ((section === "route" || section === "dns") && parsePolicyItemPath(path, section)) {
+      setActiveTab("visual")
+      setVisualJumpPath(path)
+      return true
+    }
+    return revealJSON(path)
+  }, [revealJSON, section])
   useConfigPathReveal((path) => reveal(path), { section })
   useEffect(() => {
     if (!jumpPath) return
@@ -237,6 +253,8 @@ export function PolicyEditor({
           editorRef={editorRef}
           activeTab={activeTab}
           onTabChange={(value) => setActiveTab(String(value || "visual"))}
+          visualJumpPath={visualJumpPath}
+          onVisualJumpPathHandled={() => setVisualJumpPath(null)}
         />
       </CardContent>
       <CardFooter className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">

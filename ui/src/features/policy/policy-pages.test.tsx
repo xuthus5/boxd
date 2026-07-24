@@ -223,3 +223,31 @@ describe("policy dry-run validate", () => {
     expect(fetchMock.mock.calls.some((call) => String(call[0]) === "/api/config/" && call[1]?.method === "PUT")).toBe(false)
   }, 20_000)
 })
+
+
+describe("policy item path jump", () => {
+  it("opens route rule dialog from path deep link", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
+      const path = String(typeof input === "string" ? input : input instanceof URL ? input.pathname : input.url).split("?")[0]
+      if (path === "/api/config/" || path === "/api/config/raw") {
+        return Promise.resolve(new Response(JSON.stringify(config)))
+      }
+      if (path === "/api/config/route/rule-metadata") {
+        return Promise.resolve(new Response(JSON.stringify([{ name: "", description: "" }, { name: "", description: "" }])))
+      }
+      if (path === "/api/settings/preferences") {
+        return Promise.resolve(new Response(JSON.stringify({ theme: "system", language: "zh", minimumLogLevel: "all" })))
+      }
+      if (path === "/api/settings/password") {
+        return Promise.resolve(new Response(JSON.stringify({ defaultPassword: false })))
+      }
+      return Promise.resolve(new Response(JSON.stringify({})))
+    }))
+    preferencesStore.set({ language: "zh", theme: "system", minimumLogLevel: "all" })
+    await i18n.changeLanguage("zh")
+    renderApp(<App />, "/policy/route?path=route.rules%5B0%5D.outbound")
+    expect(await screen.findByRole("dialog")).toBeInTheDocument()
+    expect(screen.getByRole("tab", { name: "高级 JSON" })).toHaveAttribute("aria-selected", "true")
+  }, 20_000)
+})
