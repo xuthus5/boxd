@@ -2,6 +2,7 @@ package core
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 	"time"
 
@@ -13,6 +14,11 @@ import (
 var nodeBucket = []byte("imported_nodes")
 
 var resultBucket = []byte("test_results")
+
+var (
+	ErrNodeNotFound    = errors.New("node not found")
+	ErrNodeTagConflict = errors.New("node tag already exists")
+)
 
 type NodeManager struct {
 	db *bbolt.DB
@@ -59,11 +65,48 @@ func (m *NodeManager) Add(outbound model.Outbound) error {
 
 func (m *NodeManager) Delete(tag string) error {
 	return m.db.Update(func(tx *bbolt.Tx) error {
-		_ = tx.Bucket(resultBucket).Delete([]byte(tag))
-		if hb := tx.Bucket(historyBucket); hb != nil {
-			_ = hb.Delete([]byte(tag))
+		if b := tx.Bucket(resultBucket); b != nil {
+			if err := deleteResultEntries(b, tag); err != nil {
+				return err
+			}
 		}
-		return tx.Bucket(nodeBucket).Delete([]byte(tag))
+		if b := tx.Bucket(historyBucket); b != nil {
+			if err := b.Delete([]byte(tag)); err != nil {
+				return err
+			}
+		}
+		if b := tx.Bucket(nodeBucket); b != nil {
+			return b.Delete([]byte(tag))
+		}
+		return nil
+	})
+}
+
+func (m *NodeManager) Update(oldTag string, outbound model.Outbound) error {
+	data, err := json.Marshal(outbound)
+	if err != nil {
+		return err
+	}
+	return m.db.Update(func(tx *bbolt.Tx) error {
+		nodes := tx.Bucket(nodeBucket)
+		if nodes == nil || nodes.Get([]byte(oldTag)) == nil {
+			return ErrNodeNotFound
+		}
+		if oldTag != outbound.Tag && nodes.Get([]byte(outbound.Tag)) != nil {
+			return ErrNodeTagConflict
+		}
+		if oldTag != outbound.Tag {
+			if err := moveResultEntries(tx.Bucket(resultBucket), oldTag, outbound.Tag); err != nil {
+				return err
+			}
+			if err := moveHistoryEntry(tx.Bucket(historyBucket), oldTag, outbound.Tag); err != nil {
+				return err
+			}
+			if err := nodes.Delete([]byte(oldTag)); err != nil {
+				return err
+			}
+		}
+		return nodes.Put([]byte(outbound.Tag), data)
 	})
 }
 

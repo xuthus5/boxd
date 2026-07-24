@@ -67,6 +67,49 @@ func TestNodesUpdateTagChanged(t *testing.T) {
 	}
 }
 
+func TestNodesUpdateRejectsTagConflict(t *testing.T) {
+	nodeMgr, subMgr, _, configPath := newAPIManagers(t)
+	handler := NewNodesHandler(nodeMgr, subMgr, configPath)
+	if err := nodeMgr.Add(model.Outbound{Tag: "old-tag", Type: "vless"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := nodeMgr.Add(model.Outbound{Tag: "taken", Type: "trojan"}); err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	req := withURLParam(jsonRequest(http.MethodPut, "/api/nodes/old-tag", `{"tag":"taken","type":"vless"}`), "tag", "old-tag")
+	handler.Update(rr, req)
+
+	if rr.Code != http.StatusConflict {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	envelope := decodeEnvelope(t, rr)
+	if envelope.Error == nil || envelope.Error.Code != model.ErrorConflict {
+		t.Fatalf("error = %#v", envelope.Error)
+	}
+	if nodeMgr.Get("old-tag") == nil || nodeMgr.Get("taken").Type != "trojan" {
+		t.Fatal("tag conflict changed existing nodes")
+	}
+}
+
+func TestNodesUpdateMissingNode(t *testing.T) {
+	nodeMgr, subMgr, _, configPath := newAPIManagers(t)
+	handler := NewNodesHandler(nodeMgr, subMgr, configPath)
+
+	rr := httptest.NewRecorder()
+	req := withURLParam(jsonRequest(http.MethodPut, "/api/nodes/missing", `{"tag":"new","type":"vless"}`), "tag", "missing")
+	handler.Update(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	envelope := decodeEnvelope(t, rr)
+	if envelope.Error == nil || envelope.Error.Code != model.ErrorNodeNotFound {
+		t.Fatalf("error = %#v", envelope.Error)
+	}
+}
+
 func TestNodesUpdateMissingTag(t *testing.T) {
 	nodeMgr, subMgr, _, configPath := newAPIManagers(t)
 	handler := NewNodesHandler(nodeMgr, subMgr, configPath)

@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	chi "github.com/go-chi/chi/v5"
@@ -75,11 +76,6 @@ func (h *NodesHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, "tag is required")
 		return
 	}
-	n := h.nodeManager.Get(tag)
-	if n == nil {
-		writeJSONErrorCode(w, http.StatusNotFound, model.ErrorNodeNotFound, "node not found")
-		return
-	}
 	var req struct {
 		Tag    string `json:"tag"`
 		Type   string `json:"type"`
@@ -95,13 +91,6 @@ func (h *NodesHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, "tag and type are required")
 		return
 	}
-	// Delete old tag first if tag changed
-	if req.Tag != tag {
-		if err := h.nodeManager.Delete(tag); err != nil {
-			writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorNodeUpdateFailed, "failed to update node")
-			return
-		}
-	}
 	updated := model.Outbound{
 		Tag:    req.Tag,
 		Type:   req.Type,
@@ -109,8 +98,15 @@ func (h *NodesHandler) Update(w http.ResponseWriter, r *http.Request) {
 		Port:   req.Port,
 		Raw:    req.Config,
 	}
-	if err := h.nodeManager.Add(updated); err != nil {
-		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorNodeUpdateFailed, "failed to update node")
+	if err := h.nodeManager.Update(tag, updated); err != nil {
+		switch {
+		case errors.Is(err, core.ErrNodeNotFound):
+			writeJSONErrorCode(w, http.StatusNotFound, model.ErrorNodeNotFound, "node not found")
+		case errors.Is(err, core.ErrNodeTagConflict):
+			writeJSONErrorCode(w, http.StatusConflict, model.ErrorConflict, err.Error())
+		default:
+			writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorNodeUpdateFailed, "failed to update node")
+		}
 		return
 	}
 	if err := h.sync(); err != nil {

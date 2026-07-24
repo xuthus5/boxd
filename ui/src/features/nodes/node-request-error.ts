@@ -4,6 +4,7 @@ export type NodeRequestErrorCode =
   | "unavailable"
   | "invalid_input"
   | "not_found"
+  | "conflict"
   | "update_failed"
   | "network"
   | "timeout"
@@ -14,6 +15,7 @@ const HINT_KEYS: Record<NodeRequestErrorCode, string> = {
   unavailable: "nodes.errorHintRequestUnavailable",
   invalid_input: "nodes.errorHintRequestInvalid",
   not_found: "nodes.errorHintRequestNotFound",
+  conflict: "nodes.errorHintRequestConflict",
   update_failed: "nodes.errorHintRequestUpdateFailed",
   network: "nodes.errorHintRequestNetwork",
   timeout: "nodes.errorHintRequestTimeout",
@@ -32,6 +34,7 @@ export function classifyNodeRequestError(error: unknown): NodeRequestErrorCode {
     if (code === "unavailable") return "unavailable"
     if (code === "invalid_request") return "invalid_input"
     if (code === "node_not_found" || code === "not_found" || code === "runtime_group_not_found") return "not_found"
+    if (code === "conflict" || code === "node_tag_conflict") return "conflict"
     if (code === "node_update_failed") return "update_failed"
     if (code === "runtime_not_selectable") return "unsupported"
     if (code === "timeout") return "timeout"
