@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { CardQueryError } from "@/features/common/card-query-error"
 import { ApiError } from "@/lib/api/client"
 import {
   classifyNodeRequestError,
@@ -64,17 +65,25 @@ export function ClashModeCard({ enabled }: { enabled: boolean }) {
   if (query.isLoading) return <Skeleton className="h-32 w-full" />
 
   if (query.error) {
-    const message = query.error instanceof ApiError && query.error.code === "invalid_request"
-      ? t("dashboard.clashModeDisabled")
-      : query.error.message
+    const disabled = query.error instanceof ApiError && query.error.code === "invalid_request"
     return (
       <Card size="sm">
         <CardHeader className="gap-1.5">
           <CardTitle className="truncate">{t("dashboard.clashMode")}</CardTitle>
-          <CardDescription>{message}</CardDescription>
+          {disabled ? (
+            <CardDescription>{t("dashboard.clashModeDisabled")}</CardDescription>
+          ) : null}
         </CardHeader>
-        <CardContent>
-          <Badge variant="secondary">{t("dashboard.clashModeUnavailable")}</Badge>
+        <CardContent className="flex flex-col gap-2">
+          {disabled ? (
+            <Badge variant="secondary">{t("dashboard.clashModeUnavailable")}</Badge>
+          ) : (
+            <CardQueryError
+              error={query.error}
+              scope="clash-mode"
+              onRetry={() => { void query.refetch() }}
+            />
+          )}
         </CardContent>
       </Card>
     )

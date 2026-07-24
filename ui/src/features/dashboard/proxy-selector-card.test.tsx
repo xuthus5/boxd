@@ -102,4 +102,17 @@ describe("ProxySelectorCard", () => {
     wrap(<ProxySelectorCard />)
     expect(await screen.findByText("内核未运行或没有可用的 selector 分组。")).toBeInTheDocument()
   })
+
+  it("shows densified query failure diagnostics", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
+      status: "error", data: null, error: { code: "unavailable", message: "kernel not running" }, meta: null,
+    }), { status: 503 }))))
+    wrap(<ProxySelectorCard />)
+    const alert = await screen.findByTestId("card-query-error")
+    expect(alert).toHaveAttribute("data-error-code", "unavailable")
+    expect(screen.getByText("kernel not running")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "复制加载错误" })).toBeInTheDocument()
+  })
+
+
 })

@@ -75,10 +75,17 @@ describe("ConfigApplyTimelineCard", () => {
     expect(screen.getByRole("link", { name: "打开来源: 完整配置保存" })).toHaveAttribute("href", "/advanced/raw")
   })
 
-  it("shows load failure description", async () => {
-    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response("nope", { status: 500 }))))
+  it("shows densified load failure diagnostics", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
+      status: "error", data: null, error: { code: "internal_error", message: "history unavailable" }, meta: null,
+    }), { status: 500 }))))
     renderCard()
     expect(await screen.findByText("无法加载配置应用记录")).toBeInTheDocument()
+    const alert = await screen.findByTestId("card-query-error")
+    expect(alert).toHaveAttribute("data-error-code", "internal")
+    expect(screen.getByText("history unavailable")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "复制加载错误" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "重试" })).toBeInTheDocument()
   })
 
   it("copies apply error details", async () => {

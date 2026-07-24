@@ -45,4 +45,17 @@ describe("ClashModeCard", () => {
     wrap(<ClashModeCard enabled />)
     expect(await screen.findByText(/clash_api/)).toBeInTheDocument()
   })
+
+  it("shows densified query failure diagnostics", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
+      status: "error", data: null, error: { code: "internal_error", message: "clash mode boom" }, meta: null,
+    }), { status: 500 }))))
+    wrap(<ClashModeCard enabled />)
+    const alert = await screen.findByTestId("card-query-error")
+    expect(alert).toHaveAttribute("data-error-code", "internal")
+    expect(screen.getByText("clash mode boom")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "复制加载错误" })).toBeInTheDocument()
+  })
+
+
 })

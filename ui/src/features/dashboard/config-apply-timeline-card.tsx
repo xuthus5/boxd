@@ -26,6 +26,7 @@ import { copyText } from "@/features/proxy/copy-tag-button"
 import { formatRelativeTime } from "@/features/subscriptions/relative-time"
 import { api } from "@/lib/api/endpoints"
 import type { ConfigApplyEvent } from "@/lib/api/types"
+import { CardQueryError } from "@/features/common/card-query-error"
 import { cn } from "@/lib/utils"
 
 function formatBytes(size: number) {
@@ -203,6 +204,14 @@ export function ConfigApplyTimelineCard() {
           <CardTitle className="truncate">{t("dashboard.applyTimelineTitle")}</CardTitle>
           <CardDescription>{t("dashboard.applyTimelineLoadFailed")}</CardDescription>
         </CardHeader>
+        <CardContent>
+          <CardQueryError
+            error={query.error}
+            scope="apply-timeline"
+            fallback={t("dashboard.applyTimelineLoadFailed")}
+            onRetry={() => { void query.refetch() }}
+          />
+        </CardContent>
       </Card>
     )
   }

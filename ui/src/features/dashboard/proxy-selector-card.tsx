@@ -17,6 +17,7 @@ import {
 } from "@/features/dashboard/proxy-delay"
 import { copyText } from "@/features/proxy/copy-tag-button"
 import { toast } from "sonner"
+import { CardQueryError } from "@/features/common/card-query-error"
 import { useProxySelector } from "@/features/dashboard/use-proxy-selector"
 import { formatLatency } from "@/features/nodes/node-format"
 import { buildNodesHref } from "@/features/nodes/nodes-filter"
@@ -44,13 +45,28 @@ ${t(delayErrorHintKey(value.code))}`}
   return <Badge variant="secondary">{formatLatency(value)}</Badge>
 }
 
-function ProxyStatusCard({ title, description }: { title: string; description: string }) {
+function ProxyStatusCard({
+  title,
+  description,
+  error,
+  onRetry,
+}: {
+  title: string
+  description?: string
+  error?: unknown
+  onRetry?: () => void
+}) {
   return (
     <Card size="sm">
       <CardHeader className="gap-1.5">
         <CardTitle className="truncate">{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
+        {description && !error ? <CardDescription>{description}</CardDescription> : null}
       </CardHeader>
+      {error ? (
+        <CardContent>
+          <CardQueryError error={error} scope="proxy-selector" onRetry={onRetry} />
+        </CardContent>
+      ) : null}
     </Card>
   )
 }
@@ -167,7 +183,13 @@ export function ProxySelectorCard() {
   const state = useProxySelector()
   if (state.query.isLoading) return <Skeleton className="h-36 w-full" />
   if (state.query.error) {
-    return <ProxyStatusCard title={t("dashboard.proxySelector")} description={state.query.error.message} />
+    return (
+      <ProxyStatusCard
+        title={t("dashboard.proxySelector")}
+        error={state.query.error}
+        onRetry={() => { void state.query.refetch() }}
+      />
+    )
   }
   if (!state.group) {
     return <ProxyStatusCard title={t("dashboard.proxySelector")} description={t("dashboard.proxySelectorEmpty")} />
