@@ -22,6 +22,8 @@ var (
 	ErrInvalidMode = errors.New("invalid clash mode")
 )
 
+var runURLTest = urltest.URLTest
+
 // FlushDNS 清空内核 DNS 缓存。内核未运行时返回 ErrNotRunning。
 // 当配置未启用 DNS 但 DNSRouter 仍注册时按 1.13 语义视为成功。
 func (s *SBInstance) FlushDNS() error {
@@ -63,7 +65,7 @@ func (s *SBInstance) FlushFakeIP() error {
 // OutboundDelay 通过指定出站发起一次 URL 测速，返回延迟（ms）。
 // link 为空时使用 urltest 默认测速地址；timeout<=0 时取 10s。
 // 内核未运行返回 ErrNotRunning，出站不存在返回 ErrOutboundNotFound。
-// 用 box 上下文派生子 context 以继承 ntp / RootPool 服务。
+// 用 box 上下文派生子 context 以继承 ntp / RootPool 服务，同时传播调用方取消与更早的截止时间。
 func (s *SBInstance) OutboundDelay(ctx context.Context, tag, link string, timeout time.Duration) (uint16, error) {
 	s.mu.Lock()
 	box := s.box
@@ -82,12 +84,42 @@ func (s *SBInstance) OutboundDelay(ctx context.Context, tag, link string, timeou
 	if timeout <= 0 {
 		timeout = 10 * time.Second
 	}
-	// 以 box 上下文为父，继承 ntp/RootPool；叠加请求自身的截止与超时。
-	_ = ctx // 保留参数语义：调用方可传递取消，但 urltest 以 boxCtx 子 ctx 为准。
+	if ctx == nil {
+		ctx = context.TODO()
+	}
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
 
-	testCtx, cancel := context.WithTimeout(boxCtx, timeout)
+	testCtx, cancel := outboundDelayContext(boxCtx, ctx, timeout)
 	defer cancel()
-	return urltest.URLTest(testCtx, link, outbound)
+	return runURLTest(testCtx, link, outbound)
+}
+
+func outboundDelayContext(
+	boxCtx context.Context,
+	requestCtx context.Context,
+	timeout time.Duration,
+) (context.Context, context.CancelFunc) {
+	deadline := time.Now().Add(timeout)
+	requestDeadline, hasRequestDeadline := requestCtx.Deadline()
+	requestDeadlineSelected := hasRequestDeadline && !requestDeadline.After(deadline)
+	if requestDeadlineSelected {
+		deadline = requestDeadline
+	}
+
+	testCtx, cancel := context.WithDeadline(boxCtx, deadline)
+	stop := context.AfterFunc(requestCtx, func() {
+		if requestDeadlineSelected && requestCtx.Err() == context.DeadlineExceeded {
+			return
+		}
+		cancel()
+	})
+
+	return testCtx, func() {
+		_ = stop()
+		cancel()
+	}
 }
 
 // ClashModeStatus 当前 Clash 模式及可选模式列表。

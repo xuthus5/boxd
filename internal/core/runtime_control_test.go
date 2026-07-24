@@ -68,8 +68,10 @@ type fakeClashMode struct {
 	list []string
 }
 
-func (f *fakeClashMode) Mode() string       { return f.mode }
+func (f *fakeClashMode) Mode() string { return f.mode }
+
 func (f *fakeClashMode) ModeList() []string { return append([]string(nil), f.list...) }
+
 func (f *fakeClashMode) SetMode(mode string) {
 	for _, item := range f.list {
 		if strings.EqualFold(item, mode) {
