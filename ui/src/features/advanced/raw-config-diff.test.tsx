@@ -2,11 +2,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router-dom"
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { I18nextProvider } from "react-i18next"
 
 import { RawConfigPage } from "@/features/advanced/raw-config-page"
 import { i18n } from "@/i18n"
+import * as client from "@/lib/api/client"
 
 function renderPage() {
   return render(
@@ -21,6 +22,11 @@ function renderPage() {
 }
 
 describe("RawConfigPage diff", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
   it("renders a no-change panel for the loaded config", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
       status: "ok",
@@ -33,6 +39,45 @@ describe("RawConfigPage diff", () => {
     expect(screen.getByLabelText("完整配置 JSON")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "校验配置" })).toBeInTheDocument()
     vi.unstubAllGlobals()
+  })
+
+  it("imports a JSON draft without saving it", async () => {
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({
+      status: "ok",
+      data: { log: { level: "info" } },
+      error: null,
+      meta: null,
+    }))))
+    vi.stubGlobal("fetch", fetchMock)
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByLabelText("完整配置 JSON")
+
+    const file = new File([JSON.stringify({ log: { level: "debug" }, dns: { final: "local" } })], "candidate.json", {
+      type: "application/json",
+    })
+    await user.upload(screen.getByLabelText("导入 JSON"), file)
+
+    expect(await screen.findByText(/已从 candidate\.json 载入草稿/)).toBeInTheDocument()
+    expect(screen.getByTestId("config-diff-panel")).toHaveTextContent("dns")
+    expect(fetchMock.mock.calls.some((call) => call[1]?.method === "PUT")).toBe(false)
+  })
+
+  it("exports the current valid draft as formatted JSON", async () => {
+    const trigger = vi.spyOn(client, "triggerBrowserDownload").mockImplementation(() => undefined)
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({
+      status: "ok",
+      data: { log: { level: "info" } },
+      error: null,
+      meta: null,
+    })))) )
+    renderPage()
+    await screen.findByLabelText("完整配置 JSON")
+    await userEvent.setup().click(screen.getByRole("button", { name: "导出 JSON" }))
+
+    await waitFor(() => expect(trigger).toHaveBeenCalledTimes(1))
+    expect(trigger.mock.calls[0][1]).toBe("config.json")
+    await expect((trigger.mock.calls[0][0] as Blob).text()).resolves.toContain('"level": "info"')
   })
 
   it("shows path-level diff details after edits", async () => {

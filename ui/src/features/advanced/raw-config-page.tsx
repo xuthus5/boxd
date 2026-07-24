@@ -1,4 +1,5 @@
-import { useCallback, useRef, useState } from "react"
+import { DownloadIcon, UploadIcon } from "lucide-react"
+import { useCallback, useRef, useState, type ChangeEvent } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
@@ -16,13 +17,24 @@ import { useRawConfigQuery, useSaveConfigMutation } from "@/features/config/conf
 import { diffConfig, formatConfigDiffSummary } from "@/features/config/config-diff"
 import { JsonEditor, type JsonEditorHandle } from "@/features/config/json-editor"
 import { isValidJSON } from "@/features/config/json-utils"
+import {
+  formatRawConfig,
+  MAX_RAW_CONFIG_FILE_BYTES,
+  rawConfigFileErrorMessageKey,
+  RawConfigFileError,
+  readRawConfigFile,
+} from "@/features/advanced/raw-config-file"
 import type { SingBoxConfig } from "@/lib/api/types"
+import { triggerBrowserDownload } from "@/lib/api/client"
 import { PageLoadErrorAlert } from "@/features/common/page-load-error-alert"
 
 function RawEditor({ initial }: { initial: SingBoxConfig }) {
   const { t } = useTranslation()
   const editorRef = useRef<JsonEditorHandle>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [value, setValue] = useState(() => JSON.stringify(initial, null, 2))
+  const [importedFileName, setImportedFileName] = useState("")
+  const [importing, setImporting] = useState(false)
   const { saveError, clearSaveError, reportError, reportRollback } = useConfigSaveError()
   const save = useSaveConfigMutation(true)
   const valid = isValidJSON(value)
@@ -66,6 +78,32 @@ function RawEditor({ initial }: { initial: SingBoxConfig }) {
       },
     })
   }
+  const importConfig = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ""
+    if (!file) return
+    setImporting(true)
+    try {
+      const config = await readRawConfigFile(file)
+      setValue(formatRawConfig(config))
+      setImportedFileName(file.name)
+      clearSaveError()
+      toast.success(t("advanced.importSuccess"))
+    } catch (error) {
+      const code = error instanceof RawConfigFileError ? error.code : "read_failed"
+      toast.error(t(rawConfigFileErrorMessageKey(code), {
+        size: Math.round(MAX_RAW_CONFIG_FILE_BYTES / 1024 / 1024),
+      }))
+    } finally {
+      setImporting(false)
+    }
+  }
+  const exportConfig = () => {
+    if (!nextConfig) return
+    const blob = new Blob([formatRawConfig(nextConfig)], { type: "application/json;charset=utf-8" })
+    triggerBrowserDownload(blob, "config.json")
+    toast.success(t("advanced.exportSuccess"))
+  }
   return (
     <FieldGroup className="gap-2 sm:gap-3">
       <Field>
@@ -79,7 +117,37 @@ function RawEditor({ initial }: { initial: SingBoxConfig }) {
       />
       <ConfigDiffPanel items={diffItems} onSelectPath={reveal} />
       <Field orientation="horizontal" className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <Button variant="outline" size="sm" className="h-8 w-full sm:w-auto" onClick={() => { setValue(JSON.stringify(initial, null, 2)); clearSaveError() }}>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json,application/json"
+          className="sr-only"
+          aria-label={t("advanced.importJSON")}
+          onChange={(event) => { void importConfig(event) }}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 w-full sm:w-auto"
+          disabled={importing || validating || save.isPending}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <UploadIcon data-icon="inline-start" />
+          {importing ? t("advanced.importing") : t("advanced.importJSON")}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 w-full sm:w-auto"
+          disabled={!valid || importing || validating || save.isPending}
+          onClick={exportConfig}
+        >
+          <DownloadIcon data-icon="inline-start" />
+          {t("advanced.exportJSON")}
+        </Button>
+        <Button variant="outline" size="sm" className="h-8 w-full sm:w-auto" onClick={() => { setValue(JSON.stringify(initial, null, 2)); setImportedFileName(""); clearSaveError() }}>
           {t("advanced.reset")}
         </Button>
         <Button
@@ -100,6 +168,11 @@ ${diffSummary}`}
           onConfirm={persist}
         />
       </Field>
+      {importedFileName ? (
+        <p className="text-xs text-muted-foreground" aria-live="polite">
+          {t("advanced.importedFile", { name: importedFileName })}
+        </p>
+      ) : null}
     </FieldGroup>
   )
 }

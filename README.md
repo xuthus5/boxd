@@ -13,7 +13,7 @@ Single-node control plane for [sing-box](https://github.com/SagerNet/sing-box). 
 - **Traffic policy**: route/DNS rules with search, invert toggles, denser mobile cards, DNS servers with search, health probe, and error-code diagnostics; rule name/description stored by boxd; rule-set update error-code diagnostics; dry-run validate before apply; item path deep-links into rule/server dialogs with dialog dry-run validate
 - **Nodes & subscriptions**: Clash YAML + base64 subscriptions, traffic/expiry, failed-first + retry with error-code hints and copy/open diagnostics, subscription deep-links to nodes/logs, denser mobile toolbars/cards, node search, latency color bands + history sparkline/detail chart, copyable probe errors with error-code hints, runtime groups, probes
 - **Observability**: kernel/app logs with timestamps, copy/export, proxy-safe SSE heartbeats, and manual reconnect; TCP/UDP connections with source/network/inbound/process, search/sort/export, optimistic close, grouped views, and close-error diagnostics
-- **Advanced**: Endpoints, Experimental, full kernel JSON with path-level diff; dry-run validate on raw/endpoints/experimental; sticky save-error jump
+- **Advanced**: Endpoints, Experimental, full kernel JSON with path-level diff, local JSON import/export; dry-run validate on raw/endpoints/experimental; sticky save-error jump
 - **Auth**: densified login failures with error codes/hints and copyable diagnostics
 - **Page load diagnostics**: shared densified query-load failures (code/hint/copy/retry) across dashboard, proxy, policy, nodes/subs, settings, and advanced pages
 - **Settings**: theme, language, and log level persisted in DB; password/JWT rotation, dirty-state save gates, probe URLs, global URLTest defaults, panel backup export
