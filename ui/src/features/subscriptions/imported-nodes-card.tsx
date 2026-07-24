@@ -94,7 +94,11 @@ export function ImportedNodesCard() {
     ? <Skeleton className="h-32 w-full" />
     : query.error
       ? (
-        <PageLoadErrorAlert error={query.error} scope="imported-nodes" />
+        <PageLoadErrorAlert
+          error={query.error}
+          scope="imported-nodes"
+          onRetry={() => { void query.refetch() }}
+        />
       )
       : nodes.length
         ? (

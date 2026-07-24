@@ -67,7 +67,16 @@ export function DashboardPage() {
     return (
       <div className="flex flex-col gap-4">
         <h1 className="text-2xl font-semibold">{t("pages.dashboard")}</h1>
-        <PageLoadErrorAlert error={error} scope="dashboard" titleKey="dashboard.loadFailed" />
+        <PageLoadErrorAlert
+          error={error}
+          scope="dashboard"
+          titleKey="dashboard.loadFailed"
+          onRetry={() => {
+            for (const item of [status, history, memory, version]) {
+              if (item.error) void item.refetch()
+            }
+          }}
+        />
       </div>
     )
   }

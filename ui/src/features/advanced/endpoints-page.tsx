@@ -163,7 +163,13 @@ export function EndpointsPage() {
   const { saveError, clearSaveError, reportError, reportRollback } = useConfigSaveError()
   if (query.isLoading) return <Skeleton className="h-64 w-full" />
   if (query.error) {
-    return <PageLoadErrorAlert error={query.error} scope="advanced-endpoints" />
+    return (
+      <PageLoadErrorAlert
+        error={query.error}
+        scope="advanced-endpoints"
+        onRetry={() => { void query.refetch() }}
+      />
+    )
   }
   const initial = query.data?.endpoints
   return (

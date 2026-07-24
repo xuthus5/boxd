@@ -146,7 +146,16 @@ export function SubscriptionsPage() {
 
   if (query.isLoading || defaults.isLoading) return <Skeleton className="h-64 w-full" />
   if (loadError) {
-    return <PageLoadErrorAlert error={loadError} scope="subscriptions" />
+    return (
+      <PageLoadErrorAlert
+        error={loadError}
+        scope="subscriptions"
+        onRetry={() => {
+          if (query.error) void query.refetch()
+          if (defaults.error) void defaults.refetch()
+        }}
+      />
+    )
   }
 
   return (

@@ -90,7 +90,16 @@ function OutboundCards({ items, onEdit, onDelete }: {
   if (subscriptions.isLoading || runtime.isLoading) return <Skeleton className="h-64 w-full" />
   const error = subscriptions.error ?? runtime.error
   if (error) {
-    return <PageLoadErrorAlert error={error} scope="proxy-outbounds" />
+    return (
+      <PageLoadErrorAlert
+        error={error}
+        scope="proxy-outbounds"
+        onRetry={() => {
+          if (subscriptions.error) void subscriptions.refetch()
+          if (runtime.error) void runtime.refetch()
+        }}
+      />
+    )
   }
   const subscriptionList = Array.isArray(subscriptions.data) ? subscriptions.data : []
   const memberTags = subscriptionTags(subscriptionList)
@@ -167,7 +176,13 @@ export function ProxyListPage({ configKey, title, addLabel }: {
   })
   if (query.isLoading) return <Skeleton className="h-64 w-full" />
   if (query.error) {
-    return <PageLoadErrorAlert error={query.error} scope="proxy" />
+    return (
+      <PageLoadErrorAlert
+        error={query.error}
+        scope="proxy"
+        onRetry={() => { void query.refetch() }}
+      />
+    )
   }
   const typeFilter = filters.type
   const filteredIndexed = items

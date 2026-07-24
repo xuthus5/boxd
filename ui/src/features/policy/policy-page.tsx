@@ -47,7 +47,13 @@ export function PolicyPage({
   const [jumpPath, setJumpPath] = useState<string | null>(null)
   if (query.isLoading) return <Skeleton className="h-64 w-full" />
   if (query.error) {
-    return <PageLoadErrorAlert error={query.error} scope="policy" />
+    return (
+      <PageLoadErrorAlert
+        error={query.error}
+        scope="policy"
+        onRetry={() => { void query.refetch() }}
+      />
+    )
   }
   const persist = (object: JsonObject) => {
     clearSaveError()

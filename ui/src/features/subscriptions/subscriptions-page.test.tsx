@@ -1,8 +1,10 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import App from "@/App"
+import { SubscriptionsPage } from "@/features/subscriptions/subscriptions-page"
 import { sessionStore } from "@/lib/session"
 import { renderApp } from "@/test/render"
 
@@ -133,4 +135,21 @@ describe("SubscriptionsPage deep links", () => {
     expect(screen.getByText("失败订阅")).toBeInTheDocument()
   })
 
+})
+
+describe("SubscriptionsPage load densify", () => {
+  it("densifies page load failure with retry", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
+      status: "error", data: null, error: { code: "unavailable", message: "subs unavailable" }, meta: null,
+    }), { status: 503 }))))
+    renderApp(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <SubscriptionsPage />
+      </QueryClientProvider>,
+    )
+    const alert = await screen.findByTestId("page-load-error")
+    expect(alert).toHaveAttribute("data-error-code", "unavailable")
+    expect(screen.getByText("subs unavailable")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "重试" })).toBeInTheDocument()
+  })
 })

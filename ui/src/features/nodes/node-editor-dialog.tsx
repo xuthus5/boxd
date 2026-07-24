@@ -103,7 +103,11 @@ export function NodeEditorDialog({ tag, onClose, onSaved }: Props) {
         </DialogHeader>
         {query.isLoading ? <Skeleton className="h-64 w-full" /> : null}
         {query.error ? (
-          <PageLoadErrorAlert error={query.error} scope="node-editor" />
+          <PageLoadErrorAlert
+            error={query.error}
+            scope="node-editor"
+            onRetry={() => { void query.refetch() }}
+          />
         ) : null}
         {query.data ? <NodeEditorForm node={query.data} originalTag={tag} onSaved={onSaved} /> : null}
       </DialogContent>

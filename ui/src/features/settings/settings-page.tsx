@@ -156,6 +156,18 @@ export function SettingsPage() {
   const queries = [password, jwt, testURL, autostart, urlTestDefaults, ruleSetAuto]
   if (queries.some((query) => query.isLoading)) return <Skeleton className="h-64 w-full" />
   const error = queries.find((query) => query.error)?.error
-  if (error) return <PageLoadErrorAlert error={error} scope="settings" />
+  if (error) {
+    return (
+      <PageLoadErrorAlert
+        error={error}
+        scope="settings"
+        onRetry={() => {
+          for (const item of queries) {
+            if (item.error) void item.refetch()
+          }
+        }}
+      />
+    )
+  }
   return <div className="flex flex-col gap-3 sm:gap-4"><h1 className="text-2xl font-semibold">{t("settings.title")}</h1><div className="grid gap-3 sm:gap-4 lg:grid-cols-2"><AppearanceCard /><AccountSecurityCard defaultPassword={password.data!.defaultPassword} jwt={jwt.data!} /><RuntimeSettingsCard url={testURL.data!.url} enabled={autostart.data!.enabled} /><URLTestDefaultsCard defaults={urlTestDefaults.data!} /><RuleSetAutoUpdateCard defaults={ruleSetAuto.data!} /><BackupExportCard /></div></div>
 }

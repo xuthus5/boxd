@@ -15,7 +15,7 @@ Single-node control plane for [sing-box](https://github.com/SagerNet/sing-box). 
 - **Observability**: kernel/app logs with copy/export and per-line copy, denser mobile filters, and virtualized long lists; TCP/UDP connections with source/network/inbound/process, compact toolbar, search/sort/export, optimistic close against live SSE with close-error diagnostics, outbound/rule/process group views (virtualized), and group drill-down/close
 - **Advanced**: Endpoints, Experimental, full kernel JSON with path-level diff; dry-run validate on raw/endpoints/experimental; sticky save-error jump
 - **Auth**: densified login failures with error codes/hints and copyable diagnostics
-- **Page load diagnostics**: shared densified query-load failures (code/hint/copy) across dashboard, proxy, policy, nodes/subs, settings, and advanced pages
+- **Page load diagnostics**: shared densified query-load failures (code/hint/copy/retry) across dashboard, proxy, policy, nodes/subs, settings, and advanced pages
 - **Settings**: theme, language, and log level persisted in DB; password/JWT rotation, dirty-state save gates, probe URLs, global URLTest defaults, panel backup export
 
 ## Stack

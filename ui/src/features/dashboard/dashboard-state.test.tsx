@@ -18,5 +18,6 @@ describe("dashboard alternate states", () => {
     expect(alert).toHaveAttribute("data-error-code", "internal")
     expect(screen.getByText("unavailable")).toBeInTheDocument()
     expect(screen.getByText(/仪表盘加载失败/)).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "重试" })).toBeInTheDocument()
   })
 })

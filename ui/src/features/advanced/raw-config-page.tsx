@@ -108,7 +108,15 @@ export function RawConfigPage() {
   const { t } = useTranslation()
   const query = useRawConfigQuery()
   if (query.isLoading) return <Skeleton className="h-64 w-full" />
-  if (query.error) return <PageLoadErrorAlert error={query.error} scope="advanced-raw" />
+  if (query.error) {
+    return (
+      <PageLoadErrorAlert
+        error={query.error}
+        scope="advanced-raw"
+        onRetry={() => { void query.refetch() }}
+      />
+    )
+  }
   return (
     <Card size="sm">
       <CardHeader className="gap-1.5">

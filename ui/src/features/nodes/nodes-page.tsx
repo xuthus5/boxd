@@ -130,7 +130,17 @@ export function NodesPage() {
 
   if (nodesQuery.isLoading) return <Skeleton className="h-64 w-full" />
   if (error) {
-    return <PageLoadErrorAlert error={error} scope="nodes" />
+    return (
+      <PageLoadErrorAlert
+        error={error}
+        scope="nodes"
+        onRetry={() => {
+          if (nodesQuery.error) void nodesQuery.refetch()
+          if (resultsQuery.error) void resultsQuery.refetch()
+          if (historyQuery.error) void historyQuery.refetch()
+        }}
+      />
+    )
   }
 
   return (

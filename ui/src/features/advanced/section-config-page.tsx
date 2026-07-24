@@ -91,7 +91,11 @@ export function SectionConfigPage({ section, title, description }: { section: st
   if (query.isLoading) return <Skeleton className="h-64 w-full" />
   if (query.error) {
     return (
-      <PageLoadErrorAlert error={query.error} scope="advanced-section" />
+      <PageLoadErrorAlert
+        error={query.error}
+        scope="advanced-section"
+        onRetry={() => { void query.refetch() }}
+      />
     )
   }
   return (

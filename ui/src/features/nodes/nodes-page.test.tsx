@@ -1,8 +1,10 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import App from "@/App"
+import { NodesPage } from "@/features/nodes/nodes-page"
 import { sessionStore } from "@/lib/session"
 import { renderApp } from "@/test/render"
 
@@ -393,3 +395,19 @@ describe("NodesPage deep links", () => {
   })
 })
 
+describe("NodesPage load densify", () => {
+  it("densifies page load failure with retry", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
+      status: "error", data: null, error: { code: "unavailable", message: "nodes unavailable" }, meta: null,
+    }), { status: 503 }))))
+    renderApp(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <NodesPage />
+      </QueryClientProvider>,
+    )
+    const alert = await screen.findByTestId("page-load-error")
+    expect(alert).toHaveAttribute("data-error-code", "unavailable")
+    expect(screen.getByText("nodes unavailable")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "重试" })).toBeInTheDocument()
+  })
+})

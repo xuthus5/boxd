@@ -183,7 +183,13 @@ export function ExperimentalPage() {
   const [installing, setInstalling] = useState(false)
   if (query.isLoading) return <Skeleton className="h-64 w-full" />
   if (query.error) {
-    return <PageLoadErrorAlert error={query.error} scope="advanced-experimental" />
+    return (
+      <PageLoadErrorAlert
+        error={query.error}
+        scope="advanced-experimental"
+        onRetry={() => { void query.refetch() }}
+      />
+    )
   }
   const initial = query.data?.experimental
   const installClashAPI = () => {
