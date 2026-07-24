@@ -30,6 +30,7 @@ export function DNSVisualDialogs({
         key={`${selection.index}:${JSON.stringify(selection.item)}`}
         open
         item={selection.item}
+        index={selection.index ?? -1}
         title={selection.index === null
           ? t("policy.dns.addServerTitle")
           : t("policy.dns.editServerTitle")}
@@ -45,6 +46,7 @@ export function DNSVisualDialogs({
       key={`${selection.index}:${JSON.stringify(selection.item)}`}
       open
       item={selection.item}
+      index={selection.index ?? -1}
       title={selection.index === null
         ? t("policy.dns.addRuleTitle")
         : t("policy.dns.editRuleTitle", { index: (selection.index ?? 0) + 1 })}

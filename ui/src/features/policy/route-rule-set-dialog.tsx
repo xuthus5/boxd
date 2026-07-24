@@ -2,13 +2,14 @@ import { useMemo, useRef, useState, type RefObject } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { JsonEditor, type JsonEditorHandle } from "@/features/config/json-editor"
 import { usePolicyDialogPathReveal } from "@/features/policy/use-policy-dialog-path-reveal"
+import { PolicyDialogFooter } from "@/features/policy/policy-dialog-footer"
+import { policyItemErrorRelativePath, usePolicyItemValidate } from "@/features/policy/use-policy-item-validate"
 import { usePolicyDialogState } from "@/features/policy/policy-dialog-state"
 import { PolicyFormFields } from "@/features/policy/policy-form-fields"
 import { type JsonObject, type PolicyFieldSpec } from "@/features/policy/policy-form-model"
@@ -17,6 +18,7 @@ import { changeRuleSetType, ruleSetTypes } from "@/features/policy/route-form-mo
 interface RouteRuleSetDialogProps {
   open: boolean
   item: JsonObject
+  index?: number
   title: string
   jumpPath?: string | null
   onJumpPathHandled?: () => void
@@ -84,14 +86,21 @@ function AdvancedJSONField({ value, title, revision, onChange, editorRef }: {
   </Field></FieldGroup>
 }
 
-export function RouteRuleSetDialog({ open, item, title, jumpPath, onJumpPathHandled, onOpenChange, onSave }: RouteRuleSetDialogProps) {
+export function RouteRuleSetDialog({ open, item, index = -1, title, jumpPath, onJumpPathHandled, onOpenChange, onSave }: RouteRuleSetDialogProps) {
   const { t } = useTranslation()
   const state = usePolicyDialogState(item)
   const [activeTab, setActiveTab] = useState("basic")
   const editorRef = useRef<JsonEditorHandle>(null)
-  usePolicyDialogPathReveal(editorRef, setActiveTab, jumpPath, onJumpPathHandled)
+  const revealPath = usePolicyDialogPathReveal(editorRef, setActiveTab, jumpPath, onJumpPathHandled)
   const requiredValid = requiredFieldsPresent(state.object)
   const canSave = state.jsonValid && requiredValid && state.invalidFields.size === 0
+  const { validating, validate, ready } = usePolicyItemValidate({
+    section: "route", kind: "rule_set", index, object: canSave ? state.object : null,
+    onReportedError: (err) => {
+      const relative = policyItemErrorRelativePath(err.path, "route", "rule_set", index)
+      if (relative) revealPath(relative)
+    },
+  })
   return <Dialog open={open} onOpenChange={onOpenChange}>
     <DialogContent className="max-h-[calc(100dvh-2rem)] min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-3xl">
       <DialogHeader><DialogTitle>{title}</DialogTitle><DialogDescription>{t("policy.route.ruleSetDialogDescription")}</DialogDescription></DialogHeader>
@@ -104,8 +113,9 @@ export function RouteRuleSetDialog({ open, item, title, jumpPath, onJumpPathHand
             revision={state.editorRevision} onChange={state.updateJSON} editorRef={editorRef} /></TabsContent>
         </Tabs>
       </div></div>
-      <DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)}>{t("policy.route.cancel")}</Button>
-        <Button disabled={!canSave} onClick={() => { if (state.jsonValid) onSave(state.object) }}>{t("policy.route.save")}</Button></DialogFooter>
+      <PolicyDialogFooter canSave={canSave} canValidate={canSave && ready} validating={validating}
+        onClose={() => onOpenChange(false)} onSave={() => { if (state.jsonValid) onSave(state.object) }}
+        onValidate={() => { void validate() }} />
     </DialogContent>
   </Dialog>
 }

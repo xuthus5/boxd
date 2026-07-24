@@ -2,8 +2,7 @@ import { useMemo, useRef, useState, type RefObject } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -11,6 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { JsonEditor, type JsonEditorHandle } from "@/features/config/json-editor"
 import { usePolicyDialogPathReveal } from "@/features/policy/use-policy-dialog-path-reveal"
+import { PolicyDialogFooter } from "@/features/policy/policy-dialog-footer"
+import { policyItemErrorRelativePath, usePolicyItemValidate } from "@/features/policy/use-policy-item-validate"
 import { usePolicyDialogState } from "@/features/policy/policy-dialog-state"
 import { PolicyFormFields } from "@/features/policy/policy-form-fields"
 import {
@@ -28,6 +29,7 @@ import type { RouteRuleMetadata } from "@/lib/api/types"
 export interface RouteRuleDialogProps {
   open: boolean
   item: JsonObject
+  index?: number
   metadata?: RouteRuleMetadata
   title: string
   jumpPath?: string | null
@@ -188,15 +190,22 @@ function RuleTabs(props: RuleTabsProps) {
   </Tabs>
 }
 
-export function RouteRuleDialog({ open, item, metadata = emptyMetadata, title, jumpPath, onJumpPathHandled, onOpenChange, onSave }: RouteRuleDialogProps) {
+export function RouteRuleDialog({ open, item, index = -1, metadata = emptyMetadata, title, jumpPath, onJumpPathHandled, onOpenChange, onSave }: RouteRuleDialogProps) {
   const { t } = useTranslation()
   const state = usePolicyDialogState(item, transformRouteField)
   const [details, setDetails] = useState(metadata)
   const [activeTab, setActiveTab] = useState("basic")
   const editorRef = useRef<JsonEditorHandle>(null)
-  usePolicyDialogPathReveal(editorRef, setActiveTab, jumpPath, onJumpPathHandled)
+  const revealPath = usePolicyDialogPathReveal(editorRef, setActiveTab, jumpPath, onJumpPathHandled)
   const requiredValid = requiredRuleValue(state.object) && requiredActionValue(state.object)
   const canSave = state.jsonValid && requiredValid && state.invalidFields.size === 0
+  const { validating, validate, ready } = usePolicyItemValidate({
+    section: "route", kind: "rules", index, object: canSave ? state.object : null,
+    onReportedError: (err) => {
+      const relative = policyItemErrorRelativePath(err.path, "route", "rules", index)
+      if (relative) revealPath(relative)
+    },
+  })
   return <Dialog open={open} onOpenChange={onOpenChange}>
     <DialogContent className="max-h-[calc(100dvh-2rem)] min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-5xl">
       <DialogHeader><DialogTitle>{title}</DialogTitle><DialogDescription>{t("policy.route.ruleDialogDescription")}</DialogDescription></DialogHeader>
@@ -208,8 +217,9 @@ export function RouteRuleDialog({ open, item, metadata = emptyMetadata, title, j
           editorRevision={state.editorRevision} onChange={state.update} onJSONChange={state.updateJSON}
           onValidity={state.updateValidity} transform={state.transform} activeTab={activeTab} onTabChange={setActiveTab} editorRef={editorRef} />
       </div></div>
-      <DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)}>{t("policy.route.cancel")}</Button>
-        <Button disabled={!canSave} onClick={() => { if (state.jsonValid) onSave(state.object, details) }}>{t("policy.route.save")}</Button></DialogFooter>
+      <PolicyDialogFooter canSave={canSave} canValidate={canSave && ready} validating={validating}
+        onClose={() => onOpenChange(false)} onSave={() => { if (state.jsonValid) onSave(state.object, details) }}
+        onValidate={() => { void validate() }} />
     </DialogContent>
   </Dialog>
 }

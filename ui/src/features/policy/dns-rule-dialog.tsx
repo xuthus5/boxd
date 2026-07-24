@@ -2,13 +2,14 @@ import { useMemo, useRef, useState, type RefObject } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { JsonEditor, type JsonEditorHandle } from "@/features/config/json-editor"
 import { usePolicyDialogPathReveal } from "@/features/policy/use-policy-dialog-path-reveal"
+import { PolicyDialogFooter } from "@/features/policy/policy-dialog-footer"
+import { policyItemErrorRelativePath, usePolicyItemValidate } from "@/features/policy/use-policy-item-validate"
 import { useConfigQuery } from "@/features/config/config-hooks"
 import { optionsWithCurrent, useDNSDialogState } from "@/features/policy/dns-dialog-state"
 import { PolicyFormFields } from "@/features/policy/policy-form-fields"
@@ -25,6 +26,7 @@ import {
 export interface DNSRuleDialogProps {
   open: boolean
   item: JsonObject
+  index?: number
   title: string
   serverTags: readonly string[]
   onOpenChange: (open: boolean) => void
@@ -156,14 +158,21 @@ function RuleTabs({ state, title, serverTags, activeTab, onTabChange, editorRef 
   </Tabs>
 }
 
-export function DNSRuleDialog({ open, item, title, serverTags, jumpPath, onJumpPathHandled, onOpenChange, onSave }: DNSRuleDialogProps) {
+export function DNSRuleDialog({ open, item, index = -1, title, serverTags, jumpPath, onJumpPathHandled, onOpenChange, onSave }: DNSRuleDialogProps) {
   const { t } = useTranslation()
   const state = useDNSDialogState(item)
   const [activeTab, setActiveTab] = useState("basic")
   const editorRef = useRef<JsonEditorHandle>(null)
-  usePolicyDialogPathReveal(editorRef, setActiveTab, jumpPath, onJumpPathHandled)
+  const revealPath = usePolicyDialogPathReveal(editorRef, setActiveTab, jumpPath, onJumpPathHandled)
   const requiredValid = requiredRuleValues(state.object) && requiredActionValue(state.object)
   const canSave = Boolean(state.jsonValid && requiredValid && state.invalidFields.size === 0)
+  const { validating, validate, ready } = usePolicyItemValidate({
+    section: "dns", kind: "rules", index, object: canSave ? state.object : null,
+    onReportedError: (err) => {
+      const relative = policyItemErrorRelativePath(err.path, "dns", "rules", index)
+      if (relative) revealPath(relative)
+    },
+  })
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="max-h-[calc(100dvh-2rem)] min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-5xl">
     <DialogHeader><DialogTitle>{title}</DialogTitle><DialogDescription>{t("policy.dns.ruleDialogDescription")}</DialogDescription></DialogHeader>
     <div className="min-h-0 min-w-0 overflow-y-auto pr-1"><div className="flex min-w-0 flex-col gap-4">
@@ -171,7 +180,8 @@ export function DNSRuleDialog({ open, item, title, serverTags, jumpPath, onJumpP
         <AlertDescription>{t("policy.dns.ruleRequiredDescription")}</AlertDescription></Alert> : null}
       <RuleTabs state={state} title={title} serverTags={serverTags} activeTab={activeTab} onTabChange={setActiveTab} editorRef={editorRef} />
     </div></div>
-    <DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)}>{t("policy.dns.cancel")}</Button>
-      <Button disabled={!canSave} onClick={() => { if (state.jsonValid) onSave(state.object) }}>{t("policy.dns.save")}</Button></DialogFooter>
+    <PolicyDialogFooter canSave={canSave} canValidate={canSave && ready} validating={validating}
+      onClose={() => onOpenChange(false)} onSave={() => { if (state.jsonValid) onSave(state.object) }}
+      onValidate={() => { void validate() }} />
   </DialogContent></Dialog>
 }

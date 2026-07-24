@@ -31,6 +31,7 @@ export function RouteVisualDialogs({
         key={`${selection.index}:${JSON.stringify(selection.item)}`}
         open
         item={selection.item}
+        index={selection.index ?? -1}
         metadata={selection.metadata}
         title={selection.index === null
           ? t("policy.route.addRuleTitle")
@@ -47,6 +48,7 @@ export function RouteVisualDialogs({
       key={`${selection.index}:${JSON.stringify(selection.item)}`}
       open
       item={selection.item}
+      index={selection.index ?? -1}
       title={selection.index === null
         ? t("policy.route.addRuleSetTitle")
         : t("policy.route.editRuleSetTitle")}

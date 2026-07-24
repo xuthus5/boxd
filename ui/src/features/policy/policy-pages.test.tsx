@@ -250,4 +250,41 @@ describe("policy item path jump", () => {
     expect(await screen.findByRole("dialog")).toBeInTheDocument()
     expect(screen.getByRole("tab", { name: "高级 JSON" })).toHaveAttribute("aria-selected", "true")
   }, 20_000)
+
+  it("validates open route rule dialog without writing", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    const fetchMock = vi.fn((input: string | URL | Request, init?: RequestInit) => {
+      const path = String(typeof input === "string" ? input : input instanceof URL ? input.pathname : input.url).split("?")[0]
+      if (path === "/api/config/validate" && init?.method === "POST") {
+        return Promise.resolve(new Response(JSON.stringify({
+          status: "ok", data: { valid: true }, error: null, meta: { validated: true, applied: false },
+        })))
+      }
+      if (path === "/api/config/" || path === "/api/config/raw") {
+        return Promise.resolve(new Response(JSON.stringify(config)))
+      }
+      if (path === "/api/config/route/rule-metadata") {
+        return Promise.resolve(new Response(JSON.stringify([{ name: "", description: "" }, { name: "", description: "" }])))
+      }
+      if (path === "/api/settings/preferences") {
+        return Promise.resolve(new Response(JSON.stringify({ theme: "system", language: "zh", minimumLogLevel: "all" })))
+      }
+      if (path === "/api/settings/password") {
+        return Promise.resolve(new Response(JSON.stringify({ defaultPassword: false })))
+      }
+      return Promise.resolve(new Response(JSON.stringify({})))
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    preferencesStore.set({ language: "zh", theme: "system", minimumLogLevel: "all" })
+    await i18n.changeLanguage("zh")
+    renderApp(<App />, "/policy/route")
+    await screen.findByRole("heading", { name: "路由" })
+    await userEvent.click(screen.getByRole("button", { name: /编辑规则 2|Edit route rule 2/ }))
+    expect(await screen.findByRole("dialog")).toBeInTheDocument()
+    await userEvent.click(screen.getByRole("button", { name: "校验配置" }))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith("/api/config/validate", expect.objectContaining({ method: "POST" }))
+    })
+    expect(fetchMock.mock.calls.some((call) => String(call[0]) === "/api/config/" && call[1]?.method === "PUT")).toBe(false)
+  }, 20_000)
 })

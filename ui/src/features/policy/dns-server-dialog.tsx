@@ -2,13 +2,14 @@ import { useMemo, useRef, useState, type RefObject } from "react"
 import { useTranslation } from "react-i18next"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { JsonEditor, type JsonEditorHandle } from "@/features/config/json-editor"
 import { usePolicyDialogPathReveal } from "@/features/policy/use-policy-dialog-path-reveal"
+import { PolicyDialogFooter } from "@/features/policy/policy-dialog-footer"
+import { policyItemErrorRelativePath, usePolicyItemValidate } from "@/features/policy/use-policy-item-validate"
 import { useConfigQuery } from "@/features/config/config-hooks"
 import { optionsWithCurrent, useDNSDialogState } from "@/features/policy/dns-dialog-state"
 import {
@@ -30,6 +31,7 @@ import {
 export interface DNSServerDialogProps {
   open: boolean
   item: JsonObject
+  index?: number
   title: string
   onOpenChange: (open: boolean) => void
   onSave: (item: JsonObject) => void
@@ -179,14 +181,21 @@ function ServerTabs({ state, title, activeTab, onTabChange, editorRef }: {
   </Tabs>
 }
 
-export function DNSServerDialog({ open, item, title, jumpPath, onJumpPathHandled, onOpenChange, onSave }: DNSServerDialogProps) {
+export function DNSServerDialog({ open, item, index = -1, title, jumpPath, onJumpPathHandled, onOpenChange, onSave }: DNSServerDialogProps) {
   const { t } = useTranslation()
   const state = useDNSDialogState(item)
   const [activeTab, setActiveTab] = useState("basic")
   const editorRef = useRef<JsonEditorHandle>(null)
-  usePolicyDialogPathReveal(editorRef, setActiveTab, jumpPath, onJumpPathHandled)
+  const revealPath = usePolicyDialogPathReveal(editorRef, setActiveTab, jumpPath, onJumpPathHandled)
   const requiredValid = requiredServerValues(state.object)
   const canSave = Boolean(state.jsonValid && requiredValid && state.invalidFields.size === 0)
+  const { validating, validate, ready } = usePolicyItemValidate({
+    section: "dns", kind: "servers", index, object: canSave ? state.object : null,
+    onReportedError: (err) => {
+      const relative = policyItemErrorRelativePath(err.path, "dns", "servers", index)
+      if (relative) revealPath(relative)
+    },
+  })
   return <Dialog open={open} onOpenChange={onOpenChange}>
     <DialogContent className="max-h-[calc(100dvh-2rem)] min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-5xl">
       <DialogHeader>
@@ -202,10 +211,9 @@ export function DNSServerDialog({ open, item, title, jumpPath, onJumpPathHandled
           <ServerTabs state={state} title={title} activeTab={activeTab} onTabChange={setActiveTab} editorRef={editorRef} />
         </div>
       </div>
-      <DialogFooter>
-        <Button variant="outline" onClick={() => onOpenChange(false)}>{t("policy.dns.cancel")}</Button>
-        <Button disabled={!canSave} onClick={() => { if (state.jsonValid) onSave(state.object) }}>{t("policy.dns.save")}</Button>
-      </DialogFooter>
+      <PolicyDialogFooter canSave={canSave} canValidate={canSave && ready} validating={validating}
+        onClose={() => onOpenChange(false)} onSave={() => { if (state.jsonValid) onSave(state.object) }}
+        onValidate={() => { void validate() }} />
     </DialogContent>
   </Dialog>
 }
