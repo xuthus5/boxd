@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -23,15 +24,20 @@ func (m *SubscriptionManager) Refresh(id string) error {
 	outbounds, traffic, err := downloadSubscriptionOutbounds(sub.URL)
 	if err != nil {
 		classified := classifySubscriptionRefreshError(err)
-		m.setError(id, classified)
-		return classified
+		return m.recordRefreshError(id, classified)
 	}
 	if len(outbounds) == 0 {
 		classified := newSubscriptionRefreshError(SubRefreshEmpty, "subscription content produced no nodes", 0)
-		m.setError(id, classified)
-		return classified
+		return m.recordRefreshError(id, classified)
 	}
 	return m.saveRefreshedSubscription(id, outbounds, traffic)
+}
+
+func (m *SubscriptionManager) recordRefreshError(id string, refreshErr *SubscriptionRefreshError) error {
+	if err := m.setError(id, refreshErr); err != nil {
+		return errors.Join(refreshErr, fmt.Errorf("persisting subscription refresh error: %w", err))
+	}
+	return refreshErr
 }
 
 func downloadSubscriptionOutbounds(rawURL string) ([]model.Outbound, *model.SubscriptionTraffic, error) {
@@ -111,21 +117,21 @@ func (m *SubscriptionManager) RefreshAll() []SubscriptionRefreshFailure {
 				ID:      sub.ID,
 				Name:    sub.Name,
 				Code:    classified.Code,
-				Message: classified.Message,
+				Message: err.Error(),
 			})
 		}
 	}
 	return failures
 }
 
-func (m *SubscriptionManager) setError(id string, refreshErr *SubscriptionRefreshError) {
+func (m *SubscriptionManager) setError(id string, refreshErr *SubscriptionRefreshError) error {
 	if refreshErr == nil {
-		return
+		return nil
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	_ = m.db.Update(func(tx *bbolt.Tx) error {
+	return m.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(subBucket)
 		data := b.Get([]byte(id))
 		if data == nil {

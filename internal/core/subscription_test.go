@@ -2,9 +2,11 @@ package core
 
 import (
 	"encoding/base64"
+	"errors"
 	"testing"
 
 	"go.etcd.io/bbolt"
+	bboltErrors "go.etcd.io/bbolt/errors"
 )
 
 func setupSubDB(t *testing.T) (*bbolt.DB, func()) {
@@ -200,7 +202,12 @@ func TestSubscriptionSetError(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sm.setError(created.ID, newSubscriptionRefreshError(SubRefreshUnknown, "something went wrong", 0))
+	if err := sm.setError(created.ID, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := sm.setError(created.ID, newSubscriptionRefreshError(SubRefreshUnknown, "something went wrong", 0)); err != nil {
+		t.Fatal(err)
+	}
 
 	updated := sm.Get(created.ID)
 	if updated.Error != "something went wrong" {
@@ -211,6 +218,29 @@ func TestSubscriptionSetError(t *testing.T) {
 	}
 	if updated.ErrorAt == nil {
 		t.Error("error_at should be set")
+	}
+}
+
+func TestRecordRefreshErrorReturnsPersistenceFailure(t *testing.T) {
+	db, cleanup := setupSubDB(t)
+	defer cleanup()
+
+	sm := NewSubscriptionManager(db, t.TempDir())
+	created, err := sm.Create(SubscriptionParams{Name: "closed-db", URL: "https://url", IntervalMin: 60})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	err = sm.recordRefreshError(created.ID, newSubscriptionRefreshError(SubRefreshNetwork, "network failure", 0))
+	if !errors.Is(err, bboltErrors.ErrDatabaseNotOpen) {
+		t.Fatalf("error = %v", err)
+	}
+	var refreshErr *SubscriptionRefreshError
+	if !errors.As(err, &refreshErr) || refreshErr.Code != SubRefreshNetwork {
+		t.Fatalf("refresh error = %#v", refreshErr)
 	}
 }
 
