@@ -23,6 +23,7 @@ import {
 import { RuntimeGroupsCard } from "@/features/nodes/runtime-groups-card"
 import { api } from "@/lib/api/endpoints"
 import type { LatencyPoint, Outbound, TestResult } from "@/lib/api/types"
+import { CardQueryError } from "@/features/common/card-query-error"
 import { PageLoadErrorAlert } from "@/features/common/page-load-error-alert"
 
 function groupSubscriptions(nodes: Outbound[]) {
@@ -101,7 +102,9 @@ export function NodesPage() {
   const imported = filtered.filter((node) => node.source === "import")
   const subscriptions = groupSubscriptions(filtered)
   const facetsActive = nodeFiltersActive({ query, stability: stability || undefined })
-  const error = nodesQuery.error ?? resultsQuery.error ?? historyQuery.error
+  const listError = nodesQuery.error
+  const auxError = resultsQuery.error || historyQuery.error
+  const auxScope = resultsQuery.error ? "nodes-results" : historyQuery.error ? "nodes-history" : "nodes-aux"
   const stabilityOptions: { label: string; value: string }[] = [
     { label: t("nodes.filterAll"), value: "__all__" },
     { label: t("nodes.filterStable"), value: "stable" },
@@ -129,16 +132,12 @@ export function NodesPage() {
   }
 
   if (nodesQuery.isLoading) return <Skeleton className="h-64 w-full" />
-  if (error) {
+  if (listError) {
     return (
       <PageLoadErrorAlert
-        error={error}
+        error={listError}
         scope="nodes"
-        onRetry={() => {
-          if (nodesQuery.error) void nodesQuery.refetch()
-          if (resultsQuery.error) void resultsQuery.refetch()
-          if (historyQuery.error) void historyQuery.refetch()
-        }}
+        onRetry={() => { void nodesQuery.refetch() }}
       />
     )
   }
@@ -214,6 +213,16 @@ export function NodesPage() {
         </div>
       </div>
       <NodeStabilitySummaryBar summary={stabilitySummary} filters={filters} onChange={writeFilters} />
+      {auxError ? (
+        <CardQueryError
+          error={auxError}
+          scope={auxScope}
+          onRetry={() => {
+            if (resultsQuery.error) void resultsQuery.refetch()
+            if (historyQuery.error) void historyQuery.refetch()
+          }}
+        />
+      ) : null}
       <RuntimeGroupsCard />
       {filtered.length === 0 && facetsActive
         ? <Empty>

@@ -411,3 +411,53 @@ describe("NodesPage load densify", () => {
     expect(screen.getByRole("button", { name: "重试" })).toBeInTheDocument()
   })
 })
+
+describe("NodesPage partial query densify", () => {
+  it("densifies history-only failures without blanking the page", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
+      const path = typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.pathname
+          : "url" in input
+            ? new URL(input.url).pathname
+            : String(input)
+      if (path.includes("/api/settings/preferences")) {
+        return Promise.resolve(new Response(JSON.stringify({
+          theme: "system", language: "zh", minimumLogLevel: "all",
+        })))
+      }
+      if (path.includes("/api/settings/password")) {
+        return Promise.resolve(new Response(JSON.stringify({ defaultPassword: false })))
+      }
+      if (path.includes("/api/nodes/test-history") || path.includes("/api/nodes/history")) {
+        return Promise.resolve(new Response(JSON.stringify({
+          status: "error", data: null, error: { code: "unavailable", message: "history unavailable" }, meta: null,
+        }), { status: 503 }))
+      }
+      if (path.includes("/api/nodes/results")) {
+        return Promise.resolve(new Response(JSON.stringify({})))
+      }
+      if (path.includes("/api/nodes/groups")) {
+        return Promise.resolve(new Response(JSON.stringify({ groups: [] })))
+      }
+      if (path.includes("/api/nodes")) {
+        return Promise.resolve(new Response(JSON.stringify([
+          { tag: "hk-01", type: "vless", server: "example.com", port: 443, source: "import" },
+        ])))
+      }
+      return Promise.resolve(new Response(JSON.stringify({})))
+    }))
+    renderApp(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <NodesPage />
+      </QueryClientProvider>,
+    )
+    expect((await screen.findAllByText("hk-01")).length).toBeGreaterThan(0)
+    const alert = await screen.findByTestId("card-query-error")
+    expect(alert).toHaveAttribute("data-error-code", "unavailable")
+    expect(screen.getByText("history unavailable")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "重试" })).toBeInTheDocument()
+  })
+})
