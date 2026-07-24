@@ -49,7 +49,8 @@ interface RouteVisualEditorProps extends PolicyVisualEditorProps {
   outbounds?: JsonValue
   metadata?: RouteRuleMetadata[]
   metadataLoading?: boolean
-  metadataError?: string
+  metadataError?: unknown
+  onMetadataRetry?: () => void
   onMetadataChange?: (metadata: RouteRuleMetadata[]) => void
   onRulesChange?: (object: JsonObject, metadata: RouteRuleMetadata[]) => void
 }
@@ -82,10 +83,11 @@ function insertCopy(items: readonly JsonObject[], index: number) {
   return [...items.slice(0, index + 1), cloneJsonObject(items[index]), ...items.slice(index + 1)]
 }
 
-function RuleSection({ object, metadata, metadataLoading, metadataError, onChange, onMetadataChange, onRulesChange, onEdit, onInstall }: {
+function RuleSection({ object, metadata, metadataLoading, metadataError, onMetadataRetry, onChange, onMetadataChange, onRulesChange, onEdit, onInstall }: {
   object: JsonObject; metadata: RouteRuleMetadata[]; onChange: (object: JsonObject) => void
   onRulesChange?: (object: JsonObject, metadata: RouteRuleMetadata[]) => void
-  metadataLoading?: boolean; metadataError?: string
+  metadataLoading?: boolean; metadataError?: unknown
+  onMetadataRetry?: () => void
   onMetadataChange: (metadata: RouteRuleMetadata[]) => void; onEdit: (index: number | null) => void
   onInstall?: () => void
 }) {
@@ -119,7 +121,7 @@ function RuleSection({ object, metadata, metadataLoading, metadataError, onChang
       <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto"><Button variant="outline" size="sm" className="h-8" onClick={onInstall}>{t("policy.installRoute")}</Button><Button size="sm" className="h-8" onClick={() => onEdit(null)}><ListPlusIcon data-icon="inline-start" />{t("policy.route.addRule")}</Button></div>
     </CardAction></CardHeader>
     <CardContent className="flex flex-col gap-2 sm:gap-3">{metadataLoading ? <Skeleton className="h-24 w-full" /> : metadataError
-      ? <PageLoadErrorAlert error={metadataError} scope="route-metadata" />
+      ? <PageLoadErrorAlert error={metadataError} scope="route-metadata" onRetry={onMetadataRetry} />
       : rules.length === 0
       ? <EmptySection title={t("policy.route.emptyRulesTitle")} description={t("policy.route.emptyRulesDescription")}
         action={t("policy.route.addRule")} onAdd={() => onEdit(null)} />
@@ -286,7 +288,7 @@ export function RouteVisualEditor(props: RouteVisualEditorProps): React.ReactNod
   }
   return <div className="flex min-w-0 flex-col gap-2 sm:gap-3">
     <RouteGlobalCard {...props} outbounds={props.outbounds} />
-    <RuleSection object={object} metadata={metadata} metadataLoading={props.metadataLoading} metadataError={props.metadataError}
+    <RuleSection object={object} metadata={metadata} metadataLoading={props.metadataLoading} metadataError={props.metadataError} onMetadataRetry={props.onMetadataRetry}
       onChange={onChange} onMetadataChange={onMetadataChange} onRulesChange={onRulesChange} onEdit={editRule} onInstall={props.onInstall} />
     <RuleSetSection object={object} onChange={onChange} onRulesChange={onRulesChange} onEdit={editRuleSet} />
     <RouteVisualDialogs selection={selection} onClose={() => setSelection(null)}
