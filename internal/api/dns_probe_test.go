@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -538,6 +539,90 @@ func TestNormalizeMoreEdges(t *testing.T) {
 	proto, server, port, path, err = parseLegacyDNSAddress("quic://dns.example", "", 0, "/dns-query")
 	if err != nil || proto != "quic" || server != "dns.example" {
 		t.Fatalf("quic = %s %s %d %s err=%v", proto, server, port, path, err)
+	}
+}
+
+func TestNormalizeDNSProbeTargetRejectsMalformedInputs(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		req  DNSProbeRequest
+	}{{
+		name: "invalid port",
+		req:  DNSProbeRequest{Type: "udp", Server: "1.1.1.1", ServerPort: 65536},
+	}, {
+		name: "negative port",
+		req:  DNSProbeRequest{Type: "udp", Server: "1.1.1.1", ServerPort: -1},
+	}, {
+		name: "hostname with invalid port",
+		req:  DNSProbeRequest{Address: "dns.example:bad"},
+	}, {
+		name: "server path",
+		req:  DNSProbeRequest{Type: "udp", Server: "dns.example/path"},
+	}, {
+		name: "doh query in path",
+		req:  DNSProbeRequest{Type: "https", Server: "dns.example", Path: "/dns-query?x=1"},
+	}, {
+		name: "legacy credentials",
+		req:  DNSProbeRequest{Address: "https://user@dns.example/dns-query"},
+	}}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if _, _, _, _, err := normalizeDNSProbeTarget(test.req); err == nil {
+				t.Fatal("expected validation error")
+			}
+		})
+	}
+
+	proto, server, port, _, err := normalizeDNSProbeTarget(DNSProbeRequest{
+		Address: "tls://[::1]",
+	})
+	if err != nil || proto != "tls" || server != "::1" || port != 853 {
+		t.Fatalf("bracketed IPv6 = %s %s %d err=%v", proto, server, port, err)
+	}
+}
+
+func TestDNSProbeResponseLimitAndRedirectPolicy(t *testing.T) {
+	t.Parallel()
+	if _, err := readDNSMessageBody(strings.NewReader(strings.Repeat("x", maxDNSMessageBytes+1))); err == nil {
+		t.Fatal("expected oversized response error")
+	}
+	client := newDNSHTTPClient("dns.example", time.Second)
+	if client == nil || client.CheckRedirect == nil {
+		t.Fatal("missing DoH redirect policy")
+	}
+	redirectRequest := httptest.NewRequest(http.MethodGet, "https://127.0.0.1/private", nil)
+	if !errors.Is(client.CheckRedirect(redirectRequest, nil), http.ErrUseLastResponse) {
+		t.Fatal("expected redirects to stop at the original DoH endpoint")
+	}
+}
+
+func TestDNSProbeBatchLimits(t *testing.T) {
+	handler := NewRuntimeHandler(&fakeRuntimeInstance{})
+	items := strings.TrimSuffix(strings.Repeat(`{"type":"local"},`, maxDNSProbeItems+1), ",")
+	rr := httptest.NewRecorder()
+	handler.ProbeDNSBatch(rr, jsonRequest(http.MethodPost, "/api/runtime/dns/probe-batch", `{"items":[`+items+`]}`))
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("too many items status = %d body=%s", rr.Code, rr.Body.String())
+	}
+
+	origUDP := dnsUDPExchange
+	t.Cleanup(func() { dnsUDPExchange = origUDP })
+	dnsUDPExchange = func(*dns.Msg, string, time.Duration) (*dns.Msg, error) {
+		response := new(dns.Msg)
+		response.Rcode = dns.RcodeSuccess
+		return response, nil
+	}
+	rr = httptest.NewRecorder()
+	handler.ProbeDNSBatch(rr, jsonRequest(http.MethodPost, "/api/runtime/dns/probe-batch", `{"items":[{"type":"udp","server":"1.1.1.1"}],"concurrency":9999}`))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("clamped concurrency status = %d body=%s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestReadDNSMessageBodyNilReader(t *testing.T) {
+	if _, err := readDNSMessageBody(nil); err == nil {
+		t.Fatal("expected nil reader error")
 	}
 }
 

@@ -44,7 +44,7 @@ var blockedSubscriptionPrefixes = [...]netip.Prefix{
 	netip.MustParsePrefix("fec0::/10"),
 }
 
-func ValidateSubscriptionURL(rawURL string) error {
+func ValidateHTTPURL(rawURL string) error {
 	if rawURL == "" {
 		return fmt.Errorf("%w: URL is required", errSubscriptionURLInvalid)
 	}
@@ -67,6 +67,17 @@ func ValidateSubscriptionURL(rawURL string) error {
 			return fmt.Errorf("%w: port is out of range", errSubscriptionURLInvalid)
 		}
 	}
+	return nil
+}
+
+func ValidateSubscriptionURL(rawURL string) error {
+	if err := ValidateHTTPURL(rawURL); err != nil {
+		return err
+	}
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return err
+	}
 	if isBlockedSubscriptionHostname(parsed.Hostname()) {
 		return errSubscriptionURLBlocked
 	}
@@ -74,6 +85,10 @@ func ValidateSubscriptionURL(rawURL string) error {
 		return errSubscriptionURLBlocked
 	}
 	return nil
+}
+
+func ValidatePublicHTTPURL(rawURL string) error {
+	return ValidateSubscriptionURL(rawURL)
 }
 
 func isBlockedSubscriptionHostname(hostname string) bool {
@@ -110,22 +125,39 @@ func subscriptionDialControl(_ context.Context, _ string, address string, _ sysc
 }
 
 func newSubscriptionHTTPClient() *http.Client {
+	return newPublicHTTPClient(subscriptionHTTPTimeout)
+}
+
+func newPublicHTTPClient(timeout time.Duration) *http.Client {
+	return newPublicHTTPClientWithTransport(timeout, newPublicHTTPTransport())
+}
+
+func newPublicHTTPTransport() http.RoundTripper {
 	dialer := &net.Dialer{ControlContext: subscriptionDialControl}
-	transport := &http.Transport{
+	return &http.Transport{
 		DialContext:         dialer.DialContext,
 		MaxIdleConns:        10,
 		MaxIdleConnsPerHost: 5,
 		IdleConnTimeout:     90 * time.Second,
 	}
-	return newSubscriptionHTTPClientWithTransport(transport)
 }
 
 func newSubscriptionHTTPClientWithTransport(transport http.RoundTripper) *http.Client {
+	return newPublicHTTPClientWithTransport(subscriptionHTTPTimeout, transport)
+}
+
+func newPublicHTTPClientWithTransport(timeout time.Duration, transport http.RoundTripper) *http.Client {
+	if timeout <= 0 {
+		timeout = subscriptionHTTPTimeout
+	}
+	if transport == nil {
+		transport = newPublicHTTPTransport()
+	}
 	return &http.Client{
-		Timeout:   subscriptionHTTPTimeout,
+		Timeout:   timeout,
 		Transport: transport,
 		CheckRedirect: func(req *http.Request, _ []*http.Request) error {
-			return ValidateSubscriptionURL(req.URL.String())
+			return ValidatePublicHTTPURL(req.URL.String())
 		},
 	}
 }

@@ -1,12 +1,16 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -78,7 +82,7 @@ func TestRuleSetUpdaterLocalAndRemote(t *testing.T) {
 			"rule_set": []any{
 				map[string]any{"tag": "loyalsoldier-direct", "type": "local", "format": "source", "path": filepath.Join(ruleDir, "loyalsoldier-direct.json")},
 				map[string]any{"tag": "custom-local", "type": "local", "format": "source", "path": filepath.Join(ruleDir, "custom.json")},
-				map[string]any{"tag": "geo", "type": "remote", "format": "binary", "url": server.URL + "/geo.srs", "download_detour": "direct"},
+				map[string]any{"tag": "geo", "type": "remote", "format": "binary", "url": rulesetTestURL(server, "/geo.srs"), "download_detour": "direct"},
 				map[string]any{"tag": "inline", "type": "inline", "rules": []any{}},
 			},
 		},
@@ -90,11 +94,11 @@ func TestRuleSetUpdaterLocalAndRemote(t *testing.T) {
 
 	installer := &LoyalsoldierRuleSetInstaller{
 		ruleSetDir: ruleDir,
-		client:     server.Client(),
+		client:     rulesetTestClient(server),
 		sources: []RuleSetSource{
-			{Tag: "loyalsoldier-direct", FileName: "loyalsoldier-direct.json", URL: server.URL + "/direct-list.txt"},
-			{Tag: "loyalsoldier-proxy", FileName: "loyalsoldier-proxy.json", URL: server.URL + "/proxy-list.txt"},
-			{Tag: "loyalsoldier-reject", FileName: "loyalsoldier-reject.json", URL: server.URL + "/reject-list.txt"},
+			{Tag: "loyalsoldier-direct", FileName: "loyalsoldier-direct.json", URL: rulesetTestURL(server, "/direct-list.txt")},
+			{Tag: "loyalsoldier-proxy", FileName: "loyalsoldier-proxy.json", URL: rulesetTestURL(server, "/proxy-list.txt")},
+			{Tag: "loyalsoldier-reject", FileName: "loyalsoldier-reject.json", URL: rulesetTestURL(server, "/reject-list.txt")},
 		},
 	}
 	stopped := 0
@@ -106,7 +110,7 @@ func TestRuleSetUpdaterLocalAndRemote(t *testing.T) {
 		started++
 		return nil
 	})
-	updater.client = server.Client()
+	updater.client = rulesetTestClient(server)
 
 	status, err := updater.Status(context.Background())
 	if err != nil {
@@ -237,15 +241,15 @@ func TestRuleSetAutoUpdaterLifecycle(t *testing.T) {
 	}
 	installer := &LoyalsoldierRuleSetInstaller{
 		ruleSetDir: ruleDir,
-		client:     server.Client(),
+		client:     rulesetTestClient(server),
 		sources: []RuleSetSource{
-			{Tag: "loyalsoldier-direct", FileName: "loyalsoldier-direct.json", URL: server.URL + "/direct-list.txt"},
-			{Tag: "loyalsoldier-proxy", FileName: "loyalsoldier-proxy.json", URL: server.URL + "/proxy-list.txt"},
-			{Tag: "loyalsoldier-reject", FileName: "loyalsoldier-reject.json", URL: server.URL + "/reject-list.txt"},
+			{Tag: "loyalsoldier-direct", FileName: "loyalsoldier-direct.json", URL: rulesetTestURL(server, "/direct-list.txt")},
+			{Tag: "loyalsoldier-proxy", FileName: "loyalsoldier-proxy.json", URL: rulesetTestURL(server, "/proxy-list.txt")},
+			{Tag: "loyalsoldier-reject", FileName: "loyalsoldier-reject.json", URL: rulesetTestURL(server, "/reject-list.txt")},
 		},
 	}
 	updater := NewRuleSetUpdater(configPath, dir, installer, nil, nil)
-	updater.client = server.Client()
+	updater.client = rulesetTestClient(server)
 	auto = NewRuleSetAutoUpdater(settings, updater)
 	if err := settings.SetRuleSetAutoUpdate(model.RuleSetAutoUpdate{Enabled: true, Interval: "1h"}); err != nil {
 		t.Fatal(err)
@@ -279,7 +283,7 @@ func TestRuleSetUpdaterStopStartErrors(t *testing.T) {
 	cfg := map[string]any{
 		"route": map[string]any{
 			"rule_set": []any{
-				map[string]any{"tag": "geo", "type": "remote", "format": "binary", "url": server.URL + "/geo.srs"},
+				map[string]any{"tag": "geo", "type": "remote", "format": "binary", "url": rulesetTestURL(server, "/geo.srs")},
 			},
 		},
 	}
@@ -290,7 +294,7 @@ func TestRuleSetUpdaterStopStartErrors(t *testing.T) {
 	updater := NewRuleSetUpdater(configPath, dir, NewLoyalsoldierRuleSetInstaller(dir), func() error {
 		return errTest("stop failed")
 	}, func() error { return nil })
-	updater.client = server.Client()
+	updater.client = rulesetTestClient(server)
 	if _, err := updater.Update(context.Background(), RuleSetUpdateRequest{}); err == nil {
 		t.Fatal("expected stop error")
 	}
@@ -298,7 +302,7 @@ func TestRuleSetUpdaterStopStartErrors(t *testing.T) {
 	updater = NewRuleSetUpdater(configPath, dir, NewLoyalsoldierRuleSetInstaller(dir), func() error { return nil }, func() error {
 		return errTest("start failed")
 	})
-	updater.client = server.Client()
+	updater.client = rulesetTestClient(server)
 	if _, err := updater.Update(context.Background(), RuleSetUpdateRequest{}); err == nil {
 		t.Fatal("expected start error")
 	}
@@ -337,13 +341,13 @@ func TestRuleSetUpdaterRemoteEdgeCases(t *testing.T) {
 	t.Cleanup(server.Close)
 	configPath = filepath.Join(dir, "bad-status.json")
 	body, _ = json.Marshal(map[string]any{"route": map[string]any{"rule_set": []any{
-		map[string]any{"tag": "geo", "type": "remote", "format": "binary", "url": server.URL + "/x.srs"},
+		map[string]any{"tag": "geo", "type": "remote", "format": "binary", "url": rulesetTestURL(server, "/x.srs")},
 	}}})
 	if err := os.WriteFile(configPath, body, 0600); err != nil {
 		t.Fatal(err)
 	}
 	updater = NewRuleSetUpdater(configPath, dir, NewLoyalsoldierRuleSetInstaller(dir), nil, nil)
-	updater.client = server.Client()
+	updater.client = rulesetTestClient(server)
 	result, err = updater.Update(context.Background(), RuleSetUpdateRequest{})
 	if err != nil {
 		t.Fatal(err)
@@ -362,13 +366,13 @@ func TestRuleSetUpdaterRemoteEdgeCases(t *testing.T) {
 	t.Cleanup(server.Close)
 	configPath = filepath.Join(dir, "empty-body.json")
 	body, _ = json.Marshal(map[string]any{"route": map[string]any{"rule_set": []any{
-		map[string]any{"tag": "geo", "type": "remote", "format": "binary", "url": server.URL + "/x.srs"},
+		map[string]any{"tag": "geo", "type": "remote", "format": "binary", "url": rulesetTestURL(server, "/x.srs")},
 	}}})
 	if err := os.WriteFile(configPath, body, 0600); err != nil {
 		t.Fatal(err)
 	}
 	updater = NewRuleSetUpdater(configPath, dir, NewLoyalsoldierRuleSetInstaller(dir), nil, nil)
-	updater.client = server.Client()
+	updater.client = rulesetTestClient(server)
 	result, err = updater.Update(context.Background(), RuleSetUpdateRequest{})
 	if err != nil {
 		t.Fatal(err)
@@ -378,6 +382,103 @@ func TestRuleSetUpdaterRemoteEdgeCases(t *testing.T) {
 	}
 	if result.Results[0].ErrorCode != RuleSetErrorEmpty {
 		t.Fatalf("empty body code = %#v", result.Results[0])
+	}
+}
+
+func TestRuleSetUpdaterRemoteSecurityLimits(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "cfg.json")
+	writeRuleSetConfig := func(t *testing.T, rawURL string) {
+		t.Helper()
+		body, err := json.Marshal(map[string]any{"route": map[string]any{"rule_set": []any{
+			map[string]any{"tag": "geo", "type": "remote", "format": "binary", "url": rawURL},
+		}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(configPath, body, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	requestCount := 0
+	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		requestCount++
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     make(http.Header),
+			Body:       io.NopCloser(strings.NewReader("ok")),
+			Request:    req,
+		}, nil
+	})}
+	writeRuleSetConfig(t, "http://127.0.0.1:8080/rules.srs")
+	stopCount := 0
+	updater := NewRuleSetUpdater(configPath, dir, NewLoyalsoldierRuleSetInstaller(dir), func() error {
+		stopCount++
+		return nil
+	}, nil)
+	updater.client = client
+	result, err := updater.Update(context.Background(), RuleSetUpdateRequest{})
+	if err != nil || result.FailedCount != 1 || result.Results[0].ErrorCode != RuleSetErrorBlockedURL {
+		t.Fatalf("blocked result = %#v err=%v", result, err)
+	}
+	if requestCount != 0 {
+		t.Fatalf("blocked request count = %d, want 0", requestCount)
+	}
+	if stopCount != 0 {
+		t.Fatalf("blocked rule-set stop count = %d, want 0", stopCount)
+	}
+
+	writeRuleSetConfig(t, "https://ruleset.test/large.srs")
+	client = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode:    http.StatusOK,
+			Header:        make(http.Header),
+			ContentLength: maxRuleSetBodyBytes + 1,
+			Body:          io.NopCloser(strings.NewReader("unused")),
+			Request:       req,
+		}, nil
+	})}
+	updater.client = client
+	result, err = updater.Update(context.Background(), RuleSetUpdateRequest{})
+	if err != nil || result.FailedCount != 1 || result.Results[0].ErrorCode != RuleSetErrorTooLarge {
+		t.Fatalf("large result = %#v err=%v", result, err)
+	}
+
+	client = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     make(http.Header),
+			Body:       io.NopCloser(strings.NewReader(strings.Repeat("x", maxRuleSetBodyBytes+1))),
+			Request:    req,
+		}, nil
+	})}
+	updater.client = client
+	result, err = updater.Update(context.Background(), RuleSetUpdateRequest{})
+	if err != nil || result.FailedCount != 1 || result.Results[0].ErrorCode != RuleSetErrorTooLarge {
+		t.Fatalf("streaming large result = %#v err=%v", result, err)
+	}
+}
+
+func TestRuleSetUpdaterHandlesNilHTTPResponses(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "cfg.json")
+	body, err := json.Marshal(map[string]any{"route": map[string]any{"rule_set": []any{
+		map[string]any{"tag": "geo", "type": "remote", "url": "https://ruleset.test/rules.srs"},
+	}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(configPath, body, 0600); err != nil {
+		t.Fatal(err)
+	}
+	updater := NewRuleSetUpdater(configPath, dir, NewLoyalsoldierRuleSetInstaller(dir), nil, nil)
+	updater.client = &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return nil, nil
+	})}
+	result, err := updater.Update(context.Background(), RuleSetUpdateRequest{})
+	if err != nil || result.FailedCount != 1 || result.Results[0].Error == "" {
+		t.Fatalf("nil response result = %#v err=%v", result, err)
 	}
 }
 
@@ -473,6 +574,22 @@ func TestSavedRuleSetBinaryErrorsAndCacheHelpers(t *testing.T) {
 	}
 	if err := saved.UnmarshalBinary(data[:len(data)-1]); err == nil {
 		t.Fatal("expected truncated etag error")
+	}
+	var oversized bytes.Buffer
+	if err := oversized.WriteByte(1); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeUvarint(&oversized, maxRuleSetBodyBytes+1); err != nil {
+		t.Fatal(err)
+	}
+	if err := saved.UnmarshalBinary(oversized.Bytes()); !errors.Is(err, ErrRuleSetContentTooLarge) {
+		t.Fatalf("oversized cache error = %v", err)
+	}
+	if err := saved.UnmarshalBinary([]byte{2}); err == nil {
+		t.Fatal("expected unsupported cache version error")
+	}
+	if _, err := (&savedRuleSetBinary{Content: make([]byte, maxRuleSetBodyBytes+1)}).MarshalBinary(); !errors.Is(err, ErrRuleSetContentTooLarge) {
+		t.Fatalf("oversized marshal error = %v", err)
 	}
 
 	dir := t.TempDir()
@@ -613,13 +730,13 @@ func TestUpdateRemoteCacheDisabled(t *testing.T) {
 	t.Cleanup(server.Close)
 	configPath := filepath.Join(dir, "cfg.json")
 	body, _ := json.Marshal(map[string]any{"route": map[string]any{"rule_set": []any{
-		map[string]any{"tag": "geo", "type": "remote", "format": "binary", "url": server.URL + "/a.srs"},
+		map[string]any{"tag": "geo", "type": "remote", "format": "binary", "url": rulesetTestURL(server, "/a.srs")},
 	}}})
 	if err := os.WriteFile(configPath, body, 0600); err != nil {
 		t.Fatal(err)
 	}
 	updater := NewRuleSetUpdater(configPath, dir, NewLoyalsoldierRuleSetInstaller(dir), nil, nil)
-	updater.client = server.Client()
+	updater.client = rulesetTestClient(server)
 	updater.cachePath = filepath.Join(blocker, "cache.db")
 	result, err := updater.Update(context.Background(), RuleSetUpdateRequest{})
 	if err != nil {
@@ -708,5 +825,27 @@ func TestStatusRemoteWithoutIntervalUsesDefault(t *testing.T) {
 	}
 	if status[0].LastEtag != "e" || status[0].FileSize != 3 {
 		t.Fatalf("cache fields = %#v", status[0])
+	}
+}
+
+func TestRuleSetStatusMarksBlockedRemoteURL(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "cfg.json")
+	body, err := json.Marshal(map[string]any{"route": map[string]any{"rule_set": []any{
+		map[string]any{"tag": "private", "type": "remote", "url": "http://127.0.0.1/rules.srs"},
+	}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(configPath, body, 0600); err != nil {
+		t.Fatal(err)
+	}
+	updater := NewRuleSetUpdater(configPath, dir, NewLoyalsoldierRuleSetInstaller(dir), nil, nil)
+	status, err := updater.Status(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(status) != 1 || status[0].Updatable || status[0].Note == "" {
+		t.Fatalf("status = %#v", status)
 	}
 }

@@ -150,10 +150,16 @@ func (h *RuntimeHandler) OutboundDelay(w http.ResponseWriter, r *http.Request) {
 	}
 
 	link := r.URL.Query().Get("url")
+	if link != "" {
+		if err := core.ValidateHTTPURL(link); err != nil {
+			writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, err.Error())
+			return
+		}
+	}
 	timeoutMs := int64(10000)
 	if raw := r.URL.Query().Get("timeout"); raw != "" {
 		parsed, err := strconv.ParseInt(raw, 10, 64)
-		if err != nil || parsed <= 0 {
+		if err != nil || parsed <= 0 || parsed > int64((60*time.Second)/time.Millisecond) {
 			writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, "invalid timeout")
 			return
 		}

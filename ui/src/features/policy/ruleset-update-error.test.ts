@@ -29,7 +29,9 @@ describe("ruleset update error helpers", () => {
   it("classifies and resolves codes", () => {
     expect(classifyRuleSetErrorMessage("unexpected status 418")).toBe("http_status")
     expect(classifyRuleSetErrorMessage("remote rule-set url is empty")).toBe("invalid_url")
+    expect(classifyRuleSetErrorMessage("subscription URL targets a private or local address")).toBe("blocked_url")
     expect(classifyRuleSetErrorMessage("empty rule-set body")).toBe("empty_content")
+    expect(classifyRuleSetErrorMessage("rule-set content is too large")).toBe("content_too_large")
     expect(resolveRuleSetErrorCode({ error: "x", error_code: "network" })).toBe("network")
     expect(ruleSetErrorHintKey("timeout")).toBe("policy.route.errorHintTimeout")
   })

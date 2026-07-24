@@ -4,10 +4,12 @@ export type RuleSetUpdateErrorCode =
   | "not_updatable"
   | "unsupported"
   | "invalid_url"
+  | "blocked_url"
   | "network"
   | "timeout"
   | "http_status"
   | "empty_content"
+  | "content_too_large"
   | "permission"
   | "cache"
   | "unknown"
@@ -16,10 +18,12 @@ const HINT_KEYS: Record<string, string> = {
   not_updatable: "policy.route.errorHintNotUpdatable",
   unsupported: "policy.route.errorHintUnsupported",
   invalid_url: "policy.route.errorHintInvalidURL",
+  blocked_url: "policy.route.errorHintBlockedURL",
   network: "policy.route.errorHintNetwork",
   timeout: "policy.route.errorHintTimeout",
   http_status: "policy.route.errorHintHTTP",
   empty_content: "policy.route.errorHintEmpty",
+  content_too_large: "policy.route.errorHintContentTooLarge",
   permission: "policy.route.errorHintPermission",
   cache: "policy.route.errorHintCache",
   unknown: "policy.route.errorHintUnknown",
@@ -37,6 +41,12 @@ export function classifyRuleSetErrorMessage(message?: string): RuleSetUpdateErro
   if (lower.includes("not auto-updated") || lower.includes("not supported")) return "unsupported"
   if (lower.includes("url is empty") || lower.includes("invalid url") || lower.includes("unsupported protocol")) {
     return "invalid_url"
+  }
+  if (lower.includes("private or local address") || lower.includes("dial address is not public")) {
+    return "blocked_url"
+  }
+  if (lower.includes("content is too large") || lower.includes("content too large")) {
+    return "content_too_large"
   }
   if (lower.includes("empty rule-set") || lower.includes("empty body") || lower.includes("empty content")) {
     return "empty_content"
@@ -198,4 +208,3 @@ export function ruleSetBatchFailureClipboardText(summary: RuleSetUpdateSummary):
     return [ `tag: ${sample.tag}`, code, `error: ${sample.error}` ].filter(Boolean).join("\n")
   }).join("\n---\n")
 }
-

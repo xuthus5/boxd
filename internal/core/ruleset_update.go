@@ -55,7 +55,7 @@ func NewRuleSetUpdater(configPath, dataDir string, installer *LoyalsoldierRuleSe
 		configPath: configPath,
 		cachePath:  filepath.Join(dataDir, "cache.db"),
 		installer:  installer,
-		client:     &http.Client{Timeout: 45 * time.Second},
+		client:     newPublicHTTPClient(ruleSetHTTPTimeout),
 		stop:       stop,
 		start:      start,
 	}
@@ -130,7 +130,10 @@ func (u *RuleSetUpdater) Update(ctx context.Context, req RuleSetUpdateRequest) (
 	resp := model.RuleSetUpdateResponse{Results: make([]model.RuleSetUpdateResult, 0, len(selected))}
 	needsCacheWrite := false
 	for _, entry := range selected {
-		if stringValue(entry["type"]) == "remote" {
+		if stringValue(entry["type"]) != "remote" {
+			continue
+		}
+		if ValidatePublicHTTPURL(stringValue(entry["url"])) == nil {
 			needsCacheWrite = true
 			break
 		}
@@ -214,6 +217,9 @@ func (u *RuleSetUpdater) updateRemote(ctx context.Context, entry map[string]any,
 	if strings.TrimSpace(url) == "" {
 		return failRuleSetResult(result, "remote rule-set url is empty", nil)
 	}
+	if err := ValidatePublicHTTPURL(url); err != nil {
+		return failRuleSetResult(result, err.Error(), err)
+	}
 	etag := ""
 	if cache, err := u.openCacheReadOnly(); err == nil && cache != nil {
 		if saved := loadRuleSetCache(cache, result.Tag); saved != nil {
@@ -228,9 +234,16 @@ func (u *RuleSetUpdater) updateRemote(ctx context.Context, entry map[string]any,
 	if etag != "" {
 		req.Header.Set("If-None-Match", etag)
 	}
-	resp, err := u.client.Do(req)
+	client := u.client
+	if client == nil {
+		client = newPublicHTTPClient(ruleSetHTTPTimeout)
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return failRuleSetResult(result, err.Error(), err)
+	}
+	if resp == nil || resp.Body == nil {
+		return failRuleSetResult(result, "rule-set response body is nil", nil)
 	}
 	defer func() { _ = resp.Body.Close() }()
 	now := time.Now()
@@ -247,7 +260,10 @@ func (u *RuleSetUpdater) updateRemote(ctx context.Context, entry map[string]any,
 	default:
 		return failRuleSetResult(result, fmt.Sprintf("unexpected status %d", resp.StatusCode), nil)
 	}
-	content, err := io.ReadAll(resp.Body)
+	if resp.ContentLength > maxRuleSetBodyBytes {
+		return failRuleSetResult(result, ErrRuleSetContentTooLarge.Error(), ErrRuleSetContentTooLarge)
+	}
+	content, err := readRuleSetBody(resp.Body)
 	if err != nil {
 		return failRuleSetResult(result, err.Error(), err)
 	}
@@ -295,6 +311,12 @@ func (u *RuleSetUpdater) statusOf(entry map[string]any, cache *bbolt.DB) model.R
 	case "remote":
 		item.Builtin = containsString(BuiltinRemoteRuleSetTags(), tag)
 		item.Updatable = item.URL != ""
+		if item.URL != "" {
+			if err := ValidatePublicHTTPURL(item.URL); err != nil {
+				item.Updatable = false
+				item.Note = "remote rule-set URL is invalid or blocked"
+			}
+		}
 		if item.UpdateInterval == "" {
 			item.UpdateInterval = DefaultRemoteRuleSetInterval()
 		}
@@ -396,6 +418,12 @@ type savedRuleSetBinary struct {
 }
 
 func (s *savedRuleSetBinary) MarshalBinary() ([]byte, error) {
+	if len(s.Content) > maxRuleSetBodyBytes {
+		return nil, ErrRuleSetContentTooLarge
+	}
+	if len(s.LastEtag) > maxRuleSetEtagBytes {
+		return nil, errors.New("rule-set etag is too large")
+	}
 	var buffer bytes.Buffer
 	if err := binary.Write(&buffer, binary.BigEndian, uint8(1)); err != nil {
 		return nil, err
@@ -424,9 +452,18 @@ func (s *savedRuleSetBinary) UnmarshalBinary(data []byte) error {
 	if err := binary.Read(reader, binary.BigEndian, &version); err != nil {
 		return err
 	}
+	if version != 1 {
+		return fmt.Errorf("unsupported rule-set cache version %d", version)
+	}
 	contentLength, err := readUvarint(reader)
 	if err != nil {
 		return err
+	}
+	if contentLength > maxRuleSetBodyBytes || contentLength > uint64(reader.Len()) {
+		if contentLength > maxRuleSetBodyBytes {
+			return ErrRuleSetContentTooLarge
+		}
+		return io.ErrUnexpectedEOF
 	}
 	s.Content = make([]byte, contentLength)
 	if _, err := io.ReadFull(reader, s.Content); err != nil {
@@ -440,6 +477,12 @@ func (s *savedRuleSetBinary) UnmarshalBinary(data []byte) error {
 	etagLength, err := readUvarint(reader)
 	if err != nil {
 		return err
+	}
+	if etagLength > maxRuleSetEtagBytes || etagLength > uint64(reader.Len()) {
+		if etagLength > maxRuleSetEtagBytes {
+			return errors.New("rule-set etag is too large")
+		}
+		return io.ErrUnexpectedEOF
 	}
 	etagBytes := make([]byte, etagLength)
 	if _, err := io.ReadFull(reader, etagBytes); err != nil {

@@ -44,6 +44,9 @@ func downloadSubscriptionOutbounds(client *http.Client, rawURL string) ([]model.
 	if err := ValidateSubscriptionURL(rawURL); err != nil {
 		return nil, nil, err
 	}
+	if client == nil {
+		client = newSubscriptionHTTPClient()
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), subscriptionHTTPTimeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
@@ -55,6 +58,9 @@ func downloadSubscriptionOutbounds(client *http.Client, rawURL string) ([]model.
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, nil, classifySubscriptionRefreshError(err)
+	}
+	if resp == nil || resp.Body == nil {
+		return nil, nil, errors.New("subscription response body is nil")
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {

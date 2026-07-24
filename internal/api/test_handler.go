@@ -33,6 +33,11 @@ var commandOutput = func(name string, args ...string) ([]byte, error) {
 	return exec.Command(name, args...).Output()
 }
 
+const (
+	maxBatchItems       = 128
+	maxBatchConcurrency = 32
+)
+
 type outboundDialer interface {
 	DialOutbound(ctx context.Context, tag, network, addr string) (net.Conn, error)
 	OutboundDelay(ctx context.Context, tag, link string, timeout time.Duration) (uint16, error)
@@ -102,8 +107,15 @@ func (h *TestHandler) RunBatch(w http.ResponseWriter, r *http.Request) {
 		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, "items is empty")
 		return
 	}
+	if len(req.Items) > maxBatchItems {
+		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, "too many test items")
+		return
+	}
 	if req.Concurrency <= 0 {
 		req.Concurrency = defaultBatchConcurrency
+	}
+	if req.Concurrency > maxBatchConcurrency {
+		req.Concurrency = maxBatchConcurrency
 	}
 
 	results := make([]model.TestResult, len(req.Items))
@@ -184,6 +196,11 @@ func (h *TestHandler) tcpPing(req TestRequest) model.TestResult {
 	if h.settingsURL != nil {
 		link = h.settingsURL()
 	}
+	if link != "" {
+		if err := core.ValidateHTTPURL(link); err != nil {
+			link = ""
+		}
+	}
 	const timeout = 5 * time.Second
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -207,6 +224,9 @@ func (h *TestHandler) httpTest(req TestRequest) model.TestResult {
 	if target == "" {
 		target = defaultTestURL
 	}
+	if err := core.ValidateHTTPURL(target); err != nil {
+		return failedTestResult(err.Error(), err)
+	}
 
 	start := time.Now()
 
@@ -219,15 +239,29 @@ func (h *TestHandler) httpTest(req TestRequest) model.TestResult {
 
 	transport := &http.Transport{
 		DialContext: func(c context.Context, network, addr string) (net.Conn, error) {
-			return h.instance.DialOutbound(ctx, req.Tag, network, addr)
+			return h.instance.DialOutbound(c, req.Tag, network, addr)
 		},
 	}
-	client := &http.Client{Transport: transport, Timeout: 5 * time.Second}
-	resp, err := client.Get(target)
+	defer transport.CloseIdleConnections()
+	client := &http.Client{
+		Transport: transport,
+		Timeout:   5 * time.Second,
+		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
 	if err != nil {
 		return failedTestResult(err.Error(), err)
 	}
-	_ = resp.Body.Close()
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return failedTestResult(err.Error(), err)
+	}
+	if resp == nil || resp.Body == nil {
+		return failedTestResult("http test response body is nil", nil)
+	}
+	defer func() { _ = resp.Body.Close() }()
 	latency := time.Since(start).Seconds() * 1000
 	return model.TestResult{Success: true, LatencyMs: latency}
 }

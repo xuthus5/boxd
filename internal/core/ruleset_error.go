@@ -15,10 +15,12 @@ const (
 	RuleSetErrorNotUpdatable = "not_updatable"
 	RuleSetErrorUnsupported  = "unsupported"
 	RuleSetErrorInvalidURL   = "invalid_url"
+	RuleSetErrorBlockedURL   = "blocked_url"
 	RuleSetErrorNetwork      = "network"
 	RuleSetErrorTimeout      = "timeout"
 	RuleSetErrorHTTP         = "http_status"
 	RuleSetErrorEmpty        = "empty_content"
+	RuleSetErrorTooLarge     = "content_too_large"
 	RuleSetErrorPermission   = "permission"
 	RuleSetErrorCache        = "cache"
 	RuleSetErrorUnknown      = "unknown"
@@ -38,6 +40,15 @@ func classifyRuleSetErrorValue(err error) string {
 	}
 	if errors.Is(err, ErrRuleSetNotUpdatable) {
 		return RuleSetErrorNotUpdatable
+	}
+	if errors.Is(err, errSubscriptionURLBlocked) {
+		return RuleSetErrorBlockedURL
+	}
+	if errors.Is(err, errSubscriptionURLInvalid) {
+		return RuleSetErrorInvalidURL
+	}
+	if errors.Is(err, ErrRuleSetContentTooLarge) {
+		return RuleSetErrorTooLarge
 	}
 	if errors.Is(err, ErrRuleSetCacheDisabled) {
 		return RuleSetErrorCache
@@ -66,6 +77,10 @@ func classifyRuleSetErrorMessage(msg string) string {
 		return RuleSetErrorUnsupported
 	case strings.Contains(lower, "url is empty"), strings.Contains(lower, "invalid url"), strings.Contains(lower, "unsupported protocol"):
 		return RuleSetErrorInvalidURL
+	case strings.Contains(lower, "private or local address"), strings.Contains(lower, "dial address is not public"):
+		return RuleSetErrorBlockedURL
+	case strings.Contains(lower, "content is too large"), strings.Contains(lower, "content too large"):
+		return RuleSetErrorTooLarge
 	case strings.Contains(lower, "empty rule-set"), strings.Contains(lower, "empty body"), strings.Contains(lower, "empty content"):
 		return RuleSetErrorEmpty
 	case strings.Contains(lower, "unexpected status"):

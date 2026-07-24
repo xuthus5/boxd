@@ -3,7 +3,6 @@ package core
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"time"
 
 	"go.etcd.io/bbolt"
@@ -149,13 +148,8 @@ func (m *SettingsManager) value(key string) (string, error) {
 }
 
 func validateURLTestURL(rawURL string) error {
-	parsed, err := url.Parse(rawURL)
-	if err != nil {
-		return fmt.Errorf("parsing urltest url: %w", err)
-	}
-	isHTTP := parsed.Scheme == "http" || parsed.Scheme == "https"
-	if !isHTTP || parsed.Host == "" {
-		return fmt.Errorf("urltest url must be an absolute http or https url")
+	if err := ValidateHTTPURL(rawURL); err != nil {
+		return fmt.Errorf("urltest url must be an absolute http or https url: %w", err)
 	}
 	return nil
 }

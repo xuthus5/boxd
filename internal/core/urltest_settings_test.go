@@ -17,6 +17,8 @@ var urlTestDefaultsValidationCases = []struct {
 	{name: "invalid scheme", config: model.URLTestDefaults{Enabled: true, URL: "ftp://example.com/test", Interval: "3m", Tolerance: 50}, wantErr: true},
 	{name: "relative url", config: model.URLTestDefaults{Enabled: true, URL: "/generate_204", Interval: "3m", Tolerance: 50}, wantErr: true},
 	{name: "malformed url", config: model.URLTestDefaults{Enabled: true, URL: "http://%", Interval: "3m", Tolerance: 50}, wantErr: true},
+	{name: "whitespace url", config: model.URLTestDefaults{Enabled: true, URL: "https://example.com/a b", Interval: "3m", Tolerance: 50}, wantErr: true},
+	{name: "invalid port", config: model.URLTestDefaults{Enabled: true, URL: "https://example.com:bad/test", Interval: "3m", Tolerance: 50}, wantErr: true},
 	{name: "invalid interval", config: model.URLTestDefaults{Enabled: true, URL: "https://example.com/test", Interval: "later", Tolerance: 50}, wantErr: true},
 	{name: "zero interval", config: model.URLTestDefaults{Enabled: true, URL: "https://example.com/test", Interval: "0s", Tolerance: 50}, wantErr: true},
 }

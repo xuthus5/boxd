@@ -280,6 +280,27 @@ func TestSettingsSetTestURLInvalidJSON(t *testing.T) {
 	}
 }
 
+func TestSettingsSetTestURLRejectsUnsupportedURL(t *testing.T) {
+	_, _, settingsMgr, _ := newAPIManagers(t)
+	handler := NewSettingsHandler(settingsMgr)
+
+	for _, rawURL := range []string{"file:///tmp/probe", "/relative", "https://example.com:bad/probe"} {
+		rr := httptest.NewRecorder()
+		handler.SetTestURL(rr, jsonRequest(http.MethodPut, "/api/settings/url-test", `{"url":"`+rawURL+`"}`))
+		if rr.Code != http.StatusBadRequest {
+			t.Fatalf("url %q status = %d body=%s", rawURL, rr.Code, rr.Body.String())
+		}
+	}
+	if err := settingsMgr.Set("url_test", "file:///tmp/legacy"); err != nil {
+		t.Fatal(err)
+	}
+	rr := httptest.NewRecorder()
+	handler.GetTestURL(rr, httptest.NewRequest(http.MethodGet, "/api/settings/url-test", nil))
+	if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), defaultTestURL) {
+		t.Fatalf("invalid stored URL response = %d %s", rr.Code, rr.Body.String())
+	}
+}
+
 func TestImportSaveNodeInvalidJSON(t *testing.T) {
 	nodeMgr, subMgr, _, configPath := newAPIManagers(t)
 	handler := NewImportHandler(nodeMgr, subMgr, configPath)

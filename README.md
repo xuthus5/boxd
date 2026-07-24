@@ -73,7 +73,7 @@ go run ./cmd/boxd/
 
 ### Built-in routing helpers
 
-The route page can install common rules (sniff, hijack DNS, bypass LAN/ICMP, block QUIC/ads, CN domain/IP split, etc.). Rule-sets include Loyalsoldier text sets (local convert) and SagerNet binary sets (remote cache).
+The route page can install common rules (sniff, hijack DNS, bypass LAN/ICMP, block QUIC/ads, CN domain/IP split, etc.). Rule-sets include Loyalsoldier text sets (local convert) and SagerNet binary sets (remote cache); manual downloads require public HTTP(S) URLs and are capped at 16 MiB.
 
 ### Backup and restore
 

@@ -177,6 +177,16 @@ func TestTestHandlerHTTPTestWithDialer(t *testing.T) {
 	if result.Error == "" {
 		t.Fatalf("expected dial error, got %#v", result)
 	}
+
+	invalid := NewTestHandler(
+		func() string { return "file:///tmp/probe" },
+		nil,
+		&fakeDialer{connFactory: func() net.Conn { return newHTTPResponseConn() }},
+	)
+	result = invalid.httpTest(TestRequest{Tag: "proxy"})
+	if result.Success || result.ErrorCode != ProbeErrorInvalidInput {
+		t.Fatalf("invalid HTTP target = %#v", result)
+	}
 }
 
 func TestTestHandlerICMPPingAndLatencyParsing(t *testing.T) {
@@ -725,6 +735,25 @@ func TestTestHandlerRunBatch(t *testing.T) {
 		handler.RunBatch(rr, jsonRequest(http.MethodPost, "/api/nodes/test-batch", body))
 		if rr.Code != http.StatusOK {
 			t.Fatalf("status = %d", rr.Code)
+		}
+	})
+
+	t.Run("caps excessive concurrency", func(t *testing.T) {
+		body := `{"items":[{"tag":"x","test_type":"tcp"}],"concurrency":9999}`
+		rr := httptest.NewRecorder()
+		handler.RunBatch(rr, jsonRequest(http.MethodPost, "/api/nodes/test-batch", body))
+		if rr.Code != http.StatusOK {
+			t.Fatalf("status = %d", rr.Code)
+		}
+	})
+
+	t.Run("rejects excessive items", func(t *testing.T) {
+		items := strings.TrimSuffix(strings.Repeat(`{"tag":"x","test_type":"tcp"},`, maxBatchItems+1), ",")
+		body := `{"items":[` + items + `]}`
+		rr := httptest.NewRecorder()
+		handler.RunBatch(rr, jsonRequest(http.MethodPost, "/api/nodes/test-batch", body))
+		if rr.Code != http.StatusBadRequest {
+			t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
 		}
 	})
 }

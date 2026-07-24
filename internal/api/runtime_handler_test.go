@@ -256,6 +256,8 @@ func TestRuntimeHandlerOutboundDelay(t *testing.T) {
 		{name: "zero delay", tag: "p1", delayRet: 0, want: http.StatusBadGateway},
 		{name: "ok", tag: "p1", query: "url=http://x/generate_204&timeout=5000", delayRet: 120, want: http.StatusOK},
 		{name: "bad timeout", tag: "p1", query: "timeout=abc", want: http.StatusBadRequest},
+		{name: "too long timeout", tag: "p1", query: "timeout=60001", want: http.StatusBadRequest},
+		{name: "invalid URL", tag: "p1", query: "url=file:///tmp/probe", want: http.StatusBadRequest},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

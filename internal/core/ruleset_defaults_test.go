@@ -3,10 +3,13 @@ package core
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -35,11 +38,11 @@ func TestLoyalsoldierRuleSetInstallerInstall(t *testing.T) {
 	dir := t.TempDir()
 	installer := &LoyalsoldierRuleSetInstaller{
 		ruleSetDir: filepath.Join(dir, "rule-sets"),
-		client:     server.Client(),
+		client:     rulesetTestClient(server),
 		sources: []RuleSetSource{
-			{Tag: "loyalsoldier-direct", FileName: "loyalsoldier-direct.json", URL: server.URL + "/direct-list.txt"},
-			{Tag: "loyalsoldier-proxy", FileName: "loyalsoldier-proxy.json", URL: server.URL + "/proxy-list.txt"},
-			{Tag: "loyalsoldier-reject", FileName: "loyalsoldier-reject.json", URL: server.URL + "/reject-list.txt"},
+			{Tag: "loyalsoldier-direct", FileName: "loyalsoldier-direct.json", URL: rulesetTestURL(server, "/direct-list.txt")},
+			{Tag: "loyalsoldier-proxy", FileName: "loyalsoldier-proxy.json", URL: rulesetTestURL(server, "/proxy-list.txt")},
+			{Tag: "loyalsoldier-reject", FileName: "loyalsoldier-reject.json", URL: rulesetTestURL(server, "/reject-list.txt")},
 		},
 	}
 
@@ -115,5 +118,24 @@ func TestUniqueStringsAndFetchErrors(t *testing.T) {
 	installer := &LoyalsoldierRuleSetInstaller{client: http.DefaultClient, ruleSetDir: t.TempDir()}
 	if _, err := installer.fetchAndConvert(context.Background(), RuleSetSource{Tag: "x", URL: "://bad"}); err == nil {
 		t.Fatal("expected bad url error")
+	}
+}
+
+func TestRuleSetInstallerRejectsOversizedSource(t *testing.T) {
+	installer := &LoyalsoldierRuleSetInstaller{
+		client: &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode:    http.StatusOK,
+				ContentLength: maxRuleSetBodyBytes + 1,
+				Header:        make(http.Header),
+				Body:          io.NopCloser(strings.NewReader("unused")),
+				Request:       req,
+			}, nil
+		})},
+		ruleSetDir: t.TempDir(),
+	}
+	_, err := installer.fetchAndConvert(context.Background(), RuleSetSource{Tag: "large", URL: "https://ruleset.test/source.txt"})
+	if !errors.Is(err, ErrRuleSetContentTooLarge) {
+		t.Fatalf("error = %v, want oversized error", err)
 	}
 }

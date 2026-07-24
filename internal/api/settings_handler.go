@@ -75,7 +75,13 @@ func (h *SettingsHandler) ChangePassword(w http.ResponseWriter, r *http.Request)
 
 func (h *SettingsHandler) GetTestURL(w http.ResponseWriter, r *http.Request) {
 	url := h.settings.Get("url_test")
-	if url == "" {
+	invalidURL := false
+	if url != "" {
+		if err := core.ValidateHTTPURL(url); err != nil {
+			invalidURL = true
+		}
+	}
+	if url == "" || invalidURL {
 		url = defaultTestURL
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"url": url})
@@ -91,6 +97,10 @@ func (h *SettingsHandler) SetTestURL(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.URL == "" {
 		req.URL = defaultTestURL
+	}
+	if err := core.ValidateHTTPURL(req.URL); err != nil {
+		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, err.Error())
+		return
 	}
 	if err := h.settings.Set("url_test", req.URL); err != nil {
 		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorInternal, "failed to save")

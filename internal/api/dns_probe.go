@@ -54,6 +54,9 @@ func probeDNSServer(req DNSProbeRequest) DNSProbeResult {
 		domain = defaultDNSProbeDomain
 	}
 	result := DNSProbeResult{Tag: tag, Domain: domain}
+	if err := validateDNSProbeDomain(domain); err != nil {
+		return failedDNSProbeResult(result, err.Error(), err)
+	}
 
 	proto, server, port, path, err := normalizeDNSProbeTarget(req)
 	if err != nil {
@@ -134,8 +137,16 @@ func normalizeDNSProbeTarget(req DNSProbeRequest) (proto, server string, port in
 	if server == "" {
 		return "", "", 0, "", fmt.Errorf("server is required")
 	}
-	if port <= 0 {
-		port = defaultDNSPort(proto)
+	server, err = normalizeDNSProbeServer(server)
+	if err != nil {
+		return "", "", 0, "", err
+	}
+	port, err = normalizeDNSProbePort(proto, port)
+	if err != nil {
+		return "", "", 0, "", err
+	}
+	if err := validateDNSProbePath(path); err != nil {
+		return "", "", 0, "", err
 	}
 	return proto, server, port, path, nil
 }
@@ -160,11 +171,14 @@ func parseLegacyDNSAddress(address, proto string, port int, path string) (string
 		if host == "" {
 			return "", "", 0, "", fmt.Errorf("address host is empty")
 		}
+		if u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+			return "", "", 0, "", fmt.Errorf("address contains unsupported components")
+		}
 		pr := port
 		if u.Port() != "" {
-			n, convErr := strconv.Atoi(u.Port())
+			n, convErr := parseDNSProbePort(u.Port())
 			if convErr != nil {
-				return "", "", 0, "", fmt.Errorf("invalid port: %w", convErr)
+				return "", "", 0, "", convErr
 			}
 			pr = n
 		}
@@ -184,14 +198,20 @@ func parseLegacyDNSAddress(address, proto string, port int, path string) (string
 	default:
 		host, hostPort, splitErr := net.SplitHostPort(raw)
 		if splitErr == nil {
-			n, convErr := strconv.Atoi(hostPort)
+			n, convErr := parseDNSProbePort(hostPort)
 			if convErr != nil {
-				return "", "", 0, "", fmt.Errorf("invalid port: %w", convErr)
+				return "", "", 0, "", convErr
 			}
 			if proto == "" {
 				proto = "udp"
 			}
 			return proto, host, n, path, nil
+		}
+		if strings.Contains(raw, ":") && net.ParseIP(strings.Trim(raw, "[]")) == nil {
+			return "", "", 0, "", fmt.Errorf("invalid address")
+		}
+		if strings.HasPrefix(raw, "[") && strings.HasSuffix(raw, "]") {
+			raw = strings.TrimSuffix(strings.TrimPrefix(raw, "["), "]")
 		}
 		if proto == "" {
 			proto = "udp"
@@ -207,11 +227,17 @@ func splitSchemeHost(proto, hostport string, port int) (string, string, int, str
 	}
 	host, p, err := net.SplitHostPort(hostport)
 	if err == nil {
-		n, convErr := strconv.Atoi(p)
+		n, convErr := parseDNSProbePort(p)
 		if convErr != nil {
-			return "", "", 0, "", fmt.Errorf("invalid port: %w", convErr)
+			return "", "", 0, "", convErr
 		}
 		return proto, host, n, "/dns-query", nil
+	}
+	if strings.HasPrefix(hostport, "[") && strings.HasSuffix(hostport, "]") {
+		return proto, strings.TrimSuffix(strings.TrimPrefix(hostport, "["), "]"), port, "/dns-query", nil
+	}
+	if strings.Contains(hostport, ":") && net.ParseIP(hostport) == nil {
+		return "", "", 0, "", fmt.Errorf("invalid address")
 	}
 	return proto, hostport, port, "/dns-query", nil
 }

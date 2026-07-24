@@ -32,8 +32,15 @@ func (h *RuntimeHandler) ProbeDNSBatch(w http.ResponseWriter, r *http.Request) {
 		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, "items is empty")
 		return
 	}
+	if len(req.Items) > maxDNSProbeItems {
+		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, "too many dns probe items")
+		return
+	}
 	if req.Concurrency <= 0 {
 		req.Concurrency = defaultBatchConcurrency
+	}
+	if req.Concurrency > maxDNSProbeConcurrency {
+		req.Concurrency = maxDNSProbeConcurrency
 	}
 
 	results := make([]DNSProbeResult, len(req.Items))

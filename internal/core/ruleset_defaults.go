@@ -2,6 +2,7 @@ package core
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -10,7 +11,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"time"
 
 	C "github.com/sagernet/sing-box/constant"
 )
@@ -34,9 +34,7 @@ type LoyalsoldierRuleSetInstaller struct {
 func NewLoyalsoldierRuleSetInstaller(dataDir string) *LoyalsoldierRuleSetInstaller {
 	return &LoyalsoldierRuleSetInstaller{
 		ruleSetDir: filepath.Join(dataDir, "rule-sets"),
-		client: &http.Client{
-			Timeout: 20 * time.Second,
-		},
+		client:     newPublicHTTPClient(ruleSetInstallerHTTPTimeout),
 		sources: []RuleSetSource{
 			{
 				Tag:      "loyalsoldier-direct",
@@ -201,17 +199,34 @@ func atomicWriteFile0600(path string, data []byte) error {
 }
 
 func (i *LoyalsoldierRuleSetInstaller) fetchAndConvert(ctx context.Context, src RuleSetSource) (sourceRuleSetFile, error) {
+	if err := ValidatePublicHTTPURL(src.URL); err != nil {
+		return sourceRuleSetFile{}, fmt.Errorf("download %s: %w", src.Tag, err)
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, src.URL, nil)
 	if err != nil {
 		return sourceRuleSetFile{}, fmt.Errorf("build request %s: %w", src.Tag, err)
 	}
-	resp, err := i.client.Do(req)
+	client := i.client
+	if client == nil {
+		client = newPublicHTTPClient(ruleSetInstallerHTTPTimeout)
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return sourceRuleSetFile{}, fmt.Errorf("download %s: %w", src.Tag, err)
+	}
+	if resp == nil || resp.Body == nil {
+		return sourceRuleSetFile{}, fmt.Errorf("download %s: response body is nil", src.Tag)
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return sourceRuleSetFile{}, fmt.Errorf("download %s: unexpected status %d", src.Tag, resp.StatusCode)
+	}
+	if resp.ContentLength > maxRuleSetBodyBytes {
+		return sourceRuleSetFile{}, fmt.Errorf("download %s: %w", src.Tag, ErrRuleSetContentTooLarge)
+	}
+	content, err := readRuleSetBody(resp.Body)
+	if err != nil {
+		return sourceRuleSetFile{}, fmt.Errorf("read %s: %w", src.Tag, err)
 	}
 
 	var (
@@ -221,7 +236,7 @@ func (i *LoyalsoldierRuleSetInstaller) fetchAndConvert(ctx context.Context, src 
 		domainRegex   []string
 	)
 
-	scanner := bufio.NewScanner(resp.Body)
+	scanner := bufio.NewScanner(bytes.NewReader(content))
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" || strings.HasPrefix(line, "#") {

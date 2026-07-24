@@ -172,3 +172,13 @@ func TestSubscriptionHTTPClientFollowsPublicRedirect(t *testing.T) {
 		t.Fatalf("count = %d status = %d", requestCount, response.StatusCode)
 	}
 }
+
+func TestPublicHTTPClientUsesSafeFallbackTransport(t *testing.T) {
+	client := newPublicHTTPClientWithTransport(0, nil)
+	if client == nil || client.Transport == nil {
+		t.Fatalf("client = %#v", client)
+	}
+	if client.Timeout != subscriptionHTTPTimeout {
+		t.Fatalf("timeout = %v, want %v", client.Timeout, subscriptionHTTPTimeout)
+	}
+}
