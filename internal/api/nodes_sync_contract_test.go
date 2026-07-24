@@ -67,6 +67,22 @@ func TestNodeUpdateMapsSyncFailureToNodeError(t *testing.T) {
 	}
 }
 
+func TestNodeSyncSkipsRestartWhenConfigIsUnchanged(t *testing.T) {
+	nodeManager, subscriptionManager, _, configPath := newAPIManagers(t)
+	if err := syncOutboundsToConfig(nodeManager, subscriptionManager, configPath); err != nil {
+		t.Fatal(err)
+	}
+	restarter := &fakeRestartable{}
+	handler := NewNodesHandler(nodeManager, subscriptionManager, configPath, restarter)
+
+	recorder := httptest.NewRecorder()
+	handler.SyncToConfig(recorder, httptest.NewRequest(http.MethodPost, "/api/nodes/sync-config", nil))
+
+	if recorder.Code != http.StatusOK || restarter.calls != 0 {
+		t.Fatalf("status = %d restart calls = %d body=%s", recorder.Code, restarter.calls, recorder.Body.String())
+	}
+}
+
 func TestNodeSyncRestoresAppliedStateAfterRestartFailure(t *testing.T) {
 	nodeManager, subscriptionManager, settings, configPath := newAPIManagers(t)
 	previousConfig, err := os.ReadFile(configPath)

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -68,7 +69,11 @@ func syncOutboundsAndRestart(
 	if err := syncOutboundsToConfig(nodeManager, subManager, configPath); err != nil {
 		return errors.Join(err, snapshot.restore())
 	}
-	if instance == nil {
+	changed, err := outboundConfigChanged(snapshot, configPath)
+	if err != nil {
+		return errors.Join(err, snapshot.restore())
+	}
+	if !changed || instance == nil {
 		return nil
 	}
 	restartErr := instance.Restart()
@@ -89,4 +94,12 @@ func syncOutboundsAndRestart(
 		result = append(result, fmt.Errorf("restart failed after restoring previous configuration: %w", rollbackRestartErr))
 	}
 	return errors.Join(result...)
+}
+
+func outboundConfigChanged(snapshot outboundSyncSnapshot, configPath string) (bool, error) {
+	current, err := os.ReadFile(configPath)
+	if err != nil {
+		return false, fmt.Errorf("reading synchronized outbound configuration: %w", err)
+	}
+	return !bytes.Equal(snapshot.config, current), nil
 }
