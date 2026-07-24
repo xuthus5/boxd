@@ -1,7 +1,7 @@
 import { useCallback } from "react"
-import { toast } from "sonner"
 
 import type { ConfigSaveErrorState } from "@/features/config/config-save-error"
+import { reportConfigValidateError } from "@/features/config/report-config-validate-error"
 import { useConfigQuery } from "@/features/config/config-hooks"
 import { useConfigValidate } from "@/features/config/use-config-validate"
 import { isJsonObject, type JsonObject } from "@/features/policy/policy-form-model"
@@ -16,12 +16,6 @@ function asObjects(value: JsonValue | undefined): JsonObject[] {
   return Array.isArray(value)
     ? value.filter((item): item is JsonObject => Boolean(item && typeof item === "object" && !Array.isArray(item)))
     : []
-}
-
-function defaultReportError(error: unknown): ConfigSaveErrorState {
-  const message = error instanceof Error ? error.message : String(error)
-  toast.error(message)
-  return { message }
 }
 
 /** Relative path for the open policy item dialog, if the error path targets it. */
@@ -71,7 +65,7 @@ export function usePolicyItemValidate({
 
   const { validating, validate } = useConfigValidate({
     buildConfig,
-    reportError: reportError ?? defaultReportError,
+    reportError: reportError ?? reportConfigValidateError,
     clearSaveError,
     onReportedError,
   })

@@ -21,6 +21,7 @@ import { useConfigPathReveal } from "@/features/config/use-config-path-reveal"
 import { useConfigQuery } from "@/features/config/config-hooks"
 import { useConfigValidate } from "@/features/config/use-config-validate"
 import type { ConfigSaveErrorState } from "@/features/config/config-save-error"
+import { reportConfigValidateError } from "@/features/config/report-config-validate-error"
 import {
   isJsonObject,
   isPolicySectionStructureValid,
@@ -211,11 +212,7 @@ export function PolicyEditor({
   }, [configQuery.data, editor.object, section])
   const { validating, validate } = useConfigValidate({
     buildConfig,
-    reportError: reportError ?? ((error: unknown): ConfigSaveErrorState => {
-      const message = error instanceof Error ? error.message : String(error)
-      toast.error(message)
-      return { message }
-    }),
+    reportError: reportError ?? reportConfigValidateError,
     clearSaveError,
     onReportedError: (err) => { if (err.path) reveal(err.path) },
   })

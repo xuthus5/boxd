@@ -1,7 +1,7 @@
 import { useCallback } from "react"
-import { toast } from "sonner"
 
 import type { ConfigSaveErrorState } from "@/features/config/config-save-error"
+import { reportConfigValidateError } from "@/features/config/report-config-validate-error"
 import { useConfigQuery } from "@/features/config/config-hooks"
 import { useConfigValidate } from "@/features/config/use-config-validate"
 import type { JsonValue, SingBoxConfig } from "@/lib/api/types"
@@ -12,12 +12,6 @@ function asObjects(value: JsonValue | undefined): JsonObject[] {
   return Array.isArray(value)
     ? value.filter((item): item is JsonObject => Boolean(item && typeof item === "object" && !Array.isArray(item)))
     : []
-}
-
-function defaultReportError(error: unknown): ConfigSaveErrorState {
-  const message = error instanceof Error ? error.message : String(error)
-  toast.error(message)
-  return { message }
 }
 
 interface UseProxyItemValidateOptions {
@@ -49,7 +43,7 @@ export function useProxyItemValidate({
 
   const { validating, validate } = useConfigValidate({
     buildConfig,
-    reportError: reportError ?? defaultReportError,
+    reportError: reportError ?? reportConfigValidateError,
     clearSaveError,
     onReportedError,
   })

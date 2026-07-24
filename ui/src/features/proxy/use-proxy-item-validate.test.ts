@@ -95,3 +95,21 @@ describe("useProxyItemValidate", () => {
     expect(api.config.validate).not.toHaveBeenCalled()
   })
 })
+
+  it("densifies failures without custom reporter", async () => {
+    vi.mocked(api.config.validate).mockRejectedValue(new Error("inbounds[0].listen_port: invalid"))
+    const { result } = renderHook(() => useProxyItemValidate({
+      kind: "inbounds",
+      index: 0,
+      object: { tag: "mixed-in", type: "mixed", listen_port: 1080 },
+    }))
+    let ok = true
+    await act(async () => {
+      ok = await result.current.validate()
+    })
+    expect(ok).toBe(false)
+    const { toast } = await import("sonner")
+    expect(toast.error).toHaveBeenCalled()
+    const [message] = vi.mocked(toast.error).mock.calls.at(-1)!
+    expect(String(message)).toMatch(/listen_port|config_invalid|invalid/)
+  })

@@ -89,3 +89,22 @@ describe("usePolicyItemValidate", () => {
     expect(api.config.validate).not.toHaveBeenCalled()
   })
 })
+
+  it("densifies failures without custom reporter", async () => {
+    vi.mocked(api.config.validate).mockRejectedValue(new Error("route.rules[0].outbound: missing"))
+    const { result } = renderHook(() => usePolicyItemValidate({
+      section: "route",
+      kind: "rules",
+      index: 0,
+      object: { action: "route", outbound: "proxy" },
+    }))
+    let ok = true
+    await act(async () => {
+      ok = await result.current.validate()
+    })
+    expect(ok).toBe(false)
+    const { toast } = await import("sonner")
+    expect(toast.error).toHaveBeenCalled()
+    const [message] = vi.mocked(toast.error).mock.calls.at(-1)!
+    expect(String(message)).toMatch(/outbound|config_invalid|missing/)
+  })
