@@ -86,16 +86,34 @@ export function DashboardPage() {
       <h1 className="text-2xl font-semibold">{t("pages.dashboard")}</h1>
       <div className="grid gap-4 lg:grid-cols-3">
         <SetupChecklistCard status={status.data} />
-        <HealthSummaryCard snapshot={connections.items.at(-1)} status={status.data} streamError={connections.error || undefined} streamStatus={connections.status} />
+        <HealthSummaryCard
+          snapshot={connections.items.at(-1)}
+          status={status.data}
+          streamError={connections.error || undefined}
+          streamStatus={connections.status}
+          onReconnect={connections.reconnect}
+        />
         <ServiceCard status={status.data!} pending={pendingAction} onAction={(action) => serviceMutation.mutate(action)} />
         <ProxySelectorCard />
         <ClashModeCard enabled={Boolean(status.data?.running)} />
         <RuntimeStatsCard memory={memory.data!} panelVersion={version.data!.version} kernelVersion={version.data!.kernel_version} />
         <OpsShortcutsCard />
         <ConfigApplyTimelineCard />
-        <TrafficChart points={points} streamError={traffic.error || undefined} streamStatus={traffic.status} streamPath={api.stats.paths.traffic} />
+        <TrafficChart
+          points={points}
+          streamError={traffic.error || undefined}
+          streamStatus={traffic.status}
+          streamPath={api.stats.paths.traffic}
+          onReconnect={traffic.reconnect}
+        />
         <RuntimeActions pending={maintenance.isPending} onGC={() => maintenance.mutate(api.runtime.gc)} onFlushDNS={() => maintenance.mutate(api.runtime.flushDNS)} onFlushFakeIP={() => maintenance.mutate(api.runtime.flushFakeIP)} />
-        <RecentLogs items={logs.items} streamError={logs.error || undefined} streamStatus={logs.status} streamPath={api.stats.paths.logs} />
+        <RecentLogs
+          items={logs.items}
+          streamError={logs.error || undefined}
+          streamStatus={logs.status}
+          streamPath={api.stats.paths.logs}
+          onReconnect={logs.reconnect}
+        />
       </div>
     </div>
   )

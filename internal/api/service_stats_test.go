@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	sbLog "github.com/sagernet/sing-box/log"
@@ -238,6 +239,12 @@ func TestStatsHandlerHelpersAndSSE(t *testing.T) {
 	if rr.Header().Get("Content-Type") != "text/event-stream" {
 		t.Fatalf("traffic content type = %q", rr.Header().Get("Content-Type"))
 	}
+	if rr.Header().Get("X-Accel-Buffering") != "no" {
+		t.Fatalf("traffic buffering header = %q", rr.Header().Get("X-Accel-Buffering"))
+	}
+	if !strings.Contains(rr.Body.String(), ": connected\n\n") {
+		t.Fatalf("traffic missing initial SSE comment: %q", rr.Body.String())
+	}
 
 	noFlush := newNoFlushWriter()
 	handler.TrafficSSE(noFlush, httptest.NewRequest(http.MethodGet, "/api/stats/traffic", nil))
@@ -283,6 +290,39 @@ func TestStatsHandlerHelpersAndSSE(t *testing.T) {
 	if rr.Header().Get("Content-Type") != "text/event-stream" {
 		t.Fatalf("connections content type = %q", rr.Header().Get("Content-Type"))
 	}
+}
+
+func TestStatsHandlerLogSSEHeartbeat(t *testing.T) {
+	handler := NewStatsHandler(nil, nil, nil)
+	t.Cleanup(handler.stopTrafficSampler)
+
+	synctest.Test(t, func(t *testing.T) {
+		ctx, cancel := context.WithCancel(t.Context())
+		req := httptest.NewRequest(http.MethodGet, "/api/stats/logs", nil).WithContext(ctx)
+		rr := httptest.NewRecorder()
+		done := make(chan struct{})
+		go func() {
+			handler.LogsSSE(rr, req)
+			close(done)
+		}()
+
+		synctest.Wait()
+		time.Sleep(sseHeartbeatInterval)
+		synctest.Wait()
+		cancel()
+		<-done
+
+		body := rr.Body.String()
+		if !strings.Contains(body, ": connected\n\n") {
+			t.Fatalf("missing connected comment: %q", body)
+		}
+		if !strings.Contains(body, ": keep-alive\n\n") {
+			t.Fatalf("missing heartbeat comment: %q", body)
+		}
+		if strings.Contains(body, "no log writer") {
+			t.Fatalf("heartbeat leaked as a log event: %q", body)
+		}
+	})
 }
 
 func TestNetworkHandlerGetInterfaces(t *testing.T) {
@@ -555,6 +595,7 @@ func (f *fakeStatsInstance) CloseConnectionsByRule(rule string) int {
 	}
 	return f.closeCount
 }
+
 func (f *fakeStatsInstance) CloseConnectionsByProcess(process string) int {
 	if process == "" {
 		return 0

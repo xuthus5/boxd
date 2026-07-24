@@ -18,6 +18,9 @@ func TestWriteAppEntry(t *testing.T) {
 	if recent[0].Level != "error" {
 		t.Errorf("entry 0 level = %q, want 'error'", recent[0].Level)
 	}
+	if recent[0].Timestamp.IsZero() {
+		t.Error("entry 0 timestamp is zero")
+	}
 	if recent[1].Message != "app info message" {
 		t.Errorf("entry 1 message = %q, want 'app info message'", recent[1].Message)
 	}
@@ -54,5 +57,22 @@ func TestWriteAppEntrySubscribe(t *testing.T) {
 	}
 	if entry.Level != "warn" {
 		t.Errorf("level = %q, want 'warn'", entry.Level)
+	}
+}
+
+func TestLogWriterSnapshotAndSubscribe(t *testing.T) {
+	lw := NewLogWriter(10)
+	lw.WriteAppEntry("info", "before")
+
+	recent, ch, id := lw.SnapshotAndSubscribe()
+	defer lw.Unsubscribe(id)
+	if len(recent) != 1 || recent[0].Message != "before" {
+		t.Fatalf("recent = %#v", recent)
+	}
+
+	lw.WriteAppEntry("info", "after")
+	entry := <-ch
+	if entry.Message != "after" {
+		t.Fatalf("entry message = %q, want after", entry.Message)
 	}
 }

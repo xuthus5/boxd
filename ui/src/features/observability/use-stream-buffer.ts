@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 
 import { openSSE, type SSEStatus } from "@/lib/api/sse"
 
@@ -9,13 +9,21 @@ export function useStreamBuffer<T>(path: string, token: string, limit = 500) {
   const [error, setError] = useState("")
   const [paused, setPaused] = useState(false)
   const [status, setStatus] = useState<StreamConnectionStatus>("connecting")
+  const [generation, setGeneration] = useState(0)
+
+  const updatePaused = useCallback((next: boolean) => {
+    setPaused(next)
+    if (next) setStatus("closed")
+  }, [])
+
+  const reconnect = useCallback(() => {
+    setError("")
+    setStatus("connecting")
+    setGeneration((current) => current + 1)
+  }, [])
 
   useEffect(() => {
-    if (!token || paused) {
-      if (paused) setStatus("closed")
-      return
-    }
-    setStatus("connecting")
+    if (!token || paused) return
     return openSSE<T>({
       path,
       token,
@@ -29,7 +37,15 @@ export function useStreamBuffer<T>(path: string, token: string, limit = 500) {
         if (next === "open") setError("")
       },
     })
-  }, [limit, path, paused, token])
+  }, [generation, limit, path, paused, token])
 
-  return { items, error, status, paused, setPaused, clear: () => setItems([]) }
+  return {
+    items,
+    error,
+    status,
+    paused,
+    setPaused: updatePaused,
+    reconnect,
+    clear: () => setItems([]),
+  }
 }

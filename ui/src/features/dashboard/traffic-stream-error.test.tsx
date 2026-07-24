@@ -60,4 +60,20 @@ describe("dashboard stream densify", () => {
     expect(spy).toHaveBeenCalled()
     expect(spy.mock.calls.at(-1)?.[0]).toContain("failed to fetch logs")
   })
+
+  it("reconnects traffic stream from densified block", async () => {
+    const user = userEvent.setup()
+    const onReconnect = vi.fn()
+    renderApp(
+      <TrafficChart
+        points={[]}
+        streamError="failed to fetch traffic"
+        streamStatus="error"
+        streamPath="/api/stats/traffic"
+        onReconnect={onReconnect}
+      />,
+    )
+    await user.click(screen.getByRole("button", { name: /立即重连|Reconnect now/i }))
+    expect(onReconnect).toHaveBeenCalledTimes(1)
+  })
 })

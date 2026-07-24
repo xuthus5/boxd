@@ -32,7 +32,9 @@ describe("useStreamBuffer", () => {
     const body = controllableStream()
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body.stream, { status: 200 })))
 
-    const { result } = renderHook(() => useStreamBuffer<{ level: string }>("/api/stats/logs", "token", 10))
+    const { result, unmount } = renderHook(
+      () => useStreamBuffer<{ level: string }>("/api/stats/logs", "token", 10),
+    )
     await waitFor(() => expect(result.current.status).toBe("open"))
 
     act(() => {
@@ -40,6 +42,7 @@ describe("useStreamBuffer", () => {
     })
     await waitFor(() => expect(result.current.items).toEqual([{ level: "info" }]))
     expect(result.current.error).toBe("")
+    unmount()
     body.close()
   })
 
@@ -76,5 +79,29 @@ describe("useStreamBuffer", () => {
     await waitFor(() => expect(result.current.status).toBe("closed"))
     expect(result.current.paused).toBe(true)
     body.close()
+  })
+
+  it("forces a fresh connection when reconnect is called", async () => {
+    const first = controllableStream()
+    const second = controllableStream()
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(first.stream, { status: 200 }))
+      .mockResolvedValueOnce(new Response(second.stream, { status: 200 }))
+    vi.stubGlobal("fetch", fetchMock)
+
+    const { result, unmount } = renderHook(
+      () => useStreamBuffer<{ level: string }>("/api/stats/logs", "token", 10),
+    )
+    await waitFor(() => expect(result.current.status).toBe("open"))
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    act(() => {
+      result.current.reconnect()
+    })
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(result.current.status).toBe("open"))
+    unmount()
+    first.close()
+    second.close()
   })
 })

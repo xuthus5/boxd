@@ -162,6 +162,7 @@ export function LogPanel({ path, title }: { path: string; title: string }) {
             path={path}
             status={stream.status}
             paused={stream.paused}
+            onReconnect={stream.reconnect}
           />
         ) : null}
         <LogFilters

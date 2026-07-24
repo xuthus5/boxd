@@ -30,11 +30,13 @@ export function TrafficChart({
   streamError,
   streamStatus,
   streamPath,
+  onReconnect,
 }: {
   points: TrafficHistoryPoint[]
   streamError?: string
   streamStatus?: string
   streamPath?: string
+  onReconnect?: () => void
 }) {
   const { t } = useTranslation()
   const [mode, setMode] = useState<"rate" | "total">("rate")
@@ -72,6 +74,7 @@ export function TrafficChart({
             error={streamError}
             status={streamStatus}
             path={streamPath}
+            onReconnect={onReconnect}
           />
         </CardContent>
       ) : null}

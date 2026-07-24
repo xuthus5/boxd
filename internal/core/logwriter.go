@@ -38,19 +38,19 @@ func (w *LogWriter) WriteMessage(level log.Level, message string) {
 		Message:   ansiRe.ReplaceAllString(message, ""),
 		Timestamp: time.Now().UTC(),
 	}
+	w.appendEntry(entry)
+}
 
+func (w *LogWriter) appendEntry(entry LogEntry) {
 	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	w.buffer = append(w.buffer, entry)
 	if len(w.buffer) > w.maxBuf {
 		w.buffer = w.buffer[1:]
 	}
-	subs := make([]chan LogEntry, 0, len(w.subs))
-	for _, ch := range w.subs {
-		subs = append(subs, ch)
-	}
-	w.mu.Unlock()
 
-	for _, ch := range subs {
+	for _, ch := range w.subs {
 		select {
 		case ch <- entry:
 		default:
@@ -59,12 +59,26 @@ func (w *LogWriter) WriteMessage(level log.Level, message string) {
 }
 
 func (w *LogWriter) Subscribe() (chan LogEntry, int) {
+	_, ch, id := w.snapshotAndSubscribe()
+	return ch, id
+}
+
+// SnapshotAndSubscribe 原子地返回当前日志快照并注册后续事件订阅。
+func (w *LogWriter) SnapshotAndSubscribe() ([]LogEntry, <-chan LogEntry, int) {
+	recent, ch, id := w.snapshotAndSubscribe()
+	return recent, ch, id
+}
+
+func (w *LogWriter) snapshotAndSubscribe() ([]LogEntry, chan LogEntry, int) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+
+	recent := make([]LogEntry, len(w.buffer))
+	copy(recent, w.buffer)
 	w.nextID++
 	ch := make(chan LogEntry, 64)
 	w.subs[w.nextID] = ch
-	return ch, w.nextID
+	return recent, ch, w.nextID
 }
 
 func (w *LogWriter) Unsubscribe(id int) {
@@ -102,25 +116,9 @@ func levelToString(level log.Level) string {
 // WriteAppEntry 写入 boxd 自身的结构化日志条目，与 sing-box 内核日志共用同一缓冲区。
 func (w *LogWriter) WriteAppEntry(level, message string) {
 	entry := LogEntry{
-		Level:   level,
-		Message: message,
+		Level:     level,
+		Message:   message,
+		Timestamp: time.Now().UTC(),
 	}
-
-	w.mu.Lock()
-	w.buffer = append(w.buffer, entry)
-	if len(w.buffer) > w.maxBuf {
-		w.buffer = w.buffer[1:]
-	}
-	subs := make([]chan LogEntry, 0, len(w.subs))
-	for _, ch := range w.subs {
-		subs = append(subs, ch)
-	}
-	w.mu.Unlock()
-
-	for _, ch := range subs {
-		select {
-		case ch <- entry:
-		default:
-		}
-	}
+	w.appendEntry(entry)
 }

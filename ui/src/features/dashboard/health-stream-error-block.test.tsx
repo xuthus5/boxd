@@ -47,4 +47,18 @@ describe("HealthStreamErrorBlock", () => {
       "/observability/connections",
     )
   })
+
+  it("invokes reconnect when provided", async () => {
+    const user = userEvent.setup()
+    const onReconnect = vi.fn()
+    renderApp(
+      <HealthStreamErrorBlock
+        error="failed to fetch"
+        status="error"
+        onReconnect={onReconnect}
+      />,
+    )
+    await user.click(screen.getByRole("button", { name: /立即重连|Reconnect now/i }))
+    expect(onReconnect).toHaveBeenCalledTimes(1)
+  })
 })

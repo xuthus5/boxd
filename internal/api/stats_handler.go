@@ -32,6 +32,8 @@ type StatsHandler struct {
 	stopCh          chan struct{}
 }
 
+const sseHeartbeatInterval = 15 * time.Second
+
 func NewStatsHandler(kernelLogWriter, appLogWriter *core.LogWriter, instance statsInstance) *StatsHandler {
 	handler := &StatsHandler{
 		kernelLogWriter: kernelLogWriter,
@@ -60,6 +62,29 @@ func writeSSE(w http.ResponseWriter, data any) {
 	if err != nil {
 		slog.Error("sse write error", "err", err)
 	}
+}
+
+func writeSSEComment(w http.ResponseWriter, comment string) {
+	_, err := fmt.Fprintf(w, ": %s\n\n", comment)
+	if err != nil {
+		slog.Error("sse comment write error", "err", err)
+	}
+}
+
+func prepareSSE(w http.ResponseWriter) (http.Flusher, bool) {
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache, no-transform")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "streaming not supported", http.StatusInternalServerError)
+		return nil, false
+	}
+	writeSSEComment(w, "connected")
+	flusher.Flush()
+	return flusher, true
 }
 
 func (h *StatsHandler) getTraffic() (up, down int64) {
@@ -122,13 +147,8 @@ func (h *StatsHandler) TrafficHistory(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *StatsHandler) TrafficSSE(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-
-	flusher, ok := w.(http.Flusher)
+	flusher, ok := prepareSSE(w)
 	if !ok {
-		http.Error(w, "streaming not supported", http.StatusInternalServerError)
 		return
 	}
 
@@ -153,51 +173,37 @@ func (h *StatsHandler) TrafficSSE(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *StatsHandler) streamLogs(w http.ResponseWriter, r *http.Request, lw *core.LogWriter) {
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-
-	flusher, ok := w.(http.Flusher)
+	flusher, ok := prepareSSE(w)
 	if !ok {
-		http.Error(w, "streaming not supported", http.StatusInternalServerError)
 		return
 	}
 
+	ctx := r.Context()
+	heartbeat := time.NewTicker(sseHeartbeatInterval)
+	defer heartbeat.Stop()
+	var ch <-chan core.LogEntry
+	var subscriptionID int
 	if lw != nil {
-		for _, entry := range lw.Recent() {
+		var recent []core.LogEntry
+		recent, ch, subscriptionID = lw.SnapshotAndSubscribe()
+		defer lw.Unsubscribe(subscriptionID)
+		for _, entry := range recent {
 			writeSSE(w, entry)
 		}
 		flusher.Flush()
 	}
 
-	ctx := r.Context()
-
-	if lw == nil {
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				writeSSE(w, map[string]string{
-					"level":     "info",
-					"message":   "no log writer",
-					"timestamp": time.Now().UTC().Format(time.RFC3339),
-				})
-				flusher.Flush()
-			}
-		}
-	}
-
-	ch, id := lw.Subscribe()
-	defer lw.Unsubscribe(id)
-
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case entry := <-ch:
+		case <-heartbeat.C:
+			writeSSEComment(w, "keep-alive")
+			flusher.Flush()
+		case entry, open := <-ch:
+			if !open {
+				return
+			}
 			writeSSE(w, entry)
 			flusher.Flush()
 		}
@@ -215,13 +221,8 @@ func (h *StatsHandler) AppLogsSSE(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *StatsHandler) ConnectionsSSE(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-
-	flusher, ok := w.(http.Flusher)
+	flusher, ok := prepareSSE(w)
 	if !ok {
-		http.Error(w, "streaming not supported", http.StatusInternalServerError)
 		return
 	}
 

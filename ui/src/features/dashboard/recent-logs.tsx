@@ -26,11 +26,13 @@ export function RecentLogs({
   streamError,
   streamStatus,
   streamPath,
+  onReconnect,
 }: {
   items: LogEvent[]
   streamError?: string
   streamStatus?: string
   streamPath?: string
+  onReconnect?: () => void
 }) {
   const { t } = useTranslation()
   const preferences = usePreferences()
@@ -53,6 +55,7 @@ export function RecentLogs({
           path={streamPath}
           href={logsHref}
           actionLabel={hasError ? t("dashboard.openErrorLogs") : t("dashboard.openLogs")}
+          onReconnect={onReconnect}
         />
         {visible.length === 0
           ? <Empty>

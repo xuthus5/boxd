@@ -44,11 +44,13 @@ export function HealthSummaryCard({
   status,
   streamError,
   streamStatus,
+  onReconnect,
 }: {
   snapshot?: ConnectionEvent
   status?: ServiceStatus
   streamError?: string
   streamStatus?: string
+  onReconnect?: () => void
 }) {
   const { t } = useTranslation()
   const summary = useMemo(() => buildHealthSummary(snapshot, status), [snapshot, status])
@@ -119,6 +121,7 @@ export function HealthSummaryCard({
           status={streamStatus}
           path={api.stats.paths.connections}
           href="/observability/connections"
+          onReconnect={onReconnect}
         />
       </CardContent>
       <CardFooter className="flex flex-wrap gap-2">

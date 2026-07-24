@@ -1,6 +1,7 @@
 package core
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/sagernet/sing-box/log"
@@ -68,6 +69,27 @@ func TestLogWriterUnsubscribe(t *testing.T) {
 	lw.WriteMessage(log.LevelInfo, "after unsubscribe")
 	if len(lw.subs) != 0 {
 		t.Errorf("expected 0 subscribers, got %d", len(lw.subs))
+	}
+}
+
+func TestLogWriterConcurrentUnsubscribeAndWrite(t *testing.T) {
+	lw := NewLogWriter(10)
+
+	for range 100 {
+		_, id := lw.Subscribe()
+		var group sync.WaitGroup
+		group.Add(2)
+		go func() {
+			defer group.Done()
+			for range 100 {
+				lw.WriteMessage(log.LevelInfo, "concurrent")
+			}
+		}()
+		go func() {
+			defer group.Done()
+			lw.Unsubscribe(id)
+		}()
+		group.Wait()
 	}
 }
 

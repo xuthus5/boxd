@@ -160,7 +160,15 @@ export function ConnectionsPage() {
           onConfirm={() => void closeAll()}
         />
       </div>
-      {stream.error ? <StreamErrorAlert error={stream.error} path={api.stats.paths.connections} status={stream.status} paused={stream.paused} /> : null}
+      {stream.error ? (
+        <StreamErrorAlert
+          error={stream.error}
+          path={api.stats.paths.connections}
+          status={stream.status}
+          paused={stream.paused}
+          onReconnect={stream.reconnect}
+        />
+      ) : null}
       <Card size="sm">
         <CardHeader className="gap-1.5 sm:gap-2">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
