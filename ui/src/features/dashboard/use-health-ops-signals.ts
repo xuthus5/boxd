@@ -10,7 +10,14 @@ import {
 import { api } from "@/lib/api/endpoints"
 import type { ConfigApplyEvent, LatencyPoint, Subscription } from "@/lib/api/types"
 
-export function useHealthOpsSignals(): HealthOpsSignals {
+export type HealthOpsQueryState = {
+  signals: HealthOpsSignals
+  queryError?: unknown
+  queryScope?: string
+  onRetry?: () => void
+}
+
+export function useHealthOpsSignals(): HealthOpsQueryState {
   const subscriptions = useQuery({ queryKey: ["subscriptions"], queryFn: api.subscriptions.list })
   const nodes = useQuery({ queryKey: ["nodes"], queryFn: api.nodes.list })
   const history = useQuery({
@@ -25,7 +32,7 @@ export function useHealthOpsSignals(): HealthOpsSignals {
     queryFn: api.config.applyHistory,
     refetchInterval: 15000,
   })
-  return useMemo(
+  const signals = useMemo(
     () => buildHealthOpsSignals({
       subscriptions: Array.isArray(subscriptions.data)
         ? subscriptions.data as Subscription[]
@@ -38,4 +45,27 @@ export function useHealthOpsSignals(): HealthOpsSignals {
     }),
     [applyHistory.data?.events, history.data, nodes.data, subscriptions.data],
   )
+  const queryError = subscriptions.error
+    || nodes.error
+    || history.error
+    || applyHistory.error
+    || undefined
+  const queryScope = subscriptions.error
+    ? "health-subscriptions"
+    : nodes.error
+      ? "health-nodes"
+      : history.error
+        ? "health-node-history"
+        : applyHistory.error
+          ? "health-apply-history"
+          : undefined
+  const onRetry = queryError
+    ? () => {
+      if (subscriptions.error) void subscriptions.refetch()
+      if (nodes.error) void nodes.refetch()
+      if (history.error) void history.refetch()
+      if (applyHistory.error) void applyHistory.refetch()
+    }
+    : undefined
+  return { signals, queryError, queryScope, onRetry }
 }

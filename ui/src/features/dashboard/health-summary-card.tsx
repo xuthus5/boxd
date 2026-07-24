@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 
 import { Badge } from "@/components/ui/badge"
+import { CardQueryError } from "@/features/common/card-query-error"
 import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatBytes } from "@/features/dashboard/format"
@@ -51,7 +52,7 @@ export function HealthSummaryCard({
 }) {
   const { t } = useTranslation()
   const summary = useMemo(() => buildHealthSummary(snapshot, status), [snapshot, status])
-  const ops = useHealthOpsSignals()
+  const { signals: ops, queryError, queryScope, onRetry } = useHealthOpsSignals()
   const topOutboundHref = summary.topOutbound && summary.topOutbound !== "—"
     ? buildConnectionsHref({ outbound: summary.topOutbound })
     : ""
@@ -93,6 +94,13 @@ export function HealthSummaryCard({
             <DeepLink to={topRuleHref}>{summary.topRule}</DeepLink>
           </p>
         </div>
+        {queryError ? (
+          <CardQueryError
+            error={queryError}
+            scope={queryScope || "health-ops"}
+            onRetry={onRetry}
+          />
+        ) : null}
         <HealthOpsAlertChips signals={ops} />
         <HealthApplyFailurePreview
           event={ops.latestApplyFailure}

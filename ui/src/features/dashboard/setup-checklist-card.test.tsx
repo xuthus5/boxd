@@ -126,4 +126,34 @@ describe("SetupChecklistCard", () => {
     // card should unmount content / return null - title may not exist
     expect(view.container.querySelector("[data-slot=card]")).toBeNull()
   })
+
+  it("densifies subscription query failure with retry", async () => {
+    vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
+      const path = typeof input === "string" ? input : input.toString()
+      if (path.includes("/api/config")) {
+        return Promise.resolve(new Response(JSON.stringify({
+          inbounds: [{ type: "mixed", tag: "mixed-in" }],
+          outbounds: [{ type: "selector", tag: "proxy", outbounds: ["hk"] }],
+          route: { rules: [{ outbound: "proxy" }] },
+          experimental: { clash_api: { external_controller: "127.0.0.1:9090" } },
+        })))
+      }
+      if (path.includes("/api/subscriptions")) {
+        return Promise.resolve(new Response(JSON.stringify({ error: "boom" }), { status: 500 }))
+      }
+      if (path.includes("/api/settings/preferences")) {
+        return Promise.resolve(new Response(JSON.stringify({
+          theme: "system", language: "zh", minimumLogLevel: "all",
+        })))
+      }
+      if (path.includes("/api/settings/password")) {
+        return Promise.resolve(new Response(JSON.stringify({ defaultPassword: false })))
+      }
+      return Promise.resolve(new Response(JSON.stringify({})))
+    }))
+    renderCard()
+    expect(await screen.findByTestId("card-query-error")).toBeInTheDocument()
+    expect(document.querySelector('[data-error-code]')).not.toBeNull()
+    expect(screen.getByRole("button", { name: "重试" })).toBeInTheDocument()
+  })
 })

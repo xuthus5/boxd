@@ -166,4 +166,27 @@ describe("HealthSummaryCard", () => {
     }
     expect(preview?.querySelector('button[aria-label="复制错误"]')).not.toBeNull()
   })
+
+  it("densifies health ops query failure with retry", async () => {
+    vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
+      const path = typeof input === "string" ? input : input.toString()
+      if (path.includes("/api/subscriptions")) {
+        return Promise.resolve(new Response(JSON.stringify({ error: "boom" }), { status: 503 }))
+      }
+      if (path.includes("/api/nodes/test-history") || path.includes("/api/nodes/history")) {
+        return Promise.resolve(new Response(JSON.stringify({ history: {} })))
+      }
+      if (path.includes("/api/nodes")) {
+        return Promise.resolve(new Response(JSON.stringify([])))
+      }
+      if (path.includes("/api/config/apply-history")) {
+        return Promise.resolve(new Response(JSON.stringify({ events: [] })))
+      }
+      return Promise.resolve(new Response("{}"))
+    }))
+    renderCard()
+    expect(await screen.findByTestId("card-query-error")).toBeInTheDocument()
+    expect(document.querySelector('[data-error-code]')).not.toBeNull()
+    expect(screen.getByRole("button", { name: "重试" })).toBeInTheDocument()
+  })
 })

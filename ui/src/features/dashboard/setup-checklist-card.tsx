@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { CardQueryError } from "@/features/common/card-query-error"
 import { useConfigQuery } from "@/features/config/config-hooks"
 import { buildSetupSteps, setupProgress, type SetupStepId } from "@/features/dashboard/setup-checklist"
 import { FailedSubscriptionsPreview } from "@/features/dashboard/failed-subscriptions-preview"
@@ -54,10 +55,11 @@ export function SetupChecklistCard({ status }: { status?: ServiceStatus }) {
   const showFailed = failedCount > 0
 
   if (config.isLoading || subscriptions.isLoading) return <Skeleton className="h-48 w-full" />
-  if (!showChecklist && !showFailed) return null
+  const loadError = config.error || subscriptions.error
+  if (!showChecklist && !showFailed && !loadError) return null
 
   return (
-    <Card size="sm" className={showChecklist || showFailed ? "lg:col-span-3" : undefined}>
+    <Card size="sm" className={showChecklist || showFailed || loadError ? "lg:col-span-3" : undefined}>
       <CardHeader className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <CardTitle className="truncate">{t("dashboard.setupTitle")}</CardTitle>
@@ -67,6 +69,24 @@ export function SetupChecklistCard({ status }: { status?: ServiceStatus }) {
         </div>
         <Badge variant="secondary" className="shrink-0">{t("dashboard.setupProgress", { done: progress.done, total: progress.total })}</Badge>
       </CardHeader>
+      {loadError ? (
+        <CardContent className="flex flex-col gap-2">
+          {config.error ? (
+            <CardQueryError
+              error={config.error}
+              scope="setup-config"
+              onRetry={() => { void config.refetch() }}
+            />
+          ) : null}
+          {subscriptions.error ? (
+            <CardQueryError
+              error={subscriptions.error}
+              scope="setup-subscriptions"
+              onRetry={() => { void subscriptions.refetch() }}
+            />
+          ) : null}
+        </CardContent>
+      ) : null}
       {showChecklist ? (
         <CardContent>
           <ul className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
