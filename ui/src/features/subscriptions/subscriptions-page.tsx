@@ -28,6 +28,7 @@ import {
   reportSubscriptionRequestError,
 } from "@/features/subscriptions/subscription-error-actions"
 import {
+  classifySubscriptionRequestError,
   extractSubscriptionRefreshFailures,
   formatSubscriptionRefreshBatchMessage,
   summarizeSubscriptionRefreshFailures,
@@ -125,7 +126,7 @@ export function SubscriptionsPage() {
           failures.push({
             id,
             name: item?.name,
-            code: item?.error_code,
+            code: classifySubscriptionRequestError(error),
             message,
           })
         }

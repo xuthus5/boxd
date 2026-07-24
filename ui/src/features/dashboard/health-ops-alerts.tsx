@@ -3,6 +3,10 @@ import { Link } from "react-router-dom"
 
 import { buttonVariants } from "@/components/ui/button"
 import {
+  configApplySourceHref,
+  configApplySourceKey,
+} from "@/features/dashboard/config-apply-source"
+import {
   hasHealthOpsAlerts,
   type HealthOpsSignals,
 } from "@/features/dashboard/health-ops-signals"
@@ -13,8 +17,27 @@ import { cn } from "@/lib/utils"
 export function HealthOpsAlertChips({ signals }: { signals: HealthOpsSignals }) {
   const { t } = useTranslation()
   if (!hasHealthOpsAlerts(signals)) return null
+  const applyHref = signals.latestApplyFailure
+    ? configApplySourceHref(signals.latestApplyFailure.source)
+    : "/"
+  const applyLabel = signals.latestApplyFailure
+    ? t(`dashboard.${configApplySourceKey(signals.latestApplyFailure.source)}`)
+    : t("dashboard.applyTimelineTitle")
   return (
     <div className="flex flex-wrap gap-2" data-slot="health-ops-alerts">
+      {signals.applyFailures > 0 ? (
+        <Link
+          to={applyHref}
+          className={cn(
+            buttonVariants({ variant: "outline", size: "sm" }),
+            "h-7 gap-1.5 border-destructive/40 text-destructive",
+          )}
+          title={signals.latestApplyFailure?.error}
+        >
+          {t("dashboard.healthApplyFailures", { count: signals.applyFailures })}
+          {signals.latestApplyFailure ? ` · ${applyLabel}` : ""}
+        </Link>
+      ) : null}
       {signals.failedSubscriptions > 0 ? (
         <Link
           to={buildSubscriptionsHref({ status: "error" })}
@@ -57,8 +80,16 @@ export function HealthOpsAlertActions({ signals }: { signals: HealthOpsSignals }
   const failedSubsHref = buildSubscriptionsHref({ status: "error" })
   const unstableHref = buildNodesHref({ stability: "unstable" })
   const failedNodesHref = buildNodesHref({ stability: "failed" })
+  const applyHref = signals.latestApplyFailure
+    ? configApplySourceHref(signals.latestApplyFailure.source)
+    : "/"
   return (
     <>
+      {signals.applyFailures > 0 ? (
+        <Link to={applyHref} className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}>
+          {t("dashboard.healthOpenApplyFailure")}
+        </Link>
+      ) : null}
       {signals.failedSubscriptions > 0 ? (
         <Link to={failedSubsHref} className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}>
           {t("dashboard.openFailedSubscriptions")}
