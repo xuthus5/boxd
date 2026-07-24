@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query"
 import { useCallback, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -23,6 +24,7 @@ export function useConfigValidate({
   onReportedError,
 }: UseConfigValidateOptions) {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
   const [validating, setValidating] = useState(false)
 
   const validate = useCallback(async () => {
@@ -40,8 +42,9 @@ export function useConfigValidate({
       return false
     } finally {
       setValidating(false)
+      void queryClient.invalidateQueries({ queryKey: ["config", "apply-history"] })
     }
-  }, [buildConfig, clearSaveError, onReportedError, reportError, t])
+  }, [buildConfig, clearSaveError, onReportedError, queryClient, reportError, t])
 
   return { validating, validate }
 }

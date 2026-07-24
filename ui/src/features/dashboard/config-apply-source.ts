@@ -7,6 +7,7 @@ import { extractConfigPath } from "@/lib/api/config-error"
 const sourceKeys: Record<string, string> = {
   update: "sourceUpdate",
   raw: "sourceRaw",
+  validate: "sourceValidate",
   dns_defaults: "sourceDNSDefaults",
   route_defaults: "sourceRouteDefaults",
   outbounds_defaults: "sourceOutboundsDefaults",
@@ -18,12 +19,43 @@ const sourceKeys: Record<string, string> = {
 const sourceHrefs: Record<string, string> = {
   update: "/advanced/raw",
   raw: "/advanced/raw",
+  validate: "/advanced/raw",
   dns_defaults: "/policy/dns",
   route_defaults: "/policy/route",
   outbounds_defaults: "/proxy/outbounds",
   inbounds_defaults: "/proxy/inbounds",
   experimental_defaults: "/advanced/experimental",
   rule_sets_defaults: "/policy/route",
+}
+
+export function configApplyStatusLabelKey(status: string): string {
+  switch (status.trim()) {
+    case "rolled_back":
+      return "applyStatusRolledBack"
+    case "validated":
+      return "applyStatusValidated"
+    case "validate_failed":
+      return "applyStatusValidateFailed"
+    default:
+      return "applyStatusApplied"
+  }
+}
+
+export function configApplyStatusVariant(status: string): "destructive" | "secondary" | "outline" {
+  switch (status.trim()) {
+    case "rolled_back":
+    case "validate_failed":
+      return "destructive"
+    case "validated":
+      return "outline"
+    default:
+      return "secondary"
+  }
+}
+
+export function configApplyEventFailed(status: string): boolean {
+  const value = status.trim()
+  return value === "rolled_back" || value === "validate_failed"
 }
 
 export function configApplySourceKey(source: string): string {

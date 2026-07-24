@@ -1,4 +1,6 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { act, renderHook } from "@testing-library/react"
+import { createElement, type ReactNode } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
@@ -14,6 +16,11 @@ import { toast } from "sonner"
 
 import { api } from "@/lib/api/endpoints"
 import { useConfigValidate } from "@/features/config/use-config-validate"
+
+function wrapper({ children }: { children: ReactNode }) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+  return createElement(QueryClientProvider, { client }, children)
+}
 
 describe("useConfigValidate", () => {
   beforeEach(() => {
@@ -31,7 +38,7 @@ describe("useConfigValidate", () => {
     const { result } = renderHook(() => useConfigValidate({
       buildConfig: () => ({ log: { level: "info" } }),
       reportError,
-    }))
+    }), { wrapper })
     let ok = false
     await act(async () => {
       ok = await result.current.validate()
@@ -56,7 +63,7 @@ describe("useConfigValidate", () => {
       reportError,
       clearSaveError,
       onReportedError,
-    }))
+    }), { wrapper })
     let ok = true
     await act(async () => {
       ok = await result.current.validate()
@@ -72,7 +79,7 @@ describe("useConfigValidate", () => {
     const { result } = renderHook(() => useConfigValidate({
       buildConfig: () => null,
       reportError,
-    }))
+    }), { wrapper })
     let ok = true
     await act(async () => {
       ok = await result.current.validate()

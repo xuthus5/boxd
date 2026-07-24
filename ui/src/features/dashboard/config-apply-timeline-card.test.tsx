@@ -143,4 +143,36 @@ describe("ConfigApplyTimelineCard", () => {
     )
   })
 
+
+  it("renders validate-only events", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
+      events: [
+        {
+          id: "v1",
+          source: "validate",
+          status: "validate_failed",
+          hash: "deadbeefcafebabe",
+          size: 128,
+          error: "inbounds[0].type: required",
+          error_code: "config_invalid",
+          applied_at: "2026-07-24T12:00:00Z",
+        },
+        {
+          id: "v2",
+          source: "validate",
+          status: "validated",
+          hash: "feedfacefeedface",
+          size: 256,
+          applied_at: "2026-07-24T11:00:00Z",
+        },
+      ],
+    })))))
+    renderCard()
+    expect((await screen.findAllByRole("link", { name: "Dry-run 校验" })).length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByText("校验失败")).toBeInTheDocument()
+    expect(screen.getByText("校验通过")).toBeInTheDocument()
+    expect(screen.getByText("inbounds[0].type: required")).toBeInTheDocument()
+  })
+
+
 })

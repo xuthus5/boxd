@@ -14,8 +14,11 @@ import {
   configApplyErrorPath,
   configApplyErrorSectionHref,
   configApplyErrorSectionOnlyHref,
+  configApplyEventFailed,
   configApplySourceHref,
   configApplySourceKey,
+  configApplyStatusLabelKey,
+  configApplyStatusVariant,
   shortConfigHash,
 } from "@/features/dashboard/config-apply-source"
 import {
@@ -121,10 +124,12 @@ function EventErrorBlock({
 
 function EventRow({ event, now, locale }: { event: ConfigApplyEvent; now: number; locale: string }) {
   const { t } = useTranslation()
-  const rolledBack = event.status === "rolled_back"
+  const failed = configApplyEventFailed(event.status)
   const relative = formatRelativeTime(event.applied_at, now, locale) || event.applied_at
   const sourceHref = configApplySourceHref(event.source)
   const sourceLabel = t(`dashboard.${configApplySourceKey(event.source)}`)
+  const statusLabel = t(`dashboard.${configApplyStatusLabelKey(event.status)}`)
+  const statusVariant = configApplyStatusVariant(event.status)
 
   const copyError = () => {
     const payload = configApplyErrorClipboardText(event)
@@ -148,7 +153,7 @@ function EventRow({ event, now, locale }: { event: ConfigApplyEvent; now: number
     <li
       className={cn(
         "min-w-0 rounded-md border px-2.5 py-1.5",
-        rolledBack ? "border-destructive/40 bg-destructive/5" : "bg-muted/30",
+        failed ? "border-destructive/40 bg-destructive/5" : "bg-muted/30",
       )}
     >
       <div className="flex items-start justify-between gap-2">
@@ -178,8 +183,8 @@ function EventRow({ event, now, locale }: { event: ConfigApplyEvent; now: number
             {formatBytes(event.size)}
           </p>
         </div>
-        <Badge variant={rolledBack ? "destructive" : "secondary"} className="shrink-0">
-          {rolledBack ? t("dashboard.applyStatusRolledBack") : t("dashboard.applyStatusApplied")}
+        <Badge variant={statusVariant} className="shrink-0">
+          {statusLabel}
         </Badge>
       </div>
       {event.error ? (

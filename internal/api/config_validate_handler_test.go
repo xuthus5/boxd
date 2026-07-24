@@ -59,3 +59,39 @@ func TestValidateConfigRejectsEmptyBody(t *testing.T) {
 		t.Fatalf("status = %d", rr.Code)
 	}
 }
+
+func TestValidateConfigRecordsApplyHistory(t *testing.T) {
+	handler, history, _ := setupApplyHistoryHandler(t)
+	body := `{"log":{"level":"info"},"outbounds":[{"type":"direct","tag":"direct"}],"route":{"final":"direct"}}`
+	rr := httptest.NewRecorder()
+	handler.ValidateConfig(rr, jsonRequest(http.MethodPost, "/api/config/validate", body))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	events, err := history.List(5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 || events[0].Source != "validate" || events[0].Status != "validated" {
+		t.Fatalf("events = %+v", events)
+	}
+}
+
+func TestValidateConfigFailureRecordsApplyHistory(t *testing.T) {
+	handler, history, _ := setupApplyHistoryHandler(t)
+	rr := httptest.NewRecorder()
+	handler.ValidateConfig(rr, jsonRequest(http.MethodPost, "/api/config/validate", `{"inbounds":[{"tag":"broken"}]}`))
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	events, err := history.List(5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 || events[0].Source != "validate" || events[0].Status != "validate_failed" {
+		t.Fatalf("events = %+v", events)
+	}
+	if events[0].Error == "" {
+		t.Fatal("expected error text")
+	}
+}

@@ -133,3 +133,34 @@ func TestConfigApplyHistoryIgnoresCorruptPayload(t *testing.T) {
 		t.Fatalf("after append = %v %v", events, err)
 	}
 }
+
+func TestConfigApplyHistoryValidateStatuses(t *testing.T) {
+	db, cleanup := setupConfigApplyHistoryDB(t)
+	defer cleanup()
+	manager := NewConfigApplyHistoryManager(db)
+
+	ok := NewConfigApplyEvent("validate", "validated", []byte(`{"ok":true}`), nil)
+	if err := manager.Append(ok); err != nil {
+		t.Fatal(err)
+	}
+	failed := NewConfigApplyEvent("validate", "validate_failed", []byte(`{"bad":true}`), errors.New("inbounds[0].type: required"))
+	if err := manager.Append(failed); err != nil {
+		t.Fatal(err)
+	}
+	events, err := manager.List(5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 2 {
+		t.Fatalf("len = %d", len(events))
+	}
+	if events[0].Status != "validate_failed" || events[0].Source != "validate" {
+		t.Fatalf("failed event = %+v", events[0])
+	}
+	if events[0].Error == "" || events[0].ErrorCode == "" {
+		t.Fatalf("expected error fields, got %+v", events[0])
+	}
+	if events[1].Status != "validated" {
+		t.Fatalf("ok event = %+v", events[1])
+	}
+}

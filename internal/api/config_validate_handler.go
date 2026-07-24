@@ -27,12 +27,15 @@ func (h *ConfigHandler) ValidateConfig(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := validateRuntimeConfig(body); err != nil {
 		if errors.Is(err, ErrInvalidRuntimeConfig) {
-			writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorConfigInvalidRuntime, runtimeConfigErrorMessage(err))
+			msg := runtimeConfigErrorMessage(err)
+			h.recordConfigApply("validate", "validate_failed", body, errors.New(msg))
+			writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorConfigInvalidRuntime, msg)
 			return
 		}
 		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorInternal, "failed to validate config")
 		return
 	}
+	h.recordConfigApply("validate", "validated", body, nil)
 	writeJSONWithMeta(w, http.StatusOK, map[string]any{"valid": true}, map[string]any{
 		"validated": true,
 		"applied":   false,

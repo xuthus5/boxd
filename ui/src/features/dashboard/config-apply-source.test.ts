@@ -5,8 +5,11 @@ import {
   configApplyErrorPath,
   configApplyErrorSectionHref,
   configApplyErrorSectionOnlyHref,
+  configApplyEventFailed,
   configApplySourceHref,
   configApplySourceKey,
+  configApplyStatusLabelKey,
+  configApplyStatusVariant,
   shortConfigHash,
 } from "@/features/dashboard/config-apply-source"
 
@@ -15,6 +18,7 @@ describe("configApplySourceKey", () => {
     expect(configApplySourceKey("update")).toBe("sourceUpdate")
     expect(configApplySourceKey("raw")).toBe("sourceRaw")
     expect(configApplySourceKey("dns_defaults")).toBe("sourceDNSDefaults")
+    expect(configApplySourceKey("validate")).toBe("sourceValidate")
   })
 
   it("falls back for unknown sources", () => {
@@ -95,5 +99,18 @@ describe("config apply path linkage", () => {
       error: "inbounds[0].listen_port: invalid",
       source: "raw",
     })).toBe("/proxy/inbounds")
+  })
+})
+
+describe("config apply status helpers", () => {
+  it("maps validate statuses", () => {
+    expect(configApplyStatusLabelKey("validated")).toBe("applyStatusValidated")
+    expect(configApplyStatusLabelKey("validate_failed")).toBe("applyStatusValidateFailed")
+    expect(configApplyStatusLabelKey("rolled_back")).toBe("applyStatusRolledBack")
+    expect(configApplyStatusLabelKey("applied")).toBe("applyStatusApplied")
+    expect(configApplyStatusVariant("validated")).toBe("outline")
+    expect(configApplyStatusVariant("validate_failed")).toBe("destructive")
+    expect(configApplyEventFailed("validate_failed")).toBe(true)
+    expect(configApplyEventFailed("validated")).toBe(false)
   })
 })

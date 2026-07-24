@@ -18,8 +18,10 @@ const (
 	// DefaultConfigApplyHistoryLimit caps retained config apply events.
 	DefaultConfigApplyHistoryLimit = 30
 
-	configApplyStatusApplied    = "applied"
-	configApplyStatusRolledBack = "rolled_back"
+	configApplyStatusApplied        = "applied"
+	configApplyStatusRolledBack     = "rolled_back"
+	configApplyStatusValidated      = "validated"
+	configApplyStatusValidateFailed = "validate_failed"
 )
 
 var configApplyHistoryBucket = []byte("config_apply_history")
@@ -64,10 +66,16 @@ func NewConfigApplyEvent(source, status string, body []byte, applyErr error) mod
 }
 
 func normalizeConfigApplyStatus(status string) string {
-	if strings.TrimSpace(status) == configApplyStatusRolledBack {
+	switch strings.TrimSpace(status) {
+	case configApplyStatusRolledBack:
 		return configApplyStatusRolledBack
+	case configApplyStatusValidated:
+		return configApplyStatusValidated
+	case configApplyStatusValidateFailed:
+		return configApplyStatusValidateFailed
+	default:
+		return configApplyStatusApplied
 	}
-	return configApplyStatusApplied
 }
 
 func newConfigApplyID() string {
