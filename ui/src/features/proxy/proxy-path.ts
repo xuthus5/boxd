@@ -9,6 +9,8 @@ export interface ProxyItemPathTarget {
   relativePath: string
 }
 
+const TOP_LEVEL = /^(inbounds|outbounds|route|dns|endpoints|experimental|log)\b/
+
 function matchIndexed(path: string, section: ProxySection): ProxyItemPathTarget | null {
   const text = path.trim()
   if (!text) return null
@@ -26,4 +28,29 @@ function matchIndexed(path: string, section: ProxySection): ProxyItemPathTarget 
 /** Resolve a full or section-relative path to a list item target for the given proxy section. */
 export function parseProxyItemPath(path: string, section: ProxySection): ProxyItemPathTarget | null {
   return matchIndexed(path, section)
+}
+
+/**
+ * Candidate paths relative to the open proxy item editor.
+ * Accepts full `inbounds[0].x`, bare relative `x`, or `inbounds.x`.
+ * When `index < 0` (new item draft), any matching section index is accepted.
+ */
+export function proxyItemRelativePaths(
+  path: string,
+  section: ProxySection,
+  index: number,
+): string[] {
+  const text = path.trim()
+  if (!text) return []
+  const target = parseProxyItemPath(text, section)
+  if (target) {
+    if (index >= 0 && target.index !== index) return []
+    return target.relativePath ? [target.relativePath] : []
+  }
+  if (text.startsWith(`${section}.`)) {
+    const relative = text.slice(section.length + 1).trim()
+    return relative ? [relative] : []
+  }
+  if (!TOP_LEVEL.test(text)) return [text]
+  return []
 }

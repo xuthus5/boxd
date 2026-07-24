@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react"
+import { useCallback, useMemo, useRef, useState, type RefObject } from "react"
 import { useTranslation } from "react-i18next"
-import { toast } from "sonner"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -21,6 +20,7 @@ import {
 import { collectOutboundBaseInvalid } from "@/features/proxy/proxy-base-validation"
 import { ProxyEditorFooter } from "@/features/proxy/proxy-editor-footer"
 import { useProxyItemValidate } from "@/features/proxy/use-proxy-item-validate"
+import { useProxyItemPathReveal, useProxyJumpPath } from "@/features/proxy/use-proxy-item-path-reveal"
 import type { ConfigSaveErrorState } from "@/features/config/config-save-error"
 import { configTags, dnsServerTags, getPath, type JsonObject, setPath } from "@/features/proxy/proxy-form-model"
 
@@ -203,7 +203,7 @@ function FormTabs({ object, value, title, revision, activeTab, onTabChange, edit
         onFieldValidityChange={onFieldValidityChange}
       />
     </TabsContent> : null}
-    <TabsContent value="advanced" className="pt-3 sm:pt-4">
+    <TabsContent value="advanced" className="pt-3 sm:pt-4" keepMounted>
       <Field>
         <FieldLabel className="sr-only">{t("proxy.advancedJSON")}</FieldLabel>
         <JsonEditor ref={editorRef} value={value} onChange={onJSONChange} ariaLabel={`${title} JSON`} />
@@ -227,32 +227,16 @@ export function OutboundEditorDialog({ title, item, index = -1, onClose, onSave,
     const next = new Set(current); if (valid) next.delete(path); else next.add(path); return next
   }), [])
   const canSave = Boolean(object && !baseInvalid && invalidFields.size === 0)
+  const reveal = useProxyItemPathReveal(editorRef, "outbounds", index, setActiveTab)
   const { validating, validate, ready } = useProxyItemValidate({
     kind: "outbounds",
     index,
     object,
     reportError,
     clearSaveError,
+    onReportedError: (err) => { if (err.path) reveal(err.path) },
   })
-  useEffect(() => {
-    if (jumpPath === undefined || jumpPath === null) return
-    setActiveTab("advanced")
-    const relative = jumpPath.trim()
-    if (!relative) {
-      onJumpPathHandled?.()
-      return
-    }
-    const tryReveal = () => editorRef.current?.revealPath(relative) ?? false
-    if (tryReveal()) {
-      onJumpPathHandled?.()
-      return
-    }
-    const timer = window.setTimeout(() => {
-      if (!tryReveal()) toast.message(t("config.pathNotFound", { path: relative }))
-      onJumpPathHandled?.()
-    }, 50)
-    return () => window.clearTimeout(timer)
-  }, [jumpPath, onJumpPathHandled, t])
+  useProxyJumpPath(jumpPath, onJumpPathHandled, reveal)
   return <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
     <DialogContent className="max-h-[calc(100dvh-1rem)] min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] gap-3 p-3 sm:max-h-[calc(100dvh-2rem)] sm:max-w-5xl sm:gap-4 sm:p-4">
       <DialogHeader>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { parseProxyItemPath } from "@/features/proxy/proxy-path"
+import { parseProxyItemPath, proxyItemRelativePaths } from "@/features/proxy/proxy-path"
 
 describe("parseProxyItemPath", () => {
   it("parses full section paths", () => {
@@ -33,5 +33,22 @@ describe("parseProxyItemPath", () => {
     expect(parseProxyItemPath("outbounds[0].tag", "inbounds")).toBeNull()
     expect(parseProxyItemPath("inbounds", "inbounds")).toBeNull()
     expect(parseProxyItemPath("", "inbounds")).toBeNull()
+  })
+})
+
+describe("proxyItemRelativePaths", () => {
+  it("maps full paths for the open item index", () => {
+    expect(proxyItemRelativePaths("inbounds[0].listen_port", "inbounds", 0)).toEqual(["listen_port"])
+    expect(proxyItemRelativePaths("inbounds[1].listen_port", "inbounds", 0)).toEqual([])
+  })
+
+  it("accepts any index when drafting a new item", () => {
+    expect(proxyItemRelativePaths("outbounds[3].server", "outbounds", -1)).toEqual(["server"])
+  })
+
+  it("accepts bare relative paths and section-dot prefixes", () => {
+    expect(proxyItemRelativePaths("tls.server_name", "outbounds", 0)).toEqual(["tls.server_name"])
+    expect(proxyItemRelativePaths("inbounds.listen_port", "inbounds", 0)).toEqual(["listen_port"])
+    expect(proxyItemRelativePaths("route.final", "inbounds", 0)).toEqual([])
   })
 })

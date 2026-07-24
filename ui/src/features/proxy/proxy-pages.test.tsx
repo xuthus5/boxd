@@ -215,4 +215,38 @@ describe("proxy dry-run validate", () => {
     })
     expect(fetchMock.mock.calls.some((call) => String(call[0]) === "/api/config/" && call[1]?.method === "PUT")).toBe(false)
   })
+
+  it("jumps validate error path into inbound advanced JSON", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    const fetchMock = vi.fn((input: string | URL | Request, init?: RequestInit) => {
+      const path = String(typeof input === "string" ? input : input instanceof URL ? input.pathname : input.url).split("?")[0]
+      if (path === "/api/config/validate" && init?.method === "POST") {
+        return Promise.resolve(new Response(JSON.stringify({
+          status: "error",
+          data: null,
+          error: { code: "config_invalid_runtime", message: "inbounds[0].listen_port: invalid" },
+          meta: { validated: false, applied: false },
+        }), { status: 400 }))
+      }
+      if (path === "/api/config/" || path === "/api/config/raw") {
+        return Promise.resolve(new Response(JSON.stringify({
+          inbounds: [{ tag: "mixed-in", type: "mixed", listen: "::", listen_port: 1080 }],
+          outbounds: [],
+        })))
+      }
+      return Promise.resolve(new Response(JSON.stringify({})))
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    const user = userEvent.setup()
+    renderApp(<App />, "/proxy/inbounds")
+    await screen.findByText("mixed-in")
+    await user.click(screen.getByRole("button", { name: "编辑" }))
+    expect(await screen.findByRole("dialog")).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "校验配置" }))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith("/api/config/validate", expect.objectContaining({ method: "POST" }))
+    })
+    expect(screen.getByRole("tab", { name: "高级 JSON" })).toHaveAttribute("aria-selected", "true")
+    expect(fetchMock.mock.calls.some((call) => String(call[0]) === "/api/config/" && call[1]?.method === "PUT")).toBe(false)
+  })
 })
