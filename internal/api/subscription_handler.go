@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	chi "github.com/go-chi/chi/v5"
 
@@ -46,6 +47,14 @@ func (h *SubscriptionHandler) syncConfig() error {
 		return err
 	}
 	return restartAfterSync(h.instance)
+}
+
+func subscriptionSyncErrorMessage(err error) string {
+	detail := strings.TrimSpace(err.Error())
+	if detail == "" {
+		return "subscription refreshed but configuration sync failed"
+	}
+	return "subscription refreshed but configuration sync failed: " + detail
 }
 
 func (h *SubscriptionHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -140,24 +149,42 @@ func (h *SubscriptionHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = h.syncConfig()
+	if err := h.syncConfig(); err != nil {
+		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorSubscriptionSync, subscriptionSyncErrorMessage(err))
+		return
+	}
 
 	writeJSONWithMeta(w, http.StatusOK, nil, map[string]string{"action": "refreshing"})
 }
 
 func (h *SubscriptionHandler) RefreshAll(w http.ResponseWriter, r *http.Request) {
 	failures := h.manager.RefreshAll()
+	if failures == nil {
+		failures = []core.SubscriptionRefreshFailure{}
+	}
 
-	_ = h.syncConfig()
-
-	if len(failures) > 0 {
-		writeJSONStatus(w, http.StatusOK, model.StatusPartial, map[string]any{
-			"failed": failures,
-		}, &model.APIError{
-			Code:    model.ErrorSubscriptionRefresh,
-			Message: "some subscriptions failed to refresh",
+	syncErr := h.syncConfig()
+	syncMessage := ""
+	if syncErr != nil {
+		syncMessage = subscriptionSyncErrorMessage(syncErr)
+	}
+	if len(failures) > 0 || syncErr != nil {
+		errorCode := model.ErrorSubscriptionRefresh
+		errorMessage := "some subscriptions failed to refresh"
+		if syncErr != nil && len(failures) == 0 {
+			errorCode = model.ErrorSubscriptionSync
+			errorMessage = syncMessage
+		}
+		data := map[string]any{"failed": failures}
+		if syncErr != nil {
+			data["sync_error"] = syncMessage
+		}
+		writeJSONStatus(w, http.StatusOK, model.StatusPartial, data, &model.APIError{
+			Code:    errorCode,
+			Message: errorMessage,
 		}, map[string]any{
 			"failed_count": len(failures),
+			"sync_failed":  syncErr != nil,
 		})
 		return
 	}

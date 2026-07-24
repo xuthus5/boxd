@@ -84,9 +84,17 @@ describe("subscription synchronization workflows", () => {
 
   it("reports partial refresh-all responses without synchronizing", async () => {
     sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    let subscriptionLoads = 0
     const fetchMock = vi.fn((input: string | URL | Request) => {
       const path = typeof input === "string" ? input : input.toString()
-      if (path === "/api/subscriptions/" || path === "/api/nodes/") {
+      if (path === "/api/subscriptions/") {
+        subscriptionLoads += 1
+        const items = subscriptionLoads > 1
+          ? [{ id: "settled", name: "刷新完成标记", url: "https://example.com/settled", interval_min: 60, outbounds: [] }]
+          : []
+        return Promise.resolve(new Response(JSON.stringify(items)))
+      }
+      if (path === "/api/nodes/") {
         return Promise.resolve(new Response("[]"))
       }
       if (path === "/api/subscriptions/refresh-all") {
@@ -104,12 +112,58 @@ describe("subscription synchronization workflows", () => {
 
     await userEvent.setup().click(await screen.findByRole("button", { name: "刷新全部" }))
     await waitFor(() => expect(toast.error).toHaveBeenCalled())
+    expect(await screen.findByText("刷新完成标记")).toBeInTheDocument()
     const message = String(vi.mocked(toast.error).mock.calls.at(-1)?.[0] ?? "")
-    expect(message).toContain("个订阅刷新失败")
+    expect(message).toContain("刷新/同步操作失败")
     expect(message).toContain("主订阅")
     expect(fetchMock).not.toHaveBeenCalledWith(
       "/api/nodes/sync-config",
       expect.objectContaining({ method: "POST" }),
     )
+  })
+
+  it("prioritizes configuration sync failures in refresh-all diagnostics", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    let subscriptionLoads = 0
+    const fetchMock = vi.fn((input: string | URL | Request) => {
+      const path = typeof input === "string" ? input : input.toString()
+      if (path === "/api/subscriptions/") {
+        subscriptionLoads += 1
+        const items = subscriptionLoads > 1
+          ? [{ id: "settled", name: "同步诊断完成", url: "https://example.com/settled", interval_min: 60, outbounds: [] }]
+          : []
+        return Promise.resolve(new Response(JSON.stringify(items)))
+      }
+      if (path === "/api/nodes/") {
+        return Promise.resolve(new Response("[]"))
+      }
+      if (path === "/api/subscriptions/refresh-all") {
+        return Promise.resolve(new Response(JSON.stringify({
+          status: "partial",
+          data: {
+            failed: [
+              { name: "订阅一", code: "network", message: "network error" },
+              { name: "订阅二", code: "timeout", message: "timeout" },
+              { name: "订阅三", code: "forbidden", message: "subscription HTTP 403" },
+            ],
+            sync_error: "subscription refreshed but configuration sync failed: restart unavailable",
+          },
+          error: { code: "subscription_refresh_failed", message: "refresh and sync failed" },
+          meta: { failed_count: 3, sync_failed: true },
+        })))
+      }
+      return Promise.resolve(new Response("{}"))
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    renderApp(<App />, "/subscriptions")
+
+    await userEvent.setup().click(await screen.findByRole("button", { name: "刷新全部" }))
+    await waitFor(() => expect(toast.error).toHaveBeenCalled())
+    expect(await screen.findByText("同步诊断完成")).toBeInTheDocument()
+    const [message, options] = vi.mocked(toast.error).mock.calls.at(-1)!
+    expect(String(message)).toContain("配置同步: sync_failed")
+    expect(options).toEqual(expect.objectContaining({
+      description: "节点已刷新，但配置生成或内核重启失败，请查看应用记录和日志。",
+    }))
   })
 })

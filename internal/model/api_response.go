@@ -24,6 +24,7 @@ const (
 	ErrorNodeUpdateFailed     = "node_update_failed"
 	ErrorSubscriptionNotFound = "subscription_not_found"
 	ErrorSubscriptionRefresh  = "subscription_refresh_failed"
+	ErrorSubscriptionSync     = "subscription_sync_failed"
 	ErrorRuntimeGroupNotFound = "runtime_group_not_found"
 	ErrorRuntimeNotSelectable = "runtime_not_selectable"
 	ErrorRuntimeDelayFailed   = "runtime_delay_failed"

@@ -8,6 +8,8 @@ export type SubscriptionRefreshCode =
   | "forbidden"
   | "http_status"
   | "empty_content"
+  | "content_too_large"
+  | "sync_failed"
   | "not_found"
   | "unknown"
 
@@ -19,6 +21,8 @@ const HINT_KEYS: Record<string, string> = {
   forbidden: "subscriptions.errorHintForbidden",
   http_status: "subscriptions.errorHintHTTP",
   empty_content: "subscriptions.errorHintEmpty",
+  content_too_large: "subscriptions.errorHintContentTooLarge",
+  sync_failed: "subscriptions.errorHintSyncFailed",
   not_found: "subscriptions.errorHintNotFound",
   unknown: "subscriptions.errorHintUnknown",
 }
@@ -34,6 +38,8 @@ export function classifySubscriptionErrorMessage(message?: string): Subscription
   if (lower.includes("subscription http 401") || lower.includes("unauthorized")) return "unauthorized"
   if (lower.includes("subscription http 403") || lower.includes("forbidden")) return "forbidden"
   if (lower.includes("subscription http")) return "http_status"
+  if (lower.includes("content is too large") || lower.includes("content too large")) return "content_too_large"
+  if (lower.includes("configuration sync failed") || lower.includes("sync failed")) return "sync_failed"
   if (lower.includes("no nodes") || lower.includes("empty")) return "empty_content"
   if (lower.includes("timeout") || lower.includes("deadline")) return "timeout"
   if (lower.includes("connection refused") || lower.includes("no such host") || lower.includes("network")) return "network"
@@ -52,6 +58,7 @@ export function classifySubscriptionRequestError(error: unknown): SubscriptionRe
     const code = error.code?.toLowerCase() || ""
     if (code === "invalid_request") return "invalid_url"
     if (code === "subscription_not_found" || code === "not_found") return "not_found"
+    if (code === "subscription_sync_failed") return "sync_failed"
     if (code === "subscription_refresh_failed") {
       return classifySubscriptionErrorMessage(error.message)
     }
@@ -162,4 +169,10 @@ export function extractSubscriptionRefreshFailures(data: unknown): SubscriptionR
     })
   }
   return rows
+}
+
+export function extractSubscriptionSyncError(data: unknown): string | undefined {
+  if (!data || typeof data !== "object") return undefined
+  const value = (data as { sync_error?: unknown }).sync_error
+  return typeof value === "string" && value.trim() ? value.trim() : undefined
 }

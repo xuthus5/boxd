@@ -30,6 +30,7 @@ import {
 import {
   classifySubscriptionRequestError,
   extractSubscriptionRefreshFailures,
+  extractSubscriptionSyncError,
   formatSubscriptionRefreshBatchMessage,
   summarizeSubscriptionRefreshFailures,
 } from "@/features/subscriptions/subscription-error"
@@ -70,6 +71,14 @@ export function SubscriptionsPage() {
       const response = await api.subscriptions.refreshAll()
       if (response.status === "partial") {
         const failures = extractSubscriptionRefreshFailures(response.data)
+        const syncError = extractSubscriptionSyncError(response.data)
+        if (syncError) {
+          failures.unshift({
+            name: t("subscriptions.configSync"),
+            code: "sync_failed",
+            message: syncError,
+          })
+        }
         const metaCount = Number((response.meta as { failed_count?: number } | null)?.failed_count ?? 0)
         const summary = summarizeSubscriptionRefreshFailures(
           failures.length

@@ -87,6 +87,48 @@ func TestSubscriptionRefreshEmptyContent(t *testing.T) {
 	}
 }
 
+func TestSubscriptionRefreshRejectsOversizedContent(t *testing.T) {
+	tests := []struct {
+		name          string
+		contentLength int64
+		body          string
+	}{
+		{name: "declared length", contentLength: maxSubscriptionBodyBytes + 1, body: "{}"},
+		{name: "streamed length", contentLength: -1, body: strings.Repeat("x", maxSubscriptionBodyBytes+1)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db, cleanup := setupSubDB(t)
+			defer cleanup()
+			previous := subscriptionHTTPClient
+			subscriptionHTTPClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode:    http.StatusOK,
+					Body:          io.NopCloser(strings.NewReader(tt.body)),
+					ContentLength: tt.contentLength,
+					Header:        make(http.Header),
+					Request:       req,
+				}, nil
+			})}
+			t.Cleanup(func() { subscriptionHTTPClient = previous })
+
+			manager := NewSubscriptionManager(db, t.TempDir())
+			subscription, err := manager.Create(SubscriptionParams{Name: tt.name, URL: "https://example.test/large", IntervalMin: 60})
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = manager.Refresh(subscription.ID)
+			var refreshErr *SubscriptionRefreshError
+			if !errors.As(err, &refreshErr) || refreshErr.Code != SubRefreshContentTooLarge {
+				t.Fatalf("err = %v", err)
+			}
+			if got := manager.Get(subscription.ID); got.ErrorCode != SubRefreshContentTooLarge {
+				t.Fatalf("stored error code = %q", got.ErrorCode)
+			}
+		})
+	}
+}
+
 func TestSubscriptionRefreshHTTPStatusCodes(t *testing.T) {
 	db, cleanup := setupSubDB(t)
 	defer cleanup()

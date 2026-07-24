@@ -17,6 +17,7 @@ func TestClassifySubscriptionRefreshError(t *testing.T) {
 		{"nil", nil, ""},
 		{"already classified", newSubscriptionRefreshError(SubRefreshEmpty, "empty", 0), SubRefreshEmpty},
 		{"not found", errors.New("subscription not found: 1"), SubRefreshNotFound},
+		{"content too large", errors.New("subscription content is too large"), SubRefreshContentTooLarge},
 		{"timeout text", errors.New("i/o timeout"), SubRefreshTimeout},
 		{"deadline", context.DeadlineExceeded, SubRefreshTimeout},
 		{"network text", errors.New("dial tcp: no such host"), SubRefreshNetwork},

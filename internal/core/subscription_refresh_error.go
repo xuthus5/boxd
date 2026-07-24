@@ -11,15 +11,16 @@ import (
 
 // 订阅刷新错误码：前端可据此展示可操作提示。
 const (
-	SubRefreshInvalidURL   = "invalid_url"
-	SubRefreshNetwork      = "network"
-	SubRefreshTimeout      = "timeout"
-	SubRefreshUnauthorized = "unauthorized"
-	SubRefreshForbidden    = "forbidden"
-	SubRefreshHTTP         = "http_status"
-	SubRefreshEmpty        = "empty_content"
-	SubRefreshNotFound     = "not_found"
-	SubRefreshUnknown      = "unknown"
+	SubRefreshInvalidURL      = "invalid_url"
+	SubRefreshNetwork         = "network"
+	SubRefreshTimeout         = "timeout"
+	SubRefreshUnauthorized    = "unauthorized"
+	SubRefreshForbidden       = "forbidden"
+	SubRefreshHTTP            = "http_status"
+	SubRefreshEmpty           = "empty_content"
+	SubRefreshContentTooLarge = "content_too_large"
+	SubRefreshNotFound        = "not_found"
+	SubRefreshUnknown         = "unknown"
 )
 
 // SubscriptionRefreshError 带稳定错误码的订阅刷新失败。
@@ -65,6 +66,8 @@ func classifySubscriptionRefreshError(err error) *SubscriptionRefreshError {
 	switch {
 	case strings.Contains(lower, "subscription not found"):
 		return newSubscriptionRefreshError(SubRefreshNotFound, msg, 0)
+	case strings.Contains(lower, "content too large") || strings.Contains(lower, "too large"):
+		return newSubscriptionRefreshError(SubRefreshContentTooLarge, msg, 0)
 	case isTimeoutError(err) || strings.Contains(lower, "timeout") || strings.Contains(lower, "deadline exceeded"):
 		return newSubscriptionRefreshError(SubRefreshTimeout, msg, 0)
 	case isNetworkError(err) || strings.Contains(lower, "connection refused") || strings.Contains(lower, "no such host"):

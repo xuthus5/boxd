@@ -13,6 +13,8 @@ import (
 	"github.com/xuthus5/boxd/internal/model"
 )
 
+const maxSubscriptionBodyBytes = 16 << 20
+
 func (m *SubscriptionManager) Refresh(id string) error {
 	sub := m.Get(id)
 	if sub == nil {
@@ -49,9 +51,15 @@ func downloadSubscriptionOutbounds(rawURL string) ([]model.Outbound, *model.Subs
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, nil, classifyHTTPStatus(resp.StatusCode)
 	}
-	body, err := io.ReadAll(resp.Body)
+	if resp.ContentLength > maxSubscriptionBodyBytes {
+		return nil, nil, newSubscriptionRefreshError(SubRefreshContentTooLarge, "subscription content is too large", 0)
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxSubscriptionBodyBytes+1))
 	if err != nil {
 		return nil, nil, classifySubscriptionRefreshError(err)
+	}
+	if int64(len(body)) > maxSubscriptionBodyBytes {
+		return nil, nil, newSubscriptionRefreshError(SubRefreshContentTooLarge, "subscription content is too large", 0)
 	}
 	return parseSubscriptionContent(body), parseSubscriptionUserinfo(resp.Header), nil
 }

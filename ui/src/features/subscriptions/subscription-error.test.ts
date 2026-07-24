@@ -5,6 +5,7 @@ import {
   classifySubscriptionErrorMessage,
   classifySubscriptionRequestError,
   extractSubscriptionRefreshFailures,
+  extractSubscriptionSyncError,
   formatSubscriptionRefreshBatchMessage,
   formatSubscriptionRequestErrorToast,
   resolveSubscriptionErrorCode,
@@ -17,12 +18,16 @@ import {
 describe("subscription error diagnostics", () => {
   it("maps codes to actionable hints", () => {
     expect(subscriptionErrorHintKey("empty_content")).toBe("subscriptions.errorHintEmpty")
+    expect(subscriptionErrorHintKey("content_too_large")).toBe("subscriptions.errorHintContentTooLarge")
+    expect(subscriptionErrorHintKey("sync_failed")).toBe("subscriptions.errorHintSyncFailed")
     expect(subscriptionErrorHintKey("nope")).toBe("subscriptions.errorHintUnknown")
   })
 
   it("classifies common refresh failure messages", () => {
     expect(classifySubscriptionErrorMessage("subscription HTTP 403")).toBe("forbidden")
     expect(classifySubscriptionErrorMessage("subscription content produced no nodes")).toBe("empty_content")
+    expect(classifySubscriptionErrorMessage("subscription content is too large")).toBe("content_too_large")
+    expect(classifySubscriptionErrorMessage("configuration sync failed")).toBe("sync_failed")
     expect(classifySubscriptionErrorMessage("i/o timeout")).toBe("timeout")
     expect(classifySubscriptionErrorMessage("connection refused")).toBe("network")
   })
@@ -36,6 +41,7 @@ describe("subscription error diagnostics", () => {
   it("classifies request-level failures and formats toast/clipboard", () => {
     expect(classifySubscriptionRequestError(new ApiError("missing", 404, "subscription_not_found"))).toBe("not_found")
     expect(classifySubscriptionRequestError(new ApiError("subscription HTTP 403", 500, "subscription_refresh_failed"))).toBe("forbidden")
+    expect(classifySubscriptionRequestError(new ApiError("sync failed", 500, "subscription_sync_failed"))).toBe("sync_failed")
     expect(formatSubscriptionRequestErrorToast(new ApiError("boom", 500, "subscription_refresh_failed"), "fallback")).toBe("boom")
     expect(subscriptionRequestErrorClipboardText(new Error("timeout"), { scope: "refresh", name: "cf" })).toContain("code: timeout")
   })
@@ -59,5 +65,7 @@ describe("subscription error diagnostics", () => {
       { id: "1", name: "x", code: "network", message: "down" },
     ])
     expect(extractSubscriptionRefreshFailures(null)).toEqual([])
+    expect(extractSubscriptionSyncError({ sync_error: " restart unavailable " })).toBe("restart unavailable")
+    expect(extractSubscriptionSyncError({ sync_error: "   " })).toBeUndefined()
   })
 })
