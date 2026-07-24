@@ -193,8 +193,8 @@ func TestNodesSyncToConfigRestartError(t *testing.T) {
 	if rr.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
 	}
-	if restarter.calls != 1 {
-		t.Fatalf("restart calls = %d, want 1", restarter.calls)
+	if restarter.calls != 2 {
+		t.Fatalf("restart calls = %d, want 2", restarter.calls)
 	}
 }
 

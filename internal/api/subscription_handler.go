@@ -43,10 +43,7 @@ func NewSubscriptionHandler(manager *core.SubscriptionManager, nodeMgr *core.Nod
 }
 
 func (h *SubscriptionHandler) syncConfig() error {
-	if err := syncOutboundsToConfig(h.nodeMgr, h.manager, h.configPath); err != nil {
-		return err
-	}
-	return restartAfterSync(h.instance)
+	return syncOutboundsAndRestart(h.nodeMgr, h.manager, h.configPath, h.instance)
 }
 
 func subscriptionSyncErrorMessage(err error) string {

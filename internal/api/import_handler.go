@@ -24,10 +24,7 @@ func NewImportHandler(nodeManager *core.NodeManager, subManager *core.Subscripti
 }
 
 func (h *ImportHandler) syncConfig() error {
-	if err := syncOutboundsToConfig(h.nodeManager, h.subManager, h.configPath); err != nil {
-		return err
-	}
-	return restartAfterSync(h.instance)
+	return syncOutboundsAndRestart(h.nodeManager, h.subManager, h.configPath, h.instance)
 }
 
 func (h *ImportHandler) ImportLink(w http.ResponseWriter, r *http.Request) {

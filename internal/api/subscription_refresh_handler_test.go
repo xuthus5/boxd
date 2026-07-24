@@ -49,8 +49,8 @@ func TestSubscriptionRefreshReportsConfigSyncFailure(t *testing.T) {
 	if !strings.Contains(envelope.Error.Message, "configuration sync failed") {
 		t.Fatalf("error message = %q", envelope.Error.Message)
 	}
-	if restarter.calls != 1 {
-		t.Fatalf("restart calls = %d, want 1", restarter.calls)
+	if restarter.calls != 2 {
+		t.Fatalf("restart calls = %d, want 2", restarter.calls)
 	}
 }
 

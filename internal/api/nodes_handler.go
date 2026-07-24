@@ -150,8 +150,5 @@ func (h *NodesHandler) SyncToConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *NodesHandler) sync() error {
-	if err := syncOutboundsToConfig(h.nodeManager, h.subManager, h.configPath); err != nil {
-		return err
-	}
-	return restartAfterSync(h.instance)
+	return syncOutboundsAndRestart(h.nodeManager, h.subManager, h.configPath, h.instance)
 }
