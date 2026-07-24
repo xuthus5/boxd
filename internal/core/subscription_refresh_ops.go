@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"reflect"
 	"time"
 
 	"go.etcd.io/bbolt"
@@ -16,6 +17,11 @@ import (
 
 const maxSubscriptionBodyBytes = 16 << 20
 
+type subscriptionRefreshData struct {
+	outbounds []model.Outbound
+	traffic   *model.SubscriptionTraffic
+}
+
 func (m *SubscriptionManager) Refresh(id string) error {
 	sub := m.Get(id)
 	if sub == nil {
@@ -24,18 +30,33 @@ func (m *SubscriptionManager) Refresh(id string) error {
 	outbounds, traffic, err := downloadSubscriptionOutbounds(m.client, sub.URL)
 	if err != nil {
 		classified := classifySubscriptionRefreshError(err)
-		return m.recordRefreshError(id, classified)
+		return m.recordRefreshErrorIfUnchanged(id, sub, classified)
 	}
 	if len(outbounds) == 0 {
 		classified := newSubscriptionRefreshError(SubRefreshEmpty, "subscription content produced no nodes", 0)
-		return m.recordRefreshError(id, classified)
+		return m.recordRefreshErrorIfUnchanged(id, sub, classified)
 	}
-	return m.saveRefreshedSubscription(id, outbounds, traffic)
+	return m.saveRefreshedSubscriptionIfUnchanged(id, sub, subscriptionRefreshData{
+		outbounds: outbounds,
+		traffic:   traffic,
+	})
 }
 
 func (m *SubscriptionManager) recordRefreshError(id string, refreshErr *SubscriptionRefreshError) error {
-	if err := m.setError(id, refreshErr); err != nil {
+	return m.recordRefreshErrorIfUnchanged(id, nil, refreshErr)
+}
+
+func (m *SubscriptionManager) recordRefreshErrorIfUnchanged(
+	id string,
+	expected *model.Subscription,
+	refreshErr *SubscriptionRefreshError,
+) error {
+	applied, err := m.setErrorIfUnchanged(id, expected, refreshErr)
+	if err != nil {
 		return errors.Join(refreshErr, fmt.Errorf("persisting subscription refresh error: %w", err))
+	}
+	if !applied {
+		return nil
 	}
 	return refreshErr
 }
@@ -79,30 +100,32 @@ func downloadSubscriptionOutbounds(client *http.Client, rawURL string) ([]model.
 	return parseSubscriptionContent(body), parseSubscriptionUserinfo(resp.Header), nil
 }
 
-func (m *SubscriptionManager) saveRefreshedSubscription(
+func (m *SubscriptionManager) saveRefreshedSubscriptionIfUnchanged(
 	id string,
-	outbounds []model.Outbound,
-	traffic *model.SubscriptionTraffic,
+	expected *model.Subscription,
+	refreshData subscriptionRefreshData,
 ) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(subBucket)
-		data := b.Get([]byte(id))
-		if data == nil {
-			return fmt.Errorf("subscription not found: %s", id)
-		}
-		var s model.Subscription
-		if err := json.Unmarshal(data, &s); err != nil {
+		subscription, err := decodeStoredSubscription(b, id)
+		if err != nil {
 			return err
 		}
-		s.Outbounds = outbounds
-		s.Traffic = traffic
-		s.LastUpdated = time.Now()
-		s.Error = ""
-		s.ErrorCode = ""
-		s.ErrorAt = nil
-		newData, err := json.Marshal(s)
+		if subscription == nil {
+			return fmt.Errorf("subscription not found: %s", id)
+		}
+		if !subscriptionMatchesSnapshot(subscription, expected) {
+			return nil
+		}
+		subscription.Outbounds = refreshData.outbounds
+		subscription.Traffic = refreshData.traffic
+		subscription.LastUpdated = time.Now()
+		subscription.Error = ""
+		subscription.ErrorCode = ""
+		subscription.ErrorAt = nil
+		newData, err := json.Marshal(subscription)
 		if err != nil {
 			return err
 		}
@@ -134,33 +157,65 @@ func (m *SubscriptionManager) RefreshAll() []SubscriptionRefreshFailure {
 }
 
 func (m *SubscriptionManager) setError(id string, refreshErr *SubscriptionRefreshError) error {
+	_, err := m.setErrorIfUnchanged(id, nil, refreshErr)
+	return err
+}
+
+func (m *SubscriptionManager) setErrorIfUnchanged(
+	id string,
+	expected *model.Subscription,
+	refreshErr *SubscriptionRefreshError,
+) (bool, error) {
 	if refreshErr == nil {
-		return nil
+		return false, nil
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	return m.db.Update(func(tx *bbolt.Tx) error {
+	applied := false
+	err := m.db.Update(func(tx *bbolt.Tx) error {
 		b := tx.Bucket(subBucket)
-		data := b.Get([]byte(id))
-		if data == nil {
-			return nil
-		}
-
-		var s model.Subscription
-		if err := json.Unmarshal(data, &s); err != nil {
-			return err
-		}
-
-		now := time.Now().UTC()
-		s.Error = refreshErr.Message
-		s.ErrorCode = refreshErr.Code
-		s.ErrorAt = &now
-
-		newData, err := json.Marshal(s)
+		subscription, err := decodeStoredSubscription(b, id)
 		if err != nil {
 			return err
 		}
-		return b.Put([]byte(id), newData)
+		if subscription == nil || !subscriptionMatchesSnapshot(subscription, expected) {
+			return nil
+		}
+
+		now := time.Now().UTC()
+		subscription.Error = refreshErr.Message
+		subscription.ErrorCode = refreshErr.Code
+		subscription.ErrorAt = &now
+
+		newData, err := json.Marshal(subscription)
+		if err != nil {
+			return err
+		}
+		if err := b.Put([]byte(id), newData); err != nil {
+			return err
+		}
+		applied = true
+		return nil
 	})
+	return applied, err
+}
+
+func decodeStoredSubscription(bucket *bbolt.Bucket, id string) (*model.Subscription, error) {
+	if bucket == nil {
+		return nil, errors.New("subscriptions bucket is missing")
+	}
+	data := bucket.Get([]byte(id))
+	if data == nil {
+		return nil, nil
+	}
+	var subscription model.Subscription
+	if err := json.Unmarshal(data, &subscription); err != nil {
+		return nil, err
+	}
+	return &subscription, nil
+}
+
+func subscriptionMatchesSnapshot(current, expected *model.Subscription) bool {
+	return expected == nil || reflect.DeepEqual(current, expected)
 }
