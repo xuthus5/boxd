@@ -27,6 +27,19 @@ func TestSubscriptionSyncErrorMessage(t *testing.T) {
 	}
 }
 
+func TestSubscriptionHandlerSyncConfig(t *testing.T) {
+	nodeMgr, subMgr, _, configPath := newAPIManagers(t)
+	handler := NewSubscriptionHandler(subMgr, nodeMgr, configPath)
+
+	if err := handler.SyncConfig(); err != nil {
+		t.Fatalf("sync config error = %v", err)
+	}
+	config := decodeConfigFile(t, configPath)
+	if _, ok := config["outbounds"]; !ok {
+		t.Fatalf("synced config = %#v", config)
+	}
+}
+
 func TestSubscriptionRefreshReportsConfigSyncFailure(t *testing.T) {
 	nodeMgr, subMgr, _, configPath := newAPIManagers(t, newSubscriptionTestClient(validSubscriptionBody))
 	restarter := &fakeRestartable{errs: []error{errors.New("restart unavailable")}}

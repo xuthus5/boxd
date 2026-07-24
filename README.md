@@ -11,7 +11,7 @@ Single-node control plane for [sing-box](https://github.com/SagerNet/sing-box). 
 - **Dashboard**: start/stop/restart kernel, setup checklist with failed-subscription previews, live health with failed-sub/unstable-node/apply-failure alerts and densified stream/apply errors, config apply timeline with error-code diagnostics, editor-sourced dry-run validate entries, and copyable failures, densified card-level query failures (proxy selector / Clash mode / apply timeline), global outbound/Clash mode switch with latency diagnostics, live traffic/logs with stream-error diagnostics, memory
 - **Proxy config**: structured inbound/outbound forms (TLS/Reality, transports), numeric field validation, list search, tag copy, ops deep-links to connections/logs/nodes, path-level save errors, Advanced JSON path-level save diff, dialog dry-run validate with path jump on failure
 - **Traffic policy**: route/DNS rules with search, invert toggles, denser mobile cards, DNS servers with search, health probe, and error-code diagnostics; rule name/description stored by boxd; rule-set update error-code diagnostics; dry-run validate before apply; item path deep-links into rule/server dialogs with dialog dry-run validate
-- **Nodes & subscriptions**: Clash YAML + base64 subscriptions, 16 MiB download guard, public HTTP(S)-only sources with private/local target and redirect protection, traffic/expiry, failed-first + retry with refresh/config-sync diagnostics, subscription deep-links to nodes/logs, denser mobile toolbars/cards, node search, latency color bands + history sparkline/detail chart, copyable probe errors with error-code hints, runtime groups, probes
+- **Nodes & subscriptions**: Clash YAML + base64 subscriptions, background refresh using per-subscription intervals, 16 MiB download guard, public HTTP(S)-only sources with private/local target and redirect protection, traffic/expiry, failed-first + retry with refresh/config-sync diagnostics, subscription deep-links to nodes/logs, denser mobile toolbars/cards, node search, latency color bands + history sparkline/detail chart, copyable probe errors with error-code hints, runtime groups, probes
 - **Observability**: kernel/app logs with timestamps, copy/export, proxy-safe SSE heartbeats, and manual reconnect; TCP/UDP connections with source/network/inbound/process, search/sort/export, optimistic close, grouped views, and close-error diagnostics
 - **Advanced**: Endpoints, Experimental, full kernel JSON with path-level diff, local JSON import/export; dry-run validate on raw/endpoints/experimental; sticky save-error jump
 - **Auth**: densified login failures with error codes/hints and copyable diagnostics
@@ -65,7 +65,7 @@ go run ./cmd/boxd/
 ## Usage
 
 1. Sign in and rotate the admin password.
-2. **Subscriptions / nodes**: add a public HTTP(S) subscription URL or import a single node; local/private sources and unsafe redirect targets are blocked. Configure URLTest (inherit global defaults when needed). Downloads are capped at 16 MiB; refresh and config-sync failures expose actionable error codes.
+2. **Subscriptions / nodes**: add a public HTTP(S) subscription URL or import a single node; local/private sources and unsafe redirect targets are blocked. Subscriptions refresh in the background using each interval (the global interval is the fallback). Configure URLTest (inherit global defaults when needed). Downloads are capped at 16 MiB; refresh and config-sync failures expose actionable error codes.
 3. **Inbounds / outbounds**: install mixed (1080) + TUN templates or create custom inbounds; bind subscription groups as selector/urltest, or use direct/block.
 4. **Route / DNS / Experimental**: edit rules in forms; install common defaults; one-click enable Clash API.
 5. **Dashboard**: start the kernel; switch global outbound and Clash mode; watch traffic and logs.
@@ -100,7 +100,7 @@ The archive database entry is `boxd.db`.
 | `BOXD_USERNAME` | `--username` | `admin` | Login username |
 | `BOXD_PASSWORD` | `--password` | `admin123` | First-run password only; ignored once a hash exists |
 | `BOXD_LOG_LEVEL` | `--log-level` | `info` | Application log level |
-| `BOXD_REFRESH_INTERVAL` | `--refresh-interval` | `60` | Subscription refresh interval (minutes) |
+| `BOXD_REFRESH_INTERVAL` | `--refresh-interval` | `60` | Fallback subscription refresh interval (minutes) |
 | `BOXD_TLS_CERT` | `--tls-cert` | - | TLS certificate path |
 | `BOXD_TLS_KEY` | `--tls-key` | - | TLS private key path |
 | `BOXD_CORS_ALLOWED_ORIGINS` | - | - | Comma-separated CORS origins |

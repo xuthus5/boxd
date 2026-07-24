@@ -23,14 +23,28 @@ type subscriptionRefreshData struct {
 }
 
 func (m *SubscriptionManager) Refresh(id string) error {
+	return m.RefreshContext(context.Background(), id)
+}
+
+// RefreshContext refreshes one subscription and honors caller cancellation.
+func (m *SubscriptionManager) RefreshContext(ctx context.Context, id string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	sub := m.Get(id)
 	if sub == nil {
 		return newSubscriptionRefreshError(SubRefreshNotFound, fmt.Sprintf("subscription not found: %s", id), 0)
 	}
-	outbounds, traffic, err := downloadSubscriptionOutbounds(m.client, sub.URL)
+	outbounds, traffic, err := downloadSubscriptionOutbounds(ctx, m.client, sub.URL)
 	if err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		classified := classifySubscriptionRefreshError(err)
 		return m.recordRefreshErrorIfUnchanged(id, sub, classified)
+	}
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 	if len(outbounds) == 0 {
 		classified := newSubscriptionRefreshError(SubRefreshEmpty, "subscription content produced no nodes", 0)
@@ -61,14 +75,18 @@ func (m *SubscriptionManager) recordRefreshErrorIfUnchanged(
 	return refreshErr
 }
 
-func downloadSubscriptionOutbounds(client *http.Client, rawURL string) ([]model.Outbound, *model.SubscriptionTraffic, error) {
+func downloadSubscriptionOutbounds(
+	parent context.Context,
+	client *http.Client,
+	rawURL string,
+) ([]model.Outbound, *model.SubscriptionTraffic, error) {
 	if err := ValidateSubscriptionURL(rawURL); err != nil {
 		return nil, nil, err
 	}
 	if client == nil {
 		client = newSubscriptionHTTPClient()
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), subscriptionHTTPTimeout)
+	ctx, cancel := context.WithTimeout(parent, subscriptionHTTPTimeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
@@ -134,6 +152,11 @@ func (m *SubscriptionManager) saveRefreshedSubscriptionIfUnchanged(
 }
 
 func (m *SubscriptionManager) RefreshAll() []SubscriptionRefreshFailure {
+	return m.RefreshAllContext(context.Background())
+}
+
+// RefreshAllContext refreshes subscriptions sequentially until completion or cancellation.
+func (m *SubscriptionManager) RefreshAllContext(ctx context.Context) []SubscriptionRefreshFailure {
 	subs, err := m.List()
 	if err != nil {
 		return []SubscriptionRefreshFailure{{
@@ -143,7 +166,10 @@ func (m *SubscriptionManager) RefreshAll() []SubscriptionRefreshFailure {
 	}
 	var failures []SubscriptionRefreshFailure
 	for _, sub := range subs {
-		if err := m.Refresh(sub.ID); err != nil {
+		if err := ctx.Err(); err != nil {
+			return failures
+		}
+		if err := m.RefreshContext(ctx, sub.ID); err != nil {
 			classified := classifySubscriptionRefreshError(err)
 			failures = append(failures, SubscriptionRefreshFailure{
 				ID:      sub.ID,

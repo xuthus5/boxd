@@ -15,6 +15,7 @@ type RuleSetAutoUpdater struct {
 	settings *SettingsManager
 	updater  *RuleSetUpdater
 	cancel   context.CancelFunc
+	done     chan struct{}
 	running  bool
 }
 
@@ -30,19 +31,32 @@ func (a *RuleSetAutoUpdater) Start() {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	a.cancel = cancel
+	a.done = make(chan struct{})
 	a.running = true
-	go a.loop(ctx)
+	done := a.done
+	go func() {
+		defer close(done)
+		a.loop(ctx)
+	}()
 }
 
 func (a *RuleSetAutoUpdater) Stop() {
 	a.mu.Lock()
-	defer a.mu.Unlock()
 	if !a.running {
+		a.mu.Unlock()
 		return
 	}
-	a.cancel()
-	a.cancel = nil
-	a.running = false
+	cancel, done := a.cancel, a.done
+	a.mu.Unlock()
+	cancel()
+	<-done
+	a.mu.Lock()
+	if a.done == done {
+		a.cancel = nil
+		a.done = nil
+		a.running = false
+	}
+	a.mu.Unlock()
 }
 
 func (a *RuleSetAutoUpdater) loop(ctx context.Context) {

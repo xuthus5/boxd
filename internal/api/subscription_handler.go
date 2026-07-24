@@ -46,6 +46,11 @@ func (h *SubscriptionHandler) syncConfig() error {
 	return syncOutboundsAndRestart(h.nodeMgr, h.manager, h.configPath, h.instance)
 }
 
+// SyncConfig rebuilds the managed outbound configuration and restarts the kernel when needed.
+func (h *SubscriptionHandler) SyncConfig() error {
+	return h.syncConfig()
+}
+
 func subscriptionSyncErrorMessage(err error) string {
 	detail := strings.TrimSpace(err.Error())
 	if detail == "" {
@@ -151,7 +156,7 @@ func (h *SubscriptionHandler) Delete(w http.ResponseWriter, r *http.Request) {
 func (h *SubscriptionHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
-	if err := h.manager.Refresh(id); err != nil {
+	if err := h.manager.RefreshContext(r.Context(), id); err != nil {
 		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorSubscriptionRefresh, err.Error())
 		return
 	}
@@ -165,7 +170,7 @@ func (h *SubscriptionHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *SubscriptionHandler) RefreshAll(w http.ResponseWriter, r *http.Request) {
-	failures := h.manager.RefreshAll()
+	failures := h.manager.RefreshAllContext(r.Context())
 	if failures == nil {
 		failures = []core.SubscriptionRefreshFailure{}
 	}

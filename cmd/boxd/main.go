@@ -14,7 +14,6 @@ import (
 
 	"go.etcd.io/bbolt"
 
-	"github.com/xuthus5/boxd/internal/api"
 	"github.com/xuthus5/boxd/internal/config"
 	"github.com/xuthus5/boxd/internal/core"
 )
@@ -85,15 +84,17 @@ func run(cfg *config.Config) error {
 		return nil
 	}
 
-	handler, _, appLogWriter := newHandler(cfg, db, settingsManager)
+	runtime := newHandler(cfg, db, settingsManager)
 
 	logLevel := slog.LevelInfo
 	if cfg.LogLevel == "debug" {
 		logLevel = slog.LevelDebug
 	}
-	slog.SetDefault(slog.New(core.NewAppLogHandler(os.Stderr, appLogWriter, logLevel)))
+	slog.SetDefault(slog.New(core.NewAppLogHandler(os.Stderr, runtime.appLogWriter, logLevel)))
+	runtime.Start()
+	defer runtime.Stop()
 
-	server := makeHTTPServer(cfg.Listen, handler)
+	server := makeHTTPServer(cfg.Listen, runtime.handler)
 	return serveUntilSignal(server, cfg, makeSignalChannel())
 }
 
@@ -142,82 +143,6 @@ func openDatabase(dataDir string) (*bbolt.DB, error) {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 	return db, nil
-}
-
-func newHandler(cfg *config.Config, db *bbolt.DB, settingsManager *core.SettingsManager) (http.Handler, *core.LogWriter, *core.LogWriter) {
-	kernelLogWriter := core.NewLogWriter(200)
-	appLogWriter := core.NewLogWriter(200)
-	instance := core.NewSBInstance(cfg.ConfigPath, kernelLogWriter)
-	subscriptionManager := core.NewSubscriptionManager(db, cfg.DataDir)
-	nodeManager := core.NewNodeManager(db)
-	routeMetadataManager := core.NewRouteRuleMetadataManager(db)
-	applyHistoryManager := core.NewConfigApplyHistoryManager(db)
-
-	authHandler := api.NewAuthHandler(cfg.Username, cfg.Password, settingsManager)
-	ruleSetInstaller := core.NewLoyalsoldierRuleSetInstaller(cfg.DataDir)
-	ruleSetUpdater := core.NewRuleSetUpdater(cfg.ConfigPath, cfg.DataDir, ruleSetInstaller, instance.Stop, instance.Start)
-	ruleSetAutoUpdater := core.NewRuleSetAutoUpdater(settingsManager, ruleSetUpdater)
-	ruleSetAutoUpdater.Start()
-	configHandler := api.NewConfigHandlerWithHistory(
-		cfg.ConfigPath,
-		instance,
-		ruleSetInstaller,
-		core.NewDefaultOutboundsInstaller(),
-		core.NewDefaultRouteInstaller(),
-		core.NewDefaultDNSInstaller(),
-		applyHistoryManager,
-		routeMetadataManager,
-	)
-	ruleSetHandler := api.NewRuleSetHandler(ruleSetUpdater, settingsManager)
-	serviceHandler := api.NewServiceHandler(instance)
-	statsHandler := api.NewStatsHandler(kernelLogWriter, appLogWriter, instance)
-	importHandler := api.NewImportHandler(nodeManager, subscriptionManager, cfg.ConfigPath, instance)
-	subscriptionHandler := api.NewSubscriptionHandler(subscriptionManager, nodeManager, cfg.ConfigPath, instance)
-	nodesHandler := api.NewNodesHandler(nodeManager, subscriptionManager, cfg.ConfigPath, instance)
-	settingsHandler := api.NewSettingsHandler(settingsManager, cfg.Username)
-	backupHandler := api.NewBackupHandler(db, cfg.ConfigPath, core.Version)
-	testHandler := api.NewTestHandler(func() string {
-		u := settingsManager.Get("url_test")
-		if u == "" {
-			u = "https://cp.cloudflare.com/"
-		}
-		return u
-	}, nodeManager, instance)
-	networkHandler := api.NewNetworkHandler()
-	runtimeHandler := api.NewRuntimeHandler(instance)
-	kernelHandler := api.NewKernelHandler(core.Version)
-
-	router := api.NewRouter(
-		staticFS,
-		authHandler,
-		configHandler,
-		serviceHandler,
-		statsHandler,
-		importHandler,
-		subscriptionHandler,
-		nodesHandler,
-		testHandler,
-		settingsHandler,
-		backupHandler,
-		networkHandler,
-		kernelHandler,
-		runtimeHandler,
-		ruleSetHandler,
-		settingsManager,
-		cfg.CORSAllowedOrigins,
-		instance,
-		func() error { return checkReadiness(db, cfg.ConfigPath) },
-	)
-
-	if settingsManager.Get("kernel_autostart") == "true" {
-		if err := instance.Start(); err != nil {
-			slog.Error("kernel autostart failed", "err", err)
-		} else {
-			slog.Info("kernel autostarted")
-		}
-	}
-
-	return router, kernelLogWriter, appLogWriter
 }
 
 func checkReadiness(db *bbolt.DB, configPath string) error {

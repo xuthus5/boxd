@@ -289,19 +289,50 @@ func TestNewHandlerHealth(t *testing.T) {
 	defer func() { _ = db.Close() }()
 
 	settingsMgr := core.NewSettingsManager(db)
-	handler, _, _ := newHandler(&config.Config{
+	runtime := newHandler(&config.Config{
 		Listen:     "127.0.0.1:0",
 		ConfigPath: filepath.Join(t.TempDir(), "sing-box.json"),
 		DataDir:    dataDir,
 		Username:   "admin",
 		Password:   "pass",
 	}, db, settingsMgr)
+	handler := runtime.handler
 
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/health", nil))
 	if rr.Code != http.StatusOK {
 		t.Fatalf("health status = %d", rr.Code)
 	}
+}
+
+func TestHandlerRuntimeLifecycle(t *testing.T) {
+	events := []string{}
+	runtime := &handlerRuntime{
+		services: []backgroundService{
+			recordingBackgroundService{name: "rules", events: &events},
+			recordingBackgroundService{name: "subscriptions", events: &events},
+		},
+	}
+
+	runtime.Start()
+	runtime.Stop()
+
+	if got, want := strings.Join(events, ","), "start-rules,start-subscriptions,stop-subscriptions,stop-rules"; got != want {
+		t.Fatalf("lifecycle events = %q, want %q", got, want)
+	}
+}
+
+type recordingBackgroundService struct {
+	name   string
+	events *[]string
+}
+
+func (s recordingBackgroundService) Start() {
+	*s.events = append(*s.events, "start-"+s.name)
+}
+
+func (s recordingBackgroundService) Stop() {
+	*s.events = append(*s.events, "stop-"+s.name)
 }
 
 func TestCheckReadiness(t *testing.T) {
