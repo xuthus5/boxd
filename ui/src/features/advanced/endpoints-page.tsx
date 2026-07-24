@@ -84,6 +84,7 @@ function EndpointsEditor({ initial, fullConfig, onSave, saveError, onDismissErro
     reportError,
     clearSaveError,
     onReportedError: (err) => { if (err.path) reveal(err.path) },
+    source: "validate_endpoints",
   })
 
   return (

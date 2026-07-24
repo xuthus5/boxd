@@ -38,13 +38,17 @@ describe("useConfigValidate", () => {
     const { result } = renderHook(() => useConfigValidate({
       buildConfig: () => ({ log: { level: "info" } }),
       reportError,
+      source: "validate_raw",
     }), { wrapper })
     let ok = false
     await act(async () => {
       ok = await result.current.validate()
     })
     expect(ok).toBe(true)
-    expect(api.config.validate).toHaveBeenCalled()
+    expect(api.config.validate).toHaveBeenCalledWith(
+      { log: { level: "info" } },
+      { source: "validate_raw" },
+    )
     expect(toast.success).toHaveBeenCalled()
     expect(reportError).not.toHaveBeenCalled()
   })

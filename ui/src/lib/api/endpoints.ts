@@ -66,7 +66,10 @@ export const api = {
     update: (config: SingBoxConfig) => apiRequestEnvelope<JsonValue>("/api/config/", json("PUT", config)),
     getRaw: () => apiRequest<SingBoxConfig>("/api/config/raw"),
     updateRaw: (config: SingBoxConfig) => apiRequestEnvelope<JsonValue>("/api/config/raw", json("PUT", config)),
-    validate: (config: SingBoxConfig) => apiRequestEnvelope<{ valid: boolean }>("/api/config/validate", json("POST", config)),
+    validate: (config: SingBoxConfig, options?: { source?: string }) => {
+      const query = options?.source?.trim() ? `?source=${encodeURIComponent(options.source.trim())}` : ""
+      return apiRequestEnvelope<{ valid: boolean }>(`/api/config/validate${query}`, json("POST", config))
+    },
     installDNS: () => apiRequestEnvelope<JsonValue>("/api/config/dns/defaults", json("POST")),
     installRuleSets: () => apiRequestEnvelope<JsonValue>("/api/config/rule-sets/defaults", json("POST")),
     ruleSetsStatus: () => apiRequest<RuleSetStatusItem[]>("/api/config/rule-sets/status"),

@@ -19,6 +19,9 @@ describe("configApplySourceKey", () => {
     expect(configApplySourceKey("raw")).toBe("sourceRaw")
     expect(configApplySourceKey("dns_defaults")).toBe("sourceDNSDefaults")
     expect(configApplySourceKey("validate")).toBe("sourceValidate")
+    expect(configApplySourceKey("validate_raw")).toBe("sourceValidateRaw")
+    expect(configApplySourceKey("validate_inbounds")).toBe("sourceValidateInbounds")
+    expect(configApplySourceKey("validate_route")).toBe("sourceValidateRoute")
   })
 
   it("falls back for unknown sources", () => {
@@ -35,6 +38,10 @@ describe("configApplySourceHref", () => {
     expect(configApplySourceHref("inbounds_defaults")).toBe("/proxy/inbounds")
     expect(configApplySourceHref("route_defaults")).toBe("/policy/route")
     expect(configApplySourceHref("unknown")).toBe("/advanced/raw")
+    expect(configApplySourceHref("validate_raw")).toBe("/advanced/raw")
+    expect(configApplySourceHref("validate_inbounds")).toBe("/proxy/inbounds")
+    expect(configApplySourceHref("validate_dns")).toBe("/policy/dns")
+    expect(configApplySourceHref("validate_experimental")).toBe("/advanced/experimental")
   })
 })
 

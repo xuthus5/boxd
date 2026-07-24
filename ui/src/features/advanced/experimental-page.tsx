@@ -99,6 +99,7 @@ function ExperimentalEditor({ initial, fullConfig, onSave, onInstallClashAPI, in
     reportError,
     clearSaveError,
     onReportedError: (err) => { if (err.path) reveal(err.path) },
+    source: "validate_experimental",
   })
 
   return (

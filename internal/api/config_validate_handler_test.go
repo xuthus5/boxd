@@ -95,3 +95,49 @@ func TestValidateConfigFailureRecordsApplyHistory(t *testing.T) {
 		t.Fatal("expected error text")
 	}
 }
+
+func TestValidateConfigAcceptsSourceQuery(t *testing.T) {
+	handler, history, _ := setupApplyHistoryHandler(t)
+	body := `{"log":{"level":"info"},"outbounds":[{"type":"direct","tag":"direct"}],"route":{"final":"direct"}}`
+	rr := httptest.NewRecorder()
+	handler.ValidateConfig(rr, jsonRequest(http.MethodPost, "/api/config/validate?source=validate_raw", body))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	events, err := history.List(5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 || events[0].Source != "validate_raw" || events[0].Status != "validated" {
+		t.Fatalf("events = %+v", events)
+	}
+}
+
+func TestValidateConfigUnknownSourceFallsBack(t *testing.T) {
+	handler, history, _ := setupApplyHistoryHandler(t)
+	body := `{"log":{"level":"info"},"outbounds":[{"type":"direct","tag":"direct"}],"route":{"final":"direct"}}`
+	rr := httptest.NewRecorder()
+	handler.ValidateConfig(rr, jsonRequest(http.MethodPost, "/api/config/validate?source=evil;drop", body))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	}
+	events, err := history.List(5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 || events[0].Source != "validate" {
+		t.Fatalf("events = %+v", events)
+	}
+}
+
+func TestNormalizeValidateSource(t *testing.T) {
+	if got := normalizeValidateSource("validate_route"); got != "validate_route" {
+		t.Fatalf("got %q", got)
+	}
+	if got := normalizeValidateSource(" "); got != "validate" {
+		t.Fatalf("blank = %q", got)
+	}
+	if got := normalizeValidateSource("nope"); got != "validate" {
+		t.Fatalf("unknown = %q", got)
+	}
+}

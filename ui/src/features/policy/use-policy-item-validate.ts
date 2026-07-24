@@ -68,6 +68,7 @@ export function usePolicyItemValidate({
     reportError: reportError ?? reportConfigValidateError,
     clearSaveError,
     onReportedError,
+    source: section === "dns" ? "validate_dns" : "validate_route",
   })
 
   return {

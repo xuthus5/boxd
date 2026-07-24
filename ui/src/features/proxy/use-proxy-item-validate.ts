@@ -46,6 +46,7 @@ export function useProxyItemValidate({
     reportError: reportError ?? reportConfigValidateError,
     clearSaveError,
     onReportedError,
+    source: kind === "inbounds" ? "validate_inbounds" : "validate_outbounds",
   })
 
   return {

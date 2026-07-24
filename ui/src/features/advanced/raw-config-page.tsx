@@ -46,6 +46,7 @@ function RawEditor({ initial }: { initial: SingBoxConfig }) {
     reportError,
     clearSaveError,
     onReportedError: (err) => { if (err.path) reveal(err.path) },
+    source: "validate_raw",
   })
   const persist = () => {
     if (!nextConfig) return

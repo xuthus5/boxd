@@ -215,6 +215,7 @@ export function PolicyEditor({
     reportError: reportError ?? reportConfigValidateError,
     clearSaveError,
     onReportedError: (err) => { if (err.path) reveal(err.path) },
+    source: section === "dns" ? "validate_dns" : "validate_route",
   })
   const savePolicy = () => {
     if (editor.object) onSave(editor.object)
