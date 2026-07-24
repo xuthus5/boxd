@@ -33,4 +33,18 @@ describe("HealthStreamErrorBlock", () => {
     const { container } = renderApp(<HealthStreamErrorBlock />)
     expect(container.querySelector('[data-slot="health-stream-error"]')).toBeNull()
   })
+
+  it("renders optional action link", () => {
+    renderApp(
+      <HealthStreamErrorBlock
+        error="failed to fetch"
+        status="error"
+        href="/observability/connections"
+      />,
+    )
+    expect(screen.getByRole("link", { name: "查看连接" })).toHaveAttribute(
+      "href",
+      "/observability/connections",
+    )
+  })
 })

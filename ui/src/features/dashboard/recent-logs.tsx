@@ -7,6 +7,7 @@ import { buttonVariants } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { HealthStreamErrorBlock } from "@/features/dashboard/health-stream-error-block"
 import { buildLogsHref } from "@/features/observability/log-filter-presets"
 import { LogCopyActions } from "@/features/observability/log-list-rows"
 import { meetsLogThreshold } from "@/features/observability/log-level"
@@ -20,7 +21,17 @@ function formatLogTime(timestamp?: string) {
   return Number.isNaN(date.getTime()) ? "—" : date.toLocaleTimeString()
 }
 
-export function RecentLogs({ items }: { items: LogEvent[] }) {
+export function RecentLogs({
+  items,
+  streamError,
+  streamStatus,
+  streamPath,
+}: {
+  items: LogEvent[]
+  streamError?: string
+  streamStatus?: string
+  streamPath?: string
+}) {
   const { t } = useTranslation()
   const preferences = usePreferences()
   const visible = useMemo(
@@ -35,7 +46,14 @@ export function RecentLogs({ items }: { items: LogEvent[] }) {
         <CardTitle className="truncate">{t("dashboard.recentLogs")}</CardTitle>
         <CardDescription>{t("dashboard.recentLogsDescription")}</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-col gap-2 sm:gap-3">
+        <HealthStreamErrorBlock
+          error={streamError}
+          status={streamStatus}
+          path={streamPath}
+          href={logsHref}
+          actionLabel={hasError ? t("dashboard.openErrorLogs") : t("dashboard.openLogs")}
+        />
         {visible.length === 0
           ? <Empty>
             <EmptyHeader>

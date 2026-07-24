@@ -84,9 +84,9 @@ export function DashboardPage() {
         <RuntimeStatsCard memory={memory.data!} panelVersion={version.data!.version} kernelVersion={version.data!.kernel_version} />
         <OpsShortcutsCard />
         <ConfigApplyTimelineCard />
-        <TrafficChart points={points} />
+        <TrafficChart points={points} streamError={traffic.error || undefined} streamStatus={traffic.status} streamPath={api.stats.paths.traffic} />
         <RuntimeActions pending={maintenance.isPending} onGC={() => maintenance.mutate(api.runtime.gc)} onFlushDNS={() => maintenance.mutate(api.runtime.flushDNS)} onFlushFakeIP={() => maintenance.mutate(api.runtime.flushFakeIP)} />
-        <RecentLogs items={logs.items} />
+        <RecentLogs items={logs.items} streamError={logs.error || undefined} streamStatus={logs.status} streamPath={api.stats.paths.logs} />
       </div>
     </div>
   )

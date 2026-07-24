@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { formatBytes } from "@/features/dashboard/format"
+import { HealthStreamErrorBlock } from "@/features/dashboard/health-stream-error-block"
 import { calculateTrafficRates } from "@/features/dashboard/traffic-rate"
 import type { TrafficHistoryPoint } from "@/lib/api/types"
 
@@ -24,7 +25,17 @@ function TrafficLines({ data, uploadKey, downloadKey, formatter, config }: { dat
   </LineChart></ChartContainer>
 }
 
-export function TrafficChart({ points }: { points: TrafficHistoryPoint[] }) {
+export function TrafficChart({
+  points,
+  streamError,
+  streamStatus,
+  streamPath,
+}: {
+  points: TrafficHistoryPoint[]
+  streamError?: string
+  streamStatus?: string
+  streamPath?: string
+}) {
   const { t } = useTranslation()
   const [mode, setMode] = useState<"rate" | "total">("rate")
   const rates = calculateTrafficRates(points)
@@ -55,6 +66,15 @@ export function TrafficChart({ points }: { points: TrafficHistoryPoint[] }) {
       <TabsContent value="rate"><CardContent><TrafficLines data={rates} uploadKey="upload_rate" downloadKey="download_rate" formatter={formatRate} config={rateConfig} /></CardContent></TabsContent>
       <TabsContent value="total"><CardContent><TrafficLines data={points} uploadKey="upload_bytes" downloadKey="download_bytes" formatter={formatBytes} config={totalConfig} /></CardContent></TabsContent>
       </Tabs>
+      {streamError || streamStatus === "reconnecting" ? (
+        <CardContent className="pt-0">
+          <HealthStreamErrorBlock
+            error={streamError}
+            status={streamStatus}
+            path={streamPath}
+          />
+        </CardContent>
+      ) : null}
     </Card>
   )
 }

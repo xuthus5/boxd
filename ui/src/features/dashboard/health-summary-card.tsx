@@ -110,6 +110,7 @@ export function HealthSummaryCard({
           error={streamError}
           status={streamStatus}
           path={api.stats.paths.connections}
+          href="/observability/connections"
         />
       </CardContent>
       <CardFooter className="flex flex-wrap gap-2">

@@ -17,10 +17,14 @@ export function HealthStreamErrorBlock({
   error,
   status,
   path,
+  href,
+  actionLabel,
 }: {
   error?: string
   status?: string
   path?: string
+  href?: string
+  actionLabel?: string
 }) {
   const { t } = useTranslation()
   if (status !== "reconnecting" && !error) return null
@@ -28,6 +32,7 @@ export function HealthStreamErrorBlock({
   const payload = error
     ? streamErrorClipboardText({ path, status, error, code })
     : ""
+  const openLabel = actionLabel || t("dashboard.healthOpenConnections")
 
   return (
     <div
@@ -76,14 +81,16 @@ export function HealthStreamErrorBlock({
           </Button>
         ) : null}
       </div>
-      <div className="mt-1.5">
-        <Link
-          to="/observability/connections"
-          className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-7")}
-        >
-          {t("dashboard.healthOpenConnections")}
-        </Link>
-      </div>
+      {href ? (
+        <div className="mt-1.5">
+          <Link
+            to={href}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-7")}
+          >
+            {openLabel}
+          </Link>
+        </div>
+      ) : null}
     </div>
   )
 }
