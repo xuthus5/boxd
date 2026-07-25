@@ -35,6 +35,7 @@ describe("preflightConfig", () => {
         geoip: { download_detour: "direct" },
         geosite: { download_detour: "direct" },
       },
+      ntp: { enabled: true, detour: "direct", domain_resolver: { server: "remote" } },
       experimental: { clash_api: { external_ui_download_detour: "direct" } },
     })
     expect(issues).toEqual([])
@@ -169,5 +170,27 @@ describe("preflightConfig", () => {
     expect(hasIssue(issues, "missing_dns_server", "outbounds[0].domain_resolver.server")).toBe(true)
     expect(hasIssue(issues, "missing_dns_server", "route.default_domain_resolver")).toBe(true)
     expect(hasIssue(issues, "missing_dns_server", "dns.servers[0].domain_resolver")).toBe(true)
+  })
+
+  it("checks NTP outbound and DNS resolver references", () => {
+    const issues = issuesFor({
+      outbounds: [{ type: "direct", tag: "direct" }],
+      dns: { servers: [{ type: "local", tag: "dns-local" }] },
+      ntp: {
+        enabled: true,
+        detour: "missing-ntp-outbound",
+        domain_resolver: { server: "missing-ntp-resolver" },
+      },
+    })
+    expect(hasIssue(issues, "missing_outbound", "ntp.detour")).toBe(true)
+    expect(hasIssue(issues, "missing_dns_server", "ntp.domain_resolver.server")).toBe(true)
+    expect(issuesFor({
+      outbounds: [{ type: "direct", tag: "direct" }],
+      dns: { servers: [{ type: "local", tag: "dns-local" }] },
+      ntp: { enabled: true, detour: "direct", domain_resolver: "dns-local" },
+    })).toEqual([])
+    expect(issuesFor({
+      ntp: { enabled: false, detour: "missing-disabled-outbound", domain_resolver: "missing-disabled-dns" },
+    })).toEqual([])
   })
 })

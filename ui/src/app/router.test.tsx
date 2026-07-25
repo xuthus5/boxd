@@ -33,6 +33,7 @@ describe("application routing", () => {
     expect(screen.getByText("sing-box control plane")).toBeInTheDocument()
     expect(within(screen.getByRole("banner")).getByText("仪表盘")).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "日志" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "NTP" })).toHaveAttribute("href", "/advanced/ntp")
     expect(screen.queryByRole("link", { name: "内核日志" })).not.toBeInTheDocument()
     expect(screen.queryByRole("link", { name: "应用日志" })).not.toBeInTheDocument()
   })

@@ -261,6 +261,17 @@ function checkExperimentalSection(
   }
 }
 
+function checkNTPSection(
+  ntp: JsonObject,
+  outboundTags: Map<string, NamedEntry>,
+  dnsTags: Map<string, NamedEntry>,
+  issues: ConfigPreflightIssue[],
+) {
+  if (ntp.enabled !== true) return
+  checkReference(ntp.detour, "ntp.detour", outboundTags, "missing_outbound", issues)
+  checkDomainResolver(ntp.domain_resolver, "ntp.domain_resolver", dnsTags, issues)
+}
+
 export function preflightConfig(config: SingBoxConfig): ConfigPreflightIssue[] {
   const outboundNamespace = collectNamespace(config, ["outbounds", "endpoints"])
   const inboundNamespace = collectNamespace(config, ["inbounds"])
@@ -274,6 +285,8 @@ export function preflightConfig(config: SingBoxConfig): ConfigPreflightIssue[] {
   checkOutboundEntries(config, outboundNamespace.tags, dnsNamespace.tags, issues)
   if (isObject(route)) checkRouteSection(route, outboundNamespace.tags, dnsNamespace.tags, ruleSetNamespace.tags, issues)
   if (isObject(dns)) checkDNSSection(dns, outboundNamespace.tags, dnsNamespace.tags, ruleSetNamespace.tags, issues)
+  const ntp = objectValue(config, "ntp")
+  if (isObject(ntp)) checkNTPSection(ntp, outboundNamespace.tags, dnsNamespace.tags, issues)
   const experimental = objectValue(config, "experimental")
   if (isObject(experimental)) checkExperimentalSection(experimental, outboundNamespace.tags, issues)
   return issues

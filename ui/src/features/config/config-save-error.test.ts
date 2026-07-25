@@ -52,6 +52,7 @@ describe("config-save-error", () => {
     expect(configSaveErrorHintKey("unknown")).toBe("config.errorHintUnknown")
     expect(configSectionHref("dns")).toBe("/policy/dns")
     expect(configSectionHref("outbounds")).toBe("/proxy/outbounds")
+    expect(configSectionHref("ntp")).toBe("/advanced/ntp")
     expect(configSectionHref("mystery")).toBe("/advanced/raw")
     expect(configPathEditorHref("inbounds[0].listen_port")).toBe(
       "/advanced/raw?path=inbounds%5B0%5D.listen_port",

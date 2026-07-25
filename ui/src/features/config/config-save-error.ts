@@ -162,6 +162,8 @@ export function configSectionHref(section?: string): string {
       return "/advanced/experimental"
     case "endpoints":
       return "/advanced/endpoints"
+    case "ntp":
+      return "/advanced/ntp"
     default:
       return "/advanced/raw"
   }

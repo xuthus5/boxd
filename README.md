@@ -13,7 +13,7 @@ Single-node control plane for [sing-box](https://github.com/SagerNet/sing-box). 
 - **Traffic policy**: route/DNS rules with search, invert toggles, denser mobile cards, DNS servers with search, health probe, and error-code diagnostics; rule name/description stored by boxd; rule-set update error-code diagnostics; dry-run validate before apply; item path deep-links into rule/server dialogs with dialog dry-run validate
 - **Nodes & subscriptions**: Clash YAML + base64 subscriptions, immediate first fetch and URL-change refresh, visible per-subscription refresh schedule, background refresh using per-subscription intervals, 16 MiB download guard, public HTTP(S)-only sources with private/local target and redirect protection, traffic/expiry, failed-first + retry with refresh/config-sync diagnostics, subscription deep-links to nodes/logs, denser mobile toolbars/cards, node search, latency color bands + history sparkline/detail chart, copyable probe errors with error-code hints, runtime groups, probes
 - **Observability**: kernel/app logs with timestamps, copy/export, proxy-safe SSE heartbeats, and manual reconnect; TCP/UDP connections with source/network/inbound/process, search/sort/export, optimistic close, grouped views, and close-error diagnostics
-- **Advanced**: Endpoints, Experimental, full kernel JSON with path-level diff, local JSON import/export, read-only Tag/outbound/DNS/rule-set preflight; dry-run validate on raw/endpoints/experimental; sticky save-error jump
+- **Advanced**: Endpoints, NTP time sync, Experimental, full kernel JSON with path-level diff, local JSON import/export, read-only Tag/outbound/DNS/rule-set preflight; dry-run validate on raw/endpoints/NTP/experimental; sticky save-error jump
 - **Auth**: densified login failures with error codes/hints and copyable diagnostics
 - **Page load diagnostics**: shared densified query-load failures (code/hint/copy/retry) across dashboard, proxy, policy, nodes/subs, settings, and advanced pages
 - **Settings**: theme, language, and log level persisted in DB; password/JWT rotation, dirty-state save gates, probe URLs, global URLTest defaults, panel backup export
@@ -67,7 +67,7 @@ go run ./cmd/boxd/
 1. Sign in and rotate the admin password.
 2. **Subscriptions / nodes**: add a public HTTP(S) subscription URL or import a single node; local/private sources and unsafe redirect targets are blocked. Subscriptions refresh in the background using each interval (the global interval is the fallback). Configure URLTest (inherit global defaults when needed). Downloads are capped at 16 MiB; refresh and config-sync failures expose actionable error codes.
 3. **Inbounds / outbounds**: install mixed (1080) + TUN templates or create custom inbounds; bind subscription groups as selector/urltest, or use direct/block.
-4. **Route / DNS / Experimental**: edit rules in forms; install common defaults; one-click enable Clash API.
+4. **Route / DNS / NTP / Experimental**: edit rules and time sync in forms; install common defaults; one-click enable Clash API.
 5. **Dashboard**: start the kernel; switch global outbound and Clash mode; watch traffic and logs.
 6. **Settings**: theme, language, minimum log level (stored in the database), system probe URLs, kernel autostart, backup export.
 

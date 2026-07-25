@@ -132,7 +132,10 @@ func TestValidateConfigUnknownSourceFallsBack(t *testing.T) {
 
 func TestNormalizeValidateSource(t *testing.T) {
 	if got := normalizeValidateSource("validate_route"); got != "validate_route" {
-		t.Fatalf("got %q", got)
+		t.Fatalf("route = %q", got)
+	}
+	if got := normalizeValidateSource("validate_ntp"); got != "validate_ntp" {
+		t.Fatalf("ntp = %q", got)
 	}
 	if got := normalizeValidateSource(" "); got != "validate" {
 		t.Fatalf("blank = %q", got)

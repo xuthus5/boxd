@@ -15,6 +15,7 @@ var knownValidateSources = map[string]struct{}{
 	"validate":              {},
 	"validate_raw":          {},
 	"validate_endpoints":    {},
+	"validate_ntp":          {},
 	"validate_experimental": {},
 	"validate_inbounds":     {},
 	"validate_outbounds":    {},
