@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { ApiError, apiRequest, downloadBinary, setUnauthorizedHandler } from "@/lib/api/client"
+import {
+  ApiError, apiRequest, apiRequestEnvelope, downloadBinary, notifyUnauthorized, setUnauthorizedHandler, triggerBrowserDownload,
+} from "@/lib/api/client"
 import { sessionStore } from "@/lib/session"
 
 afterEach(() => {
@@ -84,6 +86,15 @@ describe("apiRequest error handling", () => {
     const headers = new Headers(fetchMock.mock.calls[0][1]?.headers)
     expect(headers.get("Content-Type")).toBe("text/plain")
   })
+
+  it("handles missing handlers and malformed error bodies", async () => {
+    expect(() => notifyUnauthorized()).not.toThrow()
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: "ok" }), { status: 200 })))
+    await expect(apiRequestEnvelope("/api/raw")).resolves.toMatchObject({ data: { status: "ok" } })
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ code: 1, message: null }), { status: 502, statusText: "Bad gateway" })))
+    await expect(apiRequest("/api/config")).rejects.toMatchObject({ status: 502, code: "request_failed", message: "Bad gateway" })
+  })
 })
 
 
@@ -125,5 +136,37 @@ describe("downloadBinary", () => {
     })
     expect(unauthorized).toHaveBeenCalledOnce()
   })
-})
 
+  it("supports encoded names, fallback metadata, and malformed download errors", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("data", {
+      status: 200,
+      headers: { "Content-Disposition": "attachment; filename*=UTF-8''boxd%20backup.tar.gz" },
+    })))
+    await expect(downloadBinary("/api/backup", {}, "fallback.bin")).resolves.toMatchObject({ filename: "boxd backup.tar.gz", contentType: "text/plain;charset=UTF-8" })
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("data", {
+      status: 200,
+      headers: { "Content-Disposition": "attachment; filename*=UTF-8''%E0%A4%A" },
+    })))
+    await expect(downloadBinary("/api/backup", {}, "fallback.bin")).resolves.toMatchObject({ filename: "%E0%A4%A", contentType: "text/plain;charset=UTF-8" })
+
+    const unauthorized = vi.fn()
+    setUnauthorizedHandler(unauthorized)
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("invalid", { status: 401 })))
+    await expect(downloadBinary("/api/backup")).rejects.toMatchObject({ code: "invalid_response" })
+    expect(unauthorized).toHaveBeenCalledOnce()
+  })
+
+  it("triggers and revokes browser downloads", () => {
+    const create = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:test")
+    const revoke = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined)
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined)
+    triggerBrowserDownload(new Blob(["data"]), "backup.bin")
+    expect(create).toHaveBeenCalledOnce()
+    expect(click).toHaveBeenCalledOnce()
+    expect(revoke).toHaveBeenCalledWith("blob:test")
+    create.mockRestore()
+    revoke.mockRestore()
+    click.mockRestore()
+  })
+})

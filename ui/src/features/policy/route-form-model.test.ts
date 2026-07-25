@@ -348,4 +348,60 @@ describe("route field kind transitions", () => {
     expect(changeRouteAction({ action: "route", outbound: "proxy", inbound: ["mixed-in"], ip_version: 4 }, "reject"))
       .toEqual({ action: "reject", inbound: ["mixed-in"], ip_version: 4 })
   })
+
+  it("validates numeric, list, boolean, and logical JSON field kinds", () => {
+    const expectedDefault = {
+      port: [80, 443],
+      user_id: 1000,
+      custom: "keep",
+    }
+    const actualDefault = changeRouteRuleType({
+      type: "custom",
+      domain: ["example.com", 7],
+      source_port: [80, "bad"],
+      port: [80, 443],
+      user_id: 1000,
+      source_ip_is_private: "true",
+      custom: "keep",
+    }, "default")
+    expect(actualDefault).toEqual(expectedDefault)
+
+    const expectedLogical = { type: "logical", rules: [{ action: "reject" }], custom: "keep" }
+    const actualLogical = changeRouteRuleType({
+      type: "custom",
+      rules: [{ action: "reject" }],
+      custom: "keep",
+    }, "logical")
+    expect(actualLogical).toEqual(expectedLogical)
+
+    const expectedAction = { action: "direct", fallback_delay: 250, custom: "keep" }
+    const actualAction = changeRouteAction({
+      action: "custom",
+      fallback_delay: 250,
+      override_port: "443",
+      custom: "keep",
+    }, "direct")
+    expect(actualAction).toEqual(expectedAction)
+    expect(changeRouteAction({ action: "reject", custom: "keep" }, "")).toEqual({ custom: "keep" })
+  })
+
+  it("handles fallback metadata paths and rule-set intervals", () => {
+    const expectedRuleSet = { type: "remote · binary · 1d", detail: "https://example/r.srs" }
+    const actualRuleSet = summarizeRuleSet({
+      type: "remote",
+      format: "binary",
+      update_interval: "1d",
+      url: "https://example/r.srs",
+    })
+    expect(actualRuleSet).toEqual(expectedRuleSet)
+    expect(managedRouteRuleFields("logical", "future")).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: "mode" }),
+    ]))
+    const expectedPruned = { type: "logical", mode: "and", action: "future" }
+    const actualPruned = applyRouteRuleFieldChange({ type: "logical" }, { type: "logical", mode: "and", action: "future" })
+    expect(actualPruned).toEqual(expectedPruned)
+    expect(managedRouteRuleFields("default", "future")).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: "domain" }),
+    ]))
+  })
 })

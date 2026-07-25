@@ -21,6 +21,7 @@ describe("config save error actions", () => {
       code: "config_invalid",
     })).toBe("config_invalid: inbounds[0].tag: missing")
     expect(formatConfigSaveErrorToast({ message: "plain" })).toBe("plain")
+    expect(formatConfigSaveErrorToast({ message: "plain", code: "unknown" })).toBe("plain")
   })
 
   it("reports densified toast with hint and clipboard action", () => {
@@ -38,5 +39,11 @@ describe("config save error actions", () => {
       description: expect.any(String),
       action: expect.objectContaining({ label: expect.any(String) }),
     }))
+  })
+
+  it("uses an empty action when the diagnostic payload is unavailable", () => {
+    reportConfigSaveErrorToast({ message: "", code: "unknown" })
+    const [, options] = vi.mocked(toast.error).mock.calls.at(-1)!
+    expect(options?.action).toBeUndefined()
   })
 })

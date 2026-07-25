@@ -28,4 +28,11 @@ describe("dashboard request error actions", () => {
       action: expect.objectContaining({ label: "dashboard.copyRequestError" }),
     }))
   })
+
+  it("uses the default fallback and omits an empty diagnostic action", () => {
+    reportDashboardRequestError(new Error(""), (key) => key)
+    const [message, options] = vi.mocked(toast.error).mock.calls.at(-1)!
+    expect(message).toBe("dashboard.requestFailed")
+    expect(options?.action).toBeUndefined()
+  })
 })

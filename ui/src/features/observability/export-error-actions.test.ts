@@ -27,4 +27,11 @@ describe("export error actions", () => {
       action: expect.objectContaining({ label: "observability.copyExportError" }),
     }))
   })
+
+  it("uses the default fallback and omits an empty diagnostic action", () => {
+    reportExportError(new Error(""), (key) => key)
+    const [message, options] = vi.mocked(toast.error).mock.calls.at(-1)!
+    expect(message).toBe("observability.exportFailed")
+    expect(options?.action).toBeUndefined()
+  })
 })

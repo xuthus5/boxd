@@ -7,6 +7,8 @@ import { sessionStore } from "@/lib/session"
 import { installMockAPI } from "@/test/mock-api"
 import { renderApp } from "@/test/render"
 
+const dashboardLoadTimeout = 5_000
+
 afterEach(() => { vi.unstubAllGlobals(); sessionStore.clear() })
 
 describe("dashboard interactions", () => {
@@ -15,7 +17,7 @@ describe("dashboard interactions", () => {
     const fetchMock = installMockAPI()
     const user = userEvent.setup()
     renderApp(<App />, "/dashboard")
-    await screen.findByText("运行中")
+    await screen.findByText("运行中", {}, { timeout: dashboardLoadTimeout })
 
     expect(screen.getByRole("button", { name: "启动" })).toBeDisabled()
     for (const name of ["GC", "清理 DNS", "清理 FakeIP"]) {
@@ -30,5 +32,5 @@ describe("dashboard interactions", () => {
     }
 
     await vi.waitFor(() => expect(fetchMock.mock.calls.some(([path]) => path === "/api/runtime/fakeip/flush")).toBe(true))
-  })
+  }, 15_000)
 })

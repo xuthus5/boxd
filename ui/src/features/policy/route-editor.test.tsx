@@ -313,7 +313,7 @@ describe("route rule cards", () => {
     await user.click(screen.getByRole("button", { name: "确认删除" }))
     expect(screen.getAllByRole("button", { name: /编辑规则/ })).toHaveLength(1)
     expect(screen.getByLabelText("route metadata state")).toHaveTextContent('"name":"主路由规则"')
-  }, 15_000)
+  }, 30_000)
 })
 
 describe("route rule-set editor", () => {

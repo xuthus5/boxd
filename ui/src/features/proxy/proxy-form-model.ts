@@ -3,7 +3,7 @@ import type { JsonValue } from "@/lib/api/types"
 export type JsonObject = Record<string, JsonValue>
 export type FieldKind =
   | "text" | "textarea" | "number" | "boolean" | "list" | "number-list"
-  | "select" | "json-object" | "users" | "listen-address" | "network-interface"
+  | "select" | "boolean-select" | "json-object" | "users" | "listen-address" | "network-interface"
   | "ref" | "network-multi"
 
 export type FieldRef = "inbound" | "dns-server" | "outbound" | "network-interface-multi"

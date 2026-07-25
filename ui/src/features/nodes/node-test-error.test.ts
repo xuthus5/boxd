@@ -65,4 +65,49 @@ describe("node test error helpers", () => {
       .toBe("unavailable: kernel offline")
   })
 
+  it.each([
+    ["unsupported", "unsupported"],
+    ["not probeable", "unsupported"],
+    ["invalid parameter", "invalid_input"],
+    ["required field missing", "invalid_input"],
+    ["no response from peer", "no_response"],
+    ["empty dns answer", "empty_response"],
+    ["empty response body", "empty_response"],
+    ["dns rcode SERVFAIL", "dns_rcode"],
+    ["deadline exceeded", "timeout"],
+    ["connection reset", "network"],
+    ["no such host", "network"],
+    ["ping failed", "network"],
+    ["broken pipe", "network"],
+    ["something else", "unknown"],
+  ])("classifies message %s as %s", (message, expected) => {
+    expect(classifyNodeTestErrorMessage(message)).toBe(expected)
+  })
+
+  it("covers hint, result, and clipboard fallbacks", () => {
+    expect(nodeTestErrorHintKey()).toBe("nodes.errorHintUnknown")
+    expect(nodeTestErrorHintKey("not-a-code")).toBe("nodes.errorHintUnknown")
+    expect(nodeTestErrorHintKey("dns_rcode")).toBe("nodes.errorHintDNSRcode")
+    expect(resolveNodeTestErrorCode({ success: false })).toBeUndefined()
+    expect(resolveNodeTestErrorCode({ error_code: "custom" })).toBe("custom")
+    expect(nodeTestErrorClipboardText({
+      tag: "  ", test_type: "  ", success: false, error: "  ", error_code: "network", timestamp: "  ",
+    })).toBe("code: network")
+    expect(formatNodeTestFailureSample({ error: "boom", error_code: "unknown" })).toBe("boom")
+    expect(formatNodeTestFailureSample({ error: "", error_code: "timeout" })).toBe("timeout: failed")
+  })
+
+  it("classifies every API request code and fallback shape", () => {
+    expect(classifyNodeTestRequestError(new ApiError("bad", 400, "invalid_input"))).toBe("invalid_input")
+    expect(classifyNodeTestRequestError(new ApiError("slow", 504, "timeout"))).toBe("timeout")
+    expect(classifyNodeTestRequestError(new ApiError("no", 400, "unsupported"))).toBe("unsupported")
+    expect(classifyNodeTestRequestError(new ApiError("bad", 500, "other"))).toBe("unknown")
+    expect(classifyNodeTestRequestError(null)).toBe("unknown")
+    expect(nodeTestRequestErrorClipboardText("connection refused", "  ")).toContain("code: network")
+    expect(nodeTestRequestErrorClipboardText("", "hk")).toBe("")
+    expect(formatNodeTestRequestErrorToast(new Error("  "), "fallback")).toBe("fallback")
+    expect(formatNodeTestRequestErrorToast("", "fallback")).toBe("fallback")
+    expect(formatNodeTestRequestErrorToast(new Error("ordinary"), "fallback")).toBe("ordinary")
+  })
+
 })

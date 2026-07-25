@@ -59,15 +59,14 @@ describe("AccountSecurityCard", () => {
     await user.click(screen.getByRole("button", { name: "确认轮换" }))
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalled()
-    const [message, options] = vi.mocked(toast.error).mock.calls.at(-1)!
-    expect(String(message)).toContain("bad password")
-    expect(options).toEqual(expect.objectContaining({
-      description: expect.any(String),
-      action: expect.objectContaining({ label: expect.any(String) }),
-    }))
+      const [message, options] = vi.mocked(toast.error).mock.calls.at(-1)!
+      expect(String(message)).toContain("bad password")
+      expect(options).toEqual(expect.objectContaining({
+        description: expect.any(String),
+        action: expect.objectContaining({ label: expect.any(String) }),
+      }))
     })
     expect(screen.getByLabelText("当前密码")).toHaveValue("current")
-    await user.click(screen.getByRole("button", { name: "取消" }))
     await user.click(screen.getByRole("button", { name: "清空" }))
     expect(screen.getByLabelText("当前密码")).toHaveValue("")
     expect(screen.getByLabelText("新密码")).toHaveValue("")

@@ -60,6 +60,10 @@ describe("nodes-filter", () => {
   })
 
   it("picks preferred test series and builds health", () => {
+    expect(pickNodeHistorySeries(undefined)).toEqual([])
+    expect(pickNodeHistorySeries({ custom: [{ timestamp: "x", success: true }] })).toEqual([
+      { timestamp: "x", success: true },
+    ])
     expect(pickNodeHistorySeries(history["jp-core"]).map((point) => point.latency_ms)).toEqual([40, undefined, 50, 45])
     expect(nodeLatencyHealth(nodes[0], history).tone).toBe("excellent")
     expect(nodeLatencyHealth(nodes[1], history).tone).toBe("poor")
@@ -77,10 +81,46 @@ describe("nodes-filter", () => {
     expect(nodeFiltersActive({})).toBe(false)
   })
 
+  it("matches every stability bucket and empty query form", () => {
+    const good = [{ timestamp: "1", success: true }, { timestamp: "2", success: true }, { timestamp: "3", success: true }, { timestamp: "4", success: true }, { timestamp: "5", success: false }]
+    const failed = [{ timestamp: "1", success: false }, { timestamp: "2", success: false }]
+    const goodHealth = nodeLatencyHealth(nodes[0], { "hk-01": { tcp: good } })
+    const failedHealth = nodeLatencyHealth(nodes[1], { "us-edge": { tcp: failed } })
+    expect(goodHealth.tone).toBe("good")
+    expect(failedHealth.tone).toBe("failed")
+    expect(matchesNodeStability(goodHealth, "stable")).toBe(true)
+    expect(matchesNodeStability(failedHealth, "failed")).toBe(true)
+    expect(matchesNodeStability(failedHealth, "unknown")).toBe(false)
+    expect(matchesNodeStability(failedHealth, "")).toBe(true)
+    expect(matchesNodeQuery(nodes[0], "  ")).toBe(true)
+    expect(matchesNodeQuery({ tag: "bare", type: "vless", source: "import" }, "example")).toBe(false)
+  })
+
   it("sorts by stability and latency", () => {
     expect(sortNodes(nodes, "stability", history).map((node) => node.tag)).toEqual(["hk-01", "jp-core", "us-edge"])
     expect(sortNodes(nodes, "latency", history).map((node) => node.tag)).toEqual(["hk-01", "jp-core", "us-edge"])
     expect(sortNodes(nodes, "name", history).map((node) => node.tag)).toEqual(["hk-01", "jp-core", "us-edge"])
+  })
+
+  it("sorts stability and latency ties with missing measurements", () => {
+    const tieNodes: Outbound[] = [
+      { tag: "z-node", type: "vless", server: "z", port: 443, source: "import" },
+      { tag: "a-node", type: "vless", server: "a", port: 443, source: "import" },
+      { tag: "missing", type: "vless", server: "m", port: 443, source: "import" },
+    ]
+    const tieHistory = {
+      "z-node": { tcp: [{ timestamp: "1", success: true, latency_ms: 30 }] },
+      "a-node": { tcp: [{ timestamp: "1", success: true, latency_ms: 30 }] },
+    }
+    expect(sortNodes(tieNodes, "stability", tieHistory).map((node) => node.tag)).toEqual([
+      "a-node", "z-node", "missing",
+    ])
+    expect(sortNodes(tieNodes, "latency", tieHistory).map((node) => node.tag)).toEqual([
+      "a-node", "z-node", "missing",
+    ])
+    expect(sortNodes([
+      tieNodes[2], tieNodes[0],
+    ], "latency", tieHistory).map((node) => node.tag)).toEqual(["z-node", "missing"])
   })
 
   it("parses and builds node list deep-link query strings", () => {
@@ -97,6 +137,12 @@ describe("nodes-filter", () => {
     expect(buildNodesHref({ query: "hk", sort: "stability" })).toBe("/nodes?q=hk&sort=stability")
     expect(buildNodesHref({ sort: "name" })).toBe("/nodes")
     expect(toNodeSearchParams({ stability: "failed" }).get("stability")).toBe("failed")
+    expect(parseNodeSearchParams({ get: () => "  " })).toEqual({
+      query: undefined, stability: undefined, sort: undefined,
+    })
+    expect(toNodeSearchParams({ query: "  ", stability: "unknown", sort: "name" }).toString())
+      .toBe("stability=unknown")
+    expect(buildNodesHref()).toBe("/nodes")
   })
 
   it("summarizes stability buckets for the current search query", () => {
@@ -117,6 +163,9 @@ describe("nodes-filter", () => {
       unknown: 0,
     })
     expect(stabilityBucketForHealth(nodeLatencyHealth(nodes[0], undefined))).toBe("unknown")
+    expect(stabilityBucketForHealth(nodeLatencyHealth(nodes[1], {
+      "us-edge": { tcp: [{ timestamp: "1", success: false }] },
+    }))).toBe("failed")
   })
 
   it("lists problem nodes with failed first and limit", () => {
@@ -151,5 +200,8 @@ describe("nodes-filter", () => {
     ])
     expect(listProblemNodes([], history, 3)).toEqual([])
     expect(listProblemNodes(nodes, history, 0)).toEqual([])
+    expect(listProblemNodes(undefined, history, 3)).toEqual([])
+    expect(listProblemNodes(nodes, history, -1)).toEqual([])
+    expect(listProblemNodes(nodes, history, 2.9).length).toBe(2)
   })
 })

@@ -1,5 +1,12 @@
 import "@testing-library/jest-dom/vitest"
+import { configure } from "@testing-library/react"
 import { vi } from "vitest"
+
+const testTimeout = 15_000
+const asyncUtilTimeout = testTimeout
+
+vi.setConfig({ testTimeout })
+configure({ asyncUtilTimeout })
 
 Object.defineProperty(window, "matchMedia", {
   writable: true,

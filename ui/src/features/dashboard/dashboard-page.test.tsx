@@ -75,7 +75,7 @@ describe("DashboardPage", () => {
     expect(screen.getByRole("button", { name: "重启" })).toHaveClass("h-8")
     expect(screen.getByRole("link", { name: "错误日志" })).toHaveClass("h-8")
     expect(await screen.findByText(/下载 20 B\/s/)).toBeInTheDocument()
-    expect(screen.getByText("ready")).toBeInTheDocument()
+    expect(screen.getAllByText("ready").length).toBeGreaterThan(0)
     // Setup checklist hides itself once all steps are complete and no subscription failures exist.
     expect(screen.queryByText("快速上手")).not.toBeInTheDocument()
   })

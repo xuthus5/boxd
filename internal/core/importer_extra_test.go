@@ -49,17 +49,12 @@ func TestParseVmessEmptyPS(t *testing.T) {
 	if result.Tag != expected {
 		t.Errorf("tag = %q, want %q", result.Tag, expected)
 	}
-	// TLS should be false
 	cfg, ok := result.Config.(map[string]any)
 	if !ok {
 		t.Fatal("config is not a map")
 	}
-	tlsVal, ok := cfg["tls"]
-	if !ok {
-		t.Fatal("tls field missing")
-	}
-	if tlsVal != false {
-		t.Errorf("tls = %v, want false", tlsVal)
+	if _, ok := cfg["tls"]; ok {
+		t.Errorf("tls = %#v, want omitted when disabled", cfg["tls"])
 	}
 }
 

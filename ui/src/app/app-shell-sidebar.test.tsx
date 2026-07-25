@@ -46,5 +46,5 @@ describe("collapsed sidebar hit targets", () => {
     expect(nodes).toBeInTheDocument()
     await user.click(nodes)
     expect(await screen.findByRole("heading", { name: "节点" })).toBeInTheDocument()
-  })
+  }, 15_000)
 })

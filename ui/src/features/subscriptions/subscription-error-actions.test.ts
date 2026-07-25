@@ -33,6 +33,7 @@ describe("subscription error actions", () => {
       "error: subscription HTTP 403",
       "at: 2026-07-24T00:00:00Z",
     ].join("\n"))
+    expect(subscriptionErrorClipboardText({})).toBe("")
   })
 
   it("only allows http(s) open targets", () => {
@@ -40,7 +41,9 @@ describe("subscription error actions", () => {
     expect(isOpenableSubscriptionURL("http://example.com/a")).toBe(true)
     expect(isOpenableSubscriptionURL("ftp://example.com/a")).toBe(false)
     expect(isOpenableSubscriptionURL("not a url")).toBe(false)
+    expect(isOpenableSubscriptionURL()).toBe(false)
     expect(subscriptionSourceURL("https://example.com/a")).toBe("https://example.com/a")
+    expect(subscriptionSourceURL("  https://example.com/a  ")).toBe("https://example.com/a")
     expect(subscriptionSourceURL("bad")).toBe("")
   })
 
@@ -63,5 +66,15 @@ describe("subscription error actions", () => {
       t,
     )
     expect(vi.mocked(toast.error).mock.calls.at(-1)?.[0]).toBe("batch failed")
+
+    reportSubscriptionRequestError(new Error(""), t)
+    expect(vi.mocked(toast.error).mock.calls.at(-1)?.[0]).toBe("subscriptions.refreshFailed")
+    expect(vi.mocked(toast.error).mock.calls.at(-1)?.[1]?.action).toBeUndefined()
+
+    reportSubscriptionRequestError(new Error("network down"), t, { prefix: "refresh" })
+    expect(vi.mocked(toast.error).mock.calls.at(-1)?.[0]).toContain("refresh: ")
+
+    reportSubscriptionRefreshBatch({ failed: 0, failedSamples: [] }, "empty batch", t)
+    expect(vi.mocked(toast.error).mock.calls.at(-1)?.[1]?.action).toBeUndefined()
   })
 })

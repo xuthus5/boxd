@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { screen } from "@testing-library/react"
+import { screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { AuthProvider } from "@/features/auth/auth-context"
@@ -121,9 +121,9 @@ describe("SetupChecklistCard", () => {
     }))
 
     const view = renderCard()
-    // wait a tick for queries
-    await screen.findByText("快速上手").catch(() => null)
-    // card should unmount content / return null - title may not exist
+    await waitFor(() => {
+      expect(view.container.querySelector("[data-slot=skeleton]")).toBeNull()
+    })
     expect(view.container.querySelector("[data-slot=card]")).toBeNull()
   })
 

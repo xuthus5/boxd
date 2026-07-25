@@ -57,6 +57,17 @@ describe("outbound editor", () => {
       tls: expect.objectContaining({ enabled: true, server_name: "example.com", utls: { enabled: true, fingerprint: "chrome" }, reality: { enabled: true, public_key: "public-key" } }),
       transport: { type: "ws", path: "/ws" }, multiplex: { enabled: true },
     }))
+  }, 15_000)
+
+  it("saves an explicit false UDP fragmentation value", async () => {
+    const user = userEvent.setup()
+    const onSave = vi.fn()
+    renderEditor(<OutboundEditorDialog title="编辑" item={{ tag: "vless-out", type: "vless", server: "host", server_port: 443 }} onClose={vi.fn()} onSave={onSave} />)
+    await user.click(screen.getByRole("tab", { name: "拨号与网络" }))
+    await user.click(screen.getByRole("combobox", { name: "UDP 分片" }))
+    await user.click(await screen.findByRole("option", { name: "禁用" }))
+    await user.click(screen.getByRole("button", { name: "保存" }))
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ udp_fragment: false }))
   })
 
   it("edits selector and URLTest groups with a subscription ownership warning", async () => {

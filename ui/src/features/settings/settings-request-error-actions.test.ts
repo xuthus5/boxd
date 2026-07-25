@@ -27,4 +27,11 @@ describe("settings request error actions", () => {
       action: expect.objectContaining({ label: "settings.copyRequestError" }),
     }))
   })
+
+  it("uses the default fallback and omits an empty diagnostic action", () => {
+    reportSettingsRequestError(new Error(""), (key) => key)
+    const [message, options] = vi.mocked(toast.error).mock.calls.at(-1)!
+    expect(message).toBe("settings.requestFailed")
+    expect(options?.action).toBeUndefined()
+  })
 })

@@ -44,7 +44,7 @@ export const dialerFields: FieldSpec[] = [
   { path: "disable_tcp_keep_alive", label: "disableTCPKeepAlive", kind: "boolean", section: "tcp" },
   { path: "tcp_keep_alive", label: "tcpKeepAlive", section: "tcp", when: keepAliveOn },
   { path: "tcp_keep_alive_interval", label: "tcpKeepAliveInterval", section: "tcp", when: keepAliveOn },
-  { path: "udp_fragment", label: "udpFragment", kind: "select", options: ["true", "false"], section: "udp" },
+  { path: "udp_fragment", label: "udpFragment", kind: "boolean-select", options: ["true", "false"], section: "udp" },
   { path: "domain_resolver.server", label: "domainResolverServer", kind: "ref", ref: "dns-server", section: "dns" },
   { path: "domain_resolver.strategy", label: "domainResolverStrategy", kind: "select", options: ["prefer_ipv4", "prefer_ipv6", "ipv4_only", "ipv6_only"], section: "dns" },
   { path: "domain_resolver.disable_cache", label: "domainResolverDisableCache", kind: "boolean", section: "dns" },
@@ -286,7 +286,7 @@ function removePaths(object: JsonObject, paths: string[]) {
 }
 function matchesField(value: unknown, field: FieldSpec) {
   if (value === undefined) return true
-  if (field.kind === "boolean") return typeof value === "boolean"
+  if (field.kind === "boolean" || field.kind === "boolean-select") return typeof value === "boolean"
   if (field.kind === "number") return typeof value === "number"
   if (field.kind === "list" || field.kind === "network-multi") {
     return typeof value === "string" || Array.isArray(value) && value.every((item) => typeof item === "string")

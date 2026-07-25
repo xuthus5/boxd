@@ -21,7 +21,7 @@ export const listenFields: FieldSpec[] = [
   { path: "disable_tcp_keep_alive", label: "disableTCPKeepAlive", kind: "boolean", section: "tcp" },
   { path: "tcp_keep_alive", label: "tcpKeepAlive", section: "tcp", when: { path: "disable_tcp_keep_alive", falsy: true } },
   { path: "tcp_keep_alive_interval", label: "tcpKeepAliveInterval", section: "tcp", when: { path: "disable_tcp_keep_alive", falsy: true } },
-  { path: "udp_fragment", label: "udpFragment", kind: "boolean", section: "udp" },
+  { path: "udp_fragment", label: "udpFragment", kind: "boolean-select", options: ["true", "false"], section: "udp" },
   { path: "udp_timeout", label: "udpTimeout", section: "udp" },
 ]
 
@@ -168,7 +168,7 @@ export function applyInboundFieldChange(object: JsonObject, next: JsonObject, ty
   return pruneInvisibleFields(next, managedInboundFields(type, transportType))
 }
 
-export type UserFieldKey = "name" | "username" | "password" | "uuid" | "flow" | "alterId"
+export type UserFieldKey = "name" | "username" | "password" | "uuid" | "flow" | "alterId" | "auth" | "auth_str"
 
 export function userSchema(type: string): UserFieldKey[] {
   switch (type) {
@@ -187,6 +187,7 @@ export function userSchema(type: string): UserFieldKey[] {
     case "vless":
       return ["name", "uuid", "flow"]
     case "hysteria":
+      return ["name", "auth", "auth_str"]
     case "hysteria2":
       return ["name", "password"]
     case "tuic":

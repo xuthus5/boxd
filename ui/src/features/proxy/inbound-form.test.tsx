@@ -152,9 +152,18 @@ describe("inbound form field conversions", () => {
 
   it("supports explicit UDP fragmentation and user variants", async () => {
     const user = userEvent.setup()
-    const selectChange = renderFields([{ path: "udp_fragment", label: "udpFragment", kind: "boolean" }], { udp_fragment: true })
-    await user.click(screen.getByRole("switch", { name: "UDP 分片" }))
-    expect(selectChange).toHaveBeenLastCalledWith({})
+    const enabledChange = renderFields([{ path: "udp_fragment", label: "udpFragment", kind: "boolean-select", options: ["true", "false"] }], { udp_fragment: true })
+    expect(screen.getByRole("combobox", { name: "UDP 分片" })).toHaveTextContent("启用")
+    await user.click(screen.getByRole("combobox", { name: "UDP 分片" }))
+    await user.click(await screen.findByRole("option", { name: "禁用" }))
+    expect(enabledChange).toHaveBeenLastCalledWith({ udp_fragment: false })
+    cleanup()
+
+    const disabledChange = renderFields([{ path: "udp_fragment", label: "udpFragment", kind: "boolean-select", options: ["true", "false"] }], { udp_fragment: false })
+    expect(screen.getByRole("combobox", { name: "UDP 分片" })).toHaveTextContent("禁用")
+    await user.click(screen.getByRole("combobox", { name: "UDP 分片" }))
+    await user.click(await screen.findByRole("option", { name: "未设置" }))
+    expect(disabledChange).toHaveBeenLastCalledWith({})
     cleanup()
 
     const usersChange = renderFields([{ path: "users", label: "users", kind: "users" }], { users: [{ name: "old", uuid: "id", custom: "keep" }] }, "vmess")
@@ -164,6 +173,39 @@ describe("inbound form field conversions", () => {
     expect(usersChange).toHaveBeenLastCalledWith({ users: [{ name: "new", uuid: "id", custom: "keep" }] })
     await user.click(screen.getByRole("button", { name: "删除用户" }))
     expect(usersChange).toHaveBeenLastCalledWith({})
+    cleanup()
+
+    const hysteriaChange = renderFields([{ path: "users", label: "users", kind: "users" }], { users: [{ name: "old", auth: "base64", auth_str: "token" }] }, "hysteria")
+    expect(screen.getByLabelText("认证用户 1 认证数据（Base64）")).toHaveValue("base64")
+    expect(screen.getByLabelText("认证用户 1 认证字符串")).toHaveValue("token")
+    fireEvent.change(screen.getByLabelText("认证用户 1 认证字符串"), { target: { value: "updated" } })
+    expect(hysteriaChange).toHaveBeenLastCalledWith({ users: [{ name: "old", auth: "base64", auth_str: "updated" }] })
+  })
+
+  it("handles typed select fallbacks and preset/manual transitions", async () => {
+    const user = userEvent.setup()
+    renderFields([{ path: "udp_fragment", label: "udpFragment", kind: "boolean-select", options: ["bogus"] }], {})
+    await user.click(screen.getByRole("combobox", { name: "UDP 分片" }))
+    await user.click(await screen.findByRole("option", { name: "bogus" }))
+    expect(screen.getByRole("combobox", { name: "UDP 分片" })).toHaveTextContent("未设置")
+    cleanup()
+
+    renderFields([{ path: "udp_fragment", label: "udpFragment", kind: "boolean-select", options: ["true", "false"] }], { udp_fragment: "legacy" as never })
+    expect(screen.getByRole("combobox", { name: "UDP 分片" })).toHaveTextContent("legacy")
+    cleanup()
+
+    const presetChange = renderFields([{ path: "listen", label: "listenAddress", kind: "listen-address" }], { listen: "0.0.0.0" })
+    await user.click(screen.getByRole("combobox", { name: "监听地址" }))
+    await user.click(await screen.findByRole("option", { name: "手动输入" }))
+    expect(presetChange).toHaveBeenLastCalledWith({})
+    cleanup()
+
+    renderApp(<ProxyFormFields fields={[{ path: "detour", label: "detour", kind: "ref", ref: "inbound" }, { path: "custom", label: "method", kind: "ref", options: ["preset"] }]} object={{}} namespace="proxy.inbound" onChange={vi.fn()} />)
+    await user.click(screen.getByRole("combobox", { name: "前置入站" }))
+    expect(await screen.findByRole("option", { name: "未设置" })).toBeInTheDocument()
+    await user.click(screen.getByRole("option", { name: "未设置" }))
+    await user.click(screen.getByRole("combobox", { name: "加密方法" }))
+    await user.click(await screen.findByRole("option", { name: "preset" }))
   })
 
   it("validates JSON object fields", () => {
@@ -419,7 +461,7 @@ describe("proxy form helpers", () => {
       ["shadowtls", ["name", "password"]],
       ["vmess", ["name", "uuid", "alterId"]],
       ["tuic", ["name", "uuid", "password"]],
-      ["hysteria", ["name", "password"]],
+      ["hysteria", ["name", "auth", "auth_str"]],
       ["hysteria2", ["name", "password"]],
     ] as const) expect(userSchema(type)).toEqual([...keys])
     const user = userEvent.setup()

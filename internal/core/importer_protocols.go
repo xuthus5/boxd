@@ -3,7 +3,6 @@ package core
 import (
 	"fmt"
 	"net/url"
-	"strconv"
 
 	"github.com/xuthus5/boxd/internal/model"
 )
@@ -11,17 +10,33 @@ import (
 // parseWireGuard 解析 wireguard:// 链接
 // 格式：wireguard://<base64-private-key>@<server>:<port>?public_key=<peer-pk>&address=<addr>&mtu=<mtu>#tag
 func parseWireGuard(u *url.URL) (*model.ImportResult, error) {
-	privateKey := u.User.String()
+	privateKey, err := userInfoValue(u)
+	if err != nil {
+		return nil, err
+	}
 	if privateKey == "" {
 		return nil, fmt.Errorf("missing private key in wireguard link")
 	}
 
-	server := u.Hostname()
-	portStr := u.Port()
-	port, _ := strconv.Atoi(portStr)
-	if port == 0 {
-		port = 51820
+	server, port, err := parseModernLinkServer(u, "wireguard", 51820)
+	if err != nil {
+		return nil, err
 	}
+	config, err := buildWireGuardLinkConfig(u, server, port, privateKey)
+	if err != nil {
+		return nil, err
+	}
+	tag := nodeName(u, fmt.Sprintf("wg-%s-%d", server, port))
+	return &model.ImportResult{
+		Tag:    tag,
+		Type:   "wireguard",
+		Server: server,
+		Port:   port,
+		Config: config,
+	}, nil
+}
+
+func buildWireGuardLinkConfig(u *url.URL, server string, port int, privateKey string) (map[string]any, error) {
 
 	q := u.Query()
 	publicKey := q.Get("public_key")
@@ -30,7 +45,10 @@ func parseWireGuard(u *url.URL) (*model.ImportResult, error) {
 		address = "10.0.0.2/32"
 	}
 	mtuStr := q.Get("mtu")
-	mtu, _ := strconv.Atoi(mtuStr)
+	mtu, err := parseModernNonNegativeInt(mtuStr, "wireguard mtu")
+	if mtuStr != "" && err != nil {
+		return nil, err
+	}
 
 	peer := map[string]any{
 		"address":     server,
@@ -51,33 +69,27 @@ func parseWireGuard(u *url.URL) (*model.ImportResult, error) {
 	if mtu > 0 {
 		config["mtu"] = mtu
 	}
-
-	tag := nodeName(u, fmt.Sprintf("wg-%s-%d", server, port))
-	return &model.ImportResult{
-		Tag:    tag,
-		Type:   "wireguard",
-		Server: server,
-		Port:   port,
-		Config: config,
-	}, nil
+	return config, nil
 }
 
 // parseTUIC 解析 tuic:// 链接
 // 格式：tuic://<uuid>:<password>@<server>:<port>?congestion_control=bbr&udp_relay_mode=quic&sni=example.com#tag
 func parseTUIC(u *url.URL) (*model.ImportResult, error) {
-	uuid := u.User.Username()
-	password, _ := u.User.Password()
+	uuid, password, err := parseTUICCredentials(u)
+	if err != nil {
+		return nil, err
+	}
+	query := u.Query()
+	uuid = firstNonEmpty(uuid, query.Get("uuid"))
+	password = firstNonEmpty(password, query.Get("password"), query.Get("auth"))
 	if uuid == "" {
 		return nil, fmt.Errorf("missing uuid in tuic link")
 	}
 
-	server := u.Hostname()
-	port, _ := strconv.Atoi(u.Port())
-	if port == 0 {
-		port = 443
+	server, port, err := parseModernLinkServer(u, "tuic", 443)
+	if err != nil {
+		return nil, err
 	}
-
-	q := u.Query()
 	config := map[string]any{
 		"type":        "tuic",
 		"server":      server,
@@ -85,25 +97,18 @@ func parseTUIC(u *url.URL) (*model.ImportResult, error) {
 		"uuid":        uuid,
 		"password":    password,
 	}
-	if cc := q.Get("congestion_control"); cc != "" {
-		config["congestion_control"] = cc
+	options, err := buildTUICLinkOptions(query)
+	if err != nil {
+		return nil, fmt.Errorf("invalid tuic options: %w", err)
 	}
-	if mode := q.Get("udp_relay_mode"); mode != "" {
-		config["udp_relay_mode"] = mode
+	for key, value := range options {
+		config[key] = value
 	}
-
-	sni := q.Get("sni")
-	if sni == "" {
-		sni = server
+	tlsConfig, err := buildModernLinkTLS(query, server)
+	if err != nil {
+		return nil, fmt.Errorf("invalid tuic TLS: %w", err)
 	}
-	tlsCfg := map[string]any{"enabled": true, "server_name": sni}
-	if alpn := q.Get("alpn"); alpn != "" {
-		tlsCfg["alpn"] = []string{alpn}
-	}
-	if q.Get("insecure") == "1" {
-		tlsCfg["insecure"] = true
-	}
-	config["tls"] = tlsCfg
+	config["tls"] = tlsConfig
 
 	tag := nodeName(u, fmt.Sprintf("tuic-%s-%d", server, port))
 	return &model.ImportResult{
@@ -118,18 +123,19 @@ func parseTUIC(u *url.URL) (*model.ImportResult, error) {
 // parseAnyTLS 解析 anytls:// 链接
 // 格式：anytls://<password>@<server>:<port>?sni=example.com&insecure=0#tag
 func parseAnyTLS(u *url.URL) (*model.ImportResult, error) {
-	password := u.User.String()
+	password, err := userInfoValue(u)
+	if err != nil {
+		return nil, err
+	}
+	query := u.Query()
+	password = firstNonEmpty(password, query.Get("password"), query.Get("auth"))
 	if password == "" {
 		return nil, fmt.Errorf("missing password in anytls link")
 	}
-
-	server := u.Hostname()
-	port, _ := strconv.Atoi(u.Port())
-	if port == 0 {
-		port = 443
+	server, port, err := parseModernLinkServer(u, "anytls", 443)
+	if err != nil {
+		return nil, err
 	}
-
-	q := u.Query()
 	config := map[string]any{
 		"type":        "anytls",
 		"server":      server,
@@ -137,15 +143,18 @@ func parseAnyTLS(u *url.URL) (*model.ImportResult, error) {
 		"password":    password,
 	}
 
-	sni := q.Get("sni")
-	if sni == "" {
-		sni = server
+	options, err := buildAnyTLSLinkOptions(query)
+	if err != nil {
+		return nil, fmt.Errorf("invalid anytls options: %w", err)
 	}
-	tlsCfg := map[string]any{"enabled": true, "server_name": sni}
-	if q.Get("insecure") == "1" {
-		tlsCfg["insecure"] = true
+	for key, value := range options {
+		config[key] = value
 	}
-	config["tls"] = tlsCfg
+	tlsConfig, err := buildModernLinkTLS(query, server)
+	if err != nil {
+		return nil, fmt.Errorf("invalid anytls TLS: %w", err)
+	}
+	config["tls"] = tlsConfig
 
 	tag := nodeName(u, fmt.Sprintf("anytls-%s-%d", server, port))
 	return &model.ImportResult{
@@ -160,21 +169,22 @@ func parseAnyTLS(u *url.URL) (*model.ImportResult, error) {
 // parseShadowTLS 解析 shadowtls:// 链接
 // 格式：shadowtls://<password>@<server>:<port>?version=3&sni=example.com#tag
 func parseShadowTLS(u *url.URL) (*model.ImportResult, error) {
-	password := u.User.String()
+	password, err := userInfoValue(u)
+	if err != nil {
+		return nil, err
+	}
+	query := u.Query()
+	password = firstNonEmpty(password, query.Get("password"), query.Get("auth"))
 	if password == "" {
 		return nil, fmt.Errorf("missing password in shadowtls link")
 	}
-
-	server := u.Hostname()
-	port, _ := strconv.Atoi(u.Port())
-	if port == 0 {
-		port = 443
+	server, port, err := parseModernLinkServer(u, "shadowtls", 443)
+	if err != nil {
+		return nil, err
 	}
-
-	q := u.Query()
-	version, _ := strconv.Atoi(q.Get("version"))
-	if version == 0 {
-		version = 3
+	version, err := parseShadowTLSVersion(query)
+	if err != nil {
+		return nil, fmt.Errorf("invalid shadowtls options: %w", err)
 	}
 
 	config := map[string]any{
@@ -185,11 +195,11 @@ func parseShadowTLS(u *url.URL) (*model.ImportResult, error) {
 		"password":    password,
 	}
 
-	sni := q.Get("sni")
-	if sni == "" {
-		sni = server
+	tlsConfig, err := buildModernLinkTLS(query, server)
+	if err != nil {
+		return nil, fmt.Errorf("invalid shadowtls TLS: %w", err)
 	}
-	config["tls"] = map[string]any{"enabled": true, "server_name": sni}
+	config["tls"] = tlsConfig
 
 	tag := nodeName(u, fmt.Sprintf("shadowtls-%s-%d", server, port))
 	return &model.ImportResult{

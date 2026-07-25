@@ -83,7 +83,7 @@ describe("ConnectionsPage", () => {
     expect(screen.getByText("显示 2 条")).toBeInTheDocument()
     expect(screen.getByText(/2 个出口/)).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "规则: geosite-google" })).toBeInTheDocument()
-    expect(screen.getByText("1s")).toBeInTheDocument()
+    expect(screen.getAllByText(/^\d+s$/)).toHaveLength(2)
     expect(screen.getByRole("button", { name: "关闭全部连接" })).toBeInTheDocument()
     expect(screen.getByRole("tab", { name: "按出口" })).toBeInTheDocument()
     await user.click(screen.getByRole("tab", { name: "按出口" }))

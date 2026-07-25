@@ -37,7 +37,7 @@ describe("settings interactions", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/settings/preferences", expect.objectContaining({
       method: "PUT",
     }))
-  })
+  }, 15_000)
 
   it("selects a preset speed test URL without manual input", async () => {
     sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })

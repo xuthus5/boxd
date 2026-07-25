@@ -21,7 +21,7 @@ describe("outbound form metadata", () => {
       expect.objectContaining({ path: "detour", kind: "ref", ref: "outbound" }),
       expect.objectContaining({ path: "domain_resolver.server", kind: "ref", ref: "dns-server" }),
       expect.objectContaining({ path: "network_strategy", kind: "select" }),
-      expect.objectContaining({ path: "udp_fragment", kind: "select" }),
+      expect.objectContaining({ path: "udp_fragment", kind: "boolean-select", options: ["true", "false"] }),
     ]))
     expect(protocolFields("shadowsocks")).toEqual(expect.arrayContaining([
       expect.objectContaining({ path: "method", kind: "select" }),

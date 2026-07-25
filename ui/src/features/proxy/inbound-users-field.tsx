@@ -36,6 +36,8 @@ function fieldLabel(t: (key: string) => string, key: UserFieldKey) {
   if (key === "uuid") return t("proxy.inbound.uuid")
   if (key === "username") return t("proxy.inbound.username")
   if (key === "password") return t("proxy.inbound.password")
+  if (key === "auth") return t("proxy.inbound.auth")
+  if (key === "auth_str") return t("proxy.inbound.authString")
   return t("proxy.inbound.userName")
 }
 

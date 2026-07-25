@@ -65,7 +65,7 @@ go run ./cmd/boxd/
 ## Usage
 
 1. Sign in and rotate the admin password.
-2. **Subscriptions / nodes**: add a public HTTP(S) subscription URL or import a single node; local/private sources and unsafe redirect targets are blocked. Subscriptions refresh in the background using each interval (the global interval is the fallback). Configure URLTest (inherit global defaults when needed). Downloads are capped at 16 MiB; refresh and config-sync failures expose actionable error codes.
+2. **Subscriptions / nodes**: add a public HTTP(S) subscription URL or import VMess, VLESS, Trojan, Shadowsocks/SIP002, SSR, Hysteria/Hysteria2, TUIC, AnyTLS, or ShadowTLS links. Local/private sources and unsafe redirect targets are blocked. Subscriptions refresh in the background using each interval (the global interval is the fallback). Configure URLTest (inherit global defaults when needed). Downloads are capped at 16 MiB; refresh and config-sync failures expose actionable error codes.
 3. **Inbounds / outbounds**: install mixed (1080) + TUN templates or create custom inbounds; bind subscription groups as selector/urltest, or use direct/block.
 4. **Route / DNS / NTP / Experimental**: edit rules and time sync in forms; install common defaults; one-click enable Clash API.
 5. **Dashboard**: start the kernel; switch global outbound and Clash mode; watch traffic and logs.

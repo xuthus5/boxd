@@ -16,6 +16,12 @@ describe("parsePolicyItemPath", () => {
       index: 2,
       relativePath: "url",
     })
+    expect(parsePolicyItemPath("route.rule_set[1]", "route")).toEqual({
+      section: "route",
+      kind: "rule_set",
+      index: 1,
+      relativePath: "",
+    })
   })
 
   it("parses dns servers and rules", () => {
@@ -59,5 +65,23 @@ describe("policyDialogSelectionFromPath", () => {
     expect(policyDialogSelectionFromPath("dns.servers[2].tag", "dns", {
       servers: [{ tag: "a" }],
     })).toBeNull()
+  })
+
+  it("opens rule-set and server selections without optional metadata", () => {
+    expect(policyDialogSelectionFromPath("route.rule_set[0]", "route", {
+      ruleSets: [{ tag: "geo" }],
+    })).toEqual({ kind: "rule-set", index: 0, item: { tag: "geo" }, jumpPath: "" })
+    expect(policyDialogSelectionFromPath("rules[0]", "dns", {
+      rules: [{ action: "reject" }],
+    })).toEqual({ kind: "rule", index: 0, item: { action: "reject" }, metadata: undefined, jumpPath: "" })
+    expect(policyDialogSelectionFromPath("dns.servers[0]", "dns", {
+      servers: [{ tag: "local" }],
+    })).toEqual({ kind: "server", index: 0, item: { tag: "local" }, jumpPath: "" })
+  })
+
+  it("returns null when the selected list is unavailable", () => {
+    expect(policyDialogSelectionFromPath("route.rule_set[0].url", "route", {})).toBeNull()
+    expect(policyDialogSelectionFromPath("route.rules[0].action", "route", {})).toBeNull()
+    expect(policyDialogSelectionFromPath("dns.servers[0].tag", "dns", {})).toBeNull()
   })
 })

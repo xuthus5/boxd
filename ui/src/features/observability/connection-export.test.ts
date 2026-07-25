@@ -25,6 +25,26 @@ describe("connection-export", () => {
     expect(sortConnections(sample, "upload").map((item) => item.id)).toEqual([2, 1, 3])
     expect(sortConnections(sample, "download").map((item) => item.id)).toEqual([1, 2, 3])
     expect(sortConnections(sample, "outbound").map((item) => item.id)).toEqual([2, 3, 1])
+    expect(compareConnections(
+      { ...sample[0], upload: 1, download: 1 },
+      { ...sample[1], upload: 1, download: 1 },
+      "download",
+    )).toBeGreaterThan(0)
+    expect(compareConnections(
+      { ...sample[0], upload: 1, download: 1 },
+      { ...sample[1], upload: 1, download: 1 },
+      "upload",
+    )).toBeGreaterThan(0)
+    expect(compareConnections(
+      { ...sample[0], start: "invalid" },
+      { ...sample[1], start: "invalid" },
+      "duration",
+    )).toBeGreaterThan(0)
+    expect(compareConnections(
+      { ...sample[0], target: "", outbound: "" },
+      { ...sample[1], target: "", outbound: "" },
+      "outbound",
+    )).toBe(0)
   })
 
   it("compares unknown sort as traffic", () => {
@@ -44,6 +64,20 @@ describe("connection-export", () => {
     })).toBe("2\ta.com:443\tdirect\tr1\ttcp\t10.0.0.2:1\tmixed-in\ttls\t/usr/bin/curl\t50\t10\t2026-07-23T00:00:00Z")
     expect(formatConnectionExport([sample[1]])).toContain("network\tsource\tinbound")
     expect(formatConnectionExport([])).toBe("")
+    expect(formatConnectionLine({
+      id: 8,
+      target: "",
+      outbound: "",
+      upload: 0,
+      download: 0,
+      start: "",
+      rule: "  ",
+      network: "  ",
+      source: "  ",
+      inbound: "  ",
+      protocol: "  ",
+      process: "  ",
+    })).toBe("8\t-\t-\t-\t-\t-\t-\t-\t-\t0\t0\t-")
   })
 
   it("builds filename", () => {
@@ -69,3 +103,13 @@ describe("connection-export", () => {
     expect(text).toContain("rule: geosite-google")
   })
 
+  it("omits blank optional clipboard fields", () => {
+    expect(formatConnectionClipboardText({
+      id: 10,
+      target: "  ",
+      outbound: "  ",
+      upload: 0,
+      download: 0,
+      start: "  ",
+    })).toBe(["id: 10", "upload: 0", "download: 0"].join("\n"))
+  })

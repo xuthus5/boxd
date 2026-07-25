@@ -210,6 +210,12 @@ function defaultUpdate(object: JsonObject, field: FieldSpec, raw: string) {
     if (value === null) return null
     return setPath(object, field.path, value)
   }
+  if (field.kind === "boolean-select") {
+    if (raw === "") return setPath(object, field.path, undefined)
+    if (raw === "true") return setPath(object, field.path, true)
+    if (raw === "false") return setPath(object, field.path, false)
+    return null
+  }
   return setPath(object, field.path, raw || undefined)
 }
 
@@ -254,7 +260,7 @@ function ProxyField({ field, object, namespace, revision, context, onChange, onF
     if (next) onChange(next)
   }
   if (field.kind === "boolean") return <BooleanField label={label} namespace={namespace} labelKey={field.label} checked={value === true} onChange={(checked) => onChange(setPath(object, field.path, checked || undefined))} />
-  if (field.kind === "select") return <SelectField field={field} label={label} namespace={namespace} value={textValue(value)} onChange={update} />
+  if (field.kind === "select" || field.kind === "boolean-select") return <SelectField field={field} label={label} namespace={namespace} value={textValue(value)} onChange={update} />
   if (field.kind === "listen-address") return <ListenAddressField label={label} namespace={namespace} labelKey={field.label} revision={revision} value={textValue(value)} onChange={update} />
   if (field.kind === "network-interface") return <NetworkInterfaceField label={label} namespace={namespace} labelKey={field.label} revision={revision} value={textValue(value)} onChange={update} />
   if (field.kind === "ref" && field.ref === "network-interface-multi") return <InterfaceMultiField label={label} namespace={namespace} labelKey={field.label} value={listValue(value)} onChange={(next) => onChange(setPath(object, field.path, next))} />

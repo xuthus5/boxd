@@ -1,12 +1,8 @@
 package core
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"net/url"
-	"strconv"
-	"strings"
 
 	"github.com/xuthus5/boxd/internal/model"
 )
@@ -21,7 +17,25 @@ func nodeName(u *url.URL, fallback string) string {
 	return fallback
 }
 
+func decodeUserInfo(value string) (string, error) {
+	decoded, err := url.PathUnescape(value)
+	if err != nil {
+		return "", fmt.Errorf("invalid user info: %w", err)
+	}
+	return decoded, nil
+}
+
+func userInfoValue(u *url.URL) (string, error) {
+	if u == nil || u.User == nil {
+		return "", nil
+	}
+	return decodeUserInfo(u.User.String())
+}
+
 func ParseProxyLink(link string) (*model.ImportResult, error) {
+	if isHysteria2Link(link) {
+		return parseHysteria2RawLink(link)
+	}
 	u, err := url.Parse(link)
 	if err != nil {
 		return nil, fmt.Errorf("invalid link: %w", err)
@@ -35,9 +49,11 @@ func ParseProxyLink(link string) (*model.ImportResult, error) {
 	case "trojan":
 		return parseTrojan(u)
 	case "ssr":
-		return parseSSR(u)
+		return parseSSRLink(link)
 	case "vless":
 		return parseVless(u)
+	case "hysteria":
+		return parseHysteria(u)
 	case "hysteria2", "hy2":
 		return parseHysteria2(u)
 	case "wireguard", "wg":
@@ -53,148 +69,95 @@ func ParseProxyLink(link string) (*model.ImportResult, error) {
 	}
 }
 
-func parseVmess(raw string) (*model.ImportResult, error) {
-	b64 := strings.TrimPrefix(raw, "vmess://")
-	data, err := base64.StdEncoding.DecodeString(b64)
-	if err != nil {
-		data, err = base64.RawURLEncoding.DecodeString(b64)
-		if err != nil {
-			return nil, fmt.Errorf("failed to decode vmess link")
-		}
-	}
-
-	var vmess struct {
-		Add  string `json:"add"`
-		Port int    `json:"port"`
-		ID   string `json:"id"`
-		Aid  int    `json:"aid"`
-		Net  string `json:"net"`
-		TLS  string `json:"tls"`
-		Host string `json:"host"`
-		Path string `json:"path"`
-		PS   string `json:"ps"`
-	}
-
-	if err := json.Unmarshal(data, &vmess); err != nil {
-		return nil, fmt.Errorf("failed to parse vmess JSON")
-	}
-
-	tag := vmess.PS
-	if tag == "" {
-		tag = fmt.Sprintf("vmess-%s-%d", vmess.Add, vmess.Port)
-	}
-
-	return &model.ImportResult{
-		Tag:    tag,
-		Type:   "vmess",
-		Server: vmess.Add,
-		Port:   vmess.Port,
-		Config: map[string]any{
-			"type":        "vmess",
-			"server":      vmess.Add,
-			"server_port": vmess.Port,
-			"uuid":        vmess.ID,
-			"alter_id":    vmess.Aid,
-			"network":     vmess.Net,
-			"tls":         vmess.TLS == "tls",
-			"ws-opts": map[string]any{
-				"path": vmess.Path,
-				"headers": map[string]string{
-					"Host": vmess.Host,
-				},
-			},
-		},
-	}, nil
-}
-
 func parseSS(u *url.URL) (*model.ImportResult, error) {
-	userInfo := u.User
-	if userInfo == nil {
-		return nil, fmt.Errorf("missing credentials in ss link")
+	linkData, err := parseShadowsocksLink(u)
+	if err != nil {
+		return nil, err
 	}
-
-	server := u.Hostname()
-	portStr := u.Port()
-	port, _ := strconv.Atoi(portStr)
-
-	parts := strings.SplitN(server, ":", 2)
-	if len(parts) == 2 {
-		server = parts[0]
-		port, _ = strconv.Atoi(parts[1])
+	plugin, pluginOptions := shadowsocksPluginConfig(u.Query())
+	config := map[string]any{
+		"type":        "shadowsocks",
+		"server":      linkData.server,
+		"server_port": linkData.port,
+		"method":      linkData.method,
+		"password":    linkData.password,
 	}
-
-	pass, _ := userInfo.Password()
-	tag := nodeName(u, fmt.Sprintf("ss-%s-%d", server, port))
+	if plugin != "" {
+		config["plugin"] = plugin
+	}
+	if pluginOptions != "" {
+		config["plugin_opts"] = pluginOptions
+	}
+	tag := nodeName(u, fmt.Sprintf("ss-%s-%d", linkData.server, linkData.port))
 
 	return &model.ImportResult{
 		Tag:    tag,
 		Type:   "shadowsocks",
-		Server: server,
-		Port:   port,
-		Config: map[string]any{
-			"type":        "shadowsocks",
-			"server":      server,
-			"server_port": port,
-			"method":      userInfo.Username(),
-			"password":    pass,
-		},
+		Server: linkData.server,
+		Port:   linkData.port,
+		Config: config,
 	}, nil
 }
 
 func parseTrojan(u *url.URL) (*model.ImportResult, error) {
-	password := u.User.String()
-	server := u.Hostname()
-	portStr := u.Port()
-	port, _ := strconv.Atoi(portStr)
+	password, err := userInfoValue(u)
+	if err != nil {
+		return nil, err
+	}
+	if password == "" {
+		return nil, fmt.Errorf("missing password in trojan link")
+	}
+	server, port, err := parseModernLinkServer(u, "trojan", 443)
+	if err != nil {
+		return nil, err
+	}
+	query := u.Query()
+	transport, err := buildLinkTransport(query)
+	if err != nil {
+		return nil, fmt.Errorf("invalid trojan transport: %w", err)
+	}
 
 	tag := nodeName(u, fmt.Sprintf("trojan-%s-%d", server, port))
+	config := map[string]any{
+		"type":        "trojan",
+		"server":      server,
+		"server_port": port,
+		"password":    password,
+	}
+	if transport != nil {
+		config["transport"] = transport
+	}
+	if tls := buildLinkTLSConfig(query, true); tls != nil {
+		config["tls"] = tls
+	}
 	return &model.ImportResult{
 		Tag:    tag,
 		Type:   "trojan",
 		Server: server,
 		Port:   port,
-		Config: map[string]any{
-			"type":        "trojan",
-			"server":      server,
-			"server_port": port,
-			"password":    password,
-		},
-	}, nil
-}
-
-func parseSSR(u *url.URL) (*model.ImportResult, error) {
-	server := u.Hostname()
-	portStr := u.Port()
-	port, _ := strconv.Atoi(portStr)
-
-	tag := nodeName(u, fmt.Sprintf("ssr-%s-%d", server, port))
-	return &model.ImportResult{
-		Tag:    tag,
-		Type:   "shadowsocksr",
-		Server: server,
-		Port:   port,
-		Config: map[string]any{
-			"type":        "shadowsocksr",
-			"server":      server,
-			"server_port": port,
-		},
+		Config: config,
 	}, nil
 }
 
 func parseVless(u *url.URL) (*model.ImportResult, error) {
-	uuid := u.User.String()
-	server := u.Hostname()
-	portStr := u.Port()
-	port, _ := strconv.Atoi(portStr)
+	uuid, err := userInfoValue(u)
+	if err != nil {
+		return nil, err
+	}
+	if uuid == "" {
+		return nil, fmt.Errorf("missing uuid in vless link")
+	}
+	server, port, err := parseModernLinkServer(u, "vless", 443)
+	if err != nil {
+		return nil, err
+	}
 	q := u.Query()
 
 	flow := q.Get("flow")
-	security := q.Get("security")
-	sni := q.Get("sni")
-	fp := q.Get("fp")
-	pbk := q.Get("pbk")
-	sid := q.Get("sid")
-	network := q.Get("type")
+	transport, err := buildLinkTransport(q)
+	if err != nil {
+		return nil, fmt.Errorf("invalid vless transport: %w", err)
+	}
 
 	config := map[string]any{
 		"type":        "vless",
@@ -207,32 +170,11 @@ func parseVless(u *url.URL) (*model.ImportResult, error) {
 		config["flow"] = flow
 	}
 
-	if security == "reality" || sni != "" || pbk != "" {
-		tlsCfg := map[string]any{
-			"enabled":     true,
-			"server_name": sni,
-		}
-
-		if fp != "" {
-			tlsCfg["utls"] = map[string]any{
-				"enabled":     true,
-				"fingerprint": fp,
-			}
-		}
-
-		if pbk != "" {
-			realityCfg := map[string]any{"enabled": true, "public_key": pbk}
-			if sid != "" {
-				realityCfg["short_id"] = sid
-			}
-			tlsCfg["reality"] = realityCfg
-		}
-
-		config["tls"] = tlsCfg
+	if transport != nil {
+		config["transport"] = transport
 	}
-
-	if network != "" {
-		config["network"] = network
+	if tls := buildLinkTLSConfig(q, false); tls != nil {
+		config["tls"] = tls
 	}
 
 	tag := nodeName(u, fmt.Sprintf("vless-%s-%d", server, port))
@@ -246,10 +188,31 @@ func parseVless(u *url.URL) (*model.ImportResult, error) {
 }
 
 func parseHysteria2(u *url.URL) (*model.ImportResult, error) {
-	password := u.User.String()
+	password, err := hysteria2Password(u)
+	if err != nil {
+		return nil, fmt.Errorf("invalid hysteria2 credentials: %w", err)
+	}
 	server := u.Hostname()
-	portStr := u.Port()
-	port, _ := strconv.Atoi(portStr)
+	if server == "" {
+		return nil, fmt.Errorf("invalid hysteria2 link: missing server")
+	}
+	port, err := parseHysteria2Port(u)
+	if err != nil {
+		return nil, err
+	}
+	options, err := buildHysteria2Options(u.Query(), server)
+	if err != nil {
+		return nil, fmt.Errorf("invalid hysteria2 options: %w", err)
+	}
+	config := map[string]any{
+		"type":        "hysteria2",
+		"server":      server,
+		"server_port": port,
+		"password":    password,
+	}
+	for key, value := range options {
+		config[key] = value
+	}
 
 	tag := nodeName(u, fmt.Sprintf("hysteria2-%s-%d", server, port))
 	return &model.ImportResult{
@@ -257,11 +220,6 @@ func parseHysteria2(u *url.URL) (*model.ImportResult, error) {
 		Type:   "hysteria2",
 		Server: server,
 		Port:   port,
-		Config: map[string]any{
-			"type":        "hysteria2",
-			"server":      server,
-			"server_port": port,
-			"password":    password,
-		},
+		Config: config,
 	}, nil
 }
