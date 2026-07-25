@@ -217,7 +217,7 @@ export function SubscriptionDialog({ defaults, item, onClose, onSaved }: Subscri
         </Field>
       </FieldGroup>
       <URLTestFields defaults={defaults} state={urlTest} setState={setURLTest} onReset={resetURLTest} />
-      <DialogFooter className="gap-2">
+      <DialogFooter className="-mx-3 -mb-3 p-3 sm:-mx-4 sm:-mb-4 sm:p-4">
         <Button variant="outline" size="sm" className="h-8" onClick={onClose}>{t("common.cancel")}</Button>
         <Button size="sm" className="h-8" disabled={isInvalid || request.isPending} onClick={save}>{t("common.save")}</Button>
       </DialogFooter>

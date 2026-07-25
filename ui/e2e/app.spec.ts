@@ -36,6 +36,7 @@ const apiBodies: Record<string, unknown> = {
   "/api/stats/traffic/history": { points: [] },
   "/api/runtime/memory": { alloc: 1024, total: 2048, sys: 4096, num_gc: 1, heap_inuse: 512, stack_inuse: 128 },
   "/api/runtime/version": { version: "dev", kernel_version: "1.13.14" },
+  "/api/runtime/clash-mode": { mode: "Rule", mode_list: ["Rule", "Global", "Direct"] },
   "/api/config/": config,
   "/api/config/raw": config,
   "/api/nodes/": nodes,
@@ -158,7 +159,7 @@ test("smoke: login, navigation, log tabs, and raw save", async ({ page }) => {
   await page.route("http://127.0.0.1:4173/api/**", fulfillAPI)
   await login(page)
 
-  await page.getByRole("link", { name: "日志" }).click()
+  await page.getByLabel("日志", { exact: true }).click()
   await expect(page.getByRole("tab", { name: "内核日志" })).toBeVisible()
   await page.getByRole("tab", { name: "应用日志" }).click()
   await expect(page.getByRole("tabpanel").getByText("ready")).toBeVisible()

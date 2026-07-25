@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next"
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { cn } from "@/lib/utils"
 import {
   isSpeedTestURLPreset,
   SPEED_TEST_URL_PRESETS,
@@ -65,9 +66,9 @@ export function ProbeURLField({
   const selectValue = mode
 
   return (
-    <Field data-invalid={invalid || undefined} className={className}>
+    <Field data-invalid={invalid || undefined} className={cn("min-w-0", className)}>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <div className="grid gap-2">
+      <div className="grid min-w-0 max-w-full gap-2">
         <Select
           items={items}
           value={selectValue}
@@ -93,7 +94,7 @@ export function ProbeURLField({
             aria-label={label}
             aria-invalid={invalid || undefined}
             disabled={disabled}
-            className="w-full"
+            className="w-full min-w-0 max-w-full"
           >
             <SelectValue />
           </SelectTrigger>
@@ -115,6 +116,7 @@ export function ProbeURLField({
             disabled={disabled}
             value={isSpeedTestURLPreset(value) ? "" : value}
             placeholder={manualPlaceholder}
+            className="min-w-0 max-w-full"
             onChange={(event) => onChange(event.target.value)}
           />
         ) : null}
