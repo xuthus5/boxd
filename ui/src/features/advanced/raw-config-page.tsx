@@ -4,11 +4,14 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ConfirmAction } from "@/components/confirm-action"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ConfigDiffPanel } from "@/features/config/config-diff-panel"
+import { ConfigPreflightPanel } from "@/features/config/config-preflight-panel"
+import { preflightConfig } from "@/features/config/config-preflight"
 import { ConfigSaveErrorAlert } from "@/features/config/config-save-error-alert"
 import { useConfigSaveError } from "@/features/config/use-config-save-error"
 import { useConfigValidate } from "@/features/config/use-config-validate"
@@ -23,6 +26,7 @@ import {
   rawConfigFileErrorMessageKey,
   RawConfigFileError,
   readRawConfigFile,
+  parseRawConfigText,
 } from "@/features/advanced/raw-config-file"
 import type { SingBoxConfig } from "@/lib/api/types"
 import { triggerBrowserDownload } from "@/lib/api/client"
@@ -38,7 +42,16 @@ function RawEditor({ initial }: { initial: SingBoxConfig }) {
   const { saveError, clearSaveError, reportError, reportRollback } = useConfigSaveError()
   const save = useSaveConfigMutation(true)
   const valid = isValidJSON(value)
-  const nextConfig = valid ? JSON.parse(value) as SingBoxConfig : null
+  let nextConfig: SingBoxConfig | null = null
+  if (valid) {
+    try {
+      nextConfig = parseRawConfigText(value)
+    } catch (error) {
+      void error
+      nextConfig = null
+    }
+  }
+  const preflightIssues = nextConfig ? preflightConfig(nextConfig) : []
   const diffItems = nextConfig ? diffConfig(initial, nextConfig) : []
   const diffSummary = formatConfigDiffSummary(diffItems, {
     added: t("advanced.diffAdded"),
@@ -110,6 +123,13 @@ function RawEditor({ initial }: { initial: SingBoxConfig }) {
         <FieldLabel className="sr-only">{t("advanced.rawJSON")}</FieldLabel>
         <JsonEditor ref={editorRef} value={value} onChange={setValue} ariaLabel={t("advanced.rawJSON")} />
       </Field>
+      {valid && !nextConfig ? (
+        <Alert variant="destructive" data-testid="config-root-error">
+          <AlertTitle>{t("advanced.rawRootInvalid")}</AlertTitle>
+          <AlertDescription>{t("advanced.rawRootInvalidDescription")}</AlertDescription>
+        </Alert>
+      ) : null}
+      {nextConfig ? <ConfigPreflightPanel issues={preflightIssues} onSelectPath={reveal} /> : null}
       <ConfigSaveErrorAlert
         error={saveError}
         onDismiss={clearSaveError}
@@ -141,7 +161,7 @@ function RawEditor({ initial }: { initial: SingBoxConfig }) {
           variant="outline"
           size="sm"
           className="h-8 w-full sm:w-auto"
-          disabled={!valid || importing || validating || save.isPending}
+          disabled={!nextConfig || importing || validating || save.isPending}
           onClick={exportConfig}
         >
           <DownloadIcon data-icon="inline-start" />
@@ -154,13 +174,13 @@ function RawEditor({ initial }: { initial: SingBoxConfig }) {
           variant="outline"
           size="sm"
           className="h-8 w-full sm:w-auto"
-          disabled={!valid || validating || save.isPending}
+          disabled={!nextConfig || validating || save.isPending}
           onClick={() => { void runValidate() }}
         >
           {validating ? t("advanced.validating") : t("advanced.validate")}
         </Button>
         <ConfirmAction
-          trigger={<Button size="sm" className="h-8 w-full sm:w-auto" disabled={!valid || save.isPending || validating}>{t("advanced.saveRaw")}</Button>}
+          trigger={<Button size="sm" className="h-8 w-full sm:w-auto" disabled={!nextConfig || save.isPending || validating}>{t("advanced.saveRaw")}</Button>}
           title={t("advanced.overwriteTitle")}
           description={`${t("advanced.overwriteDescription")}
 ${diffSummary}`}

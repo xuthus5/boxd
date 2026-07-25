@@ -37,6 +37,7 @@ describe("RawConfigPage diff", () => {
     renderPage()
     await waitFor(() => expect(screen.getByTestId("config-diff-panel")).toHaveTextContent("配置无变化"))
     expect(screen.getByLabelText("完整配置 JSON")).toBeInTheDocument()
+    expect(screen.getByTestId("config-preflight")).toHaveTextContent("配置预检")
     expect(screen.getByRole("button", { name: "校验配置" })).toBeInTheDocument()
     vi.unstubAllGlobals()
   })
@@ -96,6 +97,40 @@ describe("RawConfigPage diff", () => {
       expect(screen.getByTestId("config-diff-panel")).toHaveTextContent("log.level")
       expect(screen.getByTestId("config-diff-panel")).toHaveTextContent("dns")
     })
+    vi.unstubAllGlobals()
+  })
+
+  it("shows local reference diagnostics and jumps to the reported path", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      status: "ok",
+      data: { log: { level: "info" } },
+      error: null,
+      meta: null,
+    }))))
+    renderPage()
+    const editor = await screen.findByLabelText("完整配置 JSON")
+    await userEvent.click(editor)
+    await userEvent.keyboard("{Control>}a{/Control}")
+    await userEvent.paste(JSON.stringify({ route: { final: "missing-proxy" } }, null, 2))
+    expect(await screen.findByText(/引用的出站/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole("button", { name: "route.final" }))
+    vi.unstubAllGlobals()
+  })
+
+  it("explains a syntactically valid but non-object root", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      status: "ok",
+      data: { log: { level: "info" } },
+      error: null,
+      meta: null,
+    }))))
+    renderPage()
+    const editor = await screen.findByLabelText("完整配置 JSON")
+    await userEvent.click(editor)
+    await userEvent.keyboard("{Control>}a{/Control}")
+    await userEvent.paste("[]")
+    expect(await screen.findByTestId("config-root-error")).toHaveTextContent("配置结构无效")
+    expect(screen.getByRole("button", { name: "保存完整配置" })).toBeDisabled()
     vi.unstubAllGlobals()
   })
 
