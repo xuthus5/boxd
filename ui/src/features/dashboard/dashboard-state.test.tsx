@@ -14,7 +14,7 @@ describe("dashboard alternate states", () => {
       status: "error", data: null, error: { code: "internal_error", message: "unavailable" }, meta: null,
     }), { status: 500 }))))
     renderApp(<App />, "/dashboard")
-    const alert = await screen.findByTestId("page-load-error", {}, { timeout: 3000 })
+    const alert = await screen.findByTestId("page-load-error")
     expect(alert).toHaveAttribute("data-error-code", "internal")
     expect(screen.getByText("unavailable")).toBeInTheDocument()
     expect(screen.getByText(/仪表盘加载失败/)).toBeInTheDocument()

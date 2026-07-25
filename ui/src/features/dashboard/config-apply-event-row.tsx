@@ -18,18 +18,21 @@ import {
   shortConfigHash,
 } from "@/features/dashboard/config-apply-source"
 import { ConfigRestoreAction } from "@/features/dashboard/config-restore-action"
+import type { ConfigRestoreHandler } from "@/features/dashboard/use-config-restore"
 import { kernelErrorHintKey, resolveKernelErrorCode } from "@/features/dashboard/kernel-error"
 import { copyText } from "@/features/proxy/copy-tag-button"
 import { formatRelativeTime } from "@/features/subscriptions/relative-time"
 import { cn } from "@/lib/utils"
-import type { ConfigApplyEvent } from "@/lib/api/types"
+import type { ConfigApplyEvent, SingBoxConfig } from "@/lib/api/types"
 
 interface ConfigApplyEventRowProps {
   event: ConfigApplyEvent
   now: number
   locale: string
+  currentConfig?: SingBoxConfig
+  currentConfigLoading: boolean
   restoring: boolean
-  onRestore: (event: ConfigApplyEvent) => Promise<void>
+  onRestore: ConfigRestoreHandler
 }
 
 function formatBytes(size: number) {
@@ -142,7 +145,15 @@ function EventSummary({ event, relative, sourceHref, sourceLabel, statusLabel, o
   )
 }
 
-export function ConfigApplyEventRow({ event, now, locale, restoring, onRestore }: ConfigApplyEventRowProps) {
+export function ConfigApplyEventRow({
+  event,
+  now,
+  locale,
+  currentConfig,
+  currentConfigLoading,
+  restoring,
+  onRestore,
+}: ConfigApplyEventRowProps) {
   const { t } = useTranslation()
   const failed = configApplyEventFailed(event.status)
   const sourceHref = configApplySourceHref(event.source)
@@ -157,7 +168,15 @@ export function ConfigApplyEventRow({ event, now, locale, restoring, onRestore }
     <li className={cn("min-w-0 rounded-md border px-2.5 py-1.5", failed ? "border-destructive/40 bg-destructive/5" : "bg-muted/30")}>
       <EventSummary event={event} relative={relative} sourceHref={sourceHref} sourceLabel={sourceLabel} statusLabel={statusLabel} onCopyHash={copyHash} />
       {event.error ? <EventErrorBlock event={event} sourceLabel={sourceLabel} sourceHref={sourceHref} onCopy={copyError} /> : null}
-      {event.restorable && event.id && !event.current && !failed ? <ConfigRestoreAction event={event} restoring={restoring} onRestore={onRestore} /> : null}
+      {event.restorable && event.id && !event.current && !failed ? (
+        <ConfigRestoreAction
+          event={event}
+          currentConfig={currentConfig}
+          currentConfigLoading={currentConfigLoading}
+          restoring={restoring}
+          onRestore={onRestore}
+        />
+      ) : null}
     </li>
   )
 }

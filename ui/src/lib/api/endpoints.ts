@@ -84,6 +84,9 @@ export const api = {
     installRoute: () => apiRequestEnvelope<JsonValue>("/api/config/route/defaults", json("POST")),
     getRouteRuleMetadata: () => apiRequest<RouteRuleMetadata[]>("/api/config/route/rule-metadata"),
     applyHistory: () => apiRequest<{ events: ConfigApplyEvent[] }>("/api/config/apply-history"),
+    applyHistorySnapshot: (id: string) => apiRequest<SingBoxConfig>(
+      `/api/config/apply-history/${segment(id)}/snapshot`,
+    ),
     restoreApplyHistory: (id: string) => apiRequestEnvelope<{ restored: boolean; source_id: string; already_current?: boolean }>(
       `/api/config/apply-history/${segment(id)}/restore`, json("POST"),
     ),

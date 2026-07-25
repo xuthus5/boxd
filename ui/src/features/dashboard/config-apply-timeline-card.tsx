@@ -7,10 +7,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Skeleton } from "@/components/ui/skeleton"
 import { CardQueryError } from "@/features/common/card-query-error"
+import { useConfigQuery } from "@/features/config/config-hooks"
 import { ConfigApplyEventRow } from "@/features/dashboard/config-apply-event-row"
-import { useConfigRestore } from "@/features/dashboard/use-config-restore"
+import { type ConfigRestoreHandler, useConfigRestore } from "@/features/dashboard/use-config-restore"
 import { api } from "@/lib/api/endpoints"
-import type { ConfigApplyEvent } from "@/lib/api/types"
+import type { ConfigApplyEvent, SingBoxConfig } from "@/lib/api/types"
 import { cn } from "@/lib/utils"
 
 function TimelineLoadErrorCard({ error, onRetry }: { error: Error; onRetry: () => void }) {
@@ -37,14 +38,18 @@ function TimelineContent({
   events,
   now,
   locale,
+  currentConfig,
+  currentConfigLoading,
   restoringID,
   onRestore,
 }: {
   events: ConfigApplyEvent[]
   now: number
   locale: string
+  currentConfig?: SingBoxConfig
+  currentConfigLoading: boolean
   restoringID: string | null
-  onRestore: (event: ConfigApplyEvent) => Promise<void>
+  onRestore: ConfigRestoreHandler
 }) {
   const { t } = useTranslation()
   if (events.length === 0) {
@@ -65,6 +70,8 @@ function TimelineContent({
           event={event}
           now={now}
           locale={locale}
+          currentConfig={currentConfig}
+          currentConfigLoading={currentConfigLoading}
           onRestore={onRestore}
           restoring={restoringID !== null}
         />
@@ -76,16 +83,17 @@ function TimelineContent({
 export function ConfigApplyTimelineCard() {
   const { t, i18n } = useTranslation()
   const { restore, restoringID } = useConfigRestore()
-  const query = useQuery({
+  const currentConfig = useConfigQuery()
+  const history = useQuery({
     queryKey: ["config", "apply-history"],
     queryFn: api.config.applyHistory,
     refetchInterval: 15000,
   })
-  if (query.isLoading) return <Skeleton className="h-48 w-full" />
-  if (query.error) {
-    return <TimelineLoadErrorCard error={query.error} onRetry={() => { void query.refetch() }} />
+  if (history.isLoading) return <Skeleton className="h-48 w-full" />
+  if (history.error) {
+    return <TimelineLoadErrorCard error={history.error} onRetry={() => { void history.refetch() }} />
   }
-  const events = query.data?.events ?? []
+  const events = history.data?.events ?? []
   const locale = i18n.language?.startsWith("en") ? "en-US" : "zh-CN"
   return (
     <Card size="sm">
@@ -96,8 +104,10 @@ export function ConfigApplyTimelineCard() {
       <CardContent>
         <TimelineContent
           events={events}
-          now={query.dataUpdatedAt}
+          now={history.dataUpdatedAt}
           locale={locale}
+          currentConfig={currentConfig.data}
+          currentConfigLoading={currentConfig.isFetching}
           restoringID={restoringID}
           onRestore={restore}
         />

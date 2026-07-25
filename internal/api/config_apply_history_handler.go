@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -85,6 +86,36 @@ func (h *ConfigHandler) RestoreConfig(w http.ResponseWriter, r *http.Request) {
 		"restored_from": id,
 		"rolled_back":   status == model.StatusRolledBack,
 	})
+}
+
+func (h *ConfigHandler) GetConfigSnapshot(w http.ResponseWriter, r *http.Request) {
+	if h.applyHistory == nil {
+		writeJSONErrorCode(w, http.StatusNotFound, model.ErrorNotFound, "config snapshot not found")
+		return
+	}
+	id := strings.TrimSpace(chi.URLParam(r, "id"))
+	body, err := h.applyHistory.GetSnapshot(id)
+	if err != nil {
+		if errors.Is(err, core.ErrConfigSnapshotNotFound) {
+			writeJSONErrorCode(w, http.StatusNotFound, model.ErrorNotFound, "config snapshot not found")
+			return
+		}
+		slog.ErrorContext(r.Context(), "load config snapshot", "event_id", id, "error", err)
+		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorInternal, "failed to load config snapshot")
+		return
+	}
+	var parsed map[string]json.RawMessage
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		slog.ErrorContext(r.Context(), "decode config snapshot", "event_id", id, "error", err)
+		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorInternal, "invalid config snapshot")
+		return
+	}
+	if parsed == nil {
+		slog.ErrorContext(r.Context(), "decode config snapshot", "event_id", id, "reason", "snapshot is not a JSON object")
+		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorInternal, "invalid config snapshot")
+		return
+	}
+	writeJSON(w, http.StatusOK, parsed)
 }
 
 func configSnapshotIsCurrent(configPath string, snapshot []byte) bool {

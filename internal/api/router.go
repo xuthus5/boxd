@@ -62,6 +62,7 @@ func NewRouter(
 		r.Post("/validate", configHandler.ValidateConfig)
 		r.Get("/apply-history", configHandler.ListConfigApplyHistory)
 		r.Post("/apply-history/{id}/restore", configHandler.RestoreConfig)
+		r.Get("/apply-history/{id}/snapshot", configHandler.GetConfigSnapshot)
 		r.Post("/dns/defaults", configHandler.InstallDefaultDNS)
 		r.Post("/rule-sets/defaults", configHandler.InstallDefaultRuleSets)
 		r.Get("/rule-sets/status", ruleSetHandler.Status)
