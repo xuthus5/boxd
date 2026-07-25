@@ -474,5 +474,17 @@ export const zh = {
         jsonObjectHint: "请输入合法 JSON 对象。",
       },
     },
+    configRestore: {
+      source: "历史配置恢复",
+      currentConfig: "当前配置",
+      alreadyCurrent: "该历史快照已是当前配置",
+      restoreConfig: "恢复此配置",
+      restoringConfig: "恢复中…",
+      restoreConfigTitle: "恢复历史配置？",
+      restoreConfigDescription: "将使用配置 {{hash}} 重写当前 sing-box 配置，并触发校验与重启。若启动失败，系统会自动回滚。",
+      confirmRestoreConfig: "确认恢复",
+      restoreSuccess: "历史配置已恢复",
+      restoreFailed: "恢复历史配置失败",
+    },
   },
 } as const

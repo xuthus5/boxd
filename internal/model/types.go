@@ -132,14 +132,23 @@ type LatencyPoint struct {
 	Error     string    `json:"error,omitempty"`
 }
 
+const (
+	ConfigApplyStatusApplied        = "applied"
+	ConfigApplyStatusRolledBack     = "rolled_back"
+	ConfigApplyStatusValidated      = "validated"
+	ConfigApplyStatusValidateFailed = "validate_failed"
+)
+
 // ConfigApplyEvent is one config write/reload attempt for the ops timeline.
 type ConfigApplyEvent struct {
-	ID        string    `json:"id"`
-	Source    string    `json:"source"`
-	Status    string    `json:"status"`
-	Hash      string    `json:"hash"`
-	Size      int       `json:"size"`
-	Error     string    `json:"error,omitempty"`
-	ErrorCode string    `json:"error_code,omitempty"`
-	AppliedAt time.Time `json:"applied_at"`
+	ID         string    `json:"id"`
+	Source     string    `json:"source"`
+	Status     string    `json:"status"`
+	Hash       string    `json:"hash"`
+	Size       int       `json:"size"`
+	Restorable bool      `json:"restorable,omitempty"`
+	Current    bool      `json:"current,omitempty"`
+	Error      string    `json:"error,omitempty"`
+	ErrorCode  string    `json:"error_code,omitempty"`
+	AppliedAt  time.Time `json:"applied_at"`
 }

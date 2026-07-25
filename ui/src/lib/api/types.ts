@@ -245,6 +245,8 @@ export interface ConfigApplyEvent {
   status: string
   hash: string
   size: number
+  restorable?: boolean
+  current?: boolean
   error?: string
   error_code?: string
   applied_at: string

@@ -474,5 +474,17 @@ export const en = {
         jsonObjectHint: "Enter a valid JSON object.",
       },
     },
+    configRestore: {
+      source: "Historical config restore",
+      currentConfig: "Current config",
+      alreadyCurrent: "This snapshot is already the current config",
+      restoreConfig: "Restore config",
+      restoringConfig: "Restoring…",
+      restoreConfigTitle: "Restore historical config?",
+      restoreConfigDescription: "This rewrites the current sing-box config with snapshot {{hash}}, then validates and restarts it. A failed start is rolled back automatically.",
+      confirmRestoreConfig: "Restore config",
+      restoreSuccess: "Historical config restored",
+      restoreFailed: "Failed to restore historical config",
+    },
   },
 } as const

@@ -75,6 +75,39 @@ describe("ConfigApplyTimelineCard", () => {
     expect(screen.getByRole("link", { name: "打开来源: 完整配置保存" })).toHaveAttribute("href", "/advanced/raw")
   })
 
+  it("labels restored snapshots distinctly", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
+      events: [{
+        id: "restore-1",
+        source: "restore",
+        status: "applied",
+        hash: "abcdef0123456789",
+        size: 512,
+        applied_at: "2026-07-23T12:00:00Z",
+      }],
+    })))))
+    renderCard()
+    expect(await screen.findByRole("link", { name: "历史配置恢复" })).toHaveAttribute("href", "/advanced/raw")
+  })
+
+  it("marks the current config without offering a no-op restore", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
+      events: [{
+        id: "current-1",
+        source: "update",
+        status: "applied",
+        hash: "abcdef0123456789",
+        size: 512,
+        current: true,
+        restorable: true,
+        applied_at: "2026-07-23T12:00:00Z",
+      }],
+    })))))
+    renderCard()
+    expect(await screen.findByText("当前配置")).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "恢复此配置" })).not.toBeInTheDocument()
+  })
+
   it("shows densified load failure diagnostics", async () => {
     vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
       status: "error", data: null, error: { code: "internal_error", message: "history unavailable" }, meta: null,
@@ -141,6 +174,84 @@ describe("ConfigApplyTimelineCard", () => {
       "href",
       "/proxy/inbounds",
     )
+  })
+
+  it("restores a retained successful config snapshot", async () => {
+    const fetchMock = vi.fn((input: string | URL | Request) => {
+      const path = typeof input === "string" ? input : input instanceof URL ? input.pathname : new URL(input.url).pathname
+      if (path.endsWith("/restore")) {
+        return Promise.resolve(new Response(JSON.stringify({
+          status: "ok", data: { restored: true, source_id: "2" }, error: null, meta: null,
+        })))
+      }
+      return Promise.resolve(new Response(JSON.stringify({
+        events: [{
+          id: "2",
+          source: "update",
+          status: "applied",
+          hash: "1111222233334444",
+          size: 512,
+          restorable: true,
+          applied_at: "2026-07-23T11:00:00Z",
+        }],
+      })))
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    renderCard()
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole("button", { name: "恢复此配置" }))
+    expect(screen.getByText("恢复历史配置？")).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "确认恢复" }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      "/api/config/apply-history/2/restore",
+      expect.objectContaining({ method: "POST" }),
+    ))
+    expect(toast.success).toHaveBeenCalledWith("历史配置已恢复")
+  })
+
+  it("reports a restore that the backend rolled back", async () => {
+    vi.mocked(toast.error).mockClear()
+    vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
+      const path = typeof input === "string" ? input : input instanceof URL ? input.pathname : new URL(input.url).pathname
+      if (path.endsWith("/restore")) {
+        return Promise.resolve(new Response(JSON.stringify({
+          status: "rolled_back",
+          data: { restored: false, source_id: "2" },
+          error: { code: "config_restart_failed", message: "restart failed after config save" },
+          meta: { rolled_back: true },
+        })))
+      }
+      return Promise.resolve(new Response(JSON.stringify({
+        events: [{ id: "2", source: "update", status: "applied", hash: "11112222", size: 512, restorable: true, applied_at: "2026-07-23T11:00:00Z" }],
+      })))
+    }))
+    renderCard()
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole("button", { name: "恢复此配置" }))
+    await user.click(screen.getByRole("button", { name: "确认恢复" }))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(
+      expect.stringContaining("restart_failed"),
+      expect.any(Object),
+    ))
+  })
+
+  it("reports restore request failures", async () => {
+    vi.mocked(toast.error).mockClear()
+    vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
+      const path = typeof input === "string" ? input : input instanceof URL ? input.pathname : new URL(input.url).pathname
+      if (path.endsWith("/restore")) return Promise.reject(new Error("network offline"))
+      return Promise.resolve(new Response(JSON.stringify({
+        events: [{ id: "2", source: "update", status: "applied", hash: "11112222", size: 512, restorable: true, applied_at: "2026-07-23T11:00:00Z" }],
+      })))
+    }))
+    renderCard()
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole("button", { name: "恢复此配置" }))
+    await user.click(screen.getByRole("button", { name: "确认恢复" }))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(
+      expect.stringContaining("network"),
+      expect.any(Object),
+    ))
   })
 
 

@@ -23,6 +23,7 @@ describe("configApplySourceKey", () => {
     expect(configApplySourceKey("validate_ntp")).toBe("sourceValidateNTP")
     expect(configApplySourceKey("validate_inbounds")).toBe("sourceValidateInbounds")
     expect(configApplySourceKey("validate_route")).toBe("sourceValidateRoute")
+    expect(configApplySourceKey("restore")).toBe("sourceRaw")
   })
 
   it("falls back for unknown sources", () => {
@@ -44,6 +45,7 @@ describe("configApplySourceHref", () => {
     expect(configApplySourceHref("validate_dns")).toBe("/policy/dns")
     expect(configApplySourceHref("validate_ntp")).toBe("/advanced/ntp")
     expect(configApplySourceHref("validate_experimental")).toBe("/advanced/experimental")
+    expect(configApplySourceHref("restore")).toBe("/advanced/raw")
   })
 })
 

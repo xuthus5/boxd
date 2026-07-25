@@ -1,6 +1,8 @@
 package core
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -62,6 +64,120 @@ func TestConfigApplyHistoryAppendAndList(t *testing.T) {
 	}
 }
 
+func TestConfigApplyHistoryRetainsSuccessfulSnapshots(t *testing.T) {
+	db, cleanup := setupConfigApplyHistoryDB(t)
+	defer cleanup()
+	manager := NewConfigApplyHistoryManager(db)
+	body := []byte(`{"outbounds":[{"type":"direct","tag":"direct"}]}`)
+	event := NewConfigApplyEvent("update", model.StatusOK, body, nil)
+	if err := manager.AppendSnapshot(event, body); err != nil {
+		t.Fatal(err)
+	}
+
+	events, err := manager.List(5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 || !events[0].Restorable {
+		t.Fatalf("events = %+v", events)
+	}
+	snapshot, err := manager.GetSnapshot(event.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(snapshot, body) {
+		t.Fatalf("snapshot = %s, want %s", snapshot, body)
+	}
+	snapshot[0] = 'x'
+	snapshot, err = manager.GetSnapshot(event.ID)
+	if err != nil || !bytes.Equal(snapshot, body) {
+		t.Fatalf("snapshot copy = %s, err = %v", snapshot, err)
+	}
+
+	validated := NewConfigApplyEvent("validate", "validated", []byte(`{"outbounds":[]}`), nil)
+	if err := manager.AppendSnapshot(validated, []byte(`{"outbounds":[]}`)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := manager.GetSnapshot(validated.ID); !errors.Is(err, ErrConfigSnapshotNotFound) {
+		t.Fatalf("validated snapshot error = %v", err)
+	}
+	if _, err := manager.GetSnapshot(event.ID); err != nil {
+		t.Fatalf("successful snapshot removed by validate event: %v", err)
+	}
+	if _, err := manager.GetSnapshot(""); !errors.Is(err, ErrConfigSnapshotNotFound) {
+		t.Fatalf("empty snapshot error = %v", err)
+	}
+}
+
+func TestConfigApplyHistoryRequiresSnapshotForRestorableFlag(t *testing.T) {
+	db, cleanup := setupConfigApplyHistoryDB(t)
+	defer cleanup()
+	event := NewConfigApplyEvent("update", model.StatusOK, []byte(`{}`), nil)
+	event.Restorable = true
+	payload, err := json.Marshal([]model.ConfigApplyEvent{event})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Update(func(tx *bbolt.Tx) error {
+		bucket, err := tx.CreateBucketIfNotExists(configApplyHistoryBucket)
+		if err != nil {
+			return err
+		}
+		return bucket.Put(configApplyHistoryKey, payload)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	events, err := NewConfigApplyHistoryManager(db).List(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 || events[0].Restorable {
+		t.Fatalf("events = %+v", events)
+	}
+}
+
+func TestConfigApplyHistoryRemovesTrimmedSnapshots(t *testing.T) {
+	db, cleanup := setupConfigApplyHistoryDB(t)
+	defer cleanup()
+	manager := NewConfigApplyHistoryManager(db)
+	manager.limit = 1
+	first := NewConfigApplyEvent("update", model.StatusOK, []byte(`{"a":1}`), nil)
+	second := NewConfigApplyEvent("update", model.StatusOK, []byte(`{"a":2}`), nil)
+	if err := manager.AppendSnapshot(first, []byte(`{"a":1}`)); err != nil {
+		t.Fatal(err)
+	}
+	if err := manager.AppendSnapshot(second, []byte(`{"a":2}`)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := manager.GetSnapshot(first.ID); !errors.Is(err, ErrConfigSnapshotNotFound) {
+		t.Fatalf("trimmed snapshot error = %v", err)
+	}
+	if _, err := manager.GetSnapshot(second.ID); err != nil {
+		t.Fatalf("retained snapshot error = %v", err)
+	}
+}
+
+func TestConfigApplyHistorySkipsOversizedSnapshots(t *testing.T) {
+	db, cleanup := setupConfigApplyHistoryDB(t)
+	defer cleanup()
+	manager := NewConfigApplyHistoryManager(db)
+	body := bytes.Repeat([]byte("x"), MaxConfigSnapshotBytes+1)
+	event := NewConfigApplyEvent("update", model.StatusOK, body, nil)
+	if err := manager.AppendSnapshot(event, body); err != nil {
+		t.Fatal(err)
+	}
+	events, err := manager.List(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 || events[0].Restorable {
+		t.Fatalf("oversized event = %+v", events)
+	}
+	if _, err := manager.GetSnapshot(event.ID); !errors.Is(err, ErrConfigSnapshotNotFound) {
+		t.Fatalf("oversized snapshot error = %v", err)
+	}
+}
+
 func TestConfigApplyHistoryTrimsToLimit(t *testing.T) {
 	db, cleanup := setupConfigApplyHistoryDB(t)
 	defer cleanup()
@@ -102,6 +218,12 @@ func TestConfigApplyHistoryListEmptyAndNil(t *testing.T) {
 	event := NewConfigApplyEvent(" ", " ", nil, nil)
 	if event.Source != "unknown" || event.Status != "applied" {
 		t.Fatalf("defaults = %+v", event)
+	}
+	if err := (*ConfigApplyHistoryManager)(nil).AppendSnapshot(event, []byte(`{}`)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := (*ConfigApplyHistoryManager)(nil).GetSnapshot(event.ID); !errors.Is(err, ErrConfigSnapshotNotFound) {
+		t.Fatalf("nil snapshot error = %v", err)
 	}
 }
 

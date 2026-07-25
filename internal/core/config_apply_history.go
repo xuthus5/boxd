@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -17,21 +18,34 @@ import (
 const (
 	// DefaultConfigApplyHistoryLimit caps retained config apply events.
 	DefaultConfigApplyHistoryLimit = 30
+	// MaxConfigSnapshotBytes caps the size of one retained configuration snapshot.
+	MaxConfigSnapshotBytes = 2 * 1024 * 1024
 
-	configApplyStatusApplied        = "applied"
-	configApplyStatusRolledBack     = "rolled_back"
-	configApplyStatusValidated      = "validated"
-	configApplyStatusValidateFailed = "validate_failed"
+	configApplyStatusApplied        = model.ConfigApplyStatusApplied
+	configApplyStatusRolledBack     = model.ConfigApplyStatusRolledBack
+	configApplyStatusValidated      = model.ConfigApplyStatusValidated
+	configApplyStatusValidateFailed = model.ConfigApplyStatusValidateFailed
 )
 
 var configApplyHistoryBucket = []byte("config_apply_history")
 
 var configApplyHistoryKey = []byte("events")
 
+var configApplySnapshotsBucket = []byte("config_apply_snapshots")
+
+var ErrConfigSnapshotNotFound = errors.New("config snapshot not found")
+
 // ConfigApplyHistoryManager persists recent config apply/reload events.
 type ConfigApplyHistoryManager struct {
 	db    *bbolt.DB
 	limit int
+}
+
+type appendConfigApplyInput struct {
+	event         model.ConfigApplyEvent
+	body          []byte
+	limit         int
+	storeSnapshot bool
 }
 
 // NewConfigApplyHistoryManager creates a history store with the default cap.
@@ -88,6 +102,15 @@ func newConfigApplyID() string {
 
 // Append records one apply event (newest first) and trims to the configured limit.
 func (m *ConfigApplyHistoryManager) Append(event model.ConfigApplyEvent) error {
+	return m.append(event, nil)
+}
+
+// AppendSnapshot records an apply event and retains its successful config body.
+func (m *ConfigApplyHistoryManager) AppendSnapshot(event model.ConfigApplyEvent, body []byte) error {
+	return m.append(event, body)
+}
+
+func (m *ConfigApplyHistoryManager) append(event model.ConfigApplyEvent, body []byte) error {
 	if m == nil || m.db == nil {
 		return nil
 	}
@@ -102,26 +125,52 @@ func (m *ConfigApplyHistoryManager) Append(event model.ConfigApplyEvent) error {
 	if event.Source == "" {
 		event.Source = "unknown"
 	}
+	storeSnapshot := event.Status == configApplyStatusApplied && len(body) > 0 && len(body) <= MaxConfigSnapshotBytes
+	event.Restorable = storeSnapshot
 	limit := m.limit
 	if limit <= 0 {
 		limit = DefaultConfigApplyHistoryLimit
 	}
 	return m.db.Update(func(tx *bbolt.Tx) error {
-		bucket, err := tx.CreateBucketIfNotExists(configApplyHistoryBucket)
-		if err != nil {
-			return err
-		}
-		events := decodeConfigApplyEvents(bucket.Get(configApplyHistoryKey))
-		events = append([]model.ConfigApplyEvent{event}, events...)
-		if len(events) > limit {
-			events = events[:limit]
-		}
-		payload, err := json.Marshal(events)
-		if err != nil {
-			return err
-		}
-		return bucket.Put(configApplyHistoryKey, payload)
+		return appendConfigApplyEvent(tx, appendConfigApplyInput{
+			event:         event,
+			body:          body,
+			limit:         limit,
+			storeSnapshot: storeSnapshot,
+		})
 	})
+}
+
+func appendConfigApplyEvent(tx *bbolt.Tx, input appendConfigApplyInput) error {
+	bucket, err := tx.CreateBucketIfNotExists(configApplyHistoryBucket)
+	if err != nil {
+		return err
+	}
+	events := append([]model.ConfigApplyEvent{input.event}, decodeConfigApplyEvents(bucket.Get(configApplyHistoryKey))...)
+	if len(events) > input.limit {
+		events = events[:input.limit]
+	}
+	if input.storeSnapshot {
+		if err := storeConfigSnapshot(tx, input.event.ID, input.body); err != nil {
+			return err
+		}
+	}
+	payload, err := json.Marshal(events)
+	if err != nil {
+		return err
+	}
+	if err := bucket.Put(configApplyHistoryKey, payload); err != nil {
+		return err
+	}
+	return trimConfigSnapshots(tx, events)
+}
+
+func storeConfigSnapshot(tx *bbolt.Tx, id string, body []byte) error {
+	snapshots, err := tx.CreateBucketIfNotExists(configApplySnapshotsBucket)
+	if err != nil {
+		return err
+	}
+	return snapshots.Put([]byte(id), append([]byte(nil), body...))
 }
 
 // List returns recent apply events newest-first (up to limit).
@@ -142,6 +191,7 @@ func (m *ConfigApplyHistoryManager) List(limit int) ([]model.ConfigApplyEvent, e
 			return nil
 		}
 		events = decodeConfigApplyEvents(bucket.Get(configApplyHistoryKey))
+		markRestorableEvents(tx, events)
 		return nil
 	})
 	if err != nil {
@@ -154,6 +204,67 @@ func (m *ConfigApplyHistoryManager) List(limit int) ([]model.ConfigApplyEvent, e
 		events = []model.ConfigApplyEvent{}
 	}
 	return events, nil
+}
+
+// GetSnapshot returns a retained successful config body by event ID.
+func (m *ConfigApplyHistoryManager) GetSnapshot(id string) ([]byte, error) {
+	if m == nil || m.db == nil {
+		return nil, ErrConfigSnapshotNotFound
+	}
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return nil, ErrConfigSnapshotNotFound
+	}
+	var snapshot []byte
+	err := m.db.View(func(tx *bbolt.Tx) error {
+		bucket := tx.Bucket(configApplySnapshotsBucket)
+		if bucket == nil {
+			return ErrConfigSnapshotNotFound
+		}
+		data := bucket.Get([]byte(id))
+		if len(data) == 0 {
+			return ErrConfigSnapshotNotFound
+		}
+		snapshot = append([]byte(nil), data...)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return snapshot, nil
+}
+
+func markRestorableEvents(tx *bbolt.Tx, events []model.ConfigApplyEvent) {
+	snapshots := tx.Bucket(configApplySnapshotsBucket)
+	for index := range events {
+		events[index].Restorable = events[index].Status == configApplyStatusApplied && snapshots != nil && snapshots.Get([]byte(events[index].ID)) != nil
+	}
+}
+
+func trimConfigSnapshots(tx *bbolt.Tx, events []model.ConfigApplyEvent) error {
+	snapshots := tx.Bucket(configApplySnapshotsBucket)
+	if snapshots == nil {
+		return nil
+	}
+	retained := make(map[string]struct{}, len(events))
+	for _, event := range events {
+		if event.Status == configApplyStatusApplied && snapshots.Get([]byte(event.ID)) != nil {
+			retained[event.ID] = struct{}{}
+		}
+	}
+	var stale [][]byte
+	cursor := snapshots.Cursor()
+	for key, _ := cursor.First(); key != nil; key, _ = cursor.Next() {
+		if _, ok := retained[string(key)]; !ok {
+			stale = append(stale, append([]byte(nil), key...))
+		}
+	}
+	for _, key := range stale {
+		if err := snapshots.Delete(key); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func decodeConfigApplyEvents(data []byte) []model.ConfigApplyEvent {

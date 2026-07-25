@@ -84,6 +84,9 @@ export const api = {
     installRoute: () => apiRequestEnvelope<JsonValue>("/api/config/route/defaults", json("POST")),
     getRouteRuleMetadata: () => apiRequest<RouteRuleMetadata[]>("/api/config/route/rule-metadata"),
     applyHistory: () => apiRequest<{ events: ConfigApplyEvent[] }>("/api/config/apply-history"),
+    restoreApplyHistory: (id: string) => apiRequestEnvelope<{ restored: boolean; source_id: string; already_current?: boolean }>(
+      `/api/config/apply-history/${segment(id)}/restore`, json("POST"),
+    ),
     updateRouteRuleMetadata: (metadata: RouteRuleMetadata[]) => apiRequest<RouteRuleMetadata[]>(
       "/api/config/route/rule-metadata", json("PUT", metadata),
     ),

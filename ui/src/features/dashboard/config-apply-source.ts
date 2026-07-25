@@ -22,6 +22,7 @@ const sourceKeys: Record<string, string> = {
   inbounds_defaults: "sourceInboundsDefaults",
   experimental_defaults: "sourceExperimentalDefaults",
   rule_sets_defaults: "sourceRuleSetsDefaults",
+  restore: "sourceRaw",
 }
 
 const sourceHrefs: Record<string, string> = {
@@ -42,6 +43,7 @@ const sourceHrefs: Record<string, string> = {
   inbounds_defaults: "/proxy/inbounds",
   experimental_defaults: "/advanced/experimental",
   rule_sets_defaults: "/policy/route",
+  restore: "/advanced/raw",
 }
 
 export function configApplyStatusLabelKey(status: string): string {
