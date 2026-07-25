@@ -155,7 +155,7 @@ func (m *SubscriptionManager) RefreshAll() []SubscriptionRefreshFailure {
 	return m.RefreshAllContext(context.Background())
 }
 
-// RefreshAllContext refreshes subscriptions sequentially until completion or cancellation.
+// RefreshAllContext refreshes subscriptions with bounded concurrency until completion or cancellation.
 func (m *SubscriptionManager) RefreshAllContext(ctx context.Context) []SubscriptionRefreshFailure {
 	subs, err := m.List()
 	if err != nil {
@@ -164,22 +164,10 @@ func (m *SubscriptionManager) RefreshAllContext(ctx context.Context) []Subscript
 			Message: err.Error(),
 		}}
 	}
-	var failures []SubscriptionRefreshFailure
-	for _, sub := range subs {
-		if err := ctx.Err(); err != nil {
-			return failures
-		}
-		if err := m.RefreshContext(ctx, sub.ID); err != nil {
-			classified := classifySubscriptionRefreshError(err)
-			failures = append(failures, SubscriptionRefreshFailure{
-				ID:      sub.ID,
-				Name:    sub.Name,
-				Code:    classified.Code,
-				Message: err.Error(),
-			})
-		}
+	if ctx.Err() != nil || len(subs) == 0 {
+		return nil
 	}
-	return failures
+	return m.refreshSubscriptionsConcurrently(ctx, subs)
 }
 
 func (m *SubscriptionManager) setError(id string, refreshErr *SubscriptionRefreshError) error {
