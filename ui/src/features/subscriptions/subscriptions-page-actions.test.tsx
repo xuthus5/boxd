@@ -16,7 +16,7 @@ const urlTestDefaults = { enabled: true, url: "https://www.gstatic.com/generate_
 
 function installSubscriptionsActionAPI(
   items: unknown[],
-  respond: (path: string, method: string) => Response | undefined,
+  respond: (path: string, method: string) => Response | Promise<Response> | undefined,
 ) {
   const fetchMock = vi.fn((input: string | URL | Request, init?: RequestInit) => {
     const rawURL = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
@@ -78,6 +78,37 @@ describe("SubscriptionsPage actions", () => {
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith("已重试刷新"))
     await user.click(screen.getByRole("button", { name: "刷新全部" }))
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith("全部订阅已刷新"))
+  })
+
+  it("locks batch actions while refresh-all is pending", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    let refreshAllCalls = 0
+    let resolveRefreshAll!: (response: Response) => void
+    const pendingRefreshAll = new Promise<Response>((resolve) => { resolveRefreshAll = resolve })
+    installSubscriptionsActionAPI([{
+      id: "sub-1", name: "失败订阅", url: "https://example.com/sub", interval_min: 60,
+      last_updated: "2026-01-01T00:00:00Z", outbounds: [], error: "timeout",
+    }], (path, method) => {
+      if (path !== "/api/subscriptions/refresh-all" || method !== "POST") return undefined
+      refreshAllCalls += 1
+      return pendingRefreshAll
+    })
+    const user = userEvent.setup()
+    renderApp(<App />, "/subscriptions")
+
+    const refreshAllButton = await screen.findByRole("button", { name: "刷新全部" })
+    const retryButton = screen.getByRole("button", { name: "重试失败 (1)" })
+    await user.click(refreshAllButton)
+    expect(refreshAllButton).toBeDisabled()
+    expect(retryButton).toBeDisabled()
+    expect(screen.getByRole("button", { name: "刷新中" })).toBeDisabled()
+    refreshAllButton.removeAttribute("disabled")
+    await user.click(refreshAllButton)
+    expect(refreshAllCalls).toBe(1)
+
+    resolveRefreshAll(new Response(JSON.stringify({ status: "ok", data: null, error: null, meta: null })))
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("全部订阅已刷新"))
+    expect(screen.getByRole("button", { name: "刷新全部" })).not.toBeDisabled()
   })
 
   it("reports partial refresh-all details and fallback counts", async () => {

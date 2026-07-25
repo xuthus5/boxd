@@ -1,7 +1,7 @@
 import { SubscriptionItem } from "@/features/subscriptions/subscription-item"
 import { PlusIcon, RefreshCcwIcon } from "lucide-react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { useId, useMemo, useState } from "react"
+import { useId, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
@@ -47,7 +47,8 @@ export function SubscriptionsPage() {
   const filters = useMemo(() => parseSubscriptionSearchParams(searchParams), [searchParams])
   const search = filters.query ?? ""
   const status = (filters.status ?? "all") as SubscriptionFilter
-  const [retrying, setRetrying] = useState(false)
+  const [batchAction, setBatchAction] = useState<"refresh-all" | "retry-failed" | null>(null)
+  const batchActionInFlight = useRef(false)
   const writeFilters = (next: SubscriptionListFilters) => {
     setSearchParams(toSubscriptionSearchParams(next), { replace: true })
   }
@@ -67,6 +68,9 @@ export function SubscriptionsPage() {
     .catch((error: Error) => reportSubscriptionRequestError(error, t, options))
 
   const refreshAll = async () => {
+    if (batchActionInFlight.current) return
+    batchActionInFlight.current = true
+    setBatchAction("refresh-all")
     try {
       const response = await api.subscriptions.refreshAll()
       if (response.status === "partial") {
@@ -100,6 +104,9 @@ export function SubscriptionsPage() {
         scope: "refresh-all",
         fallback: t("subscriptions.refreshFailed"),
       })
+    } finally {
+      batchActionInFlight.current = false
+      setBatchAction(null)
     }
   }
 
@@ -119,9 +126,10 @@ export function SubscriptionsPage() {
   const loadError = query.error || defaults.error
 
   const retryFailed = async () => {
-    if (!failedIds.length) return
+    if (!failedIds.length || batchActionInFlight.current) return
     writeFilters({ query: filters.query, status: "error" })
-    setRetrying(true)
+    batchActionInFlight.current = true
+    setBatchAction("retry-failed")
     let ok = 0
     const failures: Array<{ id?: string; name?: string; code?: string; message?: string }> = []
     try {
@@ -149,7 +157,8 @@ export function SubscriptionsPage() {
       const message = t("subscriptions.retryFailedPartial", { ok, failed: failures.length })
       reportSubscriptionRefreshBatch(summary, message, t)
     } finally {
-      setRetrying(false)
+      batchActionInFlight.current = false
+      setBatchAction(null)
     }
   }
 
@@ -177,16 +186,16 @@ export function SubscriptionsPage() {
               variant="outline"
               size="sm"
               className="col-span-2 h-8 sm:col-span-1"
-              disabled={retrying}
+              disabled={batchAction !== null}
               onClick={() => void retryFailed()}
             >
               <RefreshCcwIcon data-icon="inline-start" />
               {t("subscriptions.retryFailed", { count: failedIds.length })}
             </Button>
           ) : null}
-          <Button variant="outline" size="sm" className="h-8" onClick={() => void refreshAll()}>
-            <RefreshCcwIcon data-icon="inline-start" />
-            {t("subscriptions.refreshAll")}
+          <Button variant="outline" size="sm" className="h-8" disabled={batchAction !== null} aria-busy={batchAction === "refresh-all"} onClick={() => void refreshAll()}>
+            <RefreshCcwIcon className={batchAction === "refresh-all" ? "animate-spin" : undefined} data-icon="inline-start" />
+            {t(batchAction === "refresh-all" ? "subscriptions.refreshingAll" : "subscriptions.refreshAll")}
           </Button>
           <Button size="sm" className="h-8" onClick={() => setEditing("new")}>
             <PlusIcon data-icon="inline-start" />

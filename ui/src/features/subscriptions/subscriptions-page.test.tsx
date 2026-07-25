@@ -159,4 +159,32 @@ describe("SubscriptionsPage load densify", () => {
     await user.click(screen.getByRole("button", { name: "重试" }))
     await waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(4))
   })
+
+  it("retries only the failed subscriptions query", async () => {
+    const fetchMock = vi.fn((input: string | URL | Request) => {
+      const rawURL = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+      const path = new URL(rawURL, "http://localhost").pathname
+      if (path.endsWith("/subscriptions/")) {
+        return Promise.resolve(new Response(JSON.stringify({
+          status: "error", data: null, error: { code: "unavailable", message: "subscriptions unavailable" }, meta: null,
+        }), { status: 503 }))
+      }
+      if (path.endsWith("/urltest-defaults")) {
+        return Promise.resolve(new Response(JSON.stringify({ enabled: true, url: "https://www.gstatic.com/generate_204", interval: "3m", tolerance: 50 })))
+      }
+      return Promise.resolve(new Response(JSON.stringify([])))
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    const user = userEvent.setup()
+    renderApp(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <SubscriptionsPage />
+      </QueryClientProvider>,
+    )
+
+    expect(await screen.findByText("subscriptions unavailable")).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "重试" }))
+    await waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(3))
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).endsWith("/urltest-defaults")).length).toBe(1)
+  })
 })
