@@ -5,6 +5,7 @@ import {
   type PolicyFieldSpec,
 } from "@/features/policy/policy-form-model"
 import type { JsonValue } from "@/lib/api/types"
+import { isWireGuardPeerListReady } from "@/features/advanced/wireguard-peer-form-model"
 
 export const endpointTypes = ["wireguard", "tailscale"] as const
 export type EndpointType = (typeof endpointTypes)[number]
@@ -161,6 +162,7 @@ export function isEndpointReady(item: JsonObject): boolean {
       ? address.some((entry) => typeof entry === "string" && entry.trim())
       : typeof address === "string" && Boolean(address.trim())
     return hasAddress && typeof item.private_key === "string" && Boolean(item.private_key.trim())
+      && isWireGuardPeerListReady(item.peers)
   }
   return true
 }

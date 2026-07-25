@@ -50,6 +50,7 @@ describe("endpoints form model", () => {
       tag: "wg",
       address: ["10.0.0.2/32"],
       private_key: "private",
+      peers: [{ public_key: "peer", allowed_ips: ["0.0.0.0/0"] }],
     })).toBe(true)
     expect(isEndpointReady({ type: "tailscale", tag: "ts" })).toBe(true)
     expect(isEndpointReady({ type: "tailscale", tag: "" })).toBe(false)

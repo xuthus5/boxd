@@ -17,6 +17,7 @@ import {
   tailscaleFields,
   wireGuardFields,
 } from "@/features/advanced/endpoints-form-model"
+import { WireGuardPeerEditor } from "@/features/advanced/wireguard-peer-editor"
 import { JsonEditor } from "@/features/config/json-editor"
 import { useConfigQuery } from "@/features/config/config-hooks"
 import { PolicyFormFields } from "@/features/policy/policy-form-fields"
@@ -24,6 +25,7 @@ import {
   isJsonObject,
   policyConfigTags,
   policyDNSServerTags,
+  setPolicyPath,
   type JsonObject,
   type PolicyFieldSpec,
 } from "@/features/policy/policy-form-model"
@@ -69,7 +71,7 @@ function TypeField({ object, onChange }: { object: JsonObject; onChange: (item: 
 
 function sectionFields(section: "basic" | "type" | "dialer"): readonly PolicyFieldSpec[] {
   if (section === "basic") return endpointIdentityFields.filter((field) => field.path !== "type")
-  if (section === "type") return [...wireGuardFields, ...tailscaleFields]
+  if (section === "type") return [...wireGuardFields.filter((field) => field.path !== "peers"), ...tailscaleFields]
   return endpointDialerFields
 }
 
@@ -102,6 +104,7 @@ export function EndpointEditorDialog({ open, item, title, onOpenChange, onSave }
   }
   const updateValidity = (path: string, valid: boolean) => {
     setInvalidFields((current) => {
+      if (valid === !current.has(path)) return current
       const next = new Set(current)
       if (valid) next.delete(path)
       else next.add(path)
@@ -149,6 +152,11 @@ export function EndpointEditorDialog({ open, item, title, onOpenChange, onSave }
                 onChange={updateVisual}
                 onFieldValidityChange={updateValidity}
               />
+              {object.type === "wireguard" ? <WireGuardPeerEditor
+                value={object.peers}
+                onChange={(peers) => updateVisual(setPolicyPath(object, "peers", peers))}
+                onValidityChange={(valid) => updateValidity("peers", valid)}
+              /> : null}
               <PolicyFormFields
                 fields={sectionFields("dialer")}
                 object={object}
@@ -177,4 +185,3 @@ export function EndpointEditorDialog({ open, item, title, onOpenChange, onSave }
     </Dialog>
   )
 }
-
