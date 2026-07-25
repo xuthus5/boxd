@@ -47,12 +47,14 @@ export function subscriptionSourceURL(raw?: string): string {
 export function reportSubscriptionRequestError(
   error: unknown,
   t: (key: string, values?: Record<string, string | number>) => string,
-  options: { scope?: string; id?: string; name?: string; fallback?: string } = {},
+  options: { scope?: string; id?: string; name?: string; fallback?: string; prefix?: string } = {},
 ) {
   const fallback = options.fallback ?? t("subscriptions.refreshFailed")
   const code = classifySubscriptionRequestError(error)
   const payload = subscriptionRequestErrorClipboardText(error, options)
-  toast.error(formatSubscriptionRequestErrorToast(error, fallback), {
+  const message = formatSubscriptionRequestErrorToast(error, fallback)
+  const title = options.prefix?.trim() ? `${options.prefix.trim()}: ${message}` : message
+  toast.error(title, {
     description: t(subscriptionErrorHintKey(code)),
     action: payload ? {
       label: t("subscriptions.copyError"),

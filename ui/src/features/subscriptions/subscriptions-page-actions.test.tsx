@@ -170,7 +170,15 @@ describe("SubscriptionsPage actions", () => {
 
   it("creates a subscription from an empty list", async () => {
     sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
-    installSubscriptionsActionAPI([], () => undefined)
+    const fetchMock = installSubscriptionsActionAPI([], (path, method) => {
+      if (path === "/api/subscriptions/" && method === "POST") {
+        return new Response(JSON.stringify({ id: "sub-new" }), { status: 201 })
+      }
+      if (path === "/api/subscriptions/sub-new/refresh" && method === "POST") {
+        return new Response(JSON.stringify({}))
+      }
+      return undefined
+    })
     const user = userEvent.setup()
     renderApp(<App />, "/subscriptions")
 
@@ -179,7 +187,59 @@ describe("SubscriptionsPage actions", () => {
     fireEvent.change(screen.getByLabelText("订阅 URL"), { target: { value: "https://example.com/new" } })
     await user.click(screen.getByRole("button", { name: "保存" }))
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith("订阅已保存"))
+    expect(fetchMock).toHaveBeenCalledWith("/api/subscriptions/sub-new/refresh", expect.objectContaining({ method: "POST" }))
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  })
+
+  it("closes after a persisted create when the initial refresh fails", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    installSubscriptionsActionAPI([], (path, method) => {
+      if (path === "/api/subscriptions/" && method === "POST") {
+        return new Response(JSON.stringify({ id: "sub-new" }), { status: 201 })
+      }
+      if (path === "/api/subscriptions/sub-new/refresh" && method === "POST") {
+        return new Response(JSON.stringify({
+          status: "error",
+          data: null,
+          error: { code: "subscription_refresh_failed", message: "timeout" },
+          meta: null,
+        }), { status: 500 })
+      }
+      return undefined
+    })
+    const user = userEvent.setup()
+    renderApp(<App />, "/subscriptions")
+
+    await user.click(await screen.findByRole("button", { name: "新增订阅" }))
+    fireEvent.change(screen.getByLabelText("名称"), { target: { value: "新订阅" } })
+    fireEvent.change(screen.getByLabelText("订阅 URL"), { target: { value: "https://example.com/new" } })
+    await user.click(screen.getByRole("button", { name: "保存" }))
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+    expect(String(vi.mocked(toast.error).mock.calls.at(-1)?.[0])).toContain("已保存，但刷新失败")
+  })
+
+  it("refreshes changed URLs and only syncs unchanged subscriptions", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    const fetchMock = installSubscriptionsActionAPI([{
+      id: "sub-1", name: "主订阅", url: "https://example.com/sub", interval_min: 60,
+      last_updated: "2026-01-01T00:00:00Z", outbounds: [],
+    }], () => undefined)
+    const user = userEvent.setup()
+    renderApp(<App />, "/subscriptions")
+
+    await user.click(await screen.findByRole("button", { name: "编辑" }))
+    await user.click(screen.getByRole("button", { name: "保存" }))
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+    expect(fetchMock).toHaveBeenCalledWith("/api/nodes/sync-config", expect.objectContaining({ method: "POST" }))
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes("/sub-1/refresh"))).toBe(false)
+
+    await user.click(screen.getByRole("button", { name: "编辑" }))
+    await user.clear(screen.getByLabelText("订阅 URL"))
+    await user.type(screen.getByLabelText("订阅 URL"), "https://example.com/changed")
+    await user.click(screen.getByRole("button", { name: "保存" }))
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+    expect(fetchMock).toHaveBeenCalledWith("/api/subscriptions/sub-1/refresh", expect.objectContaining({ method: "POST" }))
   })
 
   it("edits and deletes a subscription", async () => {

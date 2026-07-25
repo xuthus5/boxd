@@ -12,6 +12,7 @@ import { buildNodesHref } from "@/features/nodes/nodes-filter"
 import { buildLogsHref } from "@/features/observability/log-filter-presets"
 import { copyText } from "@/features/proxy/copy-tag-button"
 import { formatRelativeTime } from "@/features/subscriptions/relative-time"
+import { subscriptionRefreshSchedule } from "@/features/subscriptions/subscription-schedule"
 import {
   subscriptionErrorClipboardText,
   subscriptionSourceURL,
@@ -40,6 +41,10 @@ export function SubscriptionItem({ item, onEdit, onRefresh, onDelete }: Subscrip
   const [mountedAt] = useState(() => Date.now())
   const openURL = subscriptionSourceURL(item.url)
   const errorCode = resolveSubscriptionErrorCode(item)
+  const schedule = subscriptionRefreshSchedule(item, mountedAt)
+  const nextRefresh = schedule.nextAt === null
+    ? ""
+    : formatRelativeTime(new Date(schedule.nextAt).toISOString(), mountedAt, i18n.language)
 
   const copyError = () => {
     const payload = subscriptionErrorClipboardText(item)
@@ -73,6 +78,16 @@ export function SubscriptionItem({ item, onEdit, onRefresh, onDelete }: Subscrip
             {item.last_updated && !Number.isNaN(Date.parse(item.last_updated))
               ? t("subscriptions.updatedRelative", { time: formatRelativeTime(item.last_updated, mountedAt, i18n.language) })
               : t("subscriptions.neverUpdated")}
+          </span>
+          <span
+            className="text-xs text-muted-foreground sm:text-sm"
+            title={schedule.nextAt === null ? undefined : new Date(schedule.nextAt).toLocaleString()}
+          >
+            {schedule.intervalMinutes === null
+              ? t("subscriptions.refreshScheduleFallback")
+              : schedule.due
+                ? t("subscriptions.refreshScheduleDue", { count: schedule.intervalMinutes })
+                : t("subscriptions.refreshScheduleNext", { count: schedule.intervalMinutes, time: nextRefresh })}
           </span>
           <div className="flex flex-wrap gap-1.5">
             <Badge variant={item.error ? "destructive" : "secondary"} title={item.error || undefined}>

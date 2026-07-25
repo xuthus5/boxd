@@ -21,6 +21,9 @@ function installSubscriptionAPI(subscriptions: unknown[] = []) {
     if (path.endsWith("/api/subscriptions/") && !init?.method) {
       return Promise.resolve(new Response(JSON.stringify(subscriptions)))
     }
+    if (path.endsWith("/api/subscriptions/") && init?.method === "POST") {
+      return Promise.resolve(new Response(JSON.stringify({ id: "sub-new" }), { status: 201 }))
+    }
     if (path.endsWith("/api/settings/urltest-defaults")) {
       return Promise.resolve(new Response(JSON.stringify(defaults)))
     }

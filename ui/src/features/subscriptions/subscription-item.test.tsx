@@ -60,4 +60,14 @@ describe("SubscriptionItem failure actions", () => {
     expect(screen.queryByRole("link", { name: "打开 URL: 失败订阅" })).not.toBeInTheDocument()
     expect(screen.getByRole("button", { name: "复制 URL: 失败订阅" })).toBeInTheDocument()
   })
+
+  it("shows the next automatic refresh schedule", () => {
+    renderItem({
+      ...failed,
+      error: undefined,
+      error_code: undefined,
+      last_updated: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+    })
+    expect(screen.getByText(/每 60 分钟自动刷新/)).toBeInTheDocument()
+  })
 })

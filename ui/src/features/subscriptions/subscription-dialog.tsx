@@ -168,6 +168,33 @@ interface SubscriptionDialogProps {
   onSaved: () => void
 }
 
+type SubscriptionApplyStage = "refresh" | "sync"
+
+interface SubscriptionSaveResult {
+  id: string
+  applyError?: unknown
+  applyStage?: SubscriptionApplyStage
+}
+
+async function saveSubscription(item: Subscription | undefined, input: SubscriptionInput): Promise<SubscriptionSaveResult> {
+  let id = item?.id ?? ""
+  const shouldRefresh = !item || item.url.trim() !== input.url.trim()
+  if (item) {
+    await api.subscriptions.update(item.id, input)
+  } else {
+    const created = await api.subscriptions.create(input)
+    id = created.id
+  }
+  if (!id) throw new Error("subscription id is missing after save")
+  try {
+    if (shouldRefresh) await api.subscriptions.refresh(id)
+    else await api.nodes.sync()
+  } catch (applyError) {
+    return { id, applyError, applyStage: shouldRefresh ? "refresh" : "sync" }
+  }
+  return { id }
+}
+
 export function SubscriptionDialog({ defaults, item, onClose, onSaved }: SubscriptionDialogProps) {
   const { t } = useTranslation()
   const [name, setName] = useState(item?.name ?? "")
@@ -175,12 +202,22 @@ export function SubscriptionDialog({ defaults, item, onClose, onSaved }: Subscri
   const [interval, setInterval] = useState(item?.interval_min ?? 60)
   const [urlTest, setURLTest] = useState(() => initialURLTestState(item))
   const request = useMutation({
-    mutationFn: async (input: SubscriptionInput) => {
-      if (item) await api.subscriptions.update(item.id, input)
-      else await api.subscriptions.create(input)
-      await api.nodes.sync()
+    mutationFn: (input: SubscriptionInput) => saveSubscription(item, input),
+    onSuccess: (result) => {
+      onSaved()
+      if (result.applyError) {
+        reportSubscriptionRequestError(result.applyError, t, {
+          scope: result.applyStage === "refresh" ? "save-refresh" : "save-sync",
+          id: result.id,
+          name,
+          prefix: t(result.applyStage === "refresh"
+            ? "subscriptions.savedRefreshFailed"
+            : "subscriptions.savedSyncFailed"),
+        })
+        return
+      }
+      toast.success(t("subscriptions.saved"))
     },
-    onSuccess: () => { toast.success(t("subscriptions.saved")); onSaved() },
     onError: (error: Error) => reportSubscriptionRequestError(error, t, {
       scope: item ? "update" : "create",
       id: item?.id,
@@ -189,13 +226,13 @@ export function SubscriptionDialog({ defaults, item, onClose, onSaved }: Subscri
     }),
   })
   const save = () => request.mutate({
-    name,
-    url,
+    name: name.trim(),
+    url: url.trim(),
     interval_min: interval,
     urltest: buildURLTestOverrides(urlTest),
   })
   const resetURLTest = () => setURLTest({ policy: "inherit", url: "", interval: "", tolerance: "" })
-  const isInvalid = !name || !url || interval <= 0 || isURLTestStateInvalid(urlTest)
+  const isInvalid = !name.trim() || !url.trim() || interval <= 0 || isURLTestStateInvalid(urlTest)
   return <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
     <DialogContent className="max-h-[calc(100dvh-1rem)] min-w-0 gap-3 overflow-y-auto p-3 sm:max-h-[calc(100svh-2rem)] sm:max-w-lg sm:gap-4 sm:p-4">
       <DialogHeader>
