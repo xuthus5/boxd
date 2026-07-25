@@ -129,6 +129,7 @@ func (a *SubscriptionAutoRefresher) tick(ctx context.Context) {
 		return
 	}
 	now := a.now()
+	due := make([]model.Subscription, 0, len(subs))
 	for _, sub := range subs {
 		if ctx.Err() != nil {
 			return
@@ -137,14 +138,19 @@ func (a *SubscriptionAutoRefresher) tick(ctx context.Context) {
 		if !subscriptionRefreshDue(sub, now, interval) {
 			continue
 		}
-		if err := a.manager.RefreshContext(ctx, sub.ID); err != nil {
-			if ctx.Err() != nil {
-				return
-			}
-			slog.Warn("subscription auto-refresh failed", "id", sub.ID, "name", sub.Name, "err", err)
-			continue
+		due = append(due, sub)
+	}
+	if len(due) > 0 {
+		result := a.manager.refreshSubscriptionsConcurrently(ctx, due)
+		if result.successes > 0 {
+			a.pendingSync = true
 		}
-		a.pendingSync = true
+		if ctx.Err() != nil {
+			return
+		}
+		for _, failure := range result.failures {
+			slog.Warn("subscription auto-refresh failed", "id", failure.ID, "name", failure.Name, "code", failure.Code, "err", failure.Message)
+		}
 	}
 	a.trySync(ctx)
 }

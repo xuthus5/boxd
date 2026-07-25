@@ -17,13 +17,19 @@ type subscriptionRefreshJob struct {
 
 type subscriptionRefreshResult struct {
 	index   int
+	success bool
 	failure SubscriptionRefreshFailure
+}
+
+type subscriptionRefreshBatchResult struct {
+	successes int
+	failures  []SubscriptionRefreshFailure
 }
 
 func (m *SubscriptionManager) refreshSubscriptionsConcurrently(
 	ctx context.Context,
 	subs []model.Subscription,
-) []SubscriptionRefreshFailure {
+) subscriptionRefreshBatchResult {
 	jobs := make(chan subscriptionRefreshJob)
 	results := make(chan subscriptionRefreshResult, len(subs))
 	workerCount := min(len(subs), subscriptionRefreshConcurrency)
@@ -50,7 +56,7 @@ dispatch:
 	close(jobs)
 	workers.Wait()
 	close(results)
-	return collectSubscriptionRefreshFailures(len(subs), results)
+	return collectSubscriptionRefreshBatchResult(len(subs), results)
 }
 
 func (m *SubscriptionManager) refreshSubscriptionWorker(
@@ -71,6 +77,7 @@ func (m *SubscriptionManager) refreshSubscriptionWorker(
 			}
 			err := m.RefreshContext(ctx, job.subscription.ID)
 			if err == nil {
+				results <- subscriptionRefreshResult{index: job.index, success: true}
 				continue
 			}
 			if ctxErr := ctx.Err(); ctxErr != nil && errors.Is(err, ctxErr) {
@@ -90,12 +97,17 @@ func (m *SubscriptionManager) refreshSubscriptionWorker(
 	}
 }
 
-func collectSubscriptionRefreshFailures(
+func collectSubscriptionRefreshBatchResult(
 	subscriptionCount int,
 	results <-chan subscriptionRefreshResult,
-) []SubscriptionRefreshFailure {
+) subscriptionRefreshBatchResult {
 	ordered := make([]SubscriptionRefreshFailure, subscriptionCount)
+	successes := 0
 	for result := range results {
+		if result.success {
+			successes++
+			continue
+		}
 		ordered[result.index] = result.failure
 	}
 	failures := make([]SubscriptionRefreshFailure, 0, subscriptionCount)
@@ -104,5 +116,5 @@ func collectSubscriptionRefreshFailures(
 			failures = append(failures, failure)
 		}
 	}
-	return failures
+	return subscriptionRefreshBatchResult{successes: successes, failures: failures}
 }

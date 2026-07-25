@@ -167,7 +167,7 @@ func (m *SubscriptionManager) RefreshAllContext(ctx context.Context) []Subscript
 	if ctx.Err() != nil || len(subs) == 0 {
 		return nil
 	}
-	return m.refreshSubscriptionsConcurrently(ctx, subs)
+	return m.refreshSubscriptionsConcurrently(ctx, subs).failures
 }
 
 func (m *SubscriptionManager) setError(id string, refreshErr *SubscriptionRefreshError) error {
