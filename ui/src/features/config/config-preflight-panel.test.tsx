@@ -64,7 +64,7 @@ describe("ConfigPreflightPanel", () => {
       { severity: "error", code: "invalid_dns_default", path: "dns.final", reference: "fake" },
       { severity: "error", code: "multiple_fakeip_dns_servers", path: "dns.servers[2].type", reference: "fake-extra" },
     ])
-    expect(screen.getByText(/无法确定启动顺序/)).toBeInTheDocument()
+    expect(screen.getByText(/DNS\/出站启动闭环/)).toBeInTheDocument()
     expect(screen.getByText(/不能作为显式或隐式默认 DNS/)).toBeInTheDocument()
     expect(screen.getByText(/仅支持一个 FakeIP DNS/)).toBeInTheDocument()
   })

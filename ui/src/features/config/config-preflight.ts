@@ -1,4 +1,5 @@
 import type { SingBoxConfig } from "@/lib/api/types"
+import { checkDNSOutboundBootstrapTopology } from "@/features/config/config-preflight-bootstrap"
 import { checkDNSTopology } from "@/features/config/config-preflight-dns"
 import { checkOutboundTopology } from "@/features/config/config-preflight-outbound"
 
@@ -9,8 +10,7 @@ export type ConfigPreflightCode =
   | "missing_outbound" | "missing_dns_server"
   | "missing_rule_set" | "empty_group"
   | "invalid_group_default" | "outbound_dependency_cycle"
-  | "dns_dependency_cycle" | "invalid_dns_default"
-  | "multiple_fakeip_dns_servers"
+  | "dns_dependency_cycle" | "invalid_dns_default" | "multiple_fakeip_dns_servers"
 
 export interface ConfigPreflightIssue {
   severity: ConfigPreflightSeverity
@@ -32,7 +32,6 @@ interface NamedNamespace {
   tags: Map<string, NamedEntry>
   issues: ConfigPreflightIssue[]
 }
-
 function isObject(value: unknown): value is JsonObject {
   return Boolean(value && typeof value === "object" && !Array.isArray(value))
 }
@@ -292,6 +291,12 @@ export function preflightConfig(config: SingBoxConfig): ConfigPreflightIssue[] {
     checkDNSSection(dns, outboundNamespace.tags, dnsNamespace.tags, ruleSetNamespace.tags, issues)
     issues.push(...checkDNSTopology(dns, dnsEntries))
   }
+  issues.push(...checkDNSOutboundBootstrapTopology({
+    route: isObject(route) ? route : undefined,
+    dns: isObject(dns) ? dns : undefined,
+    outboundEntries: outboundNamespace.tags,
+    dnsEntries,
+  }))
   const ntp = objectValue(config, "ntp")
   if (isObject(ntp)) checkNTPSection(ntp, outboundNamespace.tags, dnsNamespace.tags, issues)
   const experimental = objectValue(config, "experimental")

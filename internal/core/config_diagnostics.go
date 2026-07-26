@@ -103,6 +103,8 @@ func inspectTopology(report *model.ConfigDiagnostics, cfg map[string]any) {
 	})
 	checkDNSReferences(report, cfg, dnsServers)
 	checkDNSTopology(report, cfg, dnsServers)
+	bootstrapTopology := newBootstrapTopology(cfg, append(outbounds, endpoints...), dnsServers)
+	checkDNSOutboundBootstrapCycles(report, bootstrapTopology)
 	checkSingBoxMigrationWarnings(report, cfg, dnsServers)
 	checkInsecureTLS(report, cfg)
 	if len(inbounds) == 0 {
