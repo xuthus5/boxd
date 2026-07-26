@@ -56,16 +56,23 @@ describe("DNS form metadata", () => {
     expect(paths(dnsRuleMatchFields)).toEqual([
       "type", "inbound", "ip_version", "query_type", "network", "auth_user", "protocol",
       "domain", "domain_suffix", "domain_keyword", "domain_regex", "source_ip_cidr",
-      "source_ip_is_private", "ip_cidr", "ip_is_private", "source_port", "source_port_range",
+      "source_ip_is_private", "ip_cidr", "ip_is_private", "ip_accept_any", "source_port", "source_port_range",
       "port", "port_range", "process_name", "process_path", "process_path_regex", "package_name",
       "user", "user_id", "outbound", "clash_mode", "rule_set", "rule_set_ip_cidr_match_source",
-      "network_type", "network_is_expensive", "network_is_constrained", "wifi_ssid", "wifi_bssid", "invert",
+      "network_type", "network_is_expensive", "network_is_constrained", "interface_address",
+      "network_interface_address", "default_interface_address", "wifi_ssid", "wifi_bssid",
+      "rule_set_ip_cidr_accept_empty", "invert",
     ])
     expect(dnsRuleMatchFields).toEqual(expect.arrayContaining([
       expect.objectContaining({ path: "query_type", kind: "list" }),
       expect.objectContaining({ path: "source_port", kind: "number-list" }),
       expect.objectContaining({ path: "user_id", kind: "number-list" }),
       expect.objectContaining({ path: "network_is_expensive", kind: "boolean" }),
+      expect.objectContaining({ path: "interface_address", kind: "json-object" }),
+      expect.objectContaining({ path: "network_interface_address", kind: "json-object" }),
+      expect.objectContaining({ path: "default_interface_address", kind: "list" }),
+      expect.objectContaining({ path: "ip_accept_any", kind: "boolean" }),
+      expect.objectContaining({ path: "rule_set_ip_cidr_accept_empty", kind: "boolean" }),
     ]))
   })
 
@@ -260,6 +267,16 @@ describe("DNS arrays and summaries", () => {
     expect(summarizeDNSRule({ rule_set_ip_cidr_match_source: true, action: "predefined" }).matches)
       .toEqual(["rule_set_ip_cidr_match_source"])
     expect(summarizeDNSRule({ action: "custom" }).action).toBe("custom")
+  })
+
+  it("summarizes DNS address matching flags", () => {
+    expect(summarizeDNSRule({ ip_accept_any: true, rule_set_ip_cidr_accept_empty: true, action: "reject" }).matches)
+      .toEqual(["ip_accept_any", "rule_set_ip_cidr_accept_empty"])
+  })
+
+  it("summarizes non-empty interface address maps", () => {
+    expect(summarizeDNSRule({ network_interface_address: { wifi: ["192.0.2.0/24"] }, action: "reject" }).matches)
+      .toEqual(["network_interface_address"])
   })
 })
 

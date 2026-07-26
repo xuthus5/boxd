@@ -48,12 +48,18 @@ describe("route form metadata", () => {
       "source_port_range", "port", "port_range", "process_name", "process_path",
       "process_path_regex", "package_name", "user", "user_id", "rule_set",
       "rule_set_ip_cidr_match_source", "clash_mode", "network_type",
-      "network_is_expensive", "network_is_constrained", "wifi_ssid", "wifi_bssid", "invert",
+      "network_is_expensive", "network_is_constrained", "interface_address",
+      "network_interface_address", "default_interface_address", "wifi_ssid", "wifi_bssid",
+      "preferred_by", "invert",
     ])
     expect(routeMatchFields).toEqual(expect.arrayContaining([
       expect.objectContaining({ path: "source_port", kind: "number-list" }),
       expect.objectContaining({ path: "user_id", kind: "number-list" }),
       expect.objectContaining({ path: "source_ip_is_private", kind: "boolean" }),
+      expect.objectContaining({ path: "interface_address", kind: "json-object" }),
+      expect.objectContaining({ path: "network_interface_address", kind: "json-object" }),
+      expect.objectContaining({ path: "default_interface_address", kind: "list" }),
+      expect.objectContaining({ path: "preferred_by", kind: "list" }),
     ]))
   })
 
@@ -87,6 +93,16 @@ describe("route type transitions", () => {
   it("retains fields shared by logical and default rules and removes incompatible fields", () => {
     expect(changeRouteRuleType({ domain: ["example.com"], invert: true, outbound: "proxy", custom: "keep" }, "logical"))
       .toEqual({ type: "logical", invert: true, outbound: "proxy", custom: "keep" })
+  })
+
+  it("removes interface-aware route matches from logical rules", () => {
+    expect(changeRouteRuleType({
+      interface_address: { eth0: ["192.0.2.0/24"] },
+      network_interface_address: { wifi: ["192.0.2.0/24"] },
+      default_interface_address: ["192.0.2.0/24"],
+      preferred_by: ["wireguard"],
+      invert: true,
+    }, "logical")).toEqual({ type: "logical", invert: true })
   })
 
   it("preserves same and unknown current rule types", () => {
@@ -244,6 +260,16 @@ describe("route summaries", () => {
       "example.com", "label:source_ip_is_private", "label:rule_set_ip_cidr_match_source",
     ])
     expect(visited).toEqual(["source_ip_is_private", "rule_set_ip_cidr_match_source"])
+  })
+
+  it("summarizes preferred route sources", () => {
+    expect(summarizeRouteRule({ preferred_by: ["tailscale", "wireguard"], action: "reject" }).matches)
+      .toEqual(["tailscale", "wireguard"])
+  })
+
+  it("summarizes non-empty interface address maps", () => {
+    expect(summarizeRouteRule({ interface_address: { eth0: ["192.0.2.0/24"] }, action: "reject" }).matches)
+      .toEqual(["interface_address"])
   })
 
   it("summarizes rule-set format and preferred location", () => {

@@ -60,6 +60,7 @@ export const dnsRuleMatchFields = [
   { path: "source_ip_is_private", label: "sourceIPIsPrivate", kind: "boolean", section: "domain" },
   { path: "ip_cidr", label: "ipCIDR", kind: "list", section: "domain" },
   { path: "ip_is_private", label: "ipIsPrivate", kind: "boolean", section: "domain" },
+  { path: "ip_accept_any", label: "ipAcceptAny", kind: "boolean", section: "domain" },
   { path: "source_port", label: "sourcePort", kind: "number-list", section: "process" },
   { path: "source_port_range", label: "sourcePortRange", kind: "list", section: "process" },
   { path: "port", label: "port", kind: "number-list", section: "process" },
@@ -77,8 +78,12 @@ export const dnsRuleMatchFields = [
   { path: "network_type", label: "networkType", kind: "list", section: "process" },
   { path: "network_is_expensive", label: "networkIsExpensive", kind: "boolean", section: "process" },
   { path: "network_is_constrained", label: "networkIsConstrained", kind: "boolean", section: "process" },
+  { path: "interface_address", label: "interfaceAddress", kind: "json-object", section: "process" },
+  { path: "network_interface_address", label: "networkInterfaceAddress", kind: "json-object", section: "process" },
+  { path: "default_interface_address", label: "defaultInterfaceAddress", kind: "list", section: "process" },
   { path: "wifi_ssid", label: "wifiSSID", kind: "list", section: "process" },
   { path: "wifi_bssid", label: "wifiBSSID", kind: "list", section: "process" },
+  { path: "rule_set_ip_cidr_accept_empty", label: "ruleSetIPCIDRAcceptEmpty", kind: "boolean", section: "process" },
   { path: "invert", label: "invert", kind: "boolean", section: "basic" },
 ] as const satisfies readonly PolicyFieldSpec[]
 
@@ -276,15 +281,16 @@ export function summarizeDNSServer(server: JsonObject, labels = defaultServerSum
 
 const summaryPaths = [
   "domain", "domain_suffix", "domain_keyword", "domain_regex", "source_ip_cidr", "source_ip_is_private",
-  "ip_cidr", "ip_is_private", "source_port", "source_port_range", "port", "port_range", "process_name",
+  "ip_cidr", "ip_is_private", "ip_accept_any", "source_port", "source_port_range", "port", "port_range", "process_name",
   "process_path", "process_path_regex", "package_name", "user", "user_id", "rule_set",
-  "rule_set_ip_cidr_match_source", "inbound", "ip_version", "query_type", "network", "auth_user", "protocol",
+  "rule_set_ip_cidr_match_source", "rule_set_ip_cidr_accept_empty", "inbound", "ip_version", "query_type", "network", "auth_user", "protocol",
   "outbound", "clash_mode", "network_type", "network_is_expensive", "network_is_constrained", "wifi_ssid",
-  "wifi_bssid", "invert",
+  "interface_address", "network_interface_address", "default_interface_address", "wifi_bssid", "invert",
 ]
 
-function summarizeValue(path: string, value: unknown, labels: DNSRuleSummaryLabels): string[] {
+function summarizeValue(path: string, value: JsonObject[string] | undefined, labels: DNSRuleSummaryLabels): string[] {
   if (Array.isArray(value)) return value.flatMap((item) => typeof item === "string" || typeof item === "number" ? [String(item)] : [])
+  if (isJsonObject(value) && Object.keys(value).length > 0) return [labels.matchLabel(path)]
   if (typeof value === "string" || typeof value === "number") return [String(value)]
   return value === true ? [labels.matchLabel(path)] : []
 }

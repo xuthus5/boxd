@@ -8,11 +8,16 @@ import {
 } from "@/features/policy/dns-form-model"
 
 describe("DNS cleanup-only field transitions", () => {
-  it("keeps low-frequency default fields out of visible metadata", () => {
+  it("exposes active address match fields while keeping removed geo fields hidden", () => {
     const visible = dnsRuleMatchFields.map((field) => field.path)
-    expect(visible).not.toContain("ip_accept_any")
-    expect(visible).not.toContain("interface_address")
-    expect(visible).not.toContain("rule_set_ip_cidr_accept_empty")
+    expect(visible).toContain("ip_accept_any")
+    expect(visible).toContain("interface_address")
+    expect(visible).toContain("network_interface_address")
+    expect(visible).toContain("default_interface_address")
+    expect(visible).toContain("rule_set_ip_cidr_accept_empty")
+    expect(visible).not.toContain("geosite")
+    expect(visible).not.toContain("source_geoip")
+    expect(visible).not.toContain("geoip")
   })
 
   it("keeps cleanup-only TLS paths out of visible server metadata", () => {

@@ -37,8 +37,8 @@ export interface DNSRuleDialogProps {
 
 const fieldsAt = (paths: readonly string[]) => dnsRuleMatchFields.filter((field) => paths.includes(field.path))
 const basicFields = fieldsAt(["inbound", "ip_version", "query_type", "network", "auth_user", "protocol"])
-const domainFields = fieldsAt(["domain", "domain_suffix", "domain_keyword", "domain_regex", "source_ip_cidr", "source_ip_is_private", "ip_cidr", "ip_is_private"])
-const processFields = fieldsAt(["source_port", "source_port_range", "port", "port_range", "process_name", "process_path", "process_path_regex", "package_name", "user", "user_id", "outbound", "clash_mode", "rule_set", "rule_set_ip_cidr_match_source", "network_type", "network_is_expensive", "network_is_constrained", "wifi_ssid", "wifi_bssid"])
+const domainFields = fieldsAt(["domain", "domain_suffix", "domain_keyword", "domain_regex", "source_ip_cidr", "source_ip_is_private", "ip_cidr", "ip_is_private", "ip_accept_any"])
+const processFields = fieldsAt(["source_port", "source_port_range", "port", "port_range", "process_name", "process_path", "process_path_regex", "package_name", "user", "user_id", "outbound", "clash_mode", "rule_set", "rule_set_ip_cidr_match_source", "network_type", "network_is_expensive", "network_is_constrained", "interface_address", "network_interface_address", "default_interface_address", "wifi_ssid", "wifi_bssid", "rule_set_ip_cidr_accept_empty"])
 const logicalFields = [
   { path: "mode", label: "logicalMode", kind: "select", options: ["and", "or"], required: true },
   { path: "invert", label: "invert", kind: "boolean" },

@@ -64,8 +64,12 @@ export const routeMatchFields = [
   { path: "network_type", label: "networkType", kind: "list", section: "environment" },
   { path: "network_is_expensive", label: "networkIsExpensive", kind: "boolean", section: "environment" },
   { path: "network_is_constrained", label: "networkIsConstrained", kind: "boolean", section: "environment" },
+  { path: "interface_address", label: "interfaceAddress", kind: "json-object", section: "environment" },
+  { path: "network_interface_address", label: "networkInterfaceAddress", kind: "json-object", section: "environment" },
+  { path: "default_interface_address", label: "defaultInterfaceAddress", kind: "list", section: "environment" },
   { path: "wifi_ssid", label: "wifiSSID", kind: "list", section: "environment" },
   { path: "wifi_bssid", label: "wifiBSSID", kind: "list", section: "environment" },
+  { path: "preferred_by", label: "preferredBy", kind: "list", section: "environment" },
   { path: "invert", label: "invert", kind: "boolean", section: "basic" },
 ] as const satisfies readonly PolicyFieldSpec[]
 
@@ -257,7 +261,8 @@ const summaryPaths = [
   "process_path", "process_path_regex", "package_name", "user", "user_id", "rule_set",
   "rule_set_ip_cidr_match_source", "inbound", "ip_version",
   "network", "auth_user", "protocol", "client", "clash_mode", "network_type", "network_is_expensive",
-  "network_is_constrained", "wifi_ssid", "wifi_bssid", "invert",
+  "network_is_constrained", "interface_address", "network_interface_address", "default_interface_address",
+  "wifi_ssid", "wifi_bssid", "preferred_by", "invert",
 ]
 
 export interface RouteRuleSummaryLabels {
@@ -266,8 +271,9 @@ export interface RouteRuleSummaryLabels {
 
 const defaultRouteRuleSummaryLabels: RouteRuleSummaryLabels = { matchLabel: (path) => path }
 
-function summarizeValue(path: string, value: unknown, labels: RouteRuleSummaryLabels): string[] {
+function summarizeValue(path: string, value: JsonObject[string] | undefined, labels: RouteRuleSummaryLabels): string[] {
   if (Array.isArray(value)) return value.flatMap((item) => typeof item === "string" || typeof item === "number" ? [String(item)] : [])
+  if (isJsonObject(value) && Object.keys(value).length > 0) return [labels.matchLabel(path)]
   if (typeof value === "string" || typeof value === "number") return [String(value)]
   return value === true ? [labels.matchLabel(path)] : []
 }

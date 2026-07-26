@@ -56,7 +56,7 @@ const paths = (values: readonly string[]) => routeMatchFields.filter((field) => 
 const basicFields = paths(["type", "inbound", "ip_version", "network", "auth_user", "protocol", "client", "invert"])
 const domainFields = paths(["domain", "domain_suffix", "domain_keyword", "domain_regex", "source_ip_cidr", "source_ip_is_private", "ip_cidr", "ip_is_private"])
 const processFields = paths(["source_port", "source_port_range", "port", "port_range", "process_name", "process_path", "process_path_regex", "package_name", "user", "user_id"])
-const environmentFields = paths(["rule_set", "rule_set_ip_cidr_match_source", "clash_mode", "network_type", "network_is_expensive", "network_is_constrained", "wifi_ssid", "wifi_bssid"])
+const environmentFields = paths(["rule_set", "rule_set_ip_cidr_match_source", "clash_mode", "network_type", "network_is_expensive", "network_is_constrained", "interface_address", "network_interface_address", "default_interface_address", "wifi_ssid", "wifi_bssid", "preferred_by"])
 const logicalFields = [
   { path: "mode", label: "logicalMode", kind: "select", options: ["and", "or"], required: true },
   { path: "rules", label: "logicalRules", kind: "json-array", required: true },

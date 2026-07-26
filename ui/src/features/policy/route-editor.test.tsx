@@ -198,6 +198,27 @@ describe("route rule dialog", () => {
     expect(screen.getByRole("button", { name: "保存" })).toBeEnabled()
   })
 
+  it("renders and edits sing-box 1.13 interface-aware matches", async () => {
+    const onSave = vi.fn()
+    renderDialog(<RouteRuleDialog open item={{
+      action: "reject",
+      interface_address: { eth0: ["192.0.2.0/24"] },
+      network_interface_address: { wifi: ["192.0.2.0/24"] },
+      default_interface_address: ["192.0.2.0/24"],
+      preferred_by: ["wireguard"],
+    }} title="编辑规则" onOpenChange={vi.fn()} onSave={onSave} />)
+    await userEvent.click(screen.getByRole("tab", { name: "规则集与网络环境" }))
+    for (const label of ["接口地址", "网络接口地址", "默认接口地址", "偏好路由出站"]) {
+      expect(screen.getByLabelText(label)).toBeInTheDocument()
+    }
+    fireEvent.change(screen.getByLabelText("默认接口地址"), { target: { value: "198.51.100.0/24" } })
+    fireEvent.change(screen.getByLabelText("偏好路由出站"), { target: { value: "tailscale\nwireguard" } })
+    await userEvent.click(screen.getByRole("button", { name: "保存" }))
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      default_interface_address: ["198.51.100.0/24"], preferred_by: ["tailscale", "wireguard"],
+    }), { name: "", description: "" })
+  })
+
   it("requires the resolver server and exposes action-specific fields", async () => {
     renderDialog(<RouteRuleDialog open item={{ action: "resolve" }} title="编辑规则" onOpenChange={vi.fn()} onSave={vi.fn()} />)
     await userEvent.click(screen.getByRole("tab", { name: "执行动作" }))
