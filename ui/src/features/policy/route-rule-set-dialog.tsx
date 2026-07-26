@@ -13,6 +13,7 @@ import { policyItemErrorRelativePath, usePolicyItemValidate } from "@/features/p
 import { usePolicyDialogState } from "@/features/policy/policy-dialog-state"
 import { PolicyFormFields } from "@/features/policy/policy-form-fields"
 import { type JsonObject, type PolicyFieldSpec } from "@/features/policy/policy-form-model"
+import { RouteInlineRuleSetEditor } from "@/features/policy/route-inline-rule-set-editor"
 import { changeRuleSetType, ruleSetTypes } from "@/features/policy/route-form-model"
 
 interface RouteRuleSetDialogProps {
@@ -64,15 +65,14 @@ function TypeSelect({ object, onChange }: { object: JsonObject; onChange: (item:
 function RuleSetFields({ object, revision, onChange }: {
   object: JsonObject; revision: number; onChange: (item: JsonObject) => void
 }) {
-  const { t } = useTranslation()
   const type = String(object.type ?? "inline")
   const fields = type === "remote" ? remoteFields : type === "local" ? localFields : []
   return <div className="flex flex-col gap-4">
     <PolicyFormFields fields={tagFields} object={object} namespace="policy.route" revision={revision} onChange={onChange} />
     <TypeSelect object={object} onChange={onChange} />
-    <PolicyFormFields fields={formatFields} object={object} namespace="policy.route" revision={revision} onChange={onChange} />
+    <PolicyFormFields fields={type === "inline" ? [] : formatFields} object={object} namespace="policy.route" revision={revision} onChange={onChange} />
     <PolicyFormFields fields={fields} object={object} namespace="policy.route" revision={revision} onChange={onChange} />
-    {type === "inline" ? <Alert><AlertTitle>{t("policy.route.inlineTitle")}</AlertTitle><AlertDescription>{t("policy.route.inlineDescription")}</AlertDescription></Alert> : null}
+    {type === "inline" ? <RouteInlineRuleSetEditor item={object} onChange={onChange} /> : null}
   </div>
 }
 

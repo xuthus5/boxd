@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import type { JsonObject } from "@/features/policy/policy-form-model"
+import { headlessRules } from "@/features/policy/route-headless-rule-model"
 import { summarizeRuleSet } from "@/features/policy/route-form-model"
 import {
   resolveRuleSetErrorCode,
@@ -90,6 +91,9 @@ export function RouteRuleSetCard({
   const [deleting, setDeleting] = useState(false)
   const tag = typeof item.tag === "string" && item.tag ? item.tag : t("policy.route.unnamed")
   const summary = summarizeRuleSet(item)
+  const detail = String(item.type ?? "inline") === "inline"
+    ? t("policy.route.inlineRuleCount", { count: headlessRules(item).length })
+    : summary.detail || t("policy.route.ruleSetLocationMissing")
   const confirmDelete = () => {
     setDeleting(false)
     onDelete()
@@ -102,7 +106,7 @@ export function RouteRuleSetCard({
         <CardHeader className="min-w-0 gap-1.5">
           <CardTitle className="truncate" title={tag}>{tag}</CardTitle>
           <CardDescription className="min-w-0 line-clamp-2 break-words">
-            {summary.detail || t("policy.route.ruleSetLocationMissing")}
+            {detail}
           </CardDescription>
           <CardAction className="flex flex-wrap items-center justify-end gap-1">
             {updatable ? (

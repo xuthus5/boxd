@@ -339,7 +339,7 @@ Keep structured JSON panels mounted. Disable confirmation for non-object roots, 
 
 - [ ] **Step 7: Implement rule-set cards and Dialog**
 
-Use type-driven fields. Show an `Alert` that complex inline rule content remains in Advanced JSON. Cards show Tag, type, format, and path/URL.
+Use type-driven source fields. Inline rule sets provide structured headless-rule cards and dialogs, while logical child rules and unknown fields retain JSON fallback. Cards show Tag, type, format, path/URL, or inline-rule count.
 
 - [ ] **Step 8: Compose and wire `RouteVisualEditor`**
 

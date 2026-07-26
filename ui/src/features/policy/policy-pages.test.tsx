@@ -87,7 +87,8 @@ async function expectChineseRouteDialogs() {
   expect(screen.getByRole("alert")).toHaveTextContent("请补全当前规则类型和动作所需的值。")
   await userEvent.click(screen.getByRole("button", { name: "取消" }))
   await userEvent.click(screen.getByRole("button", { name: "编辑规则集 geo" }))
-  expect(screen.getByText("复杂 inline 规则内容请在高级 JSON 中维护。")).toBeInTheDocument()
+  expect(screen.getAllByText("共 0 条 Inline 规则").length).toBeGreaterThan(1)
+  expect(screen.getByRole("button", { name: "新增 Inline 规则" })).toBeInTheDocument()
 }
 
 async function expectChineseDNSCards() {
