@@ -13,14 +13,22 @@ import (
 type RuleSetAutoUpdater struct {
 	mu       sync.Mutex
 	settings *SettingsManager
-	updater  *RuleSetUpdater
+	updater  ruleSetAutoUpdateRunner
 	cancel   context.CancelFunc
 	done     chan struct{}
 	running  bool
 }
 
+type ruleSetAutoUpdateRunner interface {
+	Update(context.Context, RuleSetUpdateRequest) (model.RuleSetUpdateResponse, error)
+}
+
 func NewRuleSetAutoUpdater(settings *SettingsManager, updater *RuleSetUpdater) *RuleSetAutoUpdater {
-	return &RuleSetAutoUpdater{settings: settings, updater: updater}
+	autoUpdater := &RuleSetAutoUpdater{settings: settings}
+	if updater != nil {
+		autoUpdater.updater = updater
+	}
+	return autoUpdater
 }
 
 func (a *RuleSetAutoUpdater) Start() {
@@ -89,6 +97,9 @@ func (a *RuleSetAutoUpdater) nextDelay() time.Duration {
 }
 
 func (a *RuleSetAutoUpdater) tick(ctx context.Context) {
+	if ctx.Err() != nil {
+		return
+	}
 	cfg, err := a.settings.RuleSetAutoUpdate()
 	if err != nil || !cfg.Enabled || a.updater == nil {
 		return
@@ -98,6 +109,9 @@ func (a *RuleSetAutoUpdater) tick(ctx context.Context) {
 		Tags:  BuiltinLocalRuleSetTags(),
 		Types: []string{"local"},
 	})
+	if ctx.Err() != nil {
+		return
+	}
 	if err != nil {
 		slog.Warn("ruleset auto update failed", "err", err)
 		return
