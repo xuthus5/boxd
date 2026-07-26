@@ -3,6 +3,8 @@ package core
 import (
 	"encoding/json"
 	"testing"
+
+	"github.com/xuthus5/boxd/internal/model"
 )
 
 func TestDefaultDNSInstallerInstall(t *testing.T) {
@@ -145,6 +147,77 @@ func TestDefaultDNSInstallerUsesRouteAndGeositeFallbacks(t *testing.T) {
 	assertDNSRule(t, rules[1], "geosite-category-ads-all", "predefined", "")
 	assertDNSRule(t, rules[2], "geosite-cn", "route", "dns-direct")
 	assertDNSRule(t, rules[3], "geosite-google-play", "route", "dns-remote")
+}
+
+type dnsDetourTestCase struct {
+	name         string
+	outbounds    []any
+	directDetour string
+	remoteDetour string
+}
+
+func TestDefaultDNSInstallerUsesOnlyExistingDetours(t *testing.T) {
+	tests := []dnsDetourTestCase{
+		{name: "without outbounds", outbounds: []any{}},
+		{
+			name:         "proxy without direct",
+			outbounds:    []any{map[string]any{"type": "direct", "tag": "proxy"}},
+			remoteDetour: "proxy",
+		},
+		{
+			name: "direct and proxy",
+			outbounds: []any{
+				map[string]any{"type": "direct", "tag": "direct"},
+				map[string]any{"type": "direct", "tag": "proxy"},
+			},
+			directDetour: "direct",
+			remoteDetour: "proxy",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			verifyDefaultDNSDetours(t, test)
+		})
+	}
+}
+
+func verifyDefaultDNSDetours(t *testing.T, test dnsDetourTestCase) {
+	t.Helper()
+	cfg := map[string]any{"outbounds": test.outbounds}
+	result, err := NewDefaultDNSInstaller().Install(cfg)
+	if err != nil {
+		t.Fatalf("Install() error = %v", err)
+	}
+	servers := result.DNS["servers"].([]any)
+	assertDNSDetour(t, servers[0], test.directDetour)
+	assertDNSDetour(t, servers[1], test.directDetour)
+	assertDNSDetour(t, servers[2], test.remoteDetour)
+
+	generated := cloneAnyMap(cfg)
+	generated["dns"] = result.DNS
+	generated["route"] = map[string]any{"default_domain_resolver": result.DefaultDomainResolver}
+	body, err := json.Marshal(generated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, issue := range AnalyzeConfig(body).Issues {
+		if issue.Severity == model.ConfigDiagnosticSeverityError {
+			t.Fatalf("generated defaults diagnostic = %#v", issue)
+		}
+	}
+}
+
+func assertDNSDetour(t *testing.T, value any, expected string) {
+	t.Helper()
+	server := value.(map[string]any)
+	actual, exists := server["detour"].(string)
+	if expected == "" && exists {
+		t.Fatalf("detour = %q, want omitted", actual)
+	}
+	if expected != "" && actual != expected {
+		t.Fatalf("detour = %q, want %q", actual, expected)
+	}
 }
 
 func assertDNSRule(t *testing.T, value any, ruleSet, action, server string) {

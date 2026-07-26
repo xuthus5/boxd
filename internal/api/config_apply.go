@@ -1,62 +1,15 @@
 package api
 
 import (
-	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/sagernet/sing-box/include"
-	"github.com/sagernet/sing-box/option"
-
 	"github.com/xuthus5/boxd/internal/model"
 )
-
-var ErrInvalidRuntimeConfig = errors.New("invalid sing-box config")
-
-func validateRuntimeConfig(body []byte) error {
-	ctx, cancel := context.WithCancel(include.Context(context.Background()))
-	defer cancel()
-
-	var cfg option.Options
-	if err := cfg.UnmarshalJSONContext(ctx, body); err != nil {
-		return fmt.Errorf("%w: %v", ErrInvalidRuntimeConfig, err)
-	}
-	return nil
-}
-
-func runtimeConfigErrorMessage(err error) string {
-	msg := strings.TrimSpace(err.Error())
-	prefix := ErrInvalidRuntimeConfig.Error() + ": "
-	if detail, ok := strings.CutPrefix(msg, prefix); ok && detail != "" {
-		msg = strings.TrimSpace(detail)
-	}
-	if lines := strings.Split(msg, "\n"); len(lines) > 1 {
-		first := strings.TrimSpace(lines[0])
-		for _, line := range lines[1:] {
-			line = strings.TrimSpace(line)
-			if line == "" {
-				continue
-			}
-			if strings.Contains(line, ".") || strings.Contains(line, "[") {
-				msg = first + ": " + line
-				break
-			}
-		}
-		if !strings.Contains(msg, ":") {
-			msg = first
-		}
-	}
-	msg = strings.TrimSpace(msg)
-	if msg == "" {
-		return "invalid sing-box config"
-	}
-	return msg
-}
 
 func restartFailureMessage(err error) string {
 	detail := strings.TrimSpace(err.Error())
@@ -106,7 +59,11 @@ func writeApplyConfigError(w http.ResponseWriter, err error) {
 	writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorInternal, "failed to write config")
 }
 
-func (h *ConfigHandler) applyConfigBytesWithSource(body []byte, shouldValidate bool, source string) (string, *model.APIError, error) {
+func (h *ConfigHandler) applyConfigBytesWithSource(
+	body []byte,
+	shouldValidate bool,
+	source string,
+) (string, *model.APIError, error) {
 	if shouldValidate {
 		if err := validateRuntimeConfig(body); err != nil {
 			return "", nil, err

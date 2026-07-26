@@ -12,14 +12,19 @@ type DNSDefaultsResult struct {
 
 type DefaultDNSInstaller struct{}
 
+type dnsDefaultDetours struct {
+	direct string
+	remote string
+}
+
 func NewDefaultDNSInstaller() *DefaultDNSInstaller {
 	return &DefaultDNSInstaller{}
 }
 
 func (i *DefaultDNSInstaller) Install(cfg map[string]any) (*DNSDefaultsResult, error) {
-	detour := selectDNSDetour(cfg)
+	detours := selectDNSDetours(cfg)
 	ruleSets := existingRuleSetTags(cfg)
-	servers := defaultDNSServers(detour)
+	servers := defaultDNSServers(detours)
 	rules := defaultDNSRules(ruleSets)
 	dns := map[string]any{
 		"servers":           servers,
@@ -36,29 +41,43 @@ func (i *DefaultDNSInstaller) Install(cfg map[string]any) (*DNSDefaultsResult, e
 	}, nil
 }
 
-func selectDNSDetour(cfg map[string]any) string {
+func selectDNSDetours(cfg map[string]any) dnsDefaultDetours {
 	outboundTags := existingOutboundTags(cfg)
+	detours := dnsDefaultDetours{}
+	if outboundTags["direct"] {
+		detours.direct = "direct"
+	}
 	if outboundTags["proxy"] {
-		return "proxy"
+		detours.remote = "proxy"
+		return detours
 	}
 	route, _ := cfg["route"].(map[string]any)
 	final, _ := route["final"].(string)
 	if final != "" && outboundTags[final] {
-		return final
+		detours.remote = final
+		return detours
 	}
-	return "direct"
+	detours.remote = detours.direct
+	return detours
 }
 
-func defaultDNSServers(detour string) []any {
+func defaultDNSServers(detours dnsDefaultDetours) []any {
 	return []any{
-		map[string]any{"type": "local", "detour": "direct", "tag": "dns-local"},
-		map[string]any{"type": "https", "server": "223.5.5.5", "detour": "direct", "tag": "dns-direct"},
-		map[string]any{
-			"type": "https", "server": "dns.google", "domain_resolver": "dns-direct",
-			"detour": detour, "tag": "dns-remote",
-		},
+		withDNSDetour(map[string]any{"type": "local", "tag": "dns-local"}, detours.direct),
+		withDNSDetour(map[string]any{"type": "https", "server": "223.5.5.5", "tag": "dns-direct"}, detours.direct),
+		withDNSDetour(map[string]any{
+			"type": "https", "server": "dns.google",
+			"domain_resolver": "dns-direct", "tag": "dns-remote",
+		}, detours.remote),
 		map[string]any{"type": "fakeip", "inet4_range": "198.18.0.0/15", "inet6_range": "fc00::/18", "tag": "dns-fake"},
 	}
+}
+
+func withDNSDetour(server map[string]any, detour string) map[string]any {
+	if detour != "" {
+		server["detour"] = detour
+	}
+	return server
 }
 
 func defaultDNSRules(ruleSets map[string]bool) []any {
