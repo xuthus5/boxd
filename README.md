@@ -17,7 +17,7 @@ Single-node control plane for [sing-box](https://github.com/SagerNet/sing-box). 
 - **Advanced**: Endpoints with visual WireGuard peer editing, NTP time sync, Experimental, full kernel JSON with path-level diff, local JSON import/export, read-only Tag/outbound/DNS/rule-set preflight, and a searchable full config-history audit page with status summary, filtered JSON export, precise timestamps, full errors, and snapshot restore; dry-run validate on raw/endpoints/NTP/experimental; sticky save-error jump
 - **Auth**: densified login failures with error codes/hints and copyable diagnostics
 - **Page load diagnostics**: shared densified query-load failures (code/hint/copy/retry) across dashboard, proxy, policy, nodes/subs, settings, and advanced pages
-- **Settings**: theme, language, and log level persisted in DB; password/JWT rotation, dirty-state save gates, probe URLs, global URLTest defaults, panel backup export
+- **Settings**: theme, language, and log level persisted in DB; password/JWT rotation, dirty-state save gates, probe URLs, global URLTest defaults, redacted support-bundle export, and panel backup export
 
 ## Stack
 
@@ -70,7 +70,7 @@ go run ./cmd/boxd/
 3. **Inbounds / outbounds**: install mixed (1080) + TUN templates or create custom inbounds; bind subscription groups as selector/urltest, or use direct/block.
 4. **Route / DNS / NTP / Experimental**: edit rules and time sync in forms; install common defaults; one-click enable Clash API.
 5. **Dashboard**: confirm panel readiness, start the kernel; switch global outbound and Clash mode; watch traffic and logs.
-6. **Settings**: theme, language, minimum log level (stored in the database), system probe URLs, kernel autostart, backup export.
+6. **Settings**: theme, language, minimum log level (stored in the database), system probe URLs, kernel autostart, redacted support-bundle export, and backup export.
 
 ### Built-in routing helpers
 

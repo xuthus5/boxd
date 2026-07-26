@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { usePreferences } from "@/features/preferences/preferences-provider"
 import { BackupExportCard } from "@/features/settings/backup-export-card"
+import { SupportBundleCard } from "@/features/settings/support-bundle-card"
 import { RuleSetAutoUpdateCard } from "@/features/settings/ruleset-auto-update-card"
 import { AccountSecurityCard } from "@/features/settings/account-security-card"
 import { URLTestDefaultsCard } from "@/features/settings/urltest-defaults-card"
@@ -145,6 +146,7 @@ function RuntimeSettingsCard({ url, enabled }: { url: string; enabled: boolean }
 
 export function SettingsPage() {
   const { t } = useTranslation()
+  const preferences = usePreferences()
   const [password, jwt, testURL, autostart, urlTestDefaults, ruleSetAuto] = useQueries({ queries: [
     { queryKey: ["settings", "password"], queryFn: api.settings.password },
     { queryKey: ["settings", "jwt"], queryFn: api.settings.jwt },
@@ -169,5 +171,5 @@ export function SettingsPage() {
       />
     )
   }
-  return <div className="flex flex-col gap-3 sm:gap-4"><h1 className="text-2xl font-semibold">{t("settings.title")}</h1><div className="grid gap-3 sm:gap-4 lg:grid-cols-2"><AppearanceCard /><AccountSecurityCard defaultPassword={password.data!.defaultPassword} jwt={jwt.data!} /><RuntimeSettingsCard url={testURL.data!.url} enabled={autostart.data!.enabled} /><URLTestDefaultsCard defaults={urlTestDefaults.data!} /><RuleSetAutoUpdateCard defaults={ruleSetAuto.data!} /><BackupExportCard /></div></div>
+  return <div className="flex flex-col gap-3 sm:gap-4"><h1 className="text-2xl font-semibold">{t("settings.title")}</h1><div className="grid gap-3 sm:gap-4 lg:grid-cols-2"><AppearanceCard /><AccountSecurityCard defaultPassword={password.data!.defaultPassword} jwt={jwt.data!} /><RuntimeSettingsCard url={testURL.data!.url} enabled={autostart.data!.enabled} /><URLTestDefaultsCard defaults={urlTestDefaults.data!} /><RuleSetAutoUpdateCard defaults={ruleSetAuto.data!} /><SupportBundleCard preferences={{ theme: preferences.theme, language: preferences.language, minimumLogLevel: preferences.minimumLogLevel }} /><BackupExportCard /></div></div>
 }

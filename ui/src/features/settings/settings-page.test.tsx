@@ -29,6 +29,7 @@ describe("SettingsPage", () => {
     expect(screen.getByLabelText("确认新密码")).toBeInTheDocument()
     expect(screen.getByText(/至少 12 个字符/)).toBeInTheDocument()
     expect(screen.getByText("订阅 URLTest 默认值")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "生成支持包" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "导出备份" })).toBeInTheDocument()
   })
 })
