@@ -684,6 +684,8 @@ export const en = {
     dashboard: {
       ...enBase.translation.dashboard,
       sourceValidateLog: "Kernel logging validate",
+      healthRate: "Live rate",
+      healthTopRateOutbound: "Busiest outbound by rate",
     },
     observability: {
       ...enBase.translation.observability,

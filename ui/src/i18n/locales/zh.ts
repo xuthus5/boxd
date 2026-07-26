@@ -684,6 +684,8 @@ export const zh = {
     dashboard: {
       ...zhBase.translation.dashboard,
       sourceValidateLog: "内核日志校验",
+      healthRate: "实时速率",
+      healthTopRateOutbound: "实时最忙出口",
     },
     observability: {
       ...zhBase.translation.observability,

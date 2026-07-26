@@ -15,6 +15,7 @@ import { HealthStreamErrorBlock } from "@/features/dashboard/health-stream-error
 import { ProblemNodesPreview } from "@/features/dashboard/problem-nodes-preview"
 import { buildHealthSummary, type HealthTone } from "@/features/dashboard/health-summary"
 import { useHealthOpsSignals } from "@/features/dashboard/use-health-ops-signals"
+import { formatConnectionRatePair } from "@/features/observability/connection-rate"
 import { buildConnectionsHref } from "@/features/observability/connection-facets"
 import { api } from "@/lib/api/endpoints"
 import type { ConnectionEvent, ServiceStatus } from "@/lib/api/types"
@@ -61,8 +62,17 @@ export function HealthSummaryCard({
   const topRuleHref = summary.topRule && summary.topRule !== "—"
     ? buildConnectionsHref({ rule: summary.topRule })
     : ""
+  const rateHref = summary.rateReady && summary.active > 0
+    ? buildConnectionsHref({ sort: "rate" })
+    : ""
+  const topRateOutboundHref = summary.topRateOutbound !== "—"
+    ? buildConnectionsHref({ outbound: summary.topRateOutbound, sort: "rate" })
+    : ""
   const tcpHref = summary.tcp > 0 ? buildConnectionsHref({ network: "tcp" }) : ""
   const udpHref = summary.udp > 0 ? buildConnectionsHref({ network: "udp" }) : ""
+  const rate = summary.rateReady
+    ? formatConnectionRatePair(summary.uploadRate, summary.downloadRate)
+    : "—"
   return (
     <Card size="sm">
       <CardHeader className="gap-1.5">
@@ -80,6 +90,9 @@ export function HealthSummaryCard({
         <div className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
           <p>{t("dashboard.upload")}: {formatBytes(summary.upload)}</p>
           <p>{t("dashboard.download")}: {formatBytes(summary.download)}</p>
+          <p className="truncate sm:col-span-2" title={rate}>
+            {t("dashboard.healthRate")}: <DeepLink to={rateHref}>{rate}</DeepLink>
+          </p>
           <p>{t("dashboard.healthOutbounds", { count: summary.outbounds })}</p>
           <p>
             {t("dashboard.healthNetworksPrefix")}{" "}
@@ -90,6 +103,10 @@ export function HealthSummaryCard({
           <p className="truncate" title={summary.topOutbound}>
             {t("dashboard.healthTopOutbound")}:{" "}
             <DeepLink to={topOutboundHref}>{summary.topOutbound}</DeepLink>
+          </p>
+          <p className="truncate" title={summary.topRateOutbound}>
+            {t("dashboard.healthTopRateOutbound")}: {" "}
+            <DeepLink to={topRateOutboundHref}>{summary.topRateOutbound}</DeepLink>
           </p>
           <p className="truncate" title={summary.topRule}>
             {t("dashboard.healthTopRule")}:{" "}

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { buildHealthSummary, countNetworks, healthTone } from "@/features/dashboard/health-summary"
+import type { ConnectionWithRates } from "@/features/observability/connection-rate"
 import type { Connection } from "@/lib/api/types"
 
 const sample: Connection[] = [
@@ -29,13 +30,46 @@ describe("health-summary", () => {
     expect(summary.tone).toBe("ok")
   })
 
+  it("summarizes live rates and selects the busiest outbound", () => {
+    const rated: ConnectionWithRates[] = [
+      { ...sample[0], uploadRate: 30, downloadRate: 70 },
+      { ...sample[1], uploadRate: 10, downloadRate: 20 },
+      { ...sample[2], uploadRate: 5, downloadRate: 10 },
+    ]
+
+    expect(buildHealthSummary({ active_connections: 3, list: rated }, { running: true })).toMatchObject({
+      uploadRate: 45,
+      downloadRate: 100,
+      rateReady: true,
+      topRateOutbound: "proxy",
+    })
+    expect(buildHealthSummary({ active_connections: 3, list: sample }, { running: true })).toMatchObject({
+      rateReady: false,
+      topRateOutbound: "—",
+    })
+    expect(buildHealthSummary({
+      active_connections: 3,
+      list: [rated[0], sample[1], rated[2]],
+    }, { running: true })).toMatchObject({
+      rateReady: false,
+      topRateOutbound: "direct",
+    })
+  })
+
   it("handles empty snapshots and offline kernels", () => {
     expect(buildHealthSummary(undefined, { running: false })).toMatchObject({
       tone: "offline",
       active: 0,
+      rateReady: false,
       topOutbound: "—",
+      topRateOutbound: "—",
       topRule: "—",
     })
-    expect(buildHealthSummary({ active_connections: 0, list: [] }, { running: true }).tone).toBe("idle")
+    expect(buildHealthSummary({ active_connections: 0, list: [] }, { running: true })).toMatchObject({
+      tone: "idle",
+      uploadRate: 0,
+      downloadRate: 0,
+      rateReady: true,
+    })
   })
 })

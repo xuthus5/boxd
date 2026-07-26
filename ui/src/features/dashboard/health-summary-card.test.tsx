@@ -3,6 +3,7 @@ import { screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { HealthSummaryCard } from "@/features/dashboard/health-summary-card"
+import type { ConnectionWithRates } from "@/features/observability/connection-rate"
 import { renderApp } from "@/test/render"
 
 afterEach(() => {
@@ -22,6 +23,38 @@ function renderCard() {
 }
 
 describe("HealthSummaryCard", () => {
+  it("shows the live rate and busiest outbound deep links", () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({})))))
+    const connection: ConnectionWithRates = {
+      id: 1,
+      target: "api.example.com:443",
+      outbound: "proxy",
+      network: "tcp",
+      upload: 100,
+      download: 200,
+      uploadRate: 1024,
+      downloadRate: 2048,
+      start: "2026-07-26T00:00:00Z",
+    }
+    renderApp(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <HealthSummaryCard
+          status={{ running: true, uptime: "1m" }}
+          snapshot={{ active_connections: 1, list: [connection] }}
+        />
+      </QueryClientProvider>,
+    )
+
+    expect(screen.getByText(/实时速率:/)).toHaveTextContent("↑ 1.00 KB/s · ↓ 2.00 KB/s")
+    expect(screen.getByRole("link", { name: "↑ 1.00 KB/s · ↓ 2.00 KB/s" })).toHaveAttribute(
+      "href",
+      "/observability/connections?sort=rate",
+    )
+    expect(screen.getAllByRole("link", { name: "proxy" }).some((link) => (
+      link.getAttribute("href") === "/observability/connections?outbound=proxy&sort=rate"
+    ))).toBe(true)
+  })
+
   it("embeds failed subscription preview below ops chips", async () => {
     vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
       const path = typeof input === "string" ? input : input.toString()

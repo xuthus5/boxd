@@ -21,6 +21,7 @@ import { useAuth } from "@/features/auth/auth-context"
 import { reportDashboardRequestError } from "@/features/dashboard/dashboard-request-error-actions"
 import { PageLoadErrorAlert } from "@/features/common/page-load-error-alert"
 import { useStreamBuffer } from "@/features/observability/use-stream-buffer"
+import { useConnectionRates } from "@/features/observability/use-connection-rates"
 import { api } from "@/lib/api/endpoints"
 import type { ConnectionEvent, LogEvent, TrafficEvent } from "@/lib/api/types"
 
@@ -35,6 +36,12 @@ export function DashboardPage() {
   const connections = useStreamBuffer<ConnectionEvent>(api.stats.paths.connections, token, 2)
   const logs = useStreamBuffer<LogEvent>(api.stats.paths.logs, token, 20)
   const appLogs = useStreamBuffer<LogEvent>(api.stats.paths.appLogs, token, 50)
+  const connectionSnapshot = useMemo(() => connections.items.at(-1), [connections.items])
+  const snapshotConnections = useMemo(() => connectionSnapshot?.list ?? [], [connectionSnapshot])
+  const liveConnections = useConnectionRates(snapshotConnections)
+  const healthSnapshot = useMemo(() => connectionSnapshot
+    ? { ...connectionSnapshot, list: liveConnections }
+    : undefined, [connectionSnapshot, liveConnections])
   const [status, history, memory, version] = useQueries({ queries: [
     { queryKey: ["service"], queryFn: api.service.status, refetchInterval: 5000 },
     { queryKey: ["traffic-history"], queryFn: api.stats.history },
@@ -97,7 +104,7 @@ export function DashboardPage() {
       <div className="grid gap-4 lg:grid-cols-3">
         <SetupChecklistCard status={status.data} />
         <HealthSummaryCard
-          snapshot={connections.items.at(-1)}
+          snapshot={healthSnapshot}
           status={status.data}
           streamError={connections.error || undefined}
           streamStatus={connections.status}
