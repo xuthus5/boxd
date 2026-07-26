@@ -115,7 +115,7 @@ function TrafficLine({ dataKey }: { dataKey: string }) {
     stroke={`var(--color-${dataKey})`}
     dot={false}
     activeDot={false}
-    opacity={0}
+    hide
     isAnimationActive={false}
     animateNewValues={false}
   />

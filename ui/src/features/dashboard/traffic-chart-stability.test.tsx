@@ -8,6 +8,7 @@ const recharts = vi.hoisted(() => ({
   chart: vi.fn(),
   grid: vi.fn(),
   plotArea: undefined as { x: number; y: number; width: number; height: number } | undefined,
+  tooltip: vi.fn(),
   xAxis: vi.fn(),
   yAxis: vi.fn(),
 }))
@@ -37,7 +38,10 @@ vi.mock("recharts", () => ({
     recharts.yAxis(props)
     return null
   },
-  Tooltip: () => null,
+  Tooltip: (props: Record<string, unknown>) => {
+    recharts.tooltip(props)
+    return null
+  },
   Legend: () => null,
 }))
 
@@ -109,6 +113,7 @@ describe("TrafficChart stability", () => {
     recharts.chart.mockClear()
     recharts.grid.mockClear()
     recharts.plotArea = { x: 72, y: 4, width: 720, height: 220 }
+    recharts.tooltip.mockClear()
     recharts.xAxis.mockClear()
     recharts.yAxis.mockClear()
   })
@@ -152,12 +157,13 @@ describe("TrafficChart stability", () => {
     for (const [props] of recharts.line.mock.calls) {
       expect(props).toMatchObject({
         activeDot: false,
-        opacity: 0,
+        hide: true,
         isAnimationActive: false,
         animateNewValues: false,
       })
       expect(props).not.toHaveProperty("shape")
     }
+    expect(recharts.tooltip.mock.calls.at(-1)?.[0]).toMatchObject({ includeHidden: true })
 
     await user.click(screen.getByRole("button", { name: "rerender parent" }))
     expect(screen.getByLabelText("unrelated state")).toHaveTextContent("1")
@@ -168,7 +174,7 @@ describe("TrafficChart stability", () => {
     expect(screen.getByTestId("traffic-chart-instance")).toBe(chartInstance)
     expect(recharts.line.mock.calls.at(-1)?.[0]).toMatchObject({
       activeDot: false,
-      opacity: 0,
+      hide: true,
       isAnimationActive: false,
       animateNewValues: false,
     })

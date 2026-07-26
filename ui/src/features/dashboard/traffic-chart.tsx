@@ -61,7 +61,7 @@ const TrafficLines = memo(function TrafficLines({ data, uploadKey, downloadKey, 
       timeDomain={timeDomain}
       valueDomain={valueDomain}
     />
-    <ChartTooltip content={tooltipContent} />
+    <ChartTooltip includeHidden content={tooltipContent} />
   </LineChart></ChartContainer>
 })
 

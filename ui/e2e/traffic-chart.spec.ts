@@ -87,6 +87,12 @@ test("live traffic curve rolls the full window without redrawing history", async
   const firstSegment = uploadSegments.first()
   await expect(firstSegment).toBeVisible()
   await expect(firstSegment.locator("..")).toHaveClass(/transition-transform/)
+  const chart = page.locator('[data-slot="chart"]').first()
+  await chart.scrollIntoViewIfNeeded()
+  const chartBox = await chart.boundingBox()
+  if (!chartBox) throw new Error("traffic chart bounds unavailable")
+  await page.mouse.move(chartBox.x + (chartBox.width * 0.15), chartBox.y + (chartBox.height * 0.5))
+  await expect(page.locator(".recharts-tooltip-wrapper")).toContainText("/s")
   await page.evaluate((samples) => {
     const scope = window as typeof window & { __pushTraffic?: (next: TrafficSample) => void }
     for (const sample of samples) scope.__pushTraffic?.(sample)
@@ -118,12 +124,22 @@ test("live traffic curve rolls the full window without redrawing history", async
     const state = {
       d: segments.map((segment) => segment.getAttribute("d")),
       dMutations: 0,
+      rechartsLineReplacements: 0,
       segments,
     }
     const observer = new MutationObserver((records) => {
       state.dMutations += records.filter((record) => record.attributeName === "d").length
     })
     for (const segment of segments) observer.observe(segment, { attributes: true, attributeFilter: ["d"] })
+    const chartObserver = new MutationObserver((records) => {
+      state.rechartsLineReplacements += records.filter((record) => (
+        record.type === "childList"
+        && record.target instanceof Element
+        && record.target.classList.contains("recharts-line")
+      )).length
+    })
+    const chart = document.querySelector('[data-slot="chart"]')
+    if (chart) chartObserver.observe(chart, { childList: true, subtree: true })
     const scope = window as typeof window & { __trafficSegments?: typeof state }
     scope.__trafficSegments = state
   })
@@ -143,7 +159,12 @@ test("live traffic curve rolls the full window without redrawing history", async
     const motion = path.parentElement as SVGGElement
     const style = getComputedStyle(motion)
     const scope = window as typeof window & {
-      __trafficSegments?: { d: Array<string | null>; dMutations: number; segments: SVGPathElement[] }
+      __trafficSegments?: {
+        d: Array<string | null>
+        dMutations: number
+        rechartsLineReplacements: number
+        segments: SVGPathElement[]
+      }
     }
     const state = scope.__trafficSegments
     return {
@@ -154,6 +175,7 @@ test("live traffic curve rolls the full window without redrawing history", async
         segment.isConnected && segment.getAttribute("d") === state.d[index]
       )),
       opacity: getComputedStyle(path).opacity,
+      rechartsLineReplacements: state?.rechartsLineReplacements,
       targetX: new DOMMatrix(motion.style.transform).m41,
       transitionProperty: style.transitionProperty,
     }
@@ -164,6 +186,7 @@ test("live traffic curve rolls the full window without redrawing history", async
   expect(updated.historicalGeometryStable).toBe(true)
   expect(updated.dMutations).toBe(0)
   expect(updated.opacity).toBe(initial.opacity)
+  expect(updated.rechartsLineReplacements).toBe(0)
   expect(updated.transitionProperty).toContain("transform")
   expect(updated.duration).toBe("1s")
   expect(updated.targetX).not.toBe(initial.targetX)
