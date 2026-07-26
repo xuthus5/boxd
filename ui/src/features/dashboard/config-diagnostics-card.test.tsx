@@ -47,10 +47,11 @@ describe("ConfigDiagnosticsCard", () => {
     const report = {
       ...healthy,
       status: "error" as const,
-      summary: { errors: 2, warnings: 1 },
+      summary: { errors: 1, warnings: 3 },
       issues: [
         { code: "unknown_outbound_reference", severity: "error" as const, path: "route.rules[0].outbound", value: "missing" },
         { code: "tls_insecure", severity: "warning" as const, path: "outbounds[0].tls.insecure", value: "node" },
+        { code: "legacy_dns_server", severity: "warning" as const, path: "dns.servers[0]", value: "local" },
         { code: "future_code", severity: "warning" as const, path: "config", detail: "unknown detail" },
       ],
     }
@@ -63,6 +64,10 @@ describe("ConfigDiagnosticsCard", () => {
     const editorLinks = screen.getAllByRole("link", { name: "打开编辑器" })
     expect(editorLinks[0]).toHaveAttribute("href", "/policy/route?path=route.rules%5B0%5D.outbound")
     expect(editorLinks[1]).toHaveAttribute("href", "/proxy/outbounds?path=outbounds%5B0%5D.tls.insecure")
+    expect(screen.getByRole("link", { name: "查看迁移指南" })).toHaveAttribute(
+      "href",
+      expect.stringContaining("migrate-to-new-dns-server-formats"),
+    )
   })
 
   it("shows loading and query error states", async () => {

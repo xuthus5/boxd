@@ -14,6 +14,11 @@ const issueLabelKeys: Record<string, string> = {
   unknown_ruleset_reference: "configDiagnostics.issueLabels.unknownRulesetReference",
   unknown_dns_reference: "configDiagnostics.issueLabels.unknownDNSReference",
   tls_insecure: "configDiagnostics.issueLabels.tlsInsecure",
+  legacy_dns_server: "configDiagnostics.issueLabels.legacyDNSServer",
+  legacy_dns_fakeip: "configDiagnostics.issueLabels.legacyDNSFakeIP",
+  outbound_dns_rule_item: "configDiagnostics.issueLabels.outboundDNSRuleItem",
+  missing_domain_resolver: "configDiagnostics.issueLabels.missingDomainResolver",
+  legacy_domain_strategy: "configDiagnostics.issueLabels.legacyDomainStrategy",
 }
 
 const issueHintKeys: Record<string, string> = {
@@ -29,6 +34,19 @@ const issueHintKeys: Record<string, string> = {
   unknown_ruleset_reference: "configDiagnostics.issueHints.unknownRulesetReference",
   unknown_dns_reference: "configDiagnostics.issueHints.unknownDNSReference",
   tls_insecure: "configDiagnostics.issueHints.tlsInsecure",
+  legacy_dns_server: "configDiagnostics.issueHints.legacyDNSServer",
+  legacy_dns_fakeip: "configDiagnostics.issueHints.legacyDNSFakeIP",
+  outbound_dns_rule_item: "configDiagnostics.issueHints.outboundDNSRuleItem",
+  missing_domain_resolver: "configDiagnostics.issueHints.missingDomainResolver",
+  legacy_domain_strategy: "configDiagnostics.issueHints.legacyDomainStrategy",
+}
+
+const migrationHrefs: Record<string, string> = {
+  legacy_dns_server: "https://sing-box.sagernet.org/migration/#migrate-to-new-dns-server-formats",
+  legacy_dns_fakeip: "https://sing-box.sagernet.org/migration/#migrate-to-new-dns-server-formats",
+  outbound_dns_rule_item: "https://sing-box.sagernet.org/migration/#migrate-outbound-dns-rule-items-to-domain-resolver",
+  missing_domain_resolver: "https://sing-box.sagernet.org/migration/#migrate-outbound-dns-rule-items-to-domain-resolver",
+  legacy_domain_strategy: "https://sing-box.sagernet.org/migration/#migrate-outbound-domain-strategy-option-to-domain-resolver",
 }
 
 export function configDiagnosticStatusKey(status: ConfigDiagnosticsStatus | string): string {
@@ -43,6 +61,10 @@ export function configDiagnosticIssueLabelKey(code: string): string {
 
 export function configDiagnosticIssueHintKey(code: string): string {
   return issueHintKeys[code] ?? "configDiagnostics.issueHints.unknown"
+}
+
+export function configDiagnosticMigrationHref(code: string): string | undefined {
+  return migrationHrefs[code]
 }
 
 export function configDiagnosticHref(path?: string): string {

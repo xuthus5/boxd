@@ -97,6 +97,7 @@ func inspectTopology(report *model.ConfigDiagnostics, cfg map[string]any) {
 	checkDuplicateTags(report, ruleSets)
 	checkOutboundReferences(report, cfg, outbounds, endpoints, ruleSets)
 	checkDNSReferences(report, cfg, dnsServers)
+	checkSingBoxMigrationWarnings(report, cfg, dnsServers)
 	checkInsecureTLS(report, cfg)
 	if len(inbounds) == 0 {
 		addDiagnostic(report, "no_inbounds", model.ConfigDiagnosticSeverityWarning, "inbounds", "", "")
@@ -166,8 +167,9 @@ func diagnosticEntriesFromDNS(cfg map[string]any) []diagnosticEntry {
 			tag = strconv.Itoa(index)
 		}
 		entries = append(entries, diagnosticEntry{
-			tag:  tag,
-			path: "dns.servers[" + strconv.Itoa(index) + "]",
+			tag:      tag,
+			typeName: stringValue(object["type"]),
+			path:     "dns.servers[" + strconv.Itoa(index) + "]",
 		})
 	}
 	return entries

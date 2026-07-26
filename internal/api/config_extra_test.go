@@ -189,13 +189,18 @@ func TestInstallDefaultRouteRulesConfigNotFound(t *testing.T) {
 }
 
 func TestInstallDefaultDNSSuccess(t *testing.T) {
-	handler, _ := newConfigHandlerWithFile(t)
+	handler, configPath := newConfigHandlerWithFile(t)
 
 	rr := httptest.NewRecorder()
 	handler.InstallDefaultDNS(rr, httptest.NewRequest(http.MethodPost, "/api/config/dns/defaults", nil))
 
 	if rr.Code != http.StatusOK {
 		t.Errorf("status = %d, want %d", rr.Code, http.StatusOK)
+	}
+	cfg := decodeConfigFile(t, configPath)
+	route := cfg["route"].(map[string]any)
+	if route["default_domain_resolver"] != "dns-direct" {
+		t.Fatalf("route.default_domain_resolver = %#v", route["default_domain_resolver"])
 	}
 }
 

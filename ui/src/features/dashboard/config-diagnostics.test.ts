@@ -4,6 +4,7 @@ import {
   configDiagnosticHref,
   configDiagnosticIssueHintKey,
   configDiagnosticIssueLabelKey,
+  configDiagnosticMigrationHref,
   configDiagnosticStatusKey,
   enabledConfigFeatures,
 } from "@/features/dashboard/config-diagnostics"
@@ -15,6 +16,15 @@ describe("config diagnostics helpers", () => {
     expect(configDiagnosticStatusKey("error")).toBe("configDiagnostics.error")
     expect(configDiagnosticIssueLabelKey("invalid_json")).toContain("invalidJSON")
     expect(configDiagnosticIssueHintKey("future_code")).toContain("unknown")
+  })
+
+  it("links sing-box deprecations to official migration guides", () => {
+    expect(configDiagnosticMigrationHref("legacy_dns_server")).toContain("migrate-to-new-dns-server-formats")
+    expect(configDiagnosticMigrationHref("outbound_dns_rule_item")).toContain("migrate-outbound-dns-rule-items")
+    expect(configDiagnosticMigrationHref("legacy_domain_strategy")).toContain(
+      "migrate-outbound-domain-strategy-option-to-domain-resolver",
+    )
+    expect(configDiagnosticMigrationHref("duplicate_tag")).toBeUndefined()
   })
 
   it("links issue paths to the closest editor", () => {

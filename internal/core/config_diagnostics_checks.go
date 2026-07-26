@@ -137,6 +137,13 @@ func setConfigFeatures(report *model.ConfigDiagnostics, cfg map[string]any, inbo
 	if fakeIP := objectValue(dns["fakeip"]); fakeIP != nil {
 		report.Features.FakeIP, _ = fakeIP["enabled"].(bool)
 	}
+	servers, _ := dns["servers"].([]any)
+	for _, item := range servers {
+		if strings.EqualFold(stringValue(objectValue(item)["type"]), "fakeip") {
+			report.Features.FakeIP = true
+			break
+		}
+	}
 	experimental := objectValue(cfg["experimental"])
 	if cache := objectValue(experimental["cache_file"]); cache != nil {
 		report.Features.CacheFile, _ = cache["enabled"].(bool)

@@ -24,10 +24,9 @@ func TestAnalyzeConfigReportsHealthyTopologyAndFeatures(t *testing.T) {
     "rule_set":[{"type":"inline","tag":"geo","rules":[]}]
   },
   "dns": {
-    "servers":[{"address":"local","tag":"local"}],
+    "servers":[{"type":"local","tag":"local"},{"type":"fakeip","tag":"fake","inet4_range":"198.18.0.0/15"}],
     "rules":[{"server":"local"}],
-    "final":"local",
-    "fakeip":{"enabled":true,"inet4_range":"198.18.0.0/15"}
+    "final":"local"
   },
   "experimental":{"cache_file":{"enabled":true},"clash_api":{"external_controller":"127.0.0.1:9090"}}
 }`))
@@ -38,11 +37,92 @@ func TestAnalyzeConfigReportsHealthyTopologyAndFeatures(t *testing.T) {
 	if report.Summary.Errors != 0 || report.Summary.Warnings != 0 {
 		t.Fatalf("summary = %+v", report.Summary)
 	}
-	if report.Counts.Inbounds != 1 || report.Counts.Outbounds != 3 || report.Counts.RouteRules != 1 || report.Counts.RuleSets != 1 || report.Counts.DNSServers != 1 || report.Counts.DNSRules != 1 {
+	counts := report.Counts
+	if counts.Inbounds != 1 || counts.Outbounds != 3 || counts.RouteRules != 1 ||
+		counts.RuleSets != 1 || counts.DNSServers != 2 || counts.DNSRules != 1 {
 		t.Fatalf("counts = %+v", report.Counts)
 	}
-	if !report.Features.Selector || !report.Features.URLTest || !report.Features.FakeIP || !report.Features.CacheFile || !report.Features.ClashAPI {
+	features := report.Features
+	if !features.Selector || !features.URLTest || !features.FakeIP ||
+		!features.CacheFile || !features.ClashAPI {
 		t.Fatalf("features = %+v", report.Features)
+	}
+}
+
+func TestAnalyzeConfigReportsSingBoxMigrationWarnings(t *testing.T) {
+	report := AnalyzeConfig([]byte(`{
+  "inbounds":[{"type":"mixed","tag":"mixed","listen":"127.0.0.1","listen_port":1080}],
+  "outbounds":[
+    {"type":"direct","tag":"direct"},
+    {"type":"socks","tag":"domain-node","server":"proxy.example.com","server_port":1080,"domain_strategy":"prefer_ipv4"}
+  ],
+  "route":{"rules":[{"outbound":"direct"}]},
+  "dns":{
+    "servers":[{"tag":"local","address":"local"},{"tag":"remote","address":"https://1.1.1.1/dns-query"}],
+    "rules":[{"type":"logical","mode":"or","rules":[{"outbound":"proxy"}],"server":"local"}],
+    "fakeip":{"enabled":true,"inet4_range":"198.18.0.0/15"}
+  }
+}`))
+
+	if report.Status != model.ConfigDiagnosticsWarning {
+		t.Fatalf("status = %q, report = %+v", report.Status, report)
+	}
+	if !hasDiagnostic(report.Issues, "legacy_dns_server", "local") {
+		t.Fatalf("legacy DNS server issue missing: %+v", report.Issues)
+	}
+	if !hasDiagnostic(report.Issues, "legacy_dns_fakeip", "") {
+		t.Fatalf("legacy FakeIP issue missing: %+v", report.Issues)
+	}
+	if !hasDiagnostic(report.Issues, "outbound_dns_rule_item", "proxy") {
+		t.Fatalf("outbound DNS rule issue missing: %+v", report.Issues)
+	}
+	if !hasDiagnostic(report.Issues, "missing_domain_resolver", "domain-node") {
+		t.Fatalf("missing resolver issue missing: %+v", report.Issues)
+	}
+	if !hasDiagnostic(report.Issues, "legacy_domain_strategy", "domain-node") {
+		t.Fatalf("legacy domain strategy issue missing: %+v", report.Issues)
+	}
+}
+
+func TestAnalyzeConfigAvoidsMigrationFalsePositives(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+	}{
+		{
+			name: "default resolver",
+			body: `{
+  "inbounds":[{"type":"mixed","tag":"mixed","listen":"127.0.0.1","listen_port":1080}],
+  "outbounds":[{"type":"socks","tag":"domain-node","server":"proxy.example.com","server_port":1080}],
+  "route":{"default_domain_resolver":"local"},
+  "dns":{"servers":[{"type":"local","tag":"local"},{"type":"udp","tag":"remote","server":"1.1.1.1"}]}
+}`,
+		},
+		{
+			name: "IP server",
+			body: `{
+  "inbounds":[{"type":"mixed","tag":"mixed","listen":"127.0.0.1","listen_port":1080}],
+  "outbounds":[{"type":"socks","tag":"ip-node","server":"192.0.2.1","server_port":1080}],
+  "dns":{"servers":[{"type":"local","tag":"local"},{"type":"udp","tag":"remote","server":"1.1.1.1"}]}
+}`,
+		},
+		{
+			name: "single DNS server",
+			body: `{
+  "inbounds":[{"type":"mixed","tag":"mixed","listen":"127.0.0.1","listen_port":1080}],
+  "outbounds":[{"type":"socks","tag":"domain-node","server":"proxy.example.com","server_port":1080}],
+  "dns":{"servers":[{"type":"local","tag":"local"}]}
+}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			report := AnalyzeConfig([]byte(tt.body))
+			if hasMigrationDiagnostic(report.Issues) {
+				t.Fatalf("unexpected migration warning: %+v", report.Issues)
+			}
+		})
 	}
 }
 
@@ -190,4 +270,18 @@ func countDiagnostics(issues []model.ConfigDiagnostic, code string) int {
 		}
 	}
 	return count
+}
+
+func hasMigrationDiagnostic(issues []model.ConfigDiagnostic) bool {
+	for _, issue := range issues {
+		switch issue.Code {
+		case "legacy_dns_server",
+			"legacy_dns_fakeip",
+			"outbound_dns_rule_item",
+			"missing_domain_resolver",
+			"legacy_domain_strategy":
+			return true
+		}
+	}
+	return false
 }

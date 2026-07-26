@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/xuthus5/boxd/internal/core"
 	"github.com/xuthus5/boxd/internal/model"
 )
 
@@ -144,7 +145,7 @@ func (h *ConfigHandler) InstallDefaultDNS(w http.ResponseWriter, r *http.Request
 		writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	cfg["dns"] = result.DNS
+	applyDNSDefaults(cfg, result)
 
 	body, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
@@ -161,6 +162,16 @@ func (h *ConfigHandler) InstallDefaultDNS(w http.ResponseWriter, r *http.Request
 		"installed_count": len(result.Installed),
 		"rolled_back":     status == model.StatusRolledBack,
 	})
+}
+
+func applyDNSDefaults(cfg map[string]any, result *core.DNSDefaultsResult) {
+	cfg["dns"] = result.DNS
+	route, _ := cfg["route"].(map[string]any)
+	if route == nil {
+		route = map[string]any{}
+	}
+	route["default_domain_resolver"] = result.DefaultDomainResolver
+	cfg["route"] = route
 }
 
 func mergeRuleSets(existing []any, installed []map[string]any) []any {

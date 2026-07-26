@@ -39,12 +39,12 @@ const apiBodies: Record<string, unknown> = {
   "/api/runtime/memory": { alloc: 1024, total: 2048, sys: 4096, num_gc: 1, heap_inuse: 512, stack_inuse: 128 },
   "/api/runtime/version": { version: "dev", kernel_version: "1.13.14" },
   "/api/config/diagnostics": {
-    status: "healthy",
+    status: "warning",
     checked_at: "2026-01-01T00:00:00Z",
-    summary: { errors: 0, warnings: 0 },
+    summary: { errors: 0, warnings: 1 },
     counts: { inbounds: 0, outbounds: 2, endpoints: 0, route_rules: 2, rule_sets: 1, dns_servers: 2, dns_rules: 2 },
     features: { tun: false, clash_api: true, cache_file: false, fakeip: true, selector: true, urltest: false, wireguard: false, remote_rule_set: true },
-    issues: [],
+    issues: [{ code: "legacy_dns_server", severity: "warning", path: "dns.servers[0]", value: "legacy" }],
   },
   "/api/config/rule-sets/status": [{
     tag: "geo", type: "remote", builtin: true, updatable: true, update_interval: "24h", file_size: 1024,
@@ -211,6 +211,11 @@ async function checkKernelLogging(page: Page) {
 test("smoke: login, navigation, log tabs, and raw save", async ({ page }) => {
   await page.route("http://127.0.0.1:4173/api/**", fulfillAPI)
   await login(page)
+  await expect(page.getByText("旧版 DNS Server")).toBeVisible()
+  await expect(page.getByRole("link", { name: "查看迁移指南" })).toHaveAttribute(
+    "href",
+    /migrate-to-new-dns-server-formats/,
+  )
   await expect(page.getByText("规则集运行健康")).toBeVisible()
   await expect(page.getByText("loyalsoldier-proxy")).toBeVisible()
   await expect(page.getByText("无法拉取规则集，请检查网络、DNS 或 download_detour。")).toBeVisible()

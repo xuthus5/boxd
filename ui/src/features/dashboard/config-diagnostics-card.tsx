@@ -12,6 +12,7 @@ import {
   configDiagnosticHref,
   configDiagnosticIssueHintKey,
   configDiagnosticIssueLabelKey,
+  configDiagnosticMigrationHref,
   configDiagnosticStatusKey,
   configDiagnosticIssues,
   enabledConfigFeatures,
@@ -58,6 +59,7 @@ function CountGrid({ diagnostics }: { diagnostics: ConfigDiagnostics }) {
 function DiagnosticIssue({ issue }: { issue: ConfigDiagnostic }) {
   const { t } = useTranslation()
   const href = configDiagnosticHref(issue.path)
+  const migrationHref = configDiagnosticMigrationHref(issue.code)
   const label = t(configDiagnosticIssueLabelKey(issue.code))
   const value = issue.value?.trim()
   return (
@@ -67,13 +69,26 @@ function DiagnosticIssue({ issue }: { issue: ConfigDiagnostic }) {
           <Badge variant={issue.severity === "error" ? "destructive" : "outline"}>{label}</Badge>
           {value ? <code className="min-w-0 break-all text-xs text-muted-foreground">{value}</code> : null}
         </div>
-        <Link
-          to={href}
-          className={cn(buttonVariants({ variant: "ghost", size: "xs" }), "h-6 shrink-0 px-1.5")}
-        >
-          <ExternalLinkIcon data-icon="inline-start" />
-          {t("configDiagnostics.openEditor")}
-        </Link>
+        <div className="flex shrink-0 flex-wrap justify-end gap-1">
+          <Link
+            to={href}
+            className={cn(buttonVariants({ variant: "ghost", size: "xs" }), "h-6 px-1.5")}
+          >
+            <ExternalLinkIcon data-icon="inline-start" />
+            {t("configDiagnostics.openEditor")}
+          </Link>
+          {migrationHref ? (
+            <a
+              href={migrationHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(buttonVariants({ variant: "ghost", size: "xs" }), "h-6 px-1.5")}
+            >
+              <ExternalLinkIcon data-icon="inline-start" />
+              {t("configDiagnostics.openMigration")}
+            </a>
+          ) : null}
+        </div>
       </div>
       <p className="mt-1 text-xs text-muted-foreground">{t(configDiagnosticIssueHintKey(issue.code))}</p>
       {issue.detail ? <p className="mt-1 break-words text-xs" title={issue.detail}>{issue.detail}</p> : null}

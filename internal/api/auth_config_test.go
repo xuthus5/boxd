@@ -389,8 +389,16 @@ func TestConfigHandlerInstallDefaultDNS(t *testing.T) {
 		t.Fatalf("dns.final = %#v", dns["final"])
 	}
 	servers := dns["servers"].([]any)
-	if len(servers) != 5 {
-		t.Fatalf("servers len = %d", len(servers))
+	if len(servers) != 4 {
+		t.Fatalf("servers len = %d, want 4", len(servers))
+	}
+	route := cfg["route"].(map[string]any)
+	if route["default_domain_resolver"] != "dns-direct" {
+		t.Fatalf("route.default_domain_resolver = %#v", route["default_domain_resolver"])
+	}
+	ruleSets := route["rule_set"].([]any)
+	if len(ruleSets) != 3 {
+		t.Fatalf("route.rule_set len = %d, want 3", len(ruleSets))
 	}
 }
 
