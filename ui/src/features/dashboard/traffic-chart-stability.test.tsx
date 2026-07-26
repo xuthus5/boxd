@@ -7,37 +7,48 @@ const recharts = vi.hoisted(() => ({
   line: vi.fn(),
   chart: vi.fn(),
   curve: vi.fn(),
+  grid: vi.fn(),
+  plotArea: undefined as { x: number; y: number; width: number; height: number } | undefined,
   xAxis: vi.fn(),
+  yAxis: vi.fn(),
 }))
 
 vi.mock("recharts", () => ({
   ResponsiveContainer: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   LineChart: ({ children, ...props }: { children: ReactNode }) => {
     recharts.chart(props)
-    return <div data-testid="traffic-chart-instance">{children}</div>
+    return <svg data-testid="traffic-chart-instance">{children}</svg>
   },
   Line: (props: Record<string, unknown>) => {
     recharts.line(props)
-    return <span data-testid="traffic-line" />
+    return <g data-testid="traffic-line" />
   },
   Curve: (props: Record<string, unknown>) => {
     recharts.curve(props)
     const series = props["data-series"]
     return <path data-testid={typeof series === "string" ? `traffic-curve-${series}` : "traffic-curve"} />
   },
+  usePlotArea: () => recharts.plotArea,
   useXAxisScale: () => (value: unknown) => Number(value),
   useYAxisScale: () => (value: unknown) => Number(value),
-  CartesianGrid: () => null,
+  CartesianGrid: (props: Record<string, unknown>) => {
+    recharts.grid(props)
+    return null
+  },
   XAxis: (props: Record<string, unknown>) => {
     recharts.xAxis(props)
     return null
   },
-  YAxis: () => null,
+  YAxis: (props: Record<string, unknown>) => {
+    recharts.yAxis(props)
+    return null
+  },
   Tooltip: () => null,
   Legend: () => null,
 }))
 
-import { SmoothTrafficCurve, TrafficChart } from "@/features/dashboard/traffic-chart"
+import { TrafficChart } from "@/features/dashboard/traffic-chart"
+import { SmoothTrafficCurve } from "@/features/dashboard/traffic-chart-plot"
 import type { TrafficHistoryPoint } from "@/lib/api/types"
 import { renderApp } from "@/test/render"
 
@@ -64,7 +75,10 @@ describe("TrafficChart stability", () => {
     recharts.line.mockClear()
     recharts.chart.mockClear()
     recharts.curve.mockClear()
+    recharts.grid.mockClear()
+    recharts.plotArea = { x: 72, y: 4, width: 720, height: 220 }
     recharts.xAxis.mockClear()
+    recharts.yAxis.mockClear()
   })
 
   afterEach(() => {
@@ -79,19 +93,28 @@ describe("TrafficChart stability", () => {
     expect(initialLineCount).toBeGreaterThan(0)
     const chartInstance = screen.getByTestId("traffic-chart-instance")
     const uploadCurve = screen.getByTestId("traffic-curve-upload_rate")
+    const stableTickValue = Date.parse("2026-01-01T00:00:00Z")
+    const stableTick = document.querySelector(`[data-traffic-time-tick="${stableTickValue}"]`)
+    expect(stableTick).not.toBeNull()
+    expect(stableTick).not.toHaveClass("transition-transform")
+    const initialTickTransform = (stableTick as SVGGElement).style.transform
     expect(recharts.xAxis).toHaveBeenCalled()
     const initialXAxis = recharts.xAxis.mock.calls.at(-1)?.[0] as Record<string, unknown>
     expect(initialXAxis).toMatchObject({
       type: "number",
       allowDataOverflow: true,
       domain: [expect.any(Number), expect.any(Number)],
+      tick: false,
     })
+    expect(recharts.yAxis.mock.calls.at(-1)?.[0]).toMatchObject({ tick: false })
+    expect(recharts.grid).not.toHaveBeenCalled()
     const timestampValue = initialXAxis.dataKey as (point: { timestamp: string }) => number
     const tickFormatter = initialXAxis.tickFormatter as (value: unknown) => string
     expect(timestampValue({ timestamp: "2026-01-01T00:00:01Z" })).toBe(Date.parse("2026-01-01T00:00:01Z"))
     expect(timestampValue({ timestamp: "invalid" })).toBe(0)
     expect(timestampValue({ timestamp: 1 as unknown as string })).toBe(0)
     expect(tickFormatter(Date.parse("2026-01-01T00:00:01Z"))).not.toBe("")
+    expect(tickFormatter(Date.parse("2026-01-01T00:00:01Z"))).not.toMatch(/AM|PM/)
     expect(tickFormatter("invalid")).toBe("")
     for (const [props] of recharts.line.mock.calls) {
       expect(props).toMatchObject({
@@ -117,6 +140,36 @@ describe("TrafficChart stability", () => {
       animateNewValues: false,
     })
     expect(screen.getByTestId("traffic-curve-upload_rate")).toBe(uploadCurve)
+    const updatedTick = document.querySelector(`[data-traffic-time-tick="${stableTickValue}"]`)
+    expect(updatedTick).toBe(stableTick)
+    expect(updatedTick).toHaveClass("transition-transform")
+    expect((updatedTick as SVGGElement).style.transform).not.toBe(initialTickTransform)
+  })
+
+  it("keeps the last curve while chart layout is temporarily unavailable", async () => {
+    const user = userEvent.setup()
+    renderApp(<Harness />)
+    const uploadCurve = screen.getByTestId("traffic-curve-upload_rate")
+
+    recharts.plotArea = undefined
+    await user.click(screen.getByRole("button", { name: "append sample" }))
+
+    expect(screen.getByTestId("traffic-curve-upload_rate")).toBe(uploadCurve)
+    const updated = recharts.curve.mock.calls.at(-2)?.[0] as { points?: unknown[] }
+    expect(updated.points?.length).toBeGreaterThan(0)
+  })
+
+  it("reduces time tick density for narrow traffic cards", () => {
+    recharts.plotArea = { x: 72, y: 4, width: 184, height: 220 }
+    renderApp(<TrafficChart points={initialPoints} />)
+
+    expect(document.querySelectorAll("[data-traffic-time-tick]")).toHaveLength(2)
+  })
+
+  it("does not render synthetic epoch ticks without traffic samples", () => {
+    renderApp(<TrafficChart points={[]} />)
+
+    expect(document.querySelectorAll("[data-traffic-time-tick], [data-traffic-value-tick]")).toHaveLength(0)
   })
 
   it("interpolates matching samples without replaying the full curve", () => {
@@ -203,5 +256,19 @@ describe("TrafficChart stability", () => {
     view.rerender(<svg><SmoothTrafficCurve points={reduced} /></svg>)
     expect(recharts.curve.mock.calls.at(-1)?.[0]).toMatchObject({ points: reduced })
     expect(requestFrame).not.toHaveBeenCalled()
+  })
+
+  it("distinguishes unavailable points from an explicit empty series", () => {
+    const initial = [
+      { x: 0, y: 20, payload: { timestamp: "2026-01-01T00:00:00Z" } },
+      { x: 100, y: 10, payload: { timestamp: "2026-01-01T00:00:01Z" } },
+    ]
+    const view = render(<svg><SmoothTrafficCurve points={initial} /></svg>)
+
+    view.rerender(<svg><SmoothTrafficCurve points={undefined} /></svg>)
+    expect(recharts.curve.mock.calls.at(-1)?.[0]).toMatchObject({ points: initial })
+
+    view.rerender(<svg><SmoothTrafficCurve points={[]} /></svg>)
+    expect(recharts.curve.mock.calls.at(-1)?.[0]).toMatchObject({ points: [] })
   })
 })
