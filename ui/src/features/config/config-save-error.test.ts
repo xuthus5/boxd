@@ -79,6 +79,7 @@ describe("config-save-error", () => {
     expect(configSectionHref("endpoints")).toBe("/advanced/endpoints")
     expect(configSectionHref("certificate")).toBe("/advanced/certificate")
     expect(configSectionHref("services")).toBe("/advanced/services")
+    expect(configSectionHref("log")).toBe("/advanced/log")
     expect(configSectionHref("mystery")).toBe("/advanced/raw")
     expect(configPathEditorHref("inbounds[0].listen_port")).toBe(
       "/advanced/raw?path=inbounds%5B0%5D.listen_port",

@@ -14,7 +14,7 @@ sing-box 单节点控制平面（control plane）。提供 Web 面板管理内�
 - **流量策略**：路由/DNS 规则搜索、取反快捷开关、sing-box 1.13 接口感知地址匹配、直接逻辑子规则结构化编辑与深层 JSON 兜底、Inline headless rule 结构化编辑、移动端更紧凑的规则卡片、DNS 服务器搜索；规则名称/描述独立持久化；规则集更新错误码诊断；应用前 dry-run 校验；规则/服务器路径深链打开对话框，支持对话框内 dry-run 校验
 - **节点与订阅**：按订阅间隔后台自动刷新、Clash YAML / base64 订阅、16 MiB 下载上限、仅允许公网 HTTP(S) 订阅源并拦截本机/私网地址与不安全重定向、失败优先与重试、刷新/配置同步诊断、流量/到期、订阅卡片 deep-link 到节点/日志、移动端更紧凑的工具栏/卡片、节点搜索、延迟色阶、运行时分组、测速（错误码提示与可复制诊断）
 - **运行观测**：内核/应用日志带时间戳、复制/导出、代理友好的 SSE 心跳与手动重连；活跃连接支持搜索/排序/导出、乐观关闭、分组视图与关闭错误诊断
-- **高级配置**：Endpoints（含 WireGuard Peer 可视化编辑）、X.509 证书信任库、sing-box CCM/OCM/DERP/Resolved/SSM API 服务、NTP 时间同步、Experimental、完整内核 JSON（路径级 diff）、本地 JSON 导入/导出、只读引用预检与配置历史审计/恢复；raw/endpoints/certificate/services/NTP/experimental dry-run 校验；保存错误跳转
+- **高级配置**：Endpoints（含 WireGuard Peer 可视化编辑）、X.509 证书信任库、sing-box CCM/OCM/DERP/Resolved/SSM API 服务、内核日志配置、NTP 时间同步、Experimental、完整内核 JSON（路径级 diff）、本地 JSON 导入/导出、只读引用预检与配置历史审计/恢复；raw/endpoints/certificate/services/log/NTP/experimental dry-run 校验；保存错误跳转
 - **认证**：登录失败展示错误码/可操作提示与一键复制诊断
 - **页面加载诊断**：仪表盘/代理/策略/节点订阅/设置/高级配置等页面的查询失败统一展示错误码、可操作提示、复制诊断与重试
 - **应用设置**：主题、中英文与日志级别入库持久化；账号密码与 JWT 轮换、脏状态保存门禁、测速地址、URLTest 全局默认、脱敏诊断支持包与面板备份导出
@@ -68,7 +68,7 @@ go run ./cmd/boxd/
 1. 登录面板，轮换管理员密码。
 2. **订阅 / 节点**：添加公网 HTTP(S) 订阅 URL，或导入 VMess、VLESS、Trojan、Shadowsocks/SIP002、SSR、Hysteria/Hysteria2、TUIC、AnyTLS、ShadowTLS 链接。本机/私网源和不安全重定向会被拦截。订阅会按各自间隔后台刷新，全局间隔作为旧数据回退。按需配置 URLTest（可继承全局默认）。订阅下载限制为 16 MiB，刷新或配置同步失败会展示可操作错误码。
 3. **入站 / 出站**：可一键安装 mixed（1080）与 TUN 模板，或自建入站；出站可绑定订阅组 selector / urltest，或直连/阻断等。
-4. **路由 / DNS / 证书 / Services / NTP / Experimental**：用表单维护规则、信任库、内核辅助服务和时间同步；可一键安装默认规则与 Clash API。
+4. **路由 / DNS / 证书 / Services / 内核日志 / NTP / Experimental**：用表单维护规则、信任库、内核辅助服务、日志输出和时间同步；可一键安装默认规则与 Clash API。
 5. **仪表盘**：先确认面板就绪状态，再启动内核；切换全局出口与 Clash 模式；观察流量与日志。
 6. **设置**：主题、语言、最低日志级别（写入数据库）、系统测速地址、内核自启、脱敏诊断支持包与备份导出等。
 

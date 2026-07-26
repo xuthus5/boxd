@@ -117,6 +117,11 @@ func TestValidateConfigAcceptsSourceQuery(t *testing.T) {
 			source: "validate_services",
 			body:   `{"log":{"level":"info"},"services":[{"type":"resolved","listen":"127.0.0.53","listen_port":5353}],"outbounds":[{"type":"direct","tag":"direct"}],"route":{"final":"direct"}}`,
 		},
+		{
+			name:   "log editor",
+			source: "validate_log",
+			body:   `{"log":{"level":"warn","timestamp":true},"outbounds":[{"type":"direct","tag":"direct"}],"route":{"final":"direct"}}`,
+		},
 	}
 
 	for _, test := range tests {
@@ -170,6 +175,9 @@ func TestNormalizeValidateSource(t *testing.T) {
 	}
 	if got := normalizeValidateSource("validate_services"); got != "validate_services" {
 		t.Fatalf("services = %q", got)
+	}
+	if got := normalizeValidateSource("validate_log"); got != "validate_log" {
+		t.Fatalf("log = %q", got)
 	}
 	if got := normalizeValidateSource(" "); got != "validate" {
 		t.Fatalf("blank = %q", got)

@@ -1,4 +1,4 @@
-export const en = {
+const enBase = {
   translation: {
     auth: {
       title: "boxd",
@@ -39,6 +39,7 @@ export const en = {
       endpoints: "Endpoints",
       certificate: "Certificates",
       services: "Services",
+      logConfig: "Kernel logging",
       ntp: "NTP",
       experimental: "Experimental",
       configHistory: "Config history",
@@ -62,6 +63,7 @@ export const en = {
       endpoints: "Endpoints",
       certificate: "Certificate trust store",
       services: "Kernel Services",
+      logConfig: "Kernel Logging",
       ntp: "NTP Time Sync",
       experimental: "Experimental",
       rawConfig: "Full configuration",
@@ -153,6 +155,7 @@ export const en = {
       endpointsDescription: "Manage the sing-box endpoints section.",
       certificateDescription: "Manage the sing-box X.509 trust store used by TLS, HTTPS, and proxy protocols.",
       servicesDescription: "Manage sing-box CCM, OCM, DERP, Resolved, and Shadowsocks management API services.",
+      logDescription: "Manage sing-box kernel log level, output target, and timestamp behavior while leaving unset fields on kernel defaults.",
       ntpDescription: "Manage sing-box NTP time sync, system clock writes, and dialer routing.",
       experimentalDescription: "Manage the sing-box experimental section.", installClashAPI: "Enable Clash API", clashAPIInstalled: "Installed clash_api defaults",
       rawDescription: "Edit the complete sing-box JSON. Validate first without applying; saving validates again and reloads the kernel.",
@@ -200,6 +203,23 @@ export const en = {
       confirmOverwrite: "Confirm overwrite",
       invalidStructureTitle: "Invalid configuration structure",
       invalidStructureDescription: "The experimental section must be a JSON object. Fix it in Advanced JSON.",
+      logJSON: "Kernel logging JSON",
+      logInvalidStructureTitle: "Invalid log configuration structure",
+      logInvalidStructureDescription: "log must be an object; disabled and timestamp must be booleans, level must be supported, and output must be a string. Fix it in Advanced JSON.",
+      log: {
+        disabled: "Disable kernel logging",
+        disabledHelp: "After startup, sing-box emits no kernel logs while this option is enabled.",
+        level: "Log level",
+        levelHelp: "Leave unset for the sing-box trace default; supported values are trace, debug, info, warn, error, fatal, and panic.",
+        output: "Output target",
+        outputHelp: "Leave unset for the default console; stderr/stdout select standard streams, and any other value is treated as a log file path.",
+        timestamp: "Full timestamp",
+        timestampHelp: "Adds a full timestamp to every line; file output omits timestamps when this is disabled.",
+        disabledWarningTitle: "Kernel logging is disabled",
+        disabledWarningDescription: "After saving and reloading, the kernel log stream in Observability will stop receiving new entries.",
+        notSet: "Not set",
+        section: { basic: "Logging state and level", output: "Output format" },
+      },
       certificateJSON: "Certificate trust store JSON",
       certificateInvalidStructureTitle: "Invalid certificate trust store structure",
       certificateInvalidStructureDescription: "The certificate section must be an object, and certificate, certificate_path, and certificate_directory_path must be strings or string arrays. Fix it in Advanced JSON.",
@@ -654,6 +674,16 @@ export const en = {
       confirmRestoreConfig: "Restore config",
       restoreSuccess: "Historical config restored",
       restoreFailed: "Failed to restore historical config",
+    },
+  },
+} as const
+
+export const en = {
+  translation: {
+    ...enBase.translation,
+    dashboard: {
+      ...enBase.translation.dashboard,
+      sourceValidateLog: "Kernel logging validate",
     },
   },
 } as const

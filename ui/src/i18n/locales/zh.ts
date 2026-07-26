@@ -1,4 +1,4 @@
-export const zh = {
+const zhBase = {
   translation: {
     auth: {
       title: "boxd",
@@ -39,6 +39,7 @@ export const zh = {
       endpoints: "端点",
       certificate: "证书",
       services: "服务",
+      logConfig: "内核日志配置",
       ntp: "NTP",
       experimental: "实验特性",
       configHistory: "配置历史",
@@ -62,6 +63,7 @@ export const zh = {
       endpoints: "端点",
       certificate: "证书信任库",
       services: "内核服务",
+      logConfig: "内核日志配置",
       ntp: "NTP 时间同步",
       experimental: "实验特性",
       rawConfig: "完整配置",
@@ -153,6 +155,7 @@ export const zh = {
       endpointsDescription: "管理 sing-box 端点配置段。",
       certificateDescription: "管理 sing-box 的 X.509 受信任 CA 信任库，为 TLS、HTTPS 与代理协议提供统一证书来源。",
       servicesDescription: "管理 sing-box 的 CCM、OCM、DERP、Resolved 与 Shadowsocks 管理 API 服务。",
+      logDescription: "管理 sing-box 内核日志级别、输出目标与时间戳行为；未设置字段继续使用内核默认值。",
       ntpDescription: "管理 sing-box 的 NTP 时间同步、系统时钟写入与拨号路由。",
       experimentalDescription: "管理 sing-box 实验特性配置段。", installClashAPI: "启用 Clash API", clashAPIInstalled: "已写入 clash_api 默认配置",
       rawDescription: "直接编辑 sing-box 完整 JSON。可先校验再保存；保存时后端会再次校验并热重载。",
@@ -200,6 +203,23 @@ export const zh = {
       confirmOverwrite: "确认覆盖",
       invalidStructureTitle: "配置结构无效",
       invalidStructureDescription: "实验特性配置段必须是 JSON 对象。请在高级 JSON 中修复。",
+      logJSON: "内核日志配置 JSON",
+      logInvalidStructureTitle: "日志配置结构无效",
+      logInvalidStructureDescription: "log 必须是对象；disabled 与 timestamp 必须是布尔值，level 必须是受支持级别，output 必须是字符串。请在高级 JSON 中修复。",
+      log: {
+        disabled: "禁用内核日志",
+        disabledHelp: "启用后 sing-box 启动完成后不再输出任何内核日志。",
+        level: "日志级别",
+        levelHelp: "留空使用 sing-box 默认 trace；可选 trace、debug、info、warn、error、fatal、panic。",
+        output: "输出目标",
+        outputHelp: "留空写入默认控制台；stderr/stdout 写入对应标准流，其他值按日志文件路径处理。",
+        timestamp: "完整时间戳",
+        timestampHelp: "启用后每行带完整时间；输出到文件且关闭时不会写入时间戳。",
+        disabledWarningTitle: "内核日志已禁用",
+        disabledWarningDescription: "保存并重载后，运行观测中的内核日志流将不再收到新日志。",
+        notSet: "未设置",
+        section: { basic: "日志状态与级别", output: "输出格式" },
+      },
       certificateJSON: "证书信任库配置 JSON",
       certificateInvalidStructureTitle: "证书信任库结构无效",
       certificateInvalidStructureDescription: "证书配置段必须是对象，certificate、certificate_path 与 certificate_directory_path 必须是字符串或字符串数组。请在高级 JSON 中修复。",
@@ -654,6 +674,16 @@ export const zh = {
       confirmRestoreConfig: "确认恢复",
       restoreSuccess: "历史配置已恢复",
       restoreFailed: "恢复历史配置失败",
+    },
+  },
+} as const
+
+export const zh = {
+  translation: {
+    ...zhBase.translation,
+    dashboard: {
+      ...zhBase.translation.dashboard,
+      sourceValidateLog: "内核日志校验",
     },
   },
 } as const

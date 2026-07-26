@@ -166,6 +166,8 @@ export function configSectionHref(section?: string): string {
       return "/advanced/certificate"
     case "services":
       return "/advanced/services"
+    case "log":
+      return "/advanced/log"
     case "ntp":
       return "/advanced/ntp"
     default:

@@ -25,6 +25,7 @@ const config = {
   },
   endpoints: [],
   services: [{ type: "resolved", tag: "resolver" }],
+  log: { level: "info", output: "stdout", timestamp: true },
   experimental: {},
 }
 const nodes = [
@@ -193,6 +194,15 @@ async function checkServices(page: Page) {
   await expectPageFitsViewport(page)
 }
 
+async function checkKernelLogging(page: Page) {
+  await page.goto("/advanced/log")
+  await expect(page.getByRole("heading", { name: "Kernel Logging" })).toBeVisible()
+  await expect(page.getByRole("combobox", { name: "Log level" })).toContainText("info")
+  await expect(page.getByLabel("Output target")).toHaveValue("stdout")
+  await expect(page.locator("[data-slot=card] [data-slot=card]")).toHaveCount(0)
+  await expectPageFitsViewport(page)
+}
+
 test("smoke: login, navigation, log tabs, and raw save", async ({ page }) => {
   await page.route("http://127.0.0.1:4173/api/**", fulfillAPI)
   await login(page)
@@ -255,7 +265,7 @@ test("subscription URLTest policy fits a 320px viewport", async ({ page }) => {
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0)
 })
 
-test("route, DNS, certificate, and services editors fit 320px", async ({ page }) => {
+test("route, DNS, certificate, services, and log editors fit 320px", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 568 })
   await page.addInitScript(() => {
     localStorage.setItem("boxd.preferences.v1", JSON.stringify({ theme: "system", language: "en" }))
@@ -267,4 +277,5 @@ test("route, DNS, certificate, and services editors fit 320px", async ({ page })
   await checkDNSPolicy(page)
   await checkCertificateTrust(page)
   await checkServices(page)
+  await checkKernelLogging(page)
 })

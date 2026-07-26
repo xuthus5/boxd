@@ -16,7 +16,7 @@ function setup(route: string) {
 }
 
 describe("advanced configuration interactions", () => {
-  it("saves endpoints, certificate, services, NTP, and experimental sections", async () => {
+  it("saves endpoints, certificate, services, log, NTP, and experimental sections", async () => {
     const endpoints = setup("/advanced/endpoints")
     await endpoints.user.click(await screen.findByRole("button", { name: "保存配置" }))
     endpoints.view.unmount()
@@ -26,6 +26,9 @@ describe("advanced configuration interactions", () => {
     const services = setup("/advanced/services")
     await services.user.click(await screen.findByRole("button", { name: "保存配置" }))
     services.view.unmount()
+    const log = setup("/advanced/log")
+    await log.user.click(await screen.findByRole("button", { name: "保存配置" }))
+    log.view.unmount()
     const ntp = setup("/advanced/ntp")
     await ntp.user.click(await screen.findByRole("button", { name: "保存配置" }))
     ntp.view.unmount()
