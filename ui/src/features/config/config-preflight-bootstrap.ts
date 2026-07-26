@@ -85,7 +85,7 @@ function isIPv6Address(value: string): boolean {
   }
 }
 
-function isDomainName(value: unknown): boolean {
+export function isDomainName(value: unknown): boolean {
   const address = stringValue(value)
   return Boolean(address && !isIPv4Address(address) && !isIPv6Address(address))
 }
@@ -206,7 +206,11 @@ function addDNSDependencies(context: BootstrapContext) {
     const source = dnsNode(entry.tag)
     addDNSReference(context, source, resolverTag(entry.value.domain_resolver))
     addDNSReference(context, source, resolverTag(entry.value.address_resolver))
-    addOutboundReference(context, source, entry.value.detour)
+    if (isDomainName(entry.value.server)) {
+      addDomainReference(context, source, entry.value.detour)
+    } else {
+      addOutboundReference(context, source, entry.value.detour)
+    }
   }
 }
 
@@ -244,7 +248,8 @@ export function checkDNSOutboundBootstrapTopology(
   for (const entry of context.dnsEntries.values()) {
     const detour = stringValue(entry.value.detour)
     if (!detour || !context.outbounds.has(detour)) continue
-    if (!reaches(context.graph, outboundNode(detour), dnsNode(entry.tag))) continue
+    const start = isDomainName(entry.value.server) ? domainNode(detour) : outboundNode(detour)
+    if (!reaches(context.graph, start, dnsNode(entry.tag))) continue
     issues.push({
       severity: "error",
       code: "dns_dependency_cycle",

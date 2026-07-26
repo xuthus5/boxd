@@ -160,6 +160,63 @@ func TestDNSTopologyDiagnosticsMatchSingBoxRuntimeErrors(t *testing.T) {
 	}
 }
 
+func TestDNSDomainServerRequiresResolverAtRuntime(t *testing.T) {
+	body := `{"dns":{"servers":[{"type":"udp","tag":"remote","server":"dns.example.com"}]}}`
+	err := singBoxDNSRuntimeError(body)
+	if err == nil || !strings.Contains(err.Error(), "missing domain resolver") {
+		t.Fatalf("runtime error = %v, want missing domain resolver", err)
+	}
+	report := AnalyzeConfig([]byte(body))
+	requireConfigDiagnostic(t, report.Issues, expectedConfigDiagnostic{
+		code: "missing_domain_resolver", severity: model.ConfigDiagnosticSeverityError,
+		path: "dns.servers[0].server", value: "remote",
+	})
+}
+
+func TestAnalyzeConfigAcceptsResolvableDNSDomainServers(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+	}{
+		{
+			name: "IP server",
+			body: `{"dns":{"servers":[{"type":"udp","tag":"remote","server":"1.1.1.1"}]}}`,
+		},
+		{
+			name: "resolver string",
+			body: `{"dns":{"servers":[
+        {"type":"local","tag":"local"},
+        {"type":"udp","tag":"remote","server":"dns.example.com","domain_resolver":"local"}
+      ]}}`,
+		},
+		{
+			name: "resolver object",
+			body: `{"dns":{"servers":[
+        {"type":"local","tag":"local"},
+        {"type":"udp","tag":"remote","server":"dns.example.com","domain_resolver":{"server":"local"}}
+      ]}}`,
+		},
+		{
+			name: "detour",
+			body: `{
+  "outbounds":[{"type":"socks","tag":"proxy","server":"192.0.2.2","server_port":1080}],
+  "dns":{"servers":[{"type":"udp","tag":"remote","server":"dns.example.com","detour":"proxy"}]}
+}`,
+		},
+		{
+			name: "legacy server",
+			body: `{"dns":{"servers":[{"tag":"legacy","address":"udp://dns.example.com"}]}}`,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			report := AnalyzeConfig([]byte(test.body))
+			requireNoConfigDiagnostic(t, report.Issues, "missing_domain_resolver", "")
+		})
+	}
+}
+
 func singBoxDNSRuntimeError(body string) error {
 	ctx, cancel := context.WithCancel(include.Context(context.Background()))
 	defer cancel()

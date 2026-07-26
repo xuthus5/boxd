@@ -53,6 +53,20 @@ describe("DNS outbound bootstrap preflight", () => {
     }
   })
 
+  it("detects a domain DNS server recursing through a direct detour", () => {
+    const issue = bootstrapIssue({
+      outbounds: [{ type: "direct", tag: "direct" }],
+      dns: { servers: [{ type: "udp", tag: "remote", server: "dns.example.com", detour: "direct" }] },
+      route: { final: "direct" },
+    })
+
+    expect(issue).toEqual(expect.objectContaining({
+      severity: "error",
+      reference: "direct",
+      relatedPath: "outbounds[0].tag",
+    }))
+  })
+
   it("follows selector members and endpoint resolver-on-detour behavior", () => {
     const selector = bootstrapIssue({
       outbounds: [
@@ -119,5 +133,10 @@ describe("DNS outbound bootstrap preflight", () => {
     ]
     directDNS.dns = { servers: [{ type: "udp", tag: "remote", server: "1.1.1.1", detour: "underlay" }], final: "remote" }
     expect(bootstrapIssue(directDNS)).toBeUndefined()
+
+    const domainForwarded = proxyBootstrapConfig()
+    domainForwarded.outbounds = [{ type: "socks", tag: "proxy", server: "192.0.2.2", server_port: 1080 }]
+    domainForwarded.dns = { servers: [{ type: "udp", tag: "remote", server: "dns.example.com", detour: "proxy" }] }
+    expect(bootstrapIssue(domainForwarded)).toBeUndefined()
   })
 })

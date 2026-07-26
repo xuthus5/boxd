@@ -11,6 +11,7 @@ export type ConfigPreflightCode =
   | "missing_rule_set" | "empty_group"
   | "invalid_group_default" | "outbound_dependency_cycle"
   | "dns_dependency_cycle" | "invalid_dns_default" | "multiple_fakeip_dns_servers"
+  | "missing_domain_resolver"
 
 export interface ConfigPreflightIssue {
   severity: ConfigPreflightSeverity

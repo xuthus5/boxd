@@ -90,6 +90,21 @@ func TestAnalyzeConfigIgnoresNonCyclicDNSOutboundBootstrapEdges(t *testing.T) {
 	}
 }
 
+func TestAnalyzeConfigReportsDomainDNSDetourBootstrapCycles(t *testing.T) {
+	report := AnalyzeConfig([]byte(`{
+  "outbounds":[{"type":"direct","tag":"direct"}],
+  "dns":{"servers":[
+    {"type":"udp","tag":"remote","server":"dns.example.com","detour":"direct"}
+  ]},
+  "route":{"final":"direct"}
+}`))
+
+	requireConfigDiagnostic(t, report.Issues, expectedConfigDiagnostic{
+		code: "dns_dependency_cycle", severity: model.ConfigDiagnosticSeverityError,
+		path: "dns.servers[0].detour", value: "direct",
+	})
+}
+
 func TestBootstrapRemoteDomainDetection(t *testing.T) {
 	tests := []struct {
 		name     string

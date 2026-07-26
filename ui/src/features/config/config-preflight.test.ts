@@ -185,6 +185,35 @@ describe("preflightConfig", () => {
     )
   })
 
+  it("rejects a modern DNS domain server with no resolution path", () => {
+    const missing = issuesFor({
+      dns: { servers: [{ type: "udp", tag: "remote", server: "dns.example.com" }] },
+    })
+    expect(issueByCode(missing, "missing_domain_resolver", "dns.servers[0].server")).toEqual(
+      expect.objectContaining({ severity: "error", reference: "remote" }),
+    )
+
+    const validConfigs: SingBoxConfig[] = [
+      { dns: { servers: [{ type: "udp", tag: "remote", server: "1.1.1.1" }] } },
+      { dns: { servers: [{ tag: "legacy", address: "udp://dns.example.com" }] } },
+      { dns: { servers: [
+        { type: "local", tag: "local" },
+        { type: "udp", tag: "remote", server: "dns.example.com", domain_resolver: "local" },
+      ] } },
+      { dns: { servers: [
+        { type: "local", tag: "local" },
+        { type: "udp", tag: "remote", server: "dns.example.com", domain_resolver: { server: "local" } },
+      ] } },
+      {
+        outbounds: [{ type: "socks", tag: "proxy", server: "192.0.2.2", server_port: 1080 }],
+        dns: { servers: [{ type: "udp", tag: "remote", server: "dns.example.com", detour: "proxy" }] },
+      },
+    ]
+    for (const config of validConfigs) {
+      expect(issuesFor(config).some((item) => item.code === "missing_domain_resolver")).toBe(false)
+    }
+  })
+
   it("rejects FakeIP defaults and extra FakeIP servers", () => {
     const explicit = issuesFor({ dns: {
       servers: [

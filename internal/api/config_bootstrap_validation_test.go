@@ -42,6 +42,12 @@ const dnsOutboundDetouredBootstrapCycleConfig = `{
   "route":{"final":"proxy","default_domain_resolver":"remote"}
 }`
 
+const missingDNSDomainResolverConfig = `{
+  "dns":{"servers":[
+    {"type":"udp","tag":"remote","server":"dns.example.com"}
+  ]}
+}`
+
 func TestValidateConfigRejectsDNSOutboundBootstrapCycles(t *testing.T) {
 	for _, body := range []string{
 		dnsOutboundBootstrapCycleConfig,
@@ -69,7 +75,37 @@ func TestValidateConfigRejectsDNSOutboundBootstrapCycles(t *testing.T) {
 	}
 }
 
+func TestValidateConfigRejectsMissingDNSDomainResolver(t *testing.T) {
+	handler, _ := newConfigHandlerWithFile(t)
+	recorder := httptest.NewRecorder()
+	handler.ValidateConfig(
+		recorder,
+		jsonRequest(http.MethodPost, "/api/config/validate", missingDNSDomainResolverConfig),
+	)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d body=%s", recorder.Code, recorder.Body.String())
+	}
+	envelope := decodeEnvelope(t, recorder)
+	if envelope.Error == nil || envelope.Error.Code != model.ErrorConfigInvalidRuntime {
+		t.Fatalf("error = %#v", envelope.Error)
+	}
+	want := `dns.servers[0].server: DNS server "remote" requires a domain resolver or detour`
+	if envelope.Error.Message != want {
+		t.Fatalf("message = %q, want %q", envelope.Error.Message, want)
+	}
+}
+
 func TestConfigSaveRejectsDNSOutboundBootstrapCyclesBeforeSideEffects(t *testing.T) {
+	assertConfigSaveRejectedBeforeSideEffects(t, dnsOutboundDetouredBootstrapCycleConfig)
+}
+
+func TestConfigSaveRejectsMissingDNSDomainResolverBeforeSideEffects(t *testing.T) {
+	assertConfigSaveRejectedBeforeSideEffects(t, missingDNSDomainResolverConfig)
+}
+
+func assertConfigSaveRejectedBeforeSideEffects(t *testing.T, body string) {
+	t.Helper()
 	tests := []struct {
 		name   string
 		method string
@@ -93,7 +129,7 @@ func TestConfigSaveRejectsDNSOutboundBootstrapCyclesBeforeSideEffects(t *testing
 			test.handle(
 				handler,
 				recorder,
-				jsonRequest(test.method, test.path, dnsOutboundDetouredBootstrapCycleConfig),
+				jsonRequest(test.method, test.path, body),
 			)
 
 			if recorder.Code != http.StatusBadRequest {

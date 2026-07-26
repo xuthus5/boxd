@@ -1,3 +1,5 @@
+import { isDomainName } from "@/features/config/config-preflight-bootstrap"
+
 type JsonObject = Record<string, unknown>
 
 export interface DNSPreflightEntry {
@@ -8,7 +10,7 @@ export interface DNSPreflightEntry {
 
 export interface DNSTopologyIssue {
   severity: "error"
-  code: "dns_dependency_cycle" | "invalid_dns_default" | "multiple_fakeip_dns_servers"
+  code: "dns_dependency_cycle" | "invalid_dns_default" | "multiple_fakeip_dns_servers" | "missing_domain_resolver"
   path: string
   reference: string
   relatedPath?: string
@@ -65,6 +67,26 @@ function resolverEdge(value: unknown, path: string): DNSDependencyEdge | undefin
   if (!isObject(value)) return undefined
   const target = stringValue(value.server)
   return target ? { target, path: `${path}.server` } : undefined
+}
+
+function hasDomainResolver(value: unknown): boolean {
+  if (typeof value === "string") return Boolean(stringValue(value))
+  return isObject(value) && Boolean(stringValue(value.server))
+}
+
+function missingDomainResolverIssues(entries: readonly DNSPreflightEntry[]): DNSTopologyIssue[] {
+  return entries.flatMap((entry) => {
+    const type = stringValue(entry.value.type)?.toLowerCase()
+    if (!type || type === "legacy") return []
+    if (!isDomainName(entry.value.server) || hasDomainResolver(entry.value.domain_resolver)) return []
+    if (stringValue(entry.value.detour)) return []
+    return [{
+      severity: "error",
+      code: "missing_domain_resolver",
+      path: `${entryPath(entry)}.server`,
+      reference: entry.tag,
+    }]
+  })
 }
 
 function dependencyEdges(
@@ -155,5 +177,6 @@ export function checkDNSTopology(
   const defaultIssue = invalidDefaultIssue(dns, entries, entriesByTag)
   if (defaultIssue) issues.push(defaultIssue)
   issues.push(...multipleFakeIPIssues(entries))
+  issues.push(...missingDomainResolverIssues(entries))
   return issues
 }

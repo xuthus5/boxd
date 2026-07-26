@@ -24,5 +24,7 @@ export function configPreflightMessageKey(code: ConfigPreflightCode): string {
       return "advanced.preflightInvalidDNSDefault"
     case "multiple_fakeip_dns_servers":
       return "advanced.preflightMultipleFakeIPDNSServers"
+    case "missing_domain_resolver":
+      return "advanced.preflightMissingDomainResolver"
   }
 }

@@ -63,7 +63,11 @@ func checkDNSOutboundBootstrapCycles(
 		if _, exists := topology.knownOutbounds[detour]; !exists {
 			continue
 		}
-		if topology.dependencyGraph.reaches(outboundBootstrapNode(detour), dnsBootstrapNode(entry.tag)) {
+		start := outboundBootstrapNode(detour)
+		if dnsServerUsesDomain(server) {
+			start = outboundDomainNode(detour)
+		}
+		if topology.dependencyGraph.reaches(start, dnsBootstrapNode(entry.tag)) {
 			addDiagnostic(
 				report,
 				"dns_dependency_cycle",
@@ -152,7 +156,11 @@ func (t *bootstrapTopology) addDNSDependencies() {
 		for _, value := range []any{server["domain_resolver"], server["address_resolver"]} {
 			t.addDNSReference(source, resolverTag(value))
 		}
-		t.addOutboundReference(source, server["detour"])
+		if dnsServerUsesDomain(server) {
+			t.addDomainReference(source, server["detour"])
+		} else {
+			t.addOutboundReference(source, server["detour"])
+		}
 	}
 }
 

@@ -44,6 +44,10 @@ var runtimeDiagnosticTemplates = map[string]runtimeDiagnosticTemplate{
 		message:      "multiple FakeIP DNS servers are not supported",
 		valueMessage: "multiple FakeIP DNS servers are not supported; remove %q",
 	},
+	"missing_domain_resolver": {
+		message:      "DNS domain server requires a domain resolver or detour",
+		valueMessage: "DNS server %q requires a domain resolver or detour",
+	},
 	"unknown_outbound_reference": {message: "unknown outbound reference", valueMessage: "unknown outbound reference %q"},
 	"unknown_ruleset_reference":  {message: "unknown rule-set reference", valueMessage: "unknown rule-set reference %q"},
 	"unknown_dns_reference": {

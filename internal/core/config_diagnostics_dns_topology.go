@@ -51,6 +51,35 @@ func checkDNSTopology(
 	inspector.graph.reportCycles(report)
 	checkDNSDefault(report, cfg, entries, uniqueEntries)
 	checkMultipleFakeIPDNSServers(report, cfg, entries)
+	checkDNSDomainResolvers(report, cfg, entries)
+}
+
+func checkDNSDomainResolvers(
+	report *model.ConfigDiagnostics,
+	cfg map[string]any,
+	entries []diagnosticEntry,
+) {
+	for _, entry := range entries {
+		typeName := strings.ToLower(strings.TrimSpace(entry.typeName))
+		if typeName == "" || typeName == "legacy" {
+			continue
+		}
+		server := dnsServerObject(cfg, entry.path)
+		if !dnsServerUsesDomain(server) || hasDomainResolver(server["domain_resolver"]) {
+			continue
+		}
+		if strings.TrimSpace(stringValue(server["detour"])) != "" {
+			continue
+		}
+		addDiagnostic(
+			report,
+			"missing_domain_resolver",
+			model.ConfigDiagnosticSeverityError,
+			entry.path+".server",
+			entry.tag,
+			"",
+		)
+	}
 }
 
 func (i *dnsTopologyInspector) inspect(entries []diagnosticEntry) {
@@ -211,4 +240,8 @@ func dnsServerObject(cfg map[string]any, path string) map[string]any {
 		return nil
 	}
 	return objectValue(servers[index])
+}
+
+func dnsServerUsesDomain(server map[string]any) bool {
+	return isDomainName(strings.TrimSpace(stringValue(server["server"])))
 }
