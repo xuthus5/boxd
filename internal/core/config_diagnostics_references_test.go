@@ -183,7 +183,8 @@ func TestAnalyzeConfigAcceptsModernReferenceForms(t *testing.T) {
 		switch issue.Code {
 		case "duplicate_tag", "missing_tag", "empty_group", "unknown_outbound_reference",
 			"unknown_dns_reference", "unknown_ruleset_reference", "invalid_group_default",
-			"outbound_dependency_cycle":
+			"outbound_dependency_cycle", "dns_dependency_cycle", "invalid_dns_default",
+			"multiple_fakeip_dns_servers":
 			t.Fatalf("unexpected reference diagnostic = %#v", issue)
 		}
 	}

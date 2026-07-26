@@ -18,5 +18,11 @@ export function configPreflightMessageKey(code: ConfigPreflightCode): string {
       return "advanced.preflightInvalidGroupDefault"
     case "outbound_dependency_cycle":
       return "advanced.preflightOutboundDependencyCycle"
+    case "dns_dependency_cycle":
+      return "advanced.preflightDNSDependencyCycle"
+    case "invalid_dns_default":
+      return "advanced.preflightInvalidDNSDefault"
+    case "multiple_fakeip_dns_servers":
+      return "advanced.preflightMultipleFakeIPDNSServers"
   }
 }

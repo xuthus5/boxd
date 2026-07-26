@@ -51,8 +51,22 @@ describe("ConfigPreflightPanel", () => {
       "empty_group",
       "invalid_group_default",
       "outbound_dependency_cycle",
+      "dns_dependency_cycle",
+      "invalid_dns_default",
+      "multiple_fakeip_dns_servers",
     ]
     for (const code of codes) expect(configPreflightMessageKey(code)).toMatch(/^advanced\.preflight/)
+  })
+
+  it("explains DNS startup topology errors", () => {
+    renderPanel([
+      { severity: "error", code: "dns_dependency_cycle", path: "dns.servers[1].domain_resolver", reference: "dns-a" },
+      { severity: "error", code: "invalid_dns_default", path: "dns.final", reference: "fake" },
+      { severity: "error", code: "multiple_fakeip_dns_servers", path: "dns.servers[2].type", reference: "fake-extra" },
+    ])
+    expect(screen.getByText(/无法确定启动顺序/)).toBeInTheDocument()
+    expect(screen.getByText(/不能作为显式或隐式默认 DNS/)).toBeInTheDocument()
+    expect(screen.getByText(/仅支持一个 FakeIP DNS/)).toBeInTheDocument()
   })
 
   it("limits long issue lists and keeps warning-only state non-destructive", () => {

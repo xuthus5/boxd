@@ -1,17 +1,16 @@
 import type { SingBoxConfig } from "@/lib/api/types"
+import { checkDNSTopology } from "@/features/config/config-preflight-dns"
 import { checkOutboundTopology } from "@/features/config/config-preflight-outbound"
 
 export type ConfigPreflightSeverity = "error" | "warning"
 
 export type ConfigPreflightCode =
-  | "duplicate_tag"
-  | "missing_tag"
-  | "missing_outbound"
-  | "missing_dns_server"
-  | "missing_rule_set"
-  | "empty_group"
-  | "invalid_group_default"
-  | "outbound_dependency_cycle"
+  | "duplicate_tag" | "missing_tag"
+  | "missing_outbound" | "missing_dns_server"
+  | "missing_rule_set" | "empty_group"
+  | "invalid_group_default" | "outbound_dependency_cycle"
+  | "dns_dependency_cycle" | "invalid_dns_default"
+  | "multiple_fakeip_dns_servers"
 
 export interface ConfigPreflightIssue {
   severity: ConfigPreflightSeverity
@@ -283,12 +282,16 @@ export function preflightConfig(config: SingBoxConfig): ConfigPreflightIssue[] {
   const ruleSetNamespace = isObject(route) ? collectRuleSets(route) : { tags: new Map<string, NamedEntry>(), issues: [] }
   issues.push(...ruleSetNamespace.issues)
   const dns = objectValue(config, "dns")
-  const dnsNamespace = isObject(dns) ? collectEntries(namedEntries(dns.servers, "dns.servers")) : { tags: new Map<string, NamedEntry>(), issues: [] }
+  const dnsEntries = isObject(dns) ? namedEntries(dns.servers, "dns.servers") : []
+  const dnsNamespace = collectEntries(dnsEntries)
   issues.push(...dnsNamespace.issues)
   checkOutboundEntries(config, outboundNamespace.tags, dnsNamespace.tags, issues)
   issues.push(...checkOutboundTopology(outboundNamespace.tags))
   if (isObject(route)) checkRouteSection(route, outboundNamespace.tags, dnsNamespace.tags, ruleSetNamespace.tags, issues)
-  if (isObject(dns)) checkDNSSection(dns, outboundNamespace.tags, dnsNamespace.tags, ruleSetNamespace.tags, issues)
+  if (isObject(dns)) {
+    checkDNSSection(dns, outboundNamespace.tags, dnsNamespace.tags, ruleSetNamespace.tags, issues)
+    issues.push(...checkDNSTopology(dns, dnsEntries))
+  }
   const ntp = objectValue(config, "ntp")
   if (isObject(ntp)) checkNTPSection(ntp, outboundNamespace.tags, dnsNamespace.tags, issues)
   const experimental = objectValue(config, "experimental")

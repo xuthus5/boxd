@@ -165,6 +165,60 @@ describe("preflightConfig", () => {
     )
   })
 
+  it("detects modern and legacy DNS resolver cycles", () => {
+    const issues = issuesFor({
+      dns: {
+        servers: [
+          { type: "https", tag: "modern-a", server: "1.1.1.1", domain_resolver: "modern-b" },
+          { type: "https", tag: "modern-b", server: "1.0.0.1", domain_resolver: { server: "modern-a" } },
+          { tag: "legacy-a", address: "tls://8.8.8.8", address_resolver: "legacy-b" },
+          { tag: "legacy-b", address: "tls://8.8.4.4", address_resolver: "legacy-a" },
+        ],
+        final: "modern-a",
+      },
+    })
+    expect(issueByCode(issues, "dns_dependency_cycle", "dns.servers[1].domain_resolver.server")).toEqual(
+      expect.objectContaining({ severity: "error", reference: "modern-a", relatedPath: "dns.servers[0].tag" }),
+    )
+    expect(issueByCode(issues, "dns_dependency_cycle", "dns.servers[3].address_resolver")).toEqual(
+      expect.objectContaining({ severity: "error", reference: "legacy-a", relatedPath: "dns.servers[2].tag" }),
+    )
+  })
+
+  it("rejects FakeIP defaults and extra FakeIP servers", () => {
+    const explicit = issuesFor({ dns: {
+      servers: [
+        { type: "local", tag: "local" },
+        { type: "fakeip", tag: "fake", inet4_range: "198.18.0.0/15" },
+      ],
+      final: "fake",
+    } })
+    expect(issueByCode(explicit, "invalid_dns_default", "dns.final")).toEqual(
+      expect.objectContaining({ severity: "error", reference: "fake", relatedPath: "dns.servers[1].tag" }),
+    )
+
+    const implicit = issuesFor({ dns: {
+      servers: [{ tag: "legacy-fake", address: "fakeip" }, { type: "local", tag: "local" }],
+      fakeip: { enabled: true, inet4_range: "198.18.0.0/15" },
+    } })
+    expect(issueByCode(implicit, "invalid_dns_default", "dns.servers[0].address")).toEqual(
+      expect.objectContaining({ severity: "error", reference: "legacy-fake" }),
+    )
+
+    const multiple = issuesFor({ dns: {
+      servers: [
+        { type: "local", tag: "local" },
+        { type: "fakeip", tag: "first-fake", inet4_range: "198.18.0.0/15" },
+        { tag: "extra-fake", address: "fakeip" },
+      ],
+      fakeip: { enabled: true, inet4_range: "198.18.0.0/15" },
+      final: "local",
+    } })
+    expect(issueByCode(multiple, "multiple_fakeip_dns_servers", "dns.servers[2].address")).toEqual(
+      expect.objectContaining({ severity: "error", reference: "extra-fake", relatedPath: "dns.servers[1].tag" }),
+    )
+  })
+
   it("supports implicit tags and ignores incomplete non-object sections", () => {
     const issues = issuesFor({
       inbounds: [null, { tag: "in" }],

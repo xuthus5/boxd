@@ -19,6 +19,9 @@ describe("config diagnostics helpers", () => {
     expect(configDiagnosticIssueHintKey("empty_group")).toContain("emptyGroup")
     expect(configDiagnosticIssueLabelKey("invalid_group_default")).toContain("invalidGroupDefault")
     expect(configDiagnosticIssueHintKey("outbound_dependency_cycle")).toContain("outboundDependencyCycle")
+    expect(configDiagnosticIssueLabelKey("dns_dependency_cycle")).toContain("dnsDependencyCycle")
+    expect(configDiagnosticIssueHintKey("invalid_dns_default")).toContain("invalidDNSDefault")
+    expect(configDiagnosticIssueLabelKey("multiple_fakeip_dns_servers")).toContain("multipleFakeIPDNSServers")
     expect(configDiagnosticIssueHintKey("future_code")).toContain("unknown")
   })
 
@@ -40,6 +43,7 @@ describe("config diagnostics helpers", () => {
     expect(configDiagnosticHref("route.rules[0]")).toBe("/policy/route?path=route.rules%5B0%5D")
     expect(configDiagnosticHref("route.rule_set[0].tag")).toBe("/policy/route?path=route.rule_set%5B0%5D.tag")
     expect(configDiagnosticHref("dns.rules[0]")).toBe("/policy/dns?path=dns.rules%5B0%5D")
+    expect(configDiagnosticHref("dns.final")).toBe("/policy/dns?path=dns.final")
     expect(configDiagnosticHref("experimental.cache_file")).toBe("/advanced/experimental?path=experimental.cache_file")
     expect(configDiagnosticHref("config")).toBe("/advanced/raw")
   })

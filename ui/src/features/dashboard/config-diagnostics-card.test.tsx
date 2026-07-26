@@ -47,7 +47,7 @@ describe("ConfigDiagnosticsCard", () => {
     const report = {
       ...healthy,
       status: "error" as const,
-      summary: { errors: 5, warnings: 3 },
+      summary: { errors: 8, warnings: 3 },
       issues: [
         { code: "unknown_outbound_reference", severity: "error" as const, path: "route.rules[0].outbound", value: "missing" },
         { code: "tls_insecure", severity: "warning" as const, path: "outbounds[0].tls.insecure", value: "node" },
@@ -56,6 +56,9 @@ describe("ConfigDiagnosticsCard", () => {
         { code: "empty_group", severity: "error" as const, path: "outbounds[1].outbounds", value: "urltest" },
         { code: "invalid_group_default", severity: "error" as const, path: "outbounds[2].default", value: "node" },
         { code: "outbound_dependency_cycle", severity: "error" as const, path: "outbounds[3].detour", value: "cycle" },
+        { code: "dns_dependency_cycle", severity: "error" as const, path: "dns.servers[1].domain_resolver", value: "dns-a" },
+        { code: "invalid_dns_default", severity: "error" as const, path: "dns.final", value: "fake" },
+        { code: "multiple_fakeip_dns_servers", severity: "error" as const, path: "dns.servers[3].type", value: "fake-extra" },
         { code: "future_code", severity: "warning" as const, path: "config", detail: "unknown detail" },
       ],
     }
@@ -68,6 +71,9 @@ describe("ConfigDiagnosticsCard", () => {
     expect(screen.getByText("空代理组")).toBeInTheDocument()
     expect(screen.getByText("Selector 默认项无效")).toBeInTheDocument()
     expect(screen.getByText("出站依赖循环")).toBeInTheDocument()
+    expect(screen.getByText("DNS 解析依赖循环")).toBeInTheDocument()
+    expect(screen.getByText("默认 DNS 不能使用 FakeIP")).toBeInTheDocument()
+    expect(screen.getByText("存在多个 FakeIP DNS")).toBeInTheDocument()
     expect(screen.getByText("unknown detail")).toBeInTheDocument()
     const editorLinks = screen.getAllByRole("link", { name: "打开编辑器" })
     expect(editorLinks[0]).toHaveAttribute("href", "/policy/route?path=route.rules%5B0%5D.outbound")
