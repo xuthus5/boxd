@@ -95,7 +95,12 @@ func inspectTopology(report *model.ConfigDiagnostics, cfg map[string]any) {
 	checkDuplicateTags(report, append(outbounds, endpoints...))
 	checkDuplicateTags(report, inbounds)
 	checkDuplicateTags(report, ruleSets)
-	checkOutboundReferences(report, cfg, outbounds, endpoints, ruleSets)
+	checkDuplicateTags(report, dnsServers)
+	checkOutboundReferences(report, cfg, outboundReferenceEntries{
+		outbounds: outbounds,
+		endpoints: endpoints,
+		ruleSets:  ruleSets,
+	})
 	checkDNSReferences(report, cfg, dnsServers)
 	checkSingBoxMigrationWarnings(report, cfg, dnsServers)
 	checkInsecureTLS(report, cfg)
@@ -116,7 +121,7 @@ func diagnosticEntries(cfg map[string]any, key string) []diagnosticEntry {
 		if !ok || object == nil {
 			continue
 		}
-		tag := stringValue(object["tag"])
+		tag := strings.TrimSpace(stringValue(object["tag"]))
 		if tag == "" {
 			tag = strconv.Itoa(index)
 		}
@@ -142,7 +147,7 @@ func diagnosticEntriesFromRoute(cfg map[string]any, key string) []diagnosticEntr
 			continue
 		}
 		entries = append(entries, diagnosticEntry{
-			tag:      stringValue(object["tag"]),
+			tag:      strings.TrimSpace(stringValue(object["tag"])),
 			typeName: stringValue(object["type"]),
 			path:     "route." + key + "[" + strconv.Itoa(index) + "]",
 		})
@@ -162,7 +167,7 @@ func diagnosticEntriesFromDNS(cfg map[string]any) []diagnosticEntry {
 		if !ok || object == nil {
 			continue
 		}
-		tag := stringValue(object["tag"])
+		tag := strings.TrimSpace(stringValue(object["tag"]))
 		if tag == "" {
 			tag = strconv.Itoa(index)
 		}

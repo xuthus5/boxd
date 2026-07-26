@@ -15,6 +15,8 @@ describe("config diagnostics helpers", () => {
     expect(configDiagnosticStatusKey("warning")).toBe("configDiagnostics.warning")
     expect(configDiagnosticStatusKey("error")).toBe("configDiagnostics.error")
     expect(configDiagnosticIssueLabelKey("invalid_json")).toContain("invalidJSON")
+    expect(configDiagnosticIssueLabelKey("missing_tag")).toContain("missingTag")
+    expect(configDiagnosticIssueHintKey("empty_group")).toContain("emptyGroup")
     expect(configDiagnosticIssueHintKey("future_code")).toContain("unknown")
   })
 
@@ -30,8 +32,11 @@ describe("config diagnostics helpers", () => {
   it("links issue paths to the closest editor", () => {
     expect(configDiagnosticHref("inbounds[0]")).toBe("/proxy/inbounds?path=inbounds%5B0%5D")
     expect(configDiagnosticHref("outbounds[1].detour")).toBe("/proxy/outbounds?path=outbounds%5B1%5D.detour")
-    expect(configDiagnosticHref("endpoints[0].tls.insecure")).toBe("/advanced/endpoints?path=endpoints%5B0%5D.tls.insecure")
+    expect(configDiagnosticHref("endpoints[0].tls.insecure")).toBe(
+      "/advanced/endpoints?path=endpoints%5B0%5D.tls.insecure",
+    )
     expect(configDiagnosticHref("route.rules[0]")).toBe("/policy/route?path=route.rules%5B0%5D")
+    expect(configDiagnosticHref("route.rule_set[0].tag")).toBe("/policy/route?path=route.rule_set%5B0%5D.tag")
     expect(configDiagnosticHref("dns.rules[0]")).toBe("/policy/dns?path=dns.rules%5B0%5D")
     expect(configDiagnosticHref("experimental.cache_file")).toBe("/advanced/experimental?path=experimental.cache_file")
     expect(configDiagnosticHref("config")).toBe("/advanced/raw")

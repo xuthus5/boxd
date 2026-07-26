@@ -47,11 +47,13 @@ describe("ConfigDiagnosticsCard", () => {
     const report = {
       ...healthy,
       status: "error" as const,
-      summary: { errors: 1, warnings: 3 },
+      summary: { errors: 2, warnings: 4 },
       issues: [
         { code: "unknown_outbound_reference", severity: "error" as const, path: "route.rules[0].outbound", value: "missing" },
         { code: "tls_insecure", severity: "warning" as const, path: "outbounds[0].tls.insecure", value: "node" },
         { code: "legacy_dns_server", severity: "warning" as const, path: "dns.servers[0]", value: "local" },
+        { code: "missing_tag", severity: "error" as const, path: "route.rule_set[0].tag" },
+        { code: "empty_group", severity: "warning" as const, path: "outbounds[1].outbounds", value: "urltest" },
         { code: "future_code", severity: "warning" as const, path: "config", detail: "unknown detail" },
       ],
     }
@@ -60,6 +62,8 @@ describe("ConfigDiagnosticsCard", () => {
 
     expect(await screen.findByText("配置有错误")).toBeInTheDocument()
     expect(screen.getByText("missing")).toBeInTheDocument()
+    expect(screen.getByText("规则集缺少 Tag")).toBeInTheDocument()
+    expect(screen.getByText("空代理组")).toBeInTheDocument()
     expect(screen.getByText("unknown detail")).toBeInTheDocument()
     const editorLinks = screen.getAllByRole("link", { name: "打开编辑器" })
     expect(editorLinks[0]).toHaveAttribute("href", "/policy/route?path=route.rules%5B0%5D.outbound")
