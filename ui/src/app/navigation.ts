@@ -14,6 +14,7 @@ import {
   ScrollTextIcon,
   SettingsIcon,
   Share2Icon,
+  ShieldCheckIcon,
 } from "lucide-react"
 import type { ComponentType } from "react"
 
@@ -51,6 +52,7 @@ export const navigationGroups: NavigationGroup[] = [
   ] },
   { label: "nav.advanced", items: [
     { label: "nav.endpoints", to: "/advanced/endpoints", icon: BoxIcon },
+    { label: "nav.certificate", to: "/advanced/certificate", icon: ShieldCheckIcon },
     { label: "nav.ntp", to: "/advanced/ntp", icon: ClockIcon },
     { label: "nav.experimental", to: "/advanced/experimental", icon: FlaskConicalIcon },
     { label: "nav.configHistory", to: "/advanced/history", icon: HistoryIcon },

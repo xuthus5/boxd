@@ -168,6 +168,14 @@ async function checkDNSPolicy(page: Page) {
   await expectPageFitsViewport(page)
 }
 
+async function checkCertificateTrust(page: Page) {
+  await page.goto("/advanced/certificate")
+  await expect(page.getByRole("heading", { name: "Certificate trust store" })).toBeVisible()
+  await expect(page.getByRole("combobox", { name: "Default trust store" })).toContainText("system")
+  await expect(page.locator("[data-slot=card] [data-slot=card]")).toHaveCount(0)
+  await expectPageFitsViewport(page)
+}
+
 test("smoke: login, navigation, log tabs, and raw save", async ({ page }) => {
   await page.route("http://127.0.0.1:4173/api/**", fulfillAPI)
   await login(page)
@@ -230,7 +238,7 @@ test("subscription URLTest policy fits a 320px viewport", async ({ page }) => {
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0)
 })
 
-test("route and DNS policy editors fit 320px and remain keyboard reachable", async ({ page }) => {
+test("route, DNS, and certificate editors fit 320px and remain reachable", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 568 })
   await page.addInitScript(() => {
     localStorage.setItem("boxd.preferences.v1", JSON.stringify({ theme: "system", language: "en" }))
@@ -240,4 +248,5 @@ test("route and DNS policy editors fit 320px and remain keyboard reachable", asy
 
   await checkRoutePolicy(page)
   await checkDNSPolicy(page)
+  await checkCertificateTrust(page)
 })

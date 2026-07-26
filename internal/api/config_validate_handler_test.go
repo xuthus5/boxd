@@ -97,19 +97,42 @@ func TestValidateConfigFailureRecordsApplyHistory(t *testing.T) {
 }
 
 func TestValidateConfigAcceptsSourceQuery(t *testing.T) {
-	handler, history, _ := setupApplyHistoryHandler(t)
-	body := `{"log":{"level":"info"},"outbounds":[{"type":"direct","tag":"direct"}],"route":{"final":"direct"}}`
-	rr := httptest.NewRecorder()
-	handler.ValidateConfig(rr, jsonRequest(http.MethodPost, "/api/config/validate?source=validate_raw", body))
-	if rr.Code != http.StatusOK {
-		t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+	tests := []struct {
+		name   string
+		source string
+		body   string
+	}{
+		{
+			name:   "raw editor",
+			source: "validate_raw",
+			body:   `{"log":{"level":"info"},"outbounds":[{"type":"direct","tag":"direct"}],"route":{"final":"direct"}}`,
+		},
+		{
+			name:   "certificate editor",
+			source: "validate_certificate",
+			body:   `{"log":{"level":"info"},"certificate":{"store":"system"},"outbounds":[{"type":"direct","tag":"direct"}],"route":{"final":"direct"}}`,
+		},
 	}
-	events, err := history.List(5)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(events) != 1 || events[0].Source != "validate_raw" || events[0].Status != "validated" {
-		t.Fatalf("events = %+v", events)
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			handler, history, _ := setupApplyHistoryHandler(t)
+			rr := httptest.NewRecorder()
+			handler.ValidateConfig(
+				rr,
+				jsonRequest(http.MethodPost, "/api/config/validate?source="+test.source, test.body),
+			)
+			if rr.Code != http.StatusOK {
+				t.Fatalf("status = %d body=%s", rr.Code, rr.Body.String())
+			}
+			events, err := history.List(5)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(events) != 1 || events[0].Source != test.source || events[0].Status != "validated" {
+				t.Fatalf("events = %+v", events)
+			}
+		})
 	}
 }
 
@@ -136,6 +159,9 @@ func TestNormalizeValidateSource(t *testing.T) {
 	}
 	if got := normalizeValidateSource("validate_ntp"); got != "validate_ntp" {
 		t.Fatalf("ntp = %q", got)
+	}
+	if got := normalizeValidateSource("validate_certificate"); got != "validate_certificate" {
+		t.Fatalf("certificate = %q", got)
 	}
 	if got := normalizeValidateSource(" "); got != "validate" {
 		t.Fatalf("blank = %q", got)
