@@ -3,20 +3,23 @@ import { screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-const recharts = vi.hoisted(() => ({ line: vi.fn(), chart: vi.fn() }))
+const recharts = vi.hoisted(() => ({ line: vi.fn(), chart: vi.fn(), xAxis: vi.fn() }))
 
 vi.mock("recharts", () => ({
   ResponsiveContainer: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   LineChart: ({ children, ...props }: { children: ReactNode }) => {
     recharts.chart(props)
-    return <div>{children}</div>
+    return <div data-testid="traffic-chart-instance">{children}</div>
   },
   Line: (props: Record<string, unknown>) => {
     recharts.line(props)
     return <span data-testid="traffic-line" />
   },
   CartesianGrid: () => null,
-  XAxis: () => null,
+  XAxis: (props: Record<string, unknown>) => {
+    recharts.xAxis(props)
+    return null
+  },
   YAxis: () => null,
   Tooltip: () => null,
   Legend: () => null,
@@ -48,17 +51,34 @@ describe("TrafficChart stability", () => {
   beforeEach(() => {
     recharts.line.mockClear()
     recharts.chart.mockClear()
+    recharts.xAxis.mockClear()
   })
 
-  it("skips unchanged parent renders and disables line replay animations", async () => {
+  it("keeps a rolling time axis and smoothly interpolates new samples", async () => {
     const user = userEvent.setup()
     renderApp(<Harness />)
 
     const initialLineCount = recharts.line.mock.calls.length
     expect(initialLineCount).toBeGreaterThan(0)
-    for (const [props] of recharts.line.mock.calls) {
-      expect(props).toMatchObject({ isAnimationActive: false })
-    }
+    const chartInstance = screen.getByTestId("traffic-chart-instance")
+    expect(recharts.xAxis).toHaveBeenCalled()
+    const initialXAxis = recharts.xAxis.mock.calls.at(-1)?.[0] as Record<string, unknown>
+    expect(initialXAxis).toMatchObject({
+      type: "number",
+      allowDataOverflow: true,
+      domain: [expect.any(Number), expect.any(Number)],
+    })
+    const timestampValue = initialXAxis.dataKey as (point: { timestamp: string }) => number
+    const tickFormatter = initialXAxis.tickFormatter as (value: unknown) => string
+    expect(timestampValue({ timestamp: "2026-01-01T00:00:01Z" })).toBe(Date.parse("2026-01-01T00:00:01Z"))
+    expect(timestampValue({ timestamp: "invalid" })).toBe(0)
+    expect(timestampValue({ timestamp: 1 as unknown as string })).toBe(0)
+    expect(tickFormatter(Date.parse("2026-01-01T00:00:01Z"))).not.toBe("")
+    expect(tickFormatter("invalid")).toBe("")
+    expect(recharts.line.mock.calls.at(-1)?.[0]).toMatchObject({
+      isAnimationActive: "auto",
+      animateNewValues: false,
+    })
 
     await user.click(screen.getByRole("button", { name: "rerender parent" }))
     expect(screen.getByLabelText("unrelated state")).toHaveTextContent("1")
@@ -66,5 +86,12 @@ describe("TrafficChart stability", () => {
 
     await user.click(screen.getByRole("button", { name: "append sample" }))
     expect(recharts.line.mock.calls.length).toBeGreaterThan(initialLineCount)
+    expect(screen.getByTestId("traffic-chart-instance")).toBe(chartInstance)
+    expect(recharts.line.mock.calls.at(-1)?.[0]).toMatchObject({
+      isAnimationActive: "auto",
+      animationDuration: 900,
+      animationEasing: "linear",
+      animateNewValues: false,
+    })
   })
 })

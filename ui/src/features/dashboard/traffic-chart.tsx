@@ -14,14 +14,92 @@ function formatRate(value: number) {
   return `${formatBytes(value)}/s`
 }
 
-const TrafficLines = memo(function TrafficLines({ data, uploadKey, downloadKey, formatter, config }: { data: object[]; uploadKey: string; downloadKey: string; formatter: (value: number) => string; config: ChartConfig }) {
-  return <ChartContainer config={config} className="h-64 w-full"><LineChart accessibilityLayer data={data}>
+const TRAFFIC_WINDOW_MS = 60_000
+const TRAFFIC_UPDATE_DURATION_MS = 900
+const TRAFFIC_CHART_MARGIN = { top: 4, right: 8, bottom: 0, left: 0 }
+
+type TrafficChartPoint = { timestamp: string }
+
+interface TrafficLinesProps {
+  data: TrafficChartPoint[]
+  uploadKey: string
+  downloadKey: string
+  formatter: (value: number) => string
+  config: ChartConfig
+}
+
+interface SmoothTrafficLineProps {
+  dataKey: string
+}
+
+interface TrafficChartProps {
+  points: TrafficHistoryPoint[]
+  streamError?: string
+  streamStatus?: string
+  streamPath?: string
+  onReconnect?: () => void
+}
+
+function timestampToMilliseconds(value: unknown) {
+  if (typeof value !== "string") return 0
+  const timestamp = Date.parse(value)
+  return Number.isFinite(timestamp) ? timestamp : 0
+}
+
+function getTimestampValue(point: TrafficChartPoint) {
+  return timestampToMilliseconds(point.timestamp)
+}
+
+function formatTimestamp(value: unknown) {
+  const timestamp = typeof value === "number" ? value : timestampToMilliseconds(value)
+  return timestamp > 0 ? new Date(timestamp).toLocaleTimeString() : ""
+}
+
+function getTimeDomain(data: readonly TrafficChartPoint[]): [number, number] {
+  const latest = data.reduce((current, point) => Math.max(current, getTimestampValue(point)), 0)
+  if (latest <= 0) return [0, TRAFFIC_WINDOW_MS]
+  return [latest - TRAFFIC_WINDOW_MS, latest]
+}
+
+function SmoothTrafficLine({ dataKey }: SmoothTrafficLineProps) {
+  return <Line
+    id={`traffic-${dataKey}`}
+    dataKey={dataKey}
+    type="monotone"
+    stroke={`var(--color-${dataKey})`}
+    dot={false}
+    isAnimationActive="auto"
+    animateNewValues={false}
+    animationBegin={0}
+    animationDuration={TRAFFIC_UPDATE_DURATION_MS}
+    animationEasing="linear"
+  />
+}
+
+const TrafficLines = memo(function TrafficLines({ data, uploadKey, downloadKey, formatter, config }: TrafficLinesProps) {
+  const tooltipContent = useMemo(() => (
+    <ChartTooltipContent
+      labelFormatter={formatTimestamp}
+      formatter={(value) => formatter(Number(value))}
+    />
+  ), [formatter])
+  const timeDomain = useMemo(() => getTimeDomain(data), [data])
+
+  return <ChartContainer config={config} className="h-64 w-full"><LineChart accessibilityLayer data={data} margin={TRAFFIC_CHART_MARGIN}>
     <CartesianGrid vertical={false} />
-    <YAxis width={72} tickLine={false} axisLine={false} tickFormatter={(value: number) => formatter(value)} />
-    <XAxis dataKey="timestamp" tickLine={false} axisLine={false} tickFormatter={(value: string) => new Date(value).toLocaleTimeString()} />
-    <ChartTooltip content={<ChartTooltipContent formatter={(value) => formatter(Number(value))} />} />
-    <Line dataKey={uploadKey} type="monotone" stroke={`var(--color-${uploadKey})`} dot={false} isAnimationActive={false} />
-    <Line dataKey={downloadKey} type="monotone" stroke={`var(--color-${downloadKey})`} dot={false} isAnimationActive={false} />
+    <YAxis width={72} tickLine={false} axisLine={false} tickFormatter={formatter} />
+    <XAxis
+      type="number"
+      dataKey={getTimestampValue}
+      domain={timeDomain}
+      allowDataOverflow
+      tickLine={false}
+      axisLine={false}
+      tickFormatter={formatTimestamp}
+    />
+    <ChartTooltip content={tooltipContent} />
+    <SmoothTrafficLine dataKey={uploadKey} />
+    <SmoothTrafficLine dataKey={downloadKey} />
   </LineChart></ChartContainer>
 })
 
@@ -31,13 +109,7 @@ export const TrafficChart = memo(function TrafficChart({
   streamStatus,
   streamPath,
   onReconnect,
-}: {
-  points: TrafficHistoryPoint[]
-  streamError?: string
-  streamStatus?: string
-  streamPath?: string
-  onReconnect?: () => void
-}) {
+}: TrafficChartProps) {
   const { t } = useTranslation()
   const [mode, setMode] = useState<"rate" | "total">("rate")
   const rates = useMemo(() => calculateTrafficRates(points), [points])
