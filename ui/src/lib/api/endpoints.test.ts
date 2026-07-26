@@ -125,7 +125,7 @@ describe("api endpoint coverage", () => {
 
     await Promise.all([
       api.health.readiness(),
-      api.auth.logout(), api.config.get(), api.config.update({}), api.config.getRaw(), api.config.updateRaw({}), api.config.validate({}),
+      api.auth.logout(), api.config.get(), api.config.update({}), api.config.getRaw(), api.config.diagnostics(), api.config.updateRaw({}), api.config.validate({}),
       api.config.applyHistory(), api.config.applyHistorySnapshot("event/one"), api.config.restoreApplyHistory("event/one"), api.config.installDNS(), api.config.installRuleSets(), api.config.installOutbounds(), api.config.installInbounds(), api.config.installExperimental(), api.config.installRoute(),
       api.service.status(), api.service.start(), api.service.stop(), api.service.restart(), api.stats.history(),
       api.stats.closeAll(), api.stats.closeConnection("1"), api.import.link("vless://node"), api.import.save(node),
@@ -144,6 +144,7 @@ describe("api endpoint coverage", () => {
     const paths = fetchMock.mock.calls.map(([path]) => path)
     expect(paths).toContain("/readyz")
     expect(paths).toContain("/api/config/raw")
+    expect(paths).toContain("/api/config/diagnostics")
     expect(paths).toContain("/api/config/apply-history")
     expect(paths).toContain("/api/config/apply-history/event%2Fone/snapshot")
     expect(paths).toContain("/api/config/apply-history/event%2Fone/restore")

@@ -27,6 +27,7 @@ import type {
   DNSProbeResult,
   LatencyPoint,
   ConfigApplyEvent,
+  ConfigDiagnostics,
 } from "@/lib/api/types"
 
 const json = (method: string, body?: unknown): RequestInit => ({
@@ -69,6 +70,7 @@ export const api = {
     get: () => apiRequest<SingBoxConfig>("/api/config/"),
     update: (config: SingBoxConfig) => apiRequestEnvelope<JsonValue>("/api/config/", json("PUT", config)),
     getRaw: () => apiRequest<SingBoxConfig>("/api/config/raw"),
+    diagnostics: () => apiRequest<ConfigDiagnostics>("/api/config/diagnostics"),
     updateRaw: (config: SingBoxConfig) => apiRequestEnvelope<JsonValue>("/api/config/raw", json("PUT", config)),
     validate: (config: SingBoxConfig, options?: { source?: string }) => {
       const query = options?.source?.trim() ? `?source=${encodeURIComponent(options.source.trim())}` : ""

@@ -1,0 +1,82 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { screen, waitFor } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
+import { afterEach, describe, expect, it, vi } from "vitest"
+
+import { ConfigDiagnosticsCard } from "@/features/dashboard/config-diagnostics-card"
+import { renderApp } from "@/test/render"
+
+afterEach(() => vi.unstubAllGlobals())
+
+const healthy = {
+  status: "healthy" as const,
+  checked_at: "2026-01-01T00:00:00Z",
+  summary: { errors: 0, warnings: 0 },
+  counts: { inbounds: 1, outbounds: 2, endpoints: 0, route_rules: 3, rule_sets: 1, dns_servers: 2, dns_rules: 1 },
+  features: { tun: true, clash_api: true, cache_file: true, fakeip: true, selector: true, urltest: false, wireguard: false, remote_rule_set: true },
+  issues: [],
+}
+
+function renderCard() {
+  return renderApp(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <ConfigDiagnosticsCard />
+    </QueryClientProvider>,
+    "/dashboard",
+  )
+}
+
+describe("ConfigDiagnosticsCard", () => {
+  it("renders topology, enabled features, and refreshes", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(healthy)))
+    vi.stubGlobal("fetch", fetchMock)
+    const user = userEvent.setup()
+    renderCard()
+
+    expect(await screen.findByText("配置正常")).toBeInTheDocument()
+    expect(screen.getByText("TUN")).toBeInTheDocument()
+    expect(screen.getByText("远程规则集")).toBeInTheDocument()
+    expect(screen.getByText("3", { selector: "p" })).toBeInTheDocument()
+    expect(screen.getByText("未发现结构或 sing-box 语义问题。")).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "刷新配置诊断" }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+  })
+
+  it("links actionable issues to the matching editor", async () => {
+    const report = {
+      ...healthy,
+      status: "error" as const,
+      summary: { errors: 2, warnings: 1 },
+      issues: [
+        { code: "unknown_outbound_reference", severity: "error" as const, path: "route.rules[0].outbound", value: "missing" },
+        { code: "tls_insecure", severity: "warning" as const, path: "outbounds[0].tls.insecure", value: "node" },
+        { code: "future_code", severity: "warning" as const, path: "config", detail: "unknown detail" },
+      ],
+    }
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(report))))
+    renderCard()
+
+    expect(await screen.findByText("配置有错误")).toBeInTheDocument()
+    expect(screen.getByText("missing")).toBeInTheDocument()
+    expect(screen.getByText("unknown detail")).toBeInTheDocument()
+    const editorLinks = screen.getAllByRole("link", { name: "打开编辑器" })
+    expect(editorLinks[0]).toHaveAttribute("href", "/policy/route?path=route.rules%5B0%5D.outbound")
+    expect(editorLinks[1]).toHaveAttribute("href", "/proxy/outbounds?path=outbounds%5B0%5D.tls.insecure")
+  })
+
+  it("shows loading and query error states", async () => {
+    let resolveRequest: ((response: Response) => void) | undefined
+    vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>((resolve) => { resolveRequest = resolve })))
+    renderCard()
+    expect(screen.getByTestId("config-diagnostics-card").querySelector('[data-slot="skeleton"]')).toBeInTheDocument()
+    resolveRequest?.(new Response(JSON.stringify(healthy)))
+    await screen.findByText("配置正常")
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      status: "error", data: null, error: { code: "internal_error", message: "diagnostics failed" }, meta: null,
+    }), { status: 500 })))
+    renderCard()
+    expect(await screen.findByText("diagnostics failed")).toBeInTheDocument()
+  })
+})

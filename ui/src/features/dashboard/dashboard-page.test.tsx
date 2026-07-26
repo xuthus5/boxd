@@ -12,6 +12,14 @@ function responseFor(path: string) {
   if (path === "/api/stats/traffic/history") return { points: [{ upload_bytes: 10, download_bytes: 20, timestamp: "2026-01-01T00:00:00Z" }] }
   if (path === "/api/runtime/memory") return { alloc: 1024, total: 2048, sys: 4096, num_gc: 2, heap_inuse: 512, stack_inuse: 128, num_goroutine: 12 }
   if (path === "/api/runtime/version") return { version: "dev", kernel_version: "1.13.14" }
+  if (path === "/api/config/diagnostics") return {
+    status: "healthy",
+    checked_at: "2026-01-01T00:00:00Z",
+    summary: { errors: 0, warnings: 0 },
+    counts: { inbounds: 1, outbounds: 2, endpoints: 0, route_rules: 1, rule_sets: 0, dns_servers: 1, dns_rules: 0 },
+    features: { tun: false, clash_api: true, cache_file: false, fakeip: false, selector: true, urltest: false, wireguard: false, remote_rule_set: false },
+    issues: [],
+  }
   if (path === "/api/nodes/groups") return { groups: [{ tag: "proxy", type: "selector", now: "a", all: ["a", "b"] }] }
   if (path === "/api/config/" || path === "/api/config") {
     return {

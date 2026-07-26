@@ -255,3 +255,42 @@ export interface ConfigApplyEvent {
   error_code?: string
   applied_at: string
 }
+
+export type ConfigDiagnosticsStatus = "healthy" | "warning" | "error"
+
+export interface ConfigDiagnostic {
+  code: string
+  severity: "warning" | "error"
+  path?: string
+  value?: string
+  detail?: string
+}
+
+export interface ConfigDiagnostics {
+  status: ConfigDiagnosticsStatus
+  checked_at: string
+  summary: {
+    errors: number
+    warnings: number
+  }
+  counts: {
+    inbounds: number
+    outbounds: number
+    endpoints: number
+    route_rules: number
+    rule_sets: number
+    dns_servers: number
+    dns_rules: number
+  }
+  features: {
+    tun: boolean
+    clash_api: boolean
+    cache_file: boolean
+    fakeip: boolean
+    selector: boolean
+    urltest: boolean
+    wireguard: boolean
+    remote_rule_set: boolean
+  }
+  issues: ConfigDiagnostic[]
+}

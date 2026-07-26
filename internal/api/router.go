@@ -58,6 +58,7 @@ func NewRouter(
 		r.Get("/", configHandler.GetConfig)
 		r.Put("/", configHandler.UpdateConfig)
 		r.Get("/raw", configHandler.GetRawConfig)
+		r.Get("/diagnostics", configHandler.ConfigDiagnostics)
 		r.Put("/raw", configHandler.UpdateRawConfig)
 		r.Post("/validate", configHandler.ValidateConfig)
 		r.Get("/apply-history", configHandler.ListConfigApplyHistory)
