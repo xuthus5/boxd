@@ -24,15 +24,7 @@ func (update ruleSetAutoUpdateFunc) Update(
 }
 
 func TestRuleSetAutoUpdaterTickSkipsCanceledContext(t *testing.T) {
-	db, err := bbolt.Open(filepath.Join(t.TempDir(), "boxd.db"), 0600, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = db.Close() })
-	settings := NewSettingsManager(db)
-	if err := settings.SetRuleSetAutoUpdate(model.RuleSetAutoUpdate{Enabled: true, Interval: "1h"}); err != nil {
-		t.Fatal(err)
-	}
+	settings := newEnabledRuleSetAutoUpdateSettings(t)
 
 	var logs bytes.Buffer
 	defaultLogger := slog.Default()
@@ -102,4 +94,58 @@ func TestRuleSetAutoUpdaterTickSkipsCanceledContext(t *testing.T) {
 			t.Fatalf("unexpected cancellation log: %s", logs.String())
 		}
 	})
+}
+
+func TestRuleSetAutoUpdaterTickLogsPartialFailures(t *testing.T) {
+	settings := newEnabledRuleSetAutoUpdateSettings(t)
+	var logs bytes.Buffer
+	defaultLogger := slog.Default()
+	slog.SetDefault(slog.New(NewAppLogHandler(&logs, nil, slog.LevelInfo)))
+	t.Cleanup(func() { slog.SetDefault(defaultLogger) })
+	autoUpdater := &RuleSetAutoUpdater{
+		settings: settings,
+		updater: ruleSetAutoUpdateFunc(func(
+			context.Context,
+			RuleSetUpdateRequest,
+		) (model.RuleSetUpdateResponse, error) {
+			return model.RuleSetUpdateResponse{
+				UpdatedCount: 1,
+				FailedCount:  2,
+				Results: []model.RuleSetUpdateResult{
+					{Tag: "loyalsoldier-direct", OK: true},
+					{Tag: "loyalsoldier-proxy", ErrorCode: RuleSetErrorNetwork, Error: "GET https://example.com/rules?token=secret"},
+					{Tag: "loyalsoldier-reject", ErrorCode: RuleSetErrorHTTP, Error: "unexpected status 500"},
+				},
+			}, nil
+		}),
+	}
+
+	autoUpdater.tick(context.Background())
+
+	output := logs.String()
+	for _, expected := range []string{
+		"WARN ruleset auto update finished updated=1 failed=2 skipped=0",
+		`failed_details=[{"tag":"loyalsoldier-proxy","code":"network"},{"tag":"loyalsoldier-reject","code":"http_status"}]`,
+	} {
+		if !strings.Contains(output, expected) {
+			t.Fatalf("log %q missing from %q", expected, output)
+		}
+	}
+	if strings.Contains(output, "token=secret") {
+		t.Fatalf("log leaked raw update error: %q", output)
+	}
+}
+
+func newEnabledRuleSetAutoUpdateSettings(t *testing.T) *SettingsManager {
+	t.Helper()
+	db, err := bbolt.Open(filepath.Join(t.TempDir(), "boxd.db"), 0600, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	settings := NewSettingsManager(db)
+	if err := settings.SetRuleSetAutoUpdate(model.RuleSetAutoUpdate{Enabled: true, Interval: "1h"}); err != nil {
+		t.Fatal(err)
+	}
+	return settings
 }

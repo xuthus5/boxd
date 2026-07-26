@@ -2,7 +2,10 @@ package core
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -22,6 +25,13 @@ type RuleSetAutoUpdater struct {
 type ruleSetAutoUpdateRunner interface {
 	Update(context.Context, RuleSetUpdateRequest) (model.RuleSetUpdateResponse, error)
 }
+
+type ruleSetAutoUpdateFailureDetail struct {
+	Tag  string `json:"tag"`
+	Code string `json:"code"`
+}
+
+const ruleSetAutoUpdateFailureLimit = 3
 
 func NewRuleSetAutoUpdater(settings *SettingsManager, updater *RuleSetUpdater) *RuleSetAutoUpdater {
 	autoUpdater := &RuleSetAutoUpdater{settings: settings}
@@ -116,11 +126,48 @@ func (a *RuleSetAutoUpdater) tick(ctx context.Context) {
 		slog.Warn("ruleset auto update failed", "err", err)
 		return
 	}
-	slog.Info("ruleset auto update finished",
+	failureDetails, detailsErr := marshalRuleSetAutoUpdateFailures(result.Results)
+	if detailsErr != nil {
+		slog.Error("ruleset auto update failure details unavailable", "err", detailsErr)
+	}
+	args := []any{
 		"updated", result.UpdatedCount,
 		"failed", result.FailedCount,
 		"skipped", result.SkippedCount,
-	)
+	}
+	if failureDetails != "" {
+		args = append(args, "failed_details", failureDetails)
+	}
+	level := slog.LevelInfo
+	if result.FailedCount > 0 {
+		level = slog.LevelWarn
+	}
+	slog.Log(ctx, level, "ruleset auto update finished", args...)
+}
+
+func marshalRuleSetAutoUpdateFailures(results []model.RuleSetUpdateResult) (string, error) {
+	failures := make([]ruleSetAutoUpdateFailureDetail, 0, min(len(results), ruleSetAutoUpdateFailureLimit))
+	for _, result := range results {
+		if result.OK || len(failures) >= ruleSetAutoUpdateFailureLimit {
+			continue
+		}
+		code := strings.TrimSpace(result.ErrorCode)
+		if code == "" {
+			code = RuleSetErrorUnknown
+		}
+		failures = append(failures, ruleSetAutoUpdateFailureDetail{
+			Tag:  strings.TrimSpace(result.Tag),
+			Code: code,
+		})
+	}
+	if len(failures) == 0 {
+		return "", nil
+	}
+	data, err := json.Marshal(failures)
+	if err != nil {
+		return "", fmt.Errorf("marshal rule-set auto-update failures: %w", err)
+	}
+	return string(data), nil
 }
 
 func (a *RuleSetAutoUpdater) Config() (model.RuleSetAutoUpdate, error) {

@@ -46,6 +46,16 @@ describe("rule-set health helpers", () => {
       skipped: 0,
       timestamp: "2026-07-26T11:00:00Z",
     })
+    expect(parseAutoUpdateLog(log('WARN ruleset auto update finished updated=1 failed=2 skipped=0 failed_details=[{"tag":"loyalsoldier-proxy","code":"network"},{"tag":"loyalsoldier-reject","code":"http_status"}]'))).toEqual({
+      updated: 1,
+      failed: 2,
+      skipped: 0,
+      failures: [
+        { tag: "loyalsoldier-proxy", code: "network" },
+        { tag: "loyalsoldier-reject", code: "http_status" },
+      ],
+      timestamp: "2026-07-26T11:00:00Z",
+    })
     expect(parseAutoUpdateLog(log("ruleset auto update finished skipped=3 updated=0 failed=0"))).toEqual({
       updated: 0,
       failed: 0,
@@ -60,6 +70,12 @@ describe("rule-set health helpers", () => {
       timestamp: "2026-07-26T11:00:00Z",
     })
     expect(parseAutoUpdateLog(log("ruleset auto update failed"))).toMatchObject({ error: "failed" })
+    expect(parseAutoUpdateLog(log("ruleset auto update finished updated=0 failed=1 skipped=0 failed_details=invalid"))).toEqual({
+      updated: 0,
+      failed: 1,
+      skipped: 0,
+      timestamp: "2026-07-26T11:00:00Z",
+    })
     expect(parseAutoUpdateLog(log("ruleset auto update finished updated=1 failed=0"))).toBeUndefined()
     expect(parseAutoUpdateLog(log("unrelated message"))).toBeUndefined()
     expect(parseAutoUpdateLog({ level: "info", message: undefined } as never)).toBeUndefined()

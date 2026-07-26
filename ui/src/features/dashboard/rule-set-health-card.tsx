@@ -15,6 +15,8 @@ import { RuleSetHealthFooter, type RuleSetUpdateAction } from "@/features/dashbo
 import {
   buildRuleSetHealth,
   ruleSetHealthHref,
+  type AutoUpdateFailure,
+  type AutoUpdateRun,
   type RuleSetHealthItem,
   type RuleSetHealthTone,
 } from "@/features/dashboard/rule-set-health"
@@ -71,7 +73,21 @@ function MetricGrid({ total, updatable, available, missing }: { total: number; u
   </div>
 }
 
-function AutoUpdatePanel({ enabled, interval, latest, latestArtifactUpdatedAt }: { enabled: boolean; interval: string; latest?: { updated: number; failed: number; skipped: number; error?: string; timestamp?: string }; latestArtifactUpdatedAt?: string }) {
+function AutoUpdateFailureList({ failures }: { failures?: AutoUpdateFailure[] }) {
+  const { t } = useTranslation()
+  if (!failures?.length) return null
+  return <ul aria-label={t("ruleSetHealth.autoUpdateFailed", { count: failures.length })} className="grid gap-1 rounded-md border border-destructive/30 bg-background/50 p-2">
+    {failures.map((failure) => (
+      <li key={`${failure.tag}-${failure.code ?? "unknown"}`} className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs">
+        <span className="min-w-0 break-all font-medium">{failure.tag}</span>
+        <Badge variant="outline">{failure.code ?? "unknown"}</Badge>
+        <span className="min-w-0 text-muted-foreground">{t(ruleSetErrorHintKey(failure.code))}</span>
+      </li>
+    ))}
+  </ul>
+}
+
+function AutoUpdatePanel({ enabled, interval, latest, latestArtifactUpdatedAt }: { enabled: boolean; interval: string; latest?: AutoUpdateRun; latestArtifactUpdatedAt?: string }) {
   const { t } = useTranslation()
   return (
     <Alert variant={latest?.failed ? "destructive" : "default"}>
@@ -79,8 +95,13 @@ function AutoUpdatePanel({ enabled, interval, latest, latestArtifactUpdatedAt }:
       <AlertDescription className="flex flex-col gap-1">
         {latest ? (
           <>
-            <span>{t("ruleSetHealth.latestRunSummary", latest)}</span>
+            <span>{t("ruleSetHealth.latestRunSummary", {
+              updated: latest.updated,
+              failed: latest.failed,
+              skipped: latest.skipped,
+            })}</span>
             {latest.failed > 0 ? <span>{t("ruleSetHealth.autoUpdateFailed", { count: latest.failed })}</span> : null}
+            <AutoUpdateFailureList failures={latest.failures} />
             {latest.error ? <span>{t("ruleSetHealth.autoUpdateRequestFailed")}</span> : null}
             {latest.timestamp ? <time dateTime={latest.timestamp}>{formatTime(latest.timestamp)}</time> : null}
           </>

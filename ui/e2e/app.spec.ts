@@ -76,7 +76,12 @@ async function fulfillAPI(route: Route) {
   const request = route.request()
   const path = new URL(request.url()).pathname
   if (["/api/stats/traffic", "/api/stats/logs", "/api/stats/app-logs", "/api/stats/connections"].includes(path)) {
-    const event = path.includes("logs") ? { level: "info", message: "ready" } : {}
+    const event = path === "/api/stats/app-logs"
+      ? {
+          level: "warn",
+          message: 'WARN ruleset auto update finished updated=1 failed=2 skipped=0 failed_details=[{"tag":"loyalsoldier-proxy","code":"network"},{"tag":"loyalsoldier-reject","code":"http_status"}]',
+        }
+      : path.includes("logs") ? { level: "info", message: "ready" } : {}
     await route.fulfill({ contentType: "text/event-stream", body: `data: ${JSON.stringify(event)}\n\n` })
     return
   }
@@ -207,12 +212,14 @@ test("smoke: login, navigation, log tabs, and raw save", async ({ page }) => {
   await page.route("http://127.0.0.1:4173/api/**", fulfillAPI)
   await login(page)
   await expect(page.getByText("规则集运行健康")).toBeVisible()
+  await expect(page.getByText("loyalsoldier-proxy")).toBeVisible()
+  await expect(page.getByText("无法拉取规则集，请检查网络、DNS 或 download_detour。")).toBeVisible()
   await expect(page.getByRole("link", { name: "查看路由配置" })).toHaveAttribute("href", "/policy/route")
 
   await page.getByLabel("日志", { exact: true }).click()
   await expect(page.getByRole("tab", { name: "内核日志" })).toBeVisible()
   await page.getByRole("tab", { name: "应用日志" }).click()
-  await expect(page.getByRole("tabpanel").getByText("ready")).toBeVisible()
+  await expect(page.getByRole("tabpanel").getByText(/ruleset auto update finished/)).toBeVisible()
 
   await page.getByRole("link", { name: "完整配置" }).click()
   await page.getByRole("button", { name: "保存完整配置" }).click()

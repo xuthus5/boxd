@@ -113,11 +113,18 @@ afterEach(() => {
 
 describe("RuleSetHealthCard", () => {
   it("shows freshness, automatic update failures, and deep links", async () => {
-    const fetchMock = renderCard({ logs: [{ level: "info", message: "INFO ruleset auto update finished updated=2 failed=1 skipped=0", timestamp: "2026-07-26T11:00:00Z" }] })
+    const fetchMock = renderCard({ logs: [{
+      level: "warn",
+      message: 'WARN ruleset auto update finished updated=1 failed=2 skipped=0 failed_details=[{"tag":"loyalsoldier-proxy","code":"network"},{"tag":"loyalsoldier-reject","code":"http_status"}]',
+      timestamp: "2026-07-26T11:00:00Z",
+    }] })
 
     expect(await screen.findByText("规则集运行异常")).toBeInTheDocument()
     expect(screen.getByText("2 个规则集")).toBeInTheDocument()
-    expect(screen.getByText("自动更新失败 1 个")).toBeInTheDocument()
+    expect(screen.getByText("自动更新失败 2 个")).toBeInTheDocument()
+    expect(screen.getByText("loyalsoldier-proxy")).toBeInTheDocument()
+    expect(screen.getByText("network")).toBeInTheDocument()
+    expect(screen.getByText("无法拉取规则集，请检查网络、DNS 或 download_detour。")).toBeInTheDocument()
     expect(screen.getByText(/最近文件\/缓存/)).toBeInTheDocument()
     expect(screen.getByText("missing-set")).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "打开规则集 missing-set" })).toHaveAttribute(

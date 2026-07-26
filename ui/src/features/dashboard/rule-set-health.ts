@@ -15,7 +15,13 @@ export interface AutoUpdateRun {
   failed: number
   skipped: number
   error?: string
+  failures?: AutoUpdateFailure[]
   timestamp?: string
+}
+
+export interface AutoUpdateFailure {
+  tag: string
+  code?: string
 }
 
 export interface RuleSetHealthSummary {
@@ -67,6 +73,28 @@ function metric(message: string, name: string): number | undefined {
   return Number.isSafeInteger(value) ? value : undefined
 }
 
+const AUTO_UPDATE_FAILURE_LIMIT = 3
+
+function parseAutoUpdateFailures(message: string): AutoUpdateFailure[] | undefined {
+  const match = /\bfailed_details=(\[[^\r\n]*\])(?:\s|$)/.exec(message)
+  if (!match) return undefined
+  try {
+    const parsed: unknown = JSON.parse(match[1])
+    if (!Array.isArray(parsed)) return undefined
+    const failures = parsed.flatMap((value): AutoUpdateFailure[] => {
+      if (!value || typeof value !== "object") return []
+      const record = value as Record<string, unknown>
+      const tag = typeof record.tag === "string" ? record.tag.trim() : ""
+      if (!tag) return []
+      const code = typeof record.code === "string" ? record.code.trim() : ""
+      return [{ tag, ...(code ? { code } : {}) }]
+    })
+    return failures.length > 0 ? failures.slice(0, AUTO_UPDATE_FAILURE_LIMIT) : undefined
+  } catch {
+    return undefined
+  }
+}
+
 export function parseAutoUpdateLog(entry: LogEvent): AutoUpdateRun | undefined {
   if (!entry || typeof entry.message !== "string") return undefined
   if (entry.message.includes("ruleset auto update failed")) {
@@ -78,7 +106,14 @@ export function parseAutoUpdateLog(entry: LogEvent): AutoUpdateRun | undefined {
   const failed = metric(entry.message, "failed")
   const skipped = metric(entry.message, "skipped")
   if (updated === undefined || failed === undefined || skipped === undefined) return undefined
-  return { updated, failed, skipped, timestamp: entry.timestamp }
+  const failures = parseAutoUpdateFailures(entry.message)
+  return {
+    updated,
+    failed,
+    skipped,
+    ...(failures ? { failures } : {}),
+    timestamp: entry.timestamp,
+  }
 }
 
 function hasArtifact(item: RuleSetStatusItem): boolean {
