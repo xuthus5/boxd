@@ -32,6 +32,7 @@ describe("RuleSetAutoUpdateCard", () => {
     const user = userEvent.setup()
     const input = screen.getByLabelText("自动更新间隔")
     const save = screen.getByRole("button", { name: "保存" })
+    expect(screen.getByText(/服务重启不会重复下载/)).toBeInTheDocument()
     expect(input).toHaveClass("h-8")
     expect(save).toHaveClass("h-8")
     expect(save).toBeDisabled()

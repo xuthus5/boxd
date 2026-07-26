@@ -12,7 +12,7 @@ import (
 	"github.com/xuthus5/boxd/internal/model"
 )
 
-// RuleSetAutoUpdater 仅更新内置 local 规则集，默认关闭。
+// RuleSetAutoUpdater 仅更新缺失或到期的内置 local 规则集，默认关闭。
 type RuleSetAutoUpdater struct {
 	mu       sync.Mutex
 	settings *SettingsManager
@@ -23,6 +23,7 @@ type RuleSetAutoUpdater struct {
 }
 
 type ruleSetAutoUpdateRunner interface {
+	Status(context.Context) ([]model.RuleSetStatusItem, error)
 	Update(context.Context, RuleSetUpdateRequest) (model.RuleSetUpdateResponse, error)
 }
 
@@ -114,21 +115,69 @@ func (a *RuleSetAutoUpdater) tick(ctx context.Context) {
 	if err != nil || !cfg.Enabled || a.updater == nil {
 		return
 	}
+	interval, err := time.ParseDuration(cfg.Interval)
+	if err != nil || interval <= 0 {
+		slog.WarnContext(ctx, "ruleset auto update interval invalid", "interval", cfg.Interval)
+		return
+	}
+	statuses, err := a.updater.Status(ctx)
+	if ctx.Err() != nil {
+		return
+	}
+	if err != nil {
+		slog.WarnContext(ctx, "ruleset auto update status failed", "err", err)
+		return
+	}
+	tags, freshCount := dueBuiltinLocalRuleSets(statuses, interval, time.Now())
+	result := model.RuleSetUpdateResponse{SkippedCount: freshCount}
+	if len(tags) == 0 {
+		if freshCount > 0 {
+			logRuleSetAutoUpdateResult(ctx, result)
+		}
+		return
+	}
 	// 仅更新内置 local，避免自动重启内核。
-	result, err := a.updater.Update(ctx, RuleSetUpdateRequest{
-		Tags:  BuiltinLocalRuleSetTags(),
+	result, err = a.updater.Update(ctx, RuleSetUpdateRequest{
+		Tags:  tags,
 		Types: []string{"local"},
 	})
 	if ctx.Err() != nil {
 		return
 	}
 	if err != nil {
-		slog.Warn("ruleset auto update failed", "err", err)
+		slog.WarnContext(ctx, "ruleset auto update failed", "err", err)
 		return
 	}
+	result.SkippedCount += freshCount
+	logRuleSetAutoUpdateResult(ctx, result)
+}
+
+func dueBuiltinLocalRuleSets(
+	statuses []model.RuleSetStatusItem,
+	interval time.Duration,
+	now time.Time,
+) ([]string, int) {
+	tags := make([]string, 0, len(statuses))
+	freshCount := 0
+	for _, status := range statuses {
+		tag := strings.TrimSpace(status.Tag)
+		managed := status.Type == "local" && status.Builtin && status.Updatable && tag != ""
+		if !managed {
+			continue
+		}
+		if status.LastUpdated != nil && status.LastUpdated.Add(interval).After(now) {
+			freshCount++
+			continue
+		}
+		tags = append(tags, tag)
+	}
+	return tags, freshCount
+}
+
+func logRuleSetAutoUpdateResult(ctx context.Context, result model.RuleSetUpdateResponse) {
 	failureDetails, detailsErr := marshalRuleSetAutoUpdateFailures(result.Results)
 	if detailsErr != nil {
-		slog.Error("ruleset auto update failure details unavailable", "err", detailsErr)
+		slog.ErrorContext(ctx, "ruleset auto update failure details unavailable", "err", detailsErr)
 	}
 	args := []any{
 		"updated", result.UpdatedCount,
