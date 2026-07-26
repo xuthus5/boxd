@@ -1,12 +1,11 @@
 import { useState, type ReactNode } from "react"
-import { render, screen, waitFor } from "@testing-library/react"
+import { screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const recharts = vi.hoisted(() => ({
   line: vi.fn(),
   chart: vi.fn(),
-  curve: vi.fn(),
   grid: vi.fn(),
   plotArea: undefined as { x: number; y: number; width: number; height: number } | undefined,
   xAxis: vi.fn(),
@@ -22,11 +21,6 @@ vi.mock("recharts", () => ({
   Line: (props: Record<string, unknown>) => {
     recharts.line(props)
     return <g data-testid="traffic-line" />
-  },
-  Curve: (props: Record<string, unknown>) => {
-    recharts.curve(props)
-    const series = props["data-series"]
-    return <path data-testid={typeof series === "string" ? `traffic-curve-${series}` : "traffic-curve"} />
   },
   usePlotArea: () => recharts.plotArea,
   useXAxisScale: () => (value: unknown) => Number(value),
@@ -48,7 +42,6 @@ vi.mock("recharts", () => ({
 }))
 
 import { TrafficChart } from "@/features/dashboard/traffic-chart"
-import { SmoothTrafficCurve } from "@/features/dashboard/traffic-chart-plot"
 import type { TrafficHistoryPoint } from "@/lib/api/types"
 import { renderApp } from "@/test/render"
 
@@ -83,11 +76,20 @@ function OriginBoundaryHarness() {
   </>
 }
 
+function ScaleHarness() {
+  const [points, setPoints] = useState(initialPoints)
+  return <>
+    <button onClick={() => setPoints((current) => [...current, {
+      timestamp: "2026-01-01T00:00:02Z", upload_bytes: 3072, download_bytes: 6144,
+    }])}>increase scale</button>
+    <TrafficChart points={points} />
+  </>
+}
+
 describe("TrafficChart stability", () => {
   beforeEach(() => {
     recharts.line.mockClear()
     recharts.chart.mockClear()
-    recharts.curve.mockClear()
     recharts.grid.mockClear()
     recharts.plotArea = { x: 72, y: 4, width: 720, height: 220 }
     recharts.xAxis.mockClear()
@@ -105,7 +107,8 @@ describe("TrafficChart stability", () => {
     const initialLineCount = recharts.line.mock.calls.length
     expect(initialLineCount).toBeGreaterThan(0)
     const chartInstance = screen.getByTestId("traffic-chart-instance")
-    const uploadCurve = screen.getByTestId("traffic-curve-upload_rate")
+    const uploadSeries = document.querySelector<SVGGElement>('g[data-traffic-series="upload_rate"]')
+    expect(uploadSeries).not.toBeNull()
     const stableTickValue = Date.parse("2026-01-01T00:00:00Z")
     const stableTick = document.querySelector(`[data-traffic-time-tick="${stableTickValue}"]`)
     expect(stableTick).not.toBeNull()
@@ -152,7 +155,7 @@ describe("TrafficChart stability", () => {
       isAnimationActive: false,
       animateNewValues: false,
     })
-    expect(screen.getByTestId("traffic-curve-upload_rate")).toBe(uploadCurve)
+    expect(document.querySelector('g[data-traffic-series="upload_rate"]')).toBe(uploadSeries)
     const updatedTick = document.querySelector(`[data-traffic-time-tick="${stableTickValue}"]`)
     expect(updatedTick).toBe(stableTick)
     expect(updatedTick).toHaveClass("transition-transform")
@@ -162,14 +165,16 @@ describe("TrafficChart stability", () => {
   it("keeps the last curve while chart layout is temporarily unavailable", async () => {
     const user = userEvent.setup()
     renderApp(<Harness />)
-    const uploadCurve = screen.getByTestId("traffic-curve-upload_rate")
+    const uploadSeries = document.querySelector<SVGGElement>('g[data-traffic-series="upload_rate"]')
+    expect(uploadSeries).not.toBeNull()
+    const initialSegment = uploadSeries.querySelector("path")
 
     recharts.plotArea = undefined
     await user.click(screen.getByRole("button", { name: "append sample" }))
 
-    expect(screen.getByTestId("traffic-curve-upload_rate")).toBe(uploadCurve)
-    const updated = recharts.curve.mock.calls.at(-2)?.[0] as { points?: unknown[] }
-    expect(updated.points?.length).toBeGreaterThan(0)
+    expect(document.querySelector('g[data-traffic-series="upload_rate"]')).toBe(uploadSeries)
+    expect(initialSegment?.isConnected).toBe(true)
+    expect(uploadSeries.querySelectorAll("path").length).toBeGreaterThan(0)
   })
 
   it("reduces time tick density for narrow traffic cards", () => {
@@ -185,101 +190,49 @@ describe("TrafficChart stability", () => {
     expect(document.querySelectorAll("[data-traffic-time-tick], [data-traffic-value-tick]")).toHaveLength(0)
   })
 
-  it("slides matching samples without redrawing the full curve on animation frames", async () => {
+  it("appends one segment without mutating historical geometry", async () => {
     const user = userEvent.setup()
-    vi.spyOn(window, "matchMedia").mockImplementation((query) => ({
-      matches: false,
-      media: query,
-      onchange: null,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    }))
     renderApp(<Harness />)
-    await waitFor(() => expect(screen.getByTestId("traffic-curve-upload_rate").parentElement).toHaveClass("transition-transform"))
-    const initialCurve = recharts.curve.mock.calls.find(([props]) => props["data-series"] === "upload_rate")?.[0] as {
-      points: Array<{ x: number; payload: { timestamp: string } }>
-    }
-    const initialSharedPoint = initialCurve.points.find((point) => point.payload.timestamp === "2026-01-01T00:00:01Z")
-    const requestFrame = vi.spyOn(window, "requestAnimationFrame").mockImplementation(() => 1)
-    vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => undefined)
+    const selector = 'path.traffic-chart-curve[data-series="upload_rate"]'
+    const initialSegments = Array.from(document.querySelectorAll<SVGPathElement>(selector))
+    const initialGeometry = initialSegments.map((segment) => segment.getAttribute("d"))
 
     await user.click(screen.getByRole("button", { name: "append sample" }))
 
-    const updatedCurve = recharts.curve.mock.calls.findLast(([props]) => props["data-series"] === "upload_rate")?.[0] as {
-      points: Array<{ x: number; payload: { timestamp: string } }>
+    const updatedSegments = Array.from(document.querySelectorAll<SVGPathElement>(selector))
+    expect(updatedSegments).toHaveLength(initialSegments.length + 1)
+    for (const [index, segment] of initialSegments.entries()) {
+      expect(updatedSegments[index]).toBe(segment)
+      expect(segment.getAttribute("d")).toBe(initialGeometry[index])
     }
-    const updatedSharedPoint = updatedCurve.points.find((point) => point.payload.timestamp === "2026-01-01T00:00:01Z")
-    expect(updatedSharedPoint?.x).toBe(initialSharedPoint?.x)
-    expect(requestFrame).not.toHaveBeenCalled()
-    expect(screen.getByTestId("traffic-curve-upload_rate").parentElement).toHaveClass("transition-transform")
   })
 
-  it("keeps local sample coordinates stable across an origin bucket boundary", async () => {
+  it("keeps historical segment coordinates stable across an origin boundary", async () => {
     const user = userEvent.setup()
     renderApp(<OriginBoundaryHarness />)
-    const initialCurve = recharts.curve.mock.calls.find(([props]) => props["data-series"] === "upload_rate")?.[0] as {
-      points: Array<{ x: number; payload: { timestamp: string } }>
-    }
-    const initialSharedPoint = initialCurve.points.find((point) => point.payload.timestamp === "2026-01-01T00:00:59Z")
+    const selector = 'path.traffic-chart-curve[data-series="upload_rate"]'
+    const initialSegment = document.querySelector<SVGPathElement>(selector)
+    const initialGeometry = initialSegment?.getAttribute("d")
 
     await user.click(screen.getByRole("button", { name: "cross origin boundary" }))
 
-    const updatedCurve = recharts.curve.mock.calls.findLast(([props]) => props["data-series"] === "upload_rate")?.[0] as {
-      points: Array<{ x: number; payload: { timestamp: string } }>
-    }
-    const updatedSharedPoint = updatedCurve.points.find((point) => point.payload.timestamp === "2026-01-01T00:00:59Z")
-    expect(updatedSharedPoint?.x).toBe(initialSharedPoint?.x)
+    expect(document.querySelector<SVGPathElement>(selector)).toBe(initialSegment)
+    expect(initialSegment?.getAttribute("d")).toBe(initialGeometry)
   })
 
-  it("commits discontinuous and reduced-motion updates immediately", () => {
-    let reduceMotion = false
-    vi.spyOn(window, "matchMedia").mockImplementation((query) => ({
-      matches: reduceMotion,
-      media: query,
-      onchange: null,
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    }))
+  it("rescales through the series transform without rewriting segments", async () => {
+    const user = userEvent.setup()
+    renderApp(<ScaleHarness />)
+    const selector = 'path.traffic-chart-curve[data-series="upload_rate"]'
+    const initialSegment = document.querySelector<SVGPathElement>(selector)
+    const initialGeometry = initialSegment?.getAttribute("d")
+    const motion = initialSegment?.parentElement
+    const initialTransform = motion?.style.transform
 
-    const initial = [
-      { x: 0, y: 20, payload: { timestamp: "2026-01-01T00:00:00Z" } },
-      { x: 100, y: 10, payload: { timestamp: "2026-01-01T00:00:01Z" } },
-    ]
-    const disconnected = [
-      { x: 0, y: 8, payload: { timestamp: "2026-01-01T00:01:00Z" } },
-      { x: 100, y: 4, payload: { timestamp: "2026-01-01T00:01:01Z" } },
-    ]
-    const reduced = [
-      { x: 0, y: 4, payload: { timestamp: "2026-01-01T00:01:01Z" } },
-      { x: 100, y: 2, payload: { timestamp: "2026-01-01T00:01:02Z" } },
-    ]
-    const view = render(<svg><SmoothTrafficCurve points={initial} /></svg>)
+    await user.click(screen.getByRole("button", { name: "increase scale" }))
 
-    view.rerender(<svg><SmoothTrafficCurve points={disconnected} /></svg>)
-    expect(recharts.curve.mock.calls.at(-1)?.[0]).toMatchObject({ points: disconnected })
-
-    reduceMotion = true
-    view.rerender(<svg><SmoothTrafficCurve points={reduced} /></svg>)
-    expect(recharts.curve.mock.calls.at(-1)?.[0]).toMatchObject({ points: reduced })
-  })
-
-  it("renders an unavailable or explicit empty series", () => {
-    const initial = [
-      { x: 0, y: 20, payload: { timestamp: "2026-01-01T00:00:00Z" } },
-      { x: 100, y: 10, payload: { timestamp: "2026-01-01T00:00:01Z" } },
-    ]
-    const view = render(<svg><SmoothTrafficCurve points={initial} /></svg>)
-
-    view.rerender(<svg><SmoothTrafficCurve points={undefined} /></svg>)
-    expect(recharts.curve.mock.calls.at(-1)?.[0]).toMatchObject({ points: [] })
-
-    view.rerender(<svg><SmoothTrafficCurve points={[]} /></svg>)
-    expect(recharts.curve.mock.calls.at(-1)?.[0]).toMatchObject({ points: [] })
+    expect(document.querySelector<SVGPathElement>(selector)).toBe(initialSegment)
+    expect(initialSegment?.getAttribute("d")).toBe(initialGeometry)
+    expect(motion?.style.transform).not.toBe(initialTransform)
   })
 })

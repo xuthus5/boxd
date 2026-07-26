@@ -10,7 +10,7 @@ const TRAFFIC_TIME_FORMATTER = new Intl.DateTimeFormat(undefined, {
   hour12: false,
 })
 
-export const TRAFFIC_UPDATE_DURATION_MS = 800
+export const TRAFFIC_UPDATE_DURATION_MS = 1000
 export const TRAFFIC_CHART_MARGIN = { top: 4, right: 8, bottom: 0, left: TRAFFIC_CHART_LEFT_MARGIN }
 export const TRAFFIC_AXIS_WIDTH = TRAFFIC_Y_AXIS_WIDTH
 

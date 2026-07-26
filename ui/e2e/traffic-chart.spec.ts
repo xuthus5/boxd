@@ -66,7 +66,7 @@ async function installTrafficStream(page: Page) {
   })
 }
 
-test("live traffic curve slides without replacing the SVG path", async ({ page }) => {
+test("live traffic curve appends segments without redrawing history", async ({ page }) => {
   await page.addInitScript(() => {
     sessionStorage.setItem("boxd.session.v1", JSON.stringify({ token: "token", expiresAt: "2099-01-01T00:00:00Z" }))
   })
@@ -74,9 +74,10 @@ test("live traffic curve slides without replacing the SVG path", async ({ page }
   await page.route("http://127.0.0.1:4173/api/**", fulfillAPI)
   await page.goto("/dashboard")
 
-  const uploadCurve = page.locator('path.traffic-chart-curve[data-series="upload_rate"]')
-  await expect(uploadCurve).toBeVisible()
-  await expect(uploadCurve.locator("..")).toHaveClass(/transition-transform/)
+  const uploadSegments = page.locator('path.traffic-chart-curve[data-series="upload_rate"]')
+  const firstSegment = uploadSegments.first()
+  await expect(firstSegment).toBeVisible()
+  await expect(firstSegment.locator("..")).toHaveClass(/transition-transform/)
   await page.waitForFunction(() => {
     const path = document.querySelector('path.traffic-chart-curve[data-series="upload_rate"]')
     const motion = path?.parentElement
@@ -85,15 +86,29 @@ test("live traffic curve slides without replacing the SVG path", async ({ page }
     const computedX = new DOMMatrix(getComputedStyle(motion).transform).m41
     return Math.abs(targetX - computedX) < 0.5
   })
-  const initial = await uploadCurve.evaluate((path) => {
+  const initial = await firstSegment.evaluate((path) => {
     const motion = path.parentElement as SVGGElement
-    const scope = window as typeof window & { __trafficCurve?: Element }
-    scope.__trafficCurve = path
     return {
+      count: document.querySelectorAll('path.traffic-chart-curve[data-series="upload_rate"]').length,
       opacity: getComputedStyle(path).opacity,
       targetX: new DOMMatrix(motion.style.transform).m41,
       transform: motion.style.transform,
     }
+  })
+  await page.evaluate(() => {
+    const selector = 'path.traffic-chart-curve[data-series="upload_rate"]'
+    const segments = Array.from(document.querySelectorAll<SVGPathElement>(selector))
+    const state = {
+      d: segments.map((segment) => segment.getAttribute("d")),
+      dMutations: 0,
+      segments,
+    }
+    const observer = new MutationObserver((records) => {
+      state.dMutations += records.filter((record) => record.attributeName === "d").length
+    })
+    for (const segment of segments) observer.observe(segment, { attributes: true, attributeFilter: ["d"] })
+    const scope = window as typeof window & { __trafficSegments?: typeof state }
+    scope.__trafficSegments = state
   })
 
   await page.evaluate((sample) => {
@@ -104,17 +119,24 @@ test("live traffic curve slides without replacing the SVG path", async ({ page }
     const path = document.querySelector('path.traffic-chart-curve[data-series="upload_rate"]')
     return path?.parentElement?.style.transform !== transform
   }, initial.transform)
+  await expect(uploadSegments).toHaveCount(initial.count + 1)
   await page.waitForTimeout(100)
 
-  const updated = await uploadCurve.evaluate((path) => {
+  const updated = await firstSegment.evaluate((path) => {
     const motion = path.parentElement as SVGGElement
     const style = getComputedStyle(motion)
-    const scope = window as typeof window & { __trafficCurve?: Element }
+    const scope = window as typeof window & {
+      __trafficSegments?: { d: Array<string | null>; dMutations: number; segments: SVGPathElement[] }
+    }
+    const state = scope.__trafficSegments
     return {
       computedX: new DOMMatrix(style.transform).m41,
+      dMutations: state?.dMutations,
       duration: style.transitionDuration,
+      historicalGeometryStable: state?.segments.every((segment, index) => (
+        segment.isConnected && segment.getAttribute("d") === state.d[index]
+      )),
       opacity: getComputedStyle(path).opacity,
-      sameNode: scope.__trafficCurve === path,
       targetX: new DOMMatrix(motion.style.transform).m41,
       transitionProperty: style.transitionProperty,
     }
@@ -122,10 +144,11 @@ test("live traffic curve slides without replacing the SVG path", async ({ page }
   const lowerBound = Math.min(initial.targetX, updated.targetX)
   const upperBound = Math.max(initial.targetX, updated.targetX)
 
-  expect(updated.sameNode).toBe(true)
+  expect(updated.historicalGeometryStable).toBe(true)
+  expect(updated.dMutations).toBe(0)
   expect(updated.opacity).toBe(initial.opacity)
   expect(updated.transitionProperty).toContain("transform")
-  expect(updated.duration).toBe("0.8s")
+  expect(updated.duration).toBe("1s")
   expect(updated.targetX).not.toBe(initial.targetX)
   expect(updated.computedX).toBeGreaterThan(lowerBound)
   expect(updated.computedX).toBeLessThan(upperBound)
