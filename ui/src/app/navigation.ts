@@ -12,6 +12,7 @@ import {
   RadioTowerIcon,
   RouteIcon,
   ScrollTextIcon,
+  ServerCogIcon,
   SettingsIcon,
   Share2Icon,
   ShieldCheckIcon,
@@ -53,6 +54,7 @@ export const navigationGroups: NavigationGroup[] = [
   { label: "nav.advanced", items: [
     { label: "nav.endpoints", to: "/advanced/endpoints", icon: BoxIcon },
     { label: "nav.certificate", to: "/advanced/certificate", icon: ShieldCheckIcon },
+    { label: "nav.services", to: "/advanced/services", icon: ServerCogIcon },
     { label: "nav.ntp", to: "/advanced/ntp", icon: ClockIcon },
     { label: "nav.experimental", to: "/advanced/experimental", icon: FlaskConicalIcon },
     { label: "nav.configHistory", to: "/advanced/history", icon: HistoryIcon },

@@ -13,6 +13,7 @@ export type ConfigValidateSource =
   | "validate_raw"
   | "validate_endpoints"
   | "validate_certificate"
+  | "validate_services"
   | "validate_ntp"
   | "validate_experimental"
   | "validate_inbounds"

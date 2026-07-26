@@ -112,6 +112,11 @@ func TestValidateConfigAcceptsSourceQuery(t *testing.T) {
 			source: "validate_certificate",
 			body:   `{"log":{"level":"info"},"certificate":{"store":"system"},"outbounds":[{"type":"direct","tag":"direct"}],"route":{"final":"direct"}}`,
 		},
+		{
+			name:   "services editor",
+			source: "validate_services",
+			body:   `{"log":{"level":"info"},"services":[{"type":"resolved","listen":"127.0.0.53","listen_port":5353}],"outbounds":[{"type":"direct","tag":"direct"}],"route":{"final":"direct"}}`,
+		},
 	}
 
 	for _, test := range tests {
@@ -162,6 +167,9 @@ func TestNormalizeValidateSource(t *testing.T) {
 	}
 	if got := normalizeValidateSource("validate_certificate"); got != "validate_certificate" {
 		t.Fatalf("certificate = %q", got)
+	}
+	if got := normalizeValidateSource("validate_services"); got != "validate_services" {
+		t.Fatalf("services = %q", got)
 	}
 	if got := normalizeValidateSource(" "); got != "validate" {
 		t.Fatalf("blank = %q", got)

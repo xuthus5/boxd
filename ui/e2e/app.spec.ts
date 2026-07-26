@@ -24,6 +24,7 @@ const config = {
     ],
   },
   endpoints: [],
+  services: [{ type: "resolved", tag: "resolver" }],
   experimental: {},
 }
 const nodes = [
@@ -176,6 +177,22 @@ async function checkCertificateTrust(page: Page) {
   await expectPageFitsViewport(page)
 }
 
+async function checkServices(page: Page) {
+  await page.goto("/advanced/services")
+  await expect(page.getByRole("heading", { name: "Kernel Services" })).toBeVisible()
+  await expect(page.getByRole("article", { name: "resolver" })).toBeVisible()
+  await expect(page.locator("[data-slot=card] [data-slot=card]")).toHaveCount(0)
+  await expectPageFitsViewport(page)
+  await page.getByRole("button", { name: "Add service" }).click()
+  const dialog = page.getByRole("dialog", { name: "Add kernel service" })
+  await expectDialogFitsViewport(dialog)
+  await expect(dialog.getByLabel("Listen address")).toHaveValue("127.0.0.53")
+  await expect(dialog.getByLabel("Listen port")).toHaveValue("53")
+  await expectKeyboardTabs(page, dialog, "Visual configuration", "Advanced JSON")
+  await dialog.getByRole("button", { name: "Cancel" }).click()
+  await expectPageFitsViewport(page)
+}
+
 test("smoke: login, navigation, log tabs, and raw save", async ({ page }) => {
   await page.route("http://127.0.0.1:4173/api/**", fulfillAPI)
   await login(page)
@@ -238,7 +255,7 @@ test("subscription URLTest policy fits a 320px viewport", async ({ page }) => {
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBe(0)
 })
 
-test("route, DNS, and certificate editors fit 320px and remain reachable", async ({ page }) => {
+test("route, DNS, certificate, and services editors fit 320px", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 568 })
   await page.addInitScript(() => {
     localStorage.setItem("boxd.preferences.v1", JSON.stringify({ theme: "system", language: "en" }))
@@ -249,4 +266,5 @@ test("route, DNS, and certificate editors fit 320px and remain reachable", async
   await checkRoutePolicy(page)
   await checkDNSPolicy(page)
   await checkCertificateTrust(page)
+  await checkServices(page)
 })

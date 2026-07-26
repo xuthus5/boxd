@@ -17,6 +17,7 @@ const ConnectionsPage = lazy(() => import("@/features/observability/connections-
 const LogsPage = lazy(() => import("@/features/observability/logs-page").then((module) => ({ default: module.LogsPage })))
 const EndpointsPage = lazy(() => import("@/features/advanced/endpoints-page").then((module) => ({ default: module.EndpointsPage })))
 const CertificatePage = lazy(() => import("@/features/advanced/certificate-page").then((module) => ({ default: module.CertificatePage })))
+const ServicesPage = lazy(() => import("@/features/advanced/services-page").then((module) => ({ default: module.ServicesPage })))
 const NTPPage = lazy(() => import("@/features/advanced/ntp-page").then((module) => ({ default: module.NTPPage })))
 const ExperimentalPage = lazy(() => import("@/features/advanced/experimental-page").then((module) => ({ default: module.ExperimentalPage })))
 const ConfigHistoryPage = lazy(() => import("@/features/advanced/config-history-page").then((module) => ({ default: module.ConfigHistoryPage })))
@@ -44,6 +45,7 @@ export function AppRoutes() {
           <Route path="/observability/logs" element={<LogsPage />} />
           <Route path="/advanced/endpoints" element={<EndpointsPage />} />
           <Route path="/advanced/certificate" element={<CertificatePage />} />
+          <Route path="/advanced/services" element={<ServicesPage />} />
           <Route path="/advanced/ntp" element={<NTPPage />} />
           <Route path="/advanced/experimental" element={<ExperimentalPage />} />
           <Route path="/advanced/history" element={<ConfigHistoryPage />} />
