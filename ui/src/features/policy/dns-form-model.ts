@@ -188,6 +188,18 @@ export function setDNSRules(object: JsonObject, rules: readonly JsonObject[]): J
   return { ...object, rules: [...rules] }
 }
 
+function dnsActionComplete(rule: JsonObject): boolean {
+  const action = String(rule.action ?? "route")
+  return action !== "route" || typeof rule.server === "string" && rule.server.trim().length > 0
+}
+
+export function isDNSRuleComplete(rule: JsonObject, depth = 0): boolean {
+  if (!dnsActionComplete(rule)) return false
+  if (rule.type !== "logical") return true
+  if (depth >= 64 || typeof rule.mode !== "string" || rule.mode.length === 0 || !Array.isArray(rule.rules) || rule.rules.length === 0) return false
+  return rule.rules.every((child) => isJsonObject(child) && isDNSRuleComplete(child, depth + 1))
+}
+
 export function inferDNSServerType(server: JsonObject): string {
   return typeof server.type === "string" && server.type ? server.type : "legacy"
 }

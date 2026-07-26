@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { useState } from "react"
-import { fireEvent, screen, waitFor } from "@testing-library/react"
+import { fireEvent, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -239,18 +239,23 @@ describe("route rule dialog", () => {
   })
 
   it("keeps logical child JSON invalidity blocking save across tabs", async () => {
+    const user = userEvent.setup()
     renderDialog(<RouteRuleDialog open title="编辑规则" item={{
-      type: "logical", mode: "and", rules: [{ action: "reject" }], invert: false, action: "reject",
+      type: "logical", mode: "and", rules: [{
+        type: "logical", mode: "and", rules: [{ action: "reject" }], invert: false, action: "reject",
+      }], invert: false, action: "reject",
     }} onOpenChange={vi.fn()} onSave={vi.fn()} />)
     expect(screen.getByRole("combobox", { name: "逻辑模式" })).toHaveTextContent("and")
-    await userEvent.click(screen.getByRole("switch", { name: "反向匹配" }))
-    fireEvent.change(screen.getByLabelText("子规则 JSON"), { target: { value: "invalid" } })
-    expect(screen.getByRole("button", { name: "保存" })).toBeDisabled()
-    await userEvent.click(screen.getByRole("tab", { name: "执行动作" }))
-    expect(screen.getByRole("button", { name: "保存" })).toBeDisabled()
-    await userEvent.click(screen.getByRole("tab", { name: "基础与网络" }))
-    fireEvent.change(screen.getByLabelText("子规则 JSON"), { target: { value: "[{}]" } })
-    expect(screen.getByRole("button", { name: "保存" })).toBeEnabled()
+    await user.click(screen.getByRole("switch", { name: "反向匹配" }))
+    await user.click(screen.getByRole("button", { name: "编辑子规则 1" }))
+    const childDialog = within(screen.getAllByRole("dialog").at(-1)!)
+    fireEvent.change(childDialog.getByLabelText("子规则 JSON"), { target: { value: "invalid" } })
+    expect(childDialog.getByRole("button", { name: "保存" })).toBeDisabled()
+    await user.click(childDialog.getByRole("tab", { name: "执行动作" }))
+    expect(childDialog.getByRole("button", { name: "保存" })).toBeDisabled()
+    await user.click(childDialog.getByRole("tab", { name: "基础与网络" }))
+    fireEvent.change(childDialog.getByLabelText("子规则 JSON"), { target: { value: '[{"action":"reject"}]' } })
+    expect(childDialog.getByRole("button", { name: "保存" })).toBeEnabled()
   })
 
   it("uses the immutable type transition when changing a logical rule to default", async () => {

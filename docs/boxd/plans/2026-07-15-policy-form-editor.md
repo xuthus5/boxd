@@ -339,7 +339,7 @@ Keep structured JSON panels mounted. Disable confirmation for non-object roots, 
 
 - [ ] **Step 7: Implement rule-set cards and Dialog**
 
-Use type-driven source fields. Inline rule sets provide structured headless-rule cards and dialogs, while logical child rules and unknown fields retain JSON fallback. Cards show Tag, type, format, path/URL, or inline-rule count.
+Use type-driven source fields. Inline rule sets provide structured headless-rule cards and dialogs. Route and DNS logical rules manage direct children as cards and dialogs; a child logical rule keeps JSON editing for its own nested rules. Unknown fields retain Advanced JSON fallback. Cards show Tag, type, format, path/URL, or inline-rule count.
 
 - [ ] **Step 8: Compose and wire `RouteVisualEditor`**
 
@@ -504,7 +504,7 @@ Use stable Base UI Select items, `sm:max-w-5xl`, required title, internal scroll
 
 - [ ] **Step 7: Implement DNS rule cards and Dialog**
 
-Reuse the interaction pattern, not route metadata. Use DNS server tags for route targets and show an `Alert` directing logical child-rule editing to Advanced JSON.
+Reuse the interaction pattern, not route metadata. Use DNS server tags for route targets. Direct logical child rules use the shared structured list; nested logical children retain the JSON-array field.
 
 - [ ] **Step 8: Compose and wire `DNSVisualEditor`**
 

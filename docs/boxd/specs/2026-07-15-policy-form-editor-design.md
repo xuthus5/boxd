@@ -125,7 +125,7 @@ GeoIP、Geosite 兼容字段继续保留在高级 JSON 中，不作为主要表�
 - 公共字段：`tag`、`type`、`format`
 - Local：`path`
 - Remote：`url`、`download_detour`、`update_interval`
-- Inline：规则列表结构化管理 sing-box headless rule；默认规则覆盖常用匹配字段，逻辑子规则与未知字段保留 JSON 兜底
+- Inline：规则列表结构化管理 sing-box headless rule；Route/DNS 逻辑规则的直接子规则使用卡片与对话框，更深层逻辑嵌套和未知字段保留 JSON 兜底
 
 卡片展示 Tag、类型、格式和路径或 URL，并提供编辑、复制和删除操作。规则集不参与顺序匹配，因此不提供排序按钮。
 

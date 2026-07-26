@@ -235,9 +235,13 @@ describe("DNS rule dialog and cards", () => {
     expect(screen.getByRole("button", { name: "保存" })).toBeEnabled()
   }, 15_000)
 
-  it("supports four actions, logical mode/invert, and Advanced JSON child rules", async () => {
-    renderDNS(<DNSRuleDialog open title="编辑 DNS 规则" item={{ type: "logical", mode: "or", rules: [], action: "reject" }} serverTags={[]} onOpenChange={vi.fn()} onSave={vi.fn()} />)
-    expect(screen.getByText("逻辑子规则请在高级 JSON 中维护。")).toBeInTheDocument()
+  it("supports four actions, structured child rules, and nested JSON fallback", async () => {
+    renderDNS(<DNSRuleDialog open title="编辑 DNS 规则" item={{
+      type: "logical", mode: "or", action: "reject",
+      rules: [{ type: "logical", mode: "and", action: "reject", rules: [{ action: "reject" }] }],
+    }} serverTags={[]} onOpenChange={vi.fn()} onSave={vi.fn()} />)
+    expect(screen.getByRole("heading", { name: "逻辑子规则" })).toBeInTheDocument()
+    expect(screen.queryByLabelText("子规则 JSON")).not.toBeInTheDocument()
     await choose("逻辑模式", "and")
     await userEvent.click(screen.getByRole("switch", { name: "反向匹配" }))
     await userEvent.click(screen.getByRole("tab", { name: "执行动作" }))
@@ -246,8 +250,11 @@ describe("DNS rule dialog and cards", () => {
       expect(await screen.findByRole("option", { name: action })).toBeInTheDocument()
       await userEvent.keyboard("{Escape}")
     }
+    await userEvent.click(screen.getByRole("tab", { name: "基础与网络" }))
+    await userEvent.click(screen.getByRole("button", { name: "编辑子规则 1" }))
+    expect(screen.getByLabelText("子规则 JSON")).toBeInTheDocument()
     await userEvent.click(screen.getByRole("tab", { name: "高级 JSON" }))
-    const editor = screen.getByRole("textbox", { name: "编辑 DNS 规则 JSON" })
+    const editor = screen.getByRole("textbox", { name: "编辑子规则 1 JSON" })
     await userEvent.click(editor)
     await userEvent.keyboard("{Control>}a{/Control}")
     await userEvent.paste("[")

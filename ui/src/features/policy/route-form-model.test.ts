@@ -6,6 +6,7 @@ import {
   changeRouteAction,
   changeRouteRuleType,
   changeRuleSetType,
+  isRouteRuleComplete,
   managedRouteGlobalFields,
   managedRouteRuleFields,
   routeActionFields,
@@ -429,5 +430,21 @@ describe("route field kind transitions", () => {
     expect(managedRouteRuleFields("default", "future")).toEqual(expect.arrayContaining([
       expect.objectContaining({ path: "domain" }),
     ]))
+  })
+})
+
+describe("route rule completeness", () => {
+  it("checks required actions and recursive logical children", () => {
+    expect(isRouteRuleComplete({ outbound: "proxy" })).toBe(true)
+    expect(isRouteRuleComplete({ action: "route" })).toBe(false)
+    expect(isRouteRuleComplete({ action: "resolve" })).toBe(false)
+    expect(isRouteRuleComplete({ action: "resolve", server: "dns" })).toBe(true)
+    expect(isRouteRuleComplete({ type: "logical", mode: "and", rules: [{ action: "reject" }], action: "reject" })).toBe(true)
+    expect(isRouteRuleComplete({ type: "logical", mode: "and", rules: [{ action: "route" }], action: "reject" })).toBe(false)
+    expect(isRouteRuleComplete({ type: "logical", mode: "and", rules: [1], action: "reject" })).toBe(false)
+    expect(isRouteRuleComplete({ type: "logical", rules: [{ action: "reject" }], action: "reject" })).toBe(false)
+    expect(isRouteRuleComplete({ type: "logical", mode: "and", action: "reject" })).toBe(false)
+    expect(isRouteRuleComplete({ type: "logical", mode: "and", rules: [{ action: "reject" }], action: "reject" }, 64)).toBe(false)
+    expect(isRouteRuleComplete({ type: "future", action: "future" })).toBe(true)
   })
 })

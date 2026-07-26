@@ -54,7 +54,7 @@ function expectEveryFieldGrouped() {
 }
 
 describe("route dialog required values", () => {
-  it("requires at least one object logical child after changing from default", async () => {
+  it("requires a complete logical child after changing from default", async () => {
     renderDialog(<RouteRuleDialog open title="编辑规则" item={{ action: "reject" }}
       onOpenChange={vi.fn()} onSave={vi.fn()} />)
 
@@ -62,11 +62,11 @@ describe("route dialog required values", () => {
     await choose("逻辑模式", "and")
     expect(screen.getByRole("button", { name: "保存" })).toBeDisabled()
 
-    fireEvent.change(screen.getByLabelText("子规则 JSON"), { target: { value: "[]" } })
+    await userEvent.click(screen.getAllByRole("button", { name: "新增子规则" })[0])
     expect(screen.getByRole("button", { name: "保存" })).toBeDisabled()
-    fireEvent.change(screen.getByLabelText("子规则 JSON"), { target: { value: "[1]" } })
-    expect(screen.getByRole("button", { name: "保存" })).toBeDisabled()
-    fireEvent.change(screen.getByLabelText("子规则 JSON"), { target: { value: "[{}]" } })
+    await userEvent.click(screen.getByRole("tab", { name: "执行动作" }))
+    await choose("执行动作", "reject")
+    await userEvent.click(screen.getByRole("button", { name: "保存" }))
     expect(screen.getByRole("button", { name: "保存" })).toBeEnabled()
   })
 
@@ -80,6 +80,18 @@ describe("route dialog required values", () => {
     expect(screen.getByRole("button", { name: "保存" })).toBeEnabled()
     await userEvent.click(screen.getByRole("button", { name: "保存" }))
     expect(onSave).toHaveBeenCalledWith(expected)
+  })
+
+  it("edits direct logical children structurally and keeps nested rules as JSON", async () => {
+    renderDialog(<RouteRuleDialog open title="编辑规则" item={{
+      type: "logical", mode: "and", action: "reject",
+      rules: [{ type: "logical", mode: "or", action: "reject", rules: [{ action: "reject" }] }],
+    }} onOpenChange={vi.fn()} onSave={vi.fn()} />)
+
+    expect(screen.getByRole("heading", { name: "逻辑子规则" })).toBeInTheDocument()
+    expect(screen.queryByLabelText("子规则 JSON")).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole("button", { name: "编辑子规则 1" }))
+    expect(screen.getByLabelText("子规则 JSON")).toBeInTheDocument()
   })
 })
 

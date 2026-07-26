@@ -9,13 +9,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { JsonEditor, type JsonEditorHandle } from "@/features/config/json-editor"
 import { usePolicyDialogPathReveal } from "@/features/policy/use-policy-dialog-path-reveal"
 import { PolicyDialogFooter } from "@/features/policy/policy-dialog-footer"
+import { PolicyLogicalRulesEditor } from "@/features/policy/policy-logical-rules-editor"
 import { policyItemErrorRelativePath, usePolicyItemValidate } from "@/features/policy/use-policy-item-validate"
 import { useConfigQuery } from "@/features/config/config-hooks"
 import { optionsWithCurrent, useDNSDialogState } from "@/features/policy/dns-dialog-state"
 import { PolicyFormFields } from "@/features/policy/policy-form-fields"
-import { applyDNSRuleFieldChange, changeDNSAction, changeDNSRuleType, dnsActionFields, dnsActions, dnsRuleMatchFields } from "@/features/policy/dns-form-model"
+import { applyDNSRuleFieldChange, changeDNSAction, changeDNSRuleType, dnsActionFields, dnsActions, dnsRuleMatchFields, isDNSRuleComplete, summarizeDNSRule } from "@/features/policy/dns-form-model"
 import {
-  isNonEmptyJsonObjectArray,
+  isJsonObject,
   policyConfigTags,
   policyRuleSetTags,
   setPolicyPath,
@@ -33,6 +34,7 @@ export interface DNSRuleDialogProps {
   onSave: (item: JsonObject) => void
   jumpPath?: string | null
   onJumpPathHandled?: () => void
+  nested?: boolean
 }
 
 const fieldsAt = (paths: readonly string[]) => dnsRuleMatchFields.filter((field) => paths.includes(field.path))
@@ -43,17 +45,7 @@ const logicalFields = [
   { path: "mode", label: "logicalMode", kind: "select", options: ["and", "or"], required: true },
   { path: "invert", label: "invert", kind: "boolean" },
 ] as const satisfies readonly PolicyFieldSpec[]
-
-function requiredRuleValues(object: JsonObject): boolean {
-  if (object.type !== "logical") return true
-  return typeof object.mode === "string" && Boolean(object.mode) && isNonEmptyJsonObjectArray(object.rules)
-}
-
-function requiredActionValue(object: JsonObject): boolean {
-  const action = String(object.action ?? "route")
-  if (action === "route") return typeof object.server === "string" && Boolean(object.server.trim())
-  return true
-}
+const nestedLogicalFields = [logicalFields[0], { path: "rules", label: "logicalRules", kind: "json-array", required: true }, logicalFields[1]] as const satisfies readonly PolicyFieldSpec[]
 
 function RuleTypeField({ object, onChange }: { object: JsonObject; onChange: (item: JsonObject) => void }) {
   const { t } = useTranslation()
@@ -127,10 +119,11 @@ function AdvancedJSON({ value, title, revision, onChange, editorRef }: {
   </Field></FieldGroup>
 }
 
-function RuleTabs({ state, title, serverTags, activeTab, onTabChange, editorRef }: {
+function RuleTabs({ state, title, serverTags, activeTab, onTabChange, editorRef, nested }: {
   state: ReturnType<typeof useDNSDialogState>; title: string; serverTags: readonly string[]
   activeTab: string; onTabChange: (tab: string) => void
   editorRef?: RefObject<JsonEditorHandle | null>
+  nested: boolean
 }) {
   const { t } = useTranslation()
   const config = useConfigQuery()
@@ -147,7 +140,16 @@ function RuleTabs({ state, title, serverTags, activeTab, onTabChange, editorRef 
     <TabsTrigger value="advanced">{t("policy.dns.advancedJSON")}</TabsTrigger></TabsList>
     <TabsContent value="basic" className="pt-4" keepMounted><FieldGroup className="gap-4">
       <RuleTypeField object={state.object} onChange={state.update} />
-      <FormFields state={state} context={context} fields={logical ? logicalFields : [...basicFields, dnsRuleMatchFields.at(-1)!]} />
+      <FormFields state={state} context={context} fields={logical ? nested ? nestedLogicalFields : logicalFields : [...basicFields, dnsRuleMatchFields.at(-1)!]} />
+      {logical && !nested ? <PolicyLogicalRulesEditor section="dns"
+        rules={Array.isArray(state.object.rules) ? state.object.rules.filter(isJsonObject) : []}
+        onChange={(rules) => state.update({ ...state.object, rules })}
+        summarize={(rule) => summarizeDNSRule(rule, {
+          logicalMode: (value) => t("policy.dns.summaryLogicalMode", { value }),
+          matchLabel: (path) => t(`policy.dns.${dnsRuleMatchFields.find((field) => field.path === path)?.label ?? path}`),
+        })}
+        renderEditor={(editor) => <DNSRuleDialog nested open item={editor.item} title={editor.title} serverTags={serverTags}
+          onOpenChange={editor.onOpenChange} onSave={editor.onSave} />} /> : null}
       {logical ? <Alert><AlertTitle>{t("policy.dns.logicalTitle")}</AlertTitle><AlertDescription>{t("policy.dns.logicalDescription")}</AlertDescription></Alert> : null}
     </FieldGroup></TabsContent>
     <TabsContent value="domain" className="pt-4" keepMounted><FormFields state={state} context={context} fields={logical ? [] : domainFields} /></TabsContent>
@@ -158,13 +160,13 @@ function RuleTabs({ state, title, serverTags, activeTab, onTabChange, editorRef 
   </Tabs>
 }
 
-export function DNSRuleDialog({ open, item, index = -1, title, serverTags, jumpPath, onJumpPathHandled, onOpenChange, onSave }: DNSRuleDialogProps) {
+export function DNSRuleDialog({ open, item, index = -1, title, serverTags, jumpPath, onJumpPathHandled, onOpenChange, onSave, nested = false }: DNSRuleDialogProps) {
   const { t } = useTranslation()
   const state = useDNSDialogState(item)
   const [activeTab, setActiveTab] = useState("basic")
   const editorRef = useRef<JsonEditorHandle>(null)
   const revealPath = usePolicyDialogPathReveal(editorRef, setActiveTab, jumpPath, onJumpPathHandled)
-  const requiredValid = requiredRuleValues(state.object) && requiredActionValue(state.object)
+  const requiredValid = isDNSRuleComplete(state.object)
   const canSave = Boolean(state.jsonValid && requiredValid && state.invalidFields.size === 0)
   const { validating, validate, ready } = usePolicyItemValidate({
     section: "dns", kind: "rules", index, object: canSave ? state.object : null,
@@ -178,7 +180,7 @@ export function DNSRuleDialog({ open, item, index = -1, title, serverTags, jumpP
     <div className="min-h-0 min-w-0 overflow-y-auto pr-1"><div className="flex min-w-0 flex-col gap-4">
       {!requiredValid ? <Alert variant="destructive"><AlertTitle>{t("policy.dns.requiredTitle")}</AlertTitle>
         <AlertDescription>{t("policy.dns.ruleRequiredDescription")}</AlertDescription></Alert> : null}
-      <RuleTabs state={state} title={title} serverTags={serverTags} activeTab={activeTab} onTabChange={setActiveTab} editorRef={editorRef} />
+      <RuleTabs state={state} title={title} serverTags={serverTags} activeTab={activeTab} onTabChange={setActiveTab} editorRef={editorRef} nested={nested} />
     </div></div>
     <PolicyDialogFooter canSave={canSave} canValidate={canSave && ready} validating={validating}
       onClose={() => onOpenChange(false)} onSave={() => { if (state.jsonValid) onSave(state.object) }}

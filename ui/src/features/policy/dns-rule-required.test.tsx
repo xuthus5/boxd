@@ -14,7 +14,8 @@ const logicalCases: readonly [string, JsonObject, boolean][] = [
   ["missing children", { type: "logical", mode: "and", action: "reject" }, false],
   ["empty children", { type: "logical", mode: "and", rules: [], action: "reject" }, false],
   ["non-object child", { type: "logical", mode: "and", rules: [1], action: "reject" }, false],
-  ["object child", { type: "logical", mode: "and", rules: [{}], action: "reject" }, true],
+  ["incomplete object child", { type: "logical", mode: "and", rules: [{}], action: "reject" }, false],
+  ["complete object child", { type: "logical", mode: "and", rules: [{ action: "reject" }], action: "reject" }, true],
 ]
 
 const predefinedCases: readonly [string, JsonObject][] = [

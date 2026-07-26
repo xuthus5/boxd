@@ -11,16 +11,26 @@ import { Textarea } from "@/components/ui/textarea"
 import { JsonEditor, type JsonEditorHandle } from "@/features/config/json-editor"
 import { usePolicyDialogPathReveal } from "@/features/policy/use-policy-dialog-path-reveal"
 import { PolicyDialogFooter } from "@/features/policy/policy-dialog-footer"
+import { PolicyLogicalRulesEditor } from "@/features/policy/policy-logical-rules-editor"
 import { policyItemErrorRelativePath, usePolicyItemValidate } from "@/features/policy/use-policy-item-validate"
 import { usePolicyDialogState } from "@/features/policy/policy-dialog-state"
 import { PolicyFormFields } from "@/features/policy/policy-form-fields"
 import {
-  isNonEmptyJsonObjectArray,
+  isJsonObject,
   type JsonObject,
   type PolicyFieldSpec,
   type PolicyFieldTransform,
 } from "@/features/policy/policy-form-model"
-import { applyRouteRuleFieldChange, changeRouteAction, changeRouteRuleType, routeActionFields, routeActions, routeMatchFields } from "@/features/policy/route-form-model"
+import {
+  applyRouteRuleFieldChange,
+  changeRouteAction,
+  changeRouteRuleType,
+  isRouteRuleComplete,
+  routeActionFields,
+  routeActions,
+  routeMatchFields,
+  summarizeRouteRule,
+} from "@/features/policy/route-form-model"
 import { policyConfigTags, policyDNSServerTags, policyRuleSetTags } from "@/features/policy/policy-form-model"
 import { useConfigQuery } from "@/features/config/config-hooks"
 import { transformRouteField } from "@/features/policy/route-form-transform"
@@ -36,6 +46,7 @@ export interface RouteRuleDialogProps {
   onJumpPathHandled?: () => void
   onOpenChange: (open: boolean) => void
   onSave: (item: JsonObject, metadata: RouteRuleMetadata) => void
+  nested?: boolean
 }
 
 const emptyMetadata: RouteRuleMetadata = { name: "", description: "" }
@@ -57,26 +68,14 @@ const basicFields = paths(["type", "inbound", "ip_version", "network", "auth_use
 const domainFields = paths(["domain", "domain_suffix", "domain_keyword", "domain_regex", "source_ip_cidr", "source_ip_is_private", "ip_cidr", "ip_is_private"])
 const processFields = paths(["source_port", "source_port_range", "port", "port_range", "process_name", "process_path", "process_path_regex", "package_name", "user", "user_id"])
 const environmentFields = paths(["rule_set", "rule_set_ip_cidr_match_source", "clash_mode", "network_type", "network_is_expensive", "network_is_constrained", "interface_address", "network_interface_address", "default_interface_address", "wifi_ssid", "wifi_bssid", "preferred_by"])
-const logicalFields = [
+const logicalBaseFields = [
   { path: "mode", label: "logicalMode", kind: "select", options: ["and", "or"], required: true },
-  { path: "rules", label: "logicalRules", kind: "json-array", required: true },
   routeMatchFields.at(-1)!,
 ] as const satisfies readonly PolicyFieldSpec[]
+const nestedLogicalFields = [logicalBaseFields[0], { path: "rules", label: "logicalRules", kind: "json-array", required: true }, logicalBaseFields[1]] as const satisfies readonly PolicyFieldSpec[]
 
 function optionsWithCurrent(values: readonly string[], current: string) {
   return current && !values.includes(current) ? [current, ...values] : [...values]
-}
-
-function requiredActionValue(object: JsonObject): boolean {
-  const action = String(object.action ?? "route")
-  if (action === "route" || action === "bypass") return typeof object.outbound === "string" && object.outbound.length > 0
-  if (action === "resolve") return typeof object.server === "string" && object.server.length > 0
-  return true
-}
-
-function requiredRuleValue(object: JsonObject): boolean {
-  if (object.type !== "logical") return true
-  return typeof object.mode === "string" && object.mode.length > 0 && isNonEmptyJsonObjectArray(object.rules)
 }
 
 function RuleTypeSelect({ object, onChange }: { object: JsonObject; onChange: (item: JsonObject) => void }) {
@@ -127,6 +126,7 @@ interface RuleTabsProps {
   onJSONChange: (value: string) => void
   onValidity: (path: string, valid: boolean) => void
   transform: PolicyFieldTransform
+  nested: boolean
 }
 
 function StructuredFields({ object, fields, revision, onChange, onValidity, transform, context }: {
@@ -152,7 +152,7 @@ function AdvancedJSONField({ value, title, revision, onChange, editorRef }: {
 function RuleTabs(props: RuleTabsProps) {
   const { t } = useTranslation()
   const config = useConfigQuery()
-  const { object, value, title, revision, editorRevision, activeTab, onTabChange, editorRef, onChange, onJSONChange, onValidity, transform } = props
+  const { object, value, title, revision, editorRevision, activeTab, onTabChange, editorRef, onChange, onJSONChange, onValidity, transform, nested } = props
   const logical = object.type === "logical"
   const context = {
     inboundTags: policyConfigTags(config.data?.inbounds),
@@ -168,7 +168,13 @@ function RuleTabs(props: RuleTabsProps) {
     </TabsList>
     <TabsContent value="basic" className="pt-4" keepMounted>
       <div className="flex flex-col gap-4"><RuleTypeSelect object={object} onChange={onChange} />
-        <StructuredFields object={object} fields={logical ? logicalFields : basicFields.slice(1)} revision={revision} onChange={onChange} onValidity={onValidity} transform={transform} context={context} />
+        <StructuredFields object={object} fields={logical ? nested ? nestedLogicalFields : logicalBaseFields : basicFields.slice(1)} revision={revision} onChange={onChange} onValidity={onValidity} transform={transform} context={context} />
+        {logical && !nested ? <PolicyLogicalRulesEditor section="route"
+          rules={Array.isArray(object.rules) ? object.rules.filter(isJsonObject) : []}
+          onChange={(rules) => onChange({ ...object, rules })}
+          summarize={(rule) => summarizeRouteRule(rule, { matchLabel: (path) => t(`policy.route.${routeMatchFields.find((field) => field.path === path)?.label ?? path}`) })}
+          renderEditor={(editor) => <RouteRuleDialog nested open item={editor.item} title={editor.title}
+            onOpenChange={editor.onOpenChange} onSave={(item) => editor.onSave(item)} />} /> : null}
         {logical ? <Alert><AlertTitle>{t("policy.route.logicalTitle")}</AlertTitle>
           <AlertDescription>{t("policy.route.logicalDescription")}</AlertDescription></Alert> : null}
       </div>
@@ -190,14 +196,14 @@ function RuleTabs(props: RuleTabsProps) {
   </Tabs>
 }
 
-export function RouteRuleDialog({ open, item, index = -1, metadata = emptyMetadata, title, jumpPath, onJumpPathHandled, onOpenChange, onSave }: RouteRuleDialogProps) {
+export function RouteRuleDialog({ open, item, index = -1, metadata = emptyMetadata, title, jumpPath, onJumpPathHandled, onOpenChange, onSave, nested = false }: RouteRuleDialogProps) {
   const { t } = useTranslation()
   const state = usePolicyDialogState(item, transformRouteField)
   const [details, setDetails] = useState(metadata)
   const [activeTab, setActiveTab] = useState("basic")
   const editorRef = useRef<JsonEditorHandle>(null)
   const revealPath = usePolicyDialogPathReveal(editorRef, setActiveTab, jumpPath, onJumpPathHandled)
-  const requiredValid = requiredRuleValue(state.object) && requiredActionValue(state.object)
+  const requiredValid = isRouteRuleComplete(state.object)
   const canSave = state.jsonValid && requiredValid && state.invalidFields.size === 0
   const { validating, validate, ready } = usePolicyItemValidate({
     section: "route", kind: "rules", index, object: canSave ? state.object : null,
@@ -212,10 +218,10 @@ export function RouteRuleDialog({ open, item, index = -1, metadata = emptyMetada
       <div className="min-h-0 min-w-0 overflow-y-auto pr-1"><div className="flex min-w-0 flex-col gap-4">
         {!requiredValid ? <Alert variant="destructive"><AlertTitle>{t("policy.route.requiredTitle")}</AlertTitle>
           <AlertDescription>{t("policy.route.ruleRequiredDescription")}</AlertDescription></Alert> : null}
-        <MetadataFields metadata={details} onChange={setDetails} />
+        {!nested ? <MetadataFields metadata={details} onChange={setDetails} /> : null}
         <RuleTabs object={state.object} value={state.value} title={title} revision={state.revision}
           editorRevision={state.editorRevision} onChange={state.update} onJSONChange={state.updateJSON}
-          onValidity={state.updateValidity} transform={state.transform} activeTab={activeTab} onTabChange={setActiveTab} editorRef={editorRef} />
+          onValidity={state.updateValidity} transform={state.transform} activeTab={activeTab} onTabChange={setActiveTab} editorRef={editorRef} nested={nested} />
       </div></div>
       <PolicyDialogFooter canSave={canSave} canValidate={canSave && ready} validating={validating}
         onClose={() => onOpenChange(false)} onSave={() => { if (state.jsonValid) onSave(state.object, details) }}

@@ -233,6 +233,20 @@ export function setRouteRuleSets(object: JsonObject, ruleSets: readonly JsonObje
   return { ...object, rule_set: [...ruleSets] }
 }
 
+function routeActionComplete(rule: JsonObject): boolean {
+  const action = String(rule.action ?? "route")
+  if (action === "route" || action === "bypass") return typeof rule.outbound === "string" && rule.outbound.length > 0
+  if (action === "resolve") return typeof rule.server === "string" && rule.server.length > 0
+  return true
+}
+
+export function isRouteRuleComplete(rule: JsonObject, depth = 0): boolean {
+  if (!routeActionComplete(rule)) return false
+  if (rule.type !== "logical") return true
+  if (depth >= 64 || typeof rule.mode !== "string" || rule.mode.length === 0 || !Array.isArray(rule.rules) || rule.rules.length === 0) return false
+  return rule.rules.every((child) => isJsonObject(child) && isRouteRuleComplete(child, depth + 1))
+}
+
 export function changeRouteRuleType(rule: JsonObject, type: string): JsonObject {
   const current = String(rule.type ?? "default")
   if (current === type) return rule

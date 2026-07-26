@@ -17,6 +17,7 @@ import {
   dnsServers,
   dnsServerTypes,
   inferDNSServerType,
+  isDNSRuleComplete,
   legacyFakeIPFields,
   setDNSRules,
   setDNSServers,
@@ -371,5 +372,20 @@ describe("DNS summary edge branches", () => {
       .toEqual({ action: "unknown-action", custom: 1 })
     expect(applyDNSServerFieldChange("future", { type: "future", payload: true }))
       .toEqual({ type: "future", payload: true })
+  })
+})
+
+describe("DNS rule completeness", () => {
+  it("checks route targets and recursive logical children", () => {
+    expect(isDNSRuleComplete({ server: "dns" })).toBe(true)
+    expect(isDNSRuleComplete({ action: "route" })).toBe(false)
+    expect(isDNSRuleComplete({ action: "reject" })).toBe(true)
+    expect(isDNSRuleComplete({ type: "logical", mode: "or", rules: [{ action: "reject" }], action: "reject" })).toBe(true)
+    expect(isDNSRuleComplete({ type: "logical", mode: "or", rules: [{ action: "route" }], action: "reject" })).toBe(false)
+    expect(isDNSRuleComplete({ type: "logical", mode: "or", rules: [], action: "reject" })).toBe(false)
+    expect(isDNSRuleComplete({ type: "logical", rules: [{ action: "reject" }], action: "reject" })).toBe(false)
+    expect(isDNSRuleComplete({ type: "logical", mode: "or", action: "reject" })).toBe(false)
+    expect(isDNSRuleComplete({ type: "logical", mode: "or", rules: [{ action: "reject" }], action: "reject" }, 64)).toBe(false)
+    expect(isDNSRuleComplete({ type: "future", action: "future" })).toBe(true)
   })
 })

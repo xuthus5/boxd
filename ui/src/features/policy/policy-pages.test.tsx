@@ -81,7 +81,8 @@ async function expectChineseRouteDialogs() {
   for (const tab of ["基础与网络", "域名与地址", "端口与进程", "规则集与网络环境", "执行动作", "高级 JSON"]) {
     expect(screen.getByRole("tab", { name: tab })).toBeInTheDocument()
   }
-  expect(screen.getByText("逻辑子规则可在当前表单中编辑，其他复杂字段可在高级 JSON 中维护。")).toBeInTheDocument()
+  expect(screen.getByText("直接子规则可在当前表单中编辑，更深层嵌套保留 JSON 编辑。")).toBeInTheDocument()
+  expect(screen.getByRole("button", { name: "新增子规则" })).toBeInTheDocument()
   await userEvent.click(screen.getByRole("button", { name: "取消" }))
   await userEvent.click(screen.getByRole("button", { name: "新增规则" }))
   expect(screen.getByRole("alert")).toHaveTextContent("请补全当前规则类型和动作所需的值。")
@@ -113,7 +114,8 @@ async function expectChineseDNSDialogs() {
   expect(screen.getByRole("alert")).toHaveTextContent("请填写当前服务器类型所需的 Tag 和地址信息。")
   await userEvent.click(screen.getByRole("button", { name: "取消" }))
   await userEvent.click(screen.getByRole("button", { name: "编辑 DNS 规则 1" }))
-  expect(screen.getByText("逻辑子规则请在高级 JSON 中维护。")).toBeInTheDocument()
+  expect(screen.getByText("直接子规则可在当前表单中编辑，更深层嵌套保留 JSON 编辑。")).toBeInTheDocument()
+  expect(screen.getByRole("button", { name: "新增子规则" })).toBeInTheDocument()
   await userEvent.click(screen.getByRole("button", { name: "取消" }))
   await userEvent.click(screen.getByRole("button", { name: "删除 DNS 规则 1" }))
   expect(screen.getByRole("alertdialog", { name: "删除 DNS 规则 #1？" })).toHaveTextContent("此操作无法撤销。")
