@@ -7,6 +7,7 @@ import { renderApp } from "@/test/render"
 import { formatBytes } from "@/features/dashboard/format"
 
 function responseFor(path: string) {
+  if (path === "/readyz") return { status: "ready" }
   if (path === "/api/service/status") return { running: true, uptime: "1m", version: "1.13" }
   if (path === "/api/stats/traffic/history") return { points: [{ upload_bytes: 10, download_bytes: 20, timestamp: "2026-01-01T00:00:00Z" }] }
   if (path === "/api/runtime/memory") return { alloc: 1024, total: 2048, sys: 4096, num_gc: 2, heap_inuse: 512, stack_inuse: 128, num_goroutine: 12 }
@@ -62,6 +63,7 @@ describe("DashboardPage", () => {
     renderApp(<App />, "/dashboard")
 
     expect(await screen.findByText("运行中")).toBeInTheDocument()
+    expect(await screen.findByText("面板已就绪")).toBeInTheDocument()
     expect(await screen.findByText("运行健康")).toBeInTheDocument()
     expect(screen.getByText("2 条活跃连接")).toBeInTheDocument()
     expect(screen.getByText(/主要出口/)).toBeInTheDocument()
@@ -78,6 +80,29 @@ describe("DashboardPage", () => {
     expect(screen.getAllByText("ready").length).toBeGreaterThan(0)
     // Setup checklist hides itself once all steps are complete and no subscription failures exist.
     expect(screen.queryByText("快速上手")).not.toBeInTheDocument()
+  })
+
+  it("keeps the dashboard usable when panel readiness is degraded", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
+      const path = typeof input === "string" ? input : input instanceof URL ? input.pathname : "url" in input ? new URL(input.url).pathname : String(input)
+      if (path === "/readyz") {
+        return Promise.resolve(new Response(JSON.stringify({
+          status: "error", data: null, error: { code: "not_ready", message: "service is not ready" }, meta: null,
+        }), { status: 503 }))
+      }
+      if (path === "/api/stats/traffic" || path === "/api/stats/connections" || path === "/api/stats/logs") {
+        return Promise.resolve(eventStream(path === "/api/stats/connections" ? { active_connections: 0, list: [] } : { upload_bytes: 0, download_bytes: 0 }))
+      }
+      return Promise.resolve(new Response(JSON.stringify(responseFor(path))))
+    }))
+
+    renderApp(<App />, "/dashboard")
+
+    expect(await screen.findByText("面板未就绪")).toBeInTheDocument()
+    expect(await screen.findByText("service is not ready")).toBeInTheDocument()
+    expect(await screen.findByText("运行中")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "重试" })).toBeInTheDocument()
   })
 
   it("keeps the latest twenty dashboard logs", async () => {

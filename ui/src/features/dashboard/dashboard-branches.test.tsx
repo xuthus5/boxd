@@ -7,6 +7,7 @@ import { toast } from "sonner"
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
 import { HealthSummaryCard } from "@/features/dashboard/health-summary-card"
+import { PanelReadiness } from "@/features/dashboard/panel-readiness"
 import { ServiceCard } from "@/features/dashboard/service-card"
 import { TrafficChart } from "@/features/dashboard/traffic-chart"
 import { calculateTrafficRates } from "@/features/dashboard/traffic-rate"
@@ -36,6 +37,25 @@ function renderHealth(ui: JSX.Element) {
 }
 
 describe("dashboard component states", () => {
+  it("shows panel readiness states and retries degraded checks", async () => {
+    const onRetry = vi.fn()
+    const user = userEvent.setup()
+    const { unmount } = renderApp(<PanelReadiness state={{ isLoading: true, isFetching: true, ready: false, error: null, onRetry }} />)
+    expect(screen.getByText("正在检查面板数据存储与配置路径。")).toBeInTheDocument()
+    expect(document.querySelector('[data-panel-readiness="loading"]')).toBeInTheDocument()
+    unmount()
+
+    renderApp(<PanelReadiness state={{ isLoading: false, isFetching: true, ready: true, error: null, onRetry }} />)
+    expect(screen.getByText("面板已就绪")).toBeInTheDocument()
+    expect(document.querySelector('[data-panel-readiness="ready"]')).toHaveAttribute("aria-busy", "true")
+    unmount()
+
+    renderApp(<PanelReadiness state={{ isLoading: false, isFetching: false, ready: false, error: new Error("service is not ready"), onRetry }} />)
+    expect(screen.getByText("面板未就绪")).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "重试" }))
+    expect(onRetry).toHaveBeenCalledOnce()
+  })
+
   it("enables only valid service actions for a stopped service", async () => {
     const onAction = vi.fn()
     const user = userEvent.setup()

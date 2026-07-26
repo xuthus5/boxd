@@ -124,6 +124,7 @@ describe("api endpoint coverage", () => {
     const test = { tag: "node", test_type: "http" as const, server: "example.com", port: 443 }
 
     await Promise.all([
+      api.health.readiness(),
       api.auth.logout(), api.config.get(), api.config.update({}), api.config.getRaw(), api.config.updateRaw({}), api.config.validate({}),
       api.config.applyHistory(), api.config.applyHistorySnapshot("event/one"), api.config.restoreApplyHistory("event/one"), api.config.installDNS(), api.config.installRuleSets(), api.config.installOutbounds(), api.config.installInbounds(), api.config.installExperimental(), api.config.installRoute(),
       api.service.status(), api.service.start(), api.service.stop(), api.service.restart(), api.stats.history(),
@@ -141,6 +142,7 @@ describe("api endpoint coverage", () => {
     ])
 
     const paths = fetchMock.mock.calls.map(([path]) => path)
+    expect(paths).toContain("/readyz")
     expect(paths).toContain("/api/config/raw")
     expect(paths).toContain("/api/config/apply-history")
     expect(paths).toContain("/api/config/apply-history/event%2Fone/snapshot")

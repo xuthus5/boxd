@@ -188,6 +188,10 @@ export interface APIEnvelope<T> {
   meta: JsonValue
 }
 
+export interface ReadinessStatus {
+  status: "ready"
+}
+
 export interface NetworkInterfaceInfo {
   name: string
   ips?: string[]

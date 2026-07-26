@@ -15,6 +15,7 @@ import { copyText } from "@/features/proxy/copy-tag-button"
 interface CardQueryErrorProps {
   error: unknown
   scope: string
+  path?: string
   /** Fallback when error has no message. */
   fallback?: string
   className?: string
@@ -25,6 +26,7 @@ interface CardQueryErrorProps {
 export function CardQueryError({
   error,
   scope,
+  path,
   fallback,
   className,
   onRetry,
@@ -32,7 +34,7 @@ export function CardQueryError({
   const { t } = useTranslation()
   const code = classifyPageLoadError(error)
   const message = pageLoadErrorMessage(error, fallback ?? t("common.loadFailed"))
-  const payload = pageLoadErrorClipboardText(error, { scope })
+  const payload = pageLoadErrorClipboardText(error, { scope, path })
   const codeLabel = code !== "unknown" ? code : undefined
 
   return (

@@ -13,6 +13,7 @@ import {
   kernelLastErrorClipboardText,
   resolveKernelErrorCode,
 } from "@/features/dashboard/kernel-error"
+import { PanelReadiness, type PanelReadinessState } from "@/features/dashboard/panel-readiness"
 import { buildLogsHref } from "@/features/observability/log-filter-presets"
 import { copyText } from "@/features/proxy/copy-tag-button"
 import type { ServiceStatus } from "@/lib/api/types"
@@ -22,6 +23,7 @@ interface ServiceCardProps {
   status: ServiceStatus
   pending?: string
   onAction: (action: "start" | "stop" | "restart") => void
+  readiness?: PanelReadinessState
 }
 
 function ActionButton({
@@ -194,7 +196,7 @@ function ServiceLastError({
   )
 }
 
-export function ServiceCard({ status, pending, onAction }: ServiceCardProps) {
+export function ServiceCard({ status, pending, onAction, readiness }: ServiceCardProps) {
   const { t } = useTranslation()
   const startedAt = formatTimestamp(status.started_at)
   const lastErrorAt = formatTimestamp(status.last_error_at)
@@ -237,6 +239,7 @@ export function ServiceCard({ status, pending, onAction }: ServiceCardProps) {
               : undefined}
           />
         </div>
+        {readiness ? <PanelReadiness state={readiness} /> : null}
         {lastError ? (
           <ServiceLastError
             status={status}

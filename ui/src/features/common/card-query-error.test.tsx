@@ -15,6 +15,7 @@ describe("CardQueryError", () => {
       <CardQueryError
         error={new ApiError("kernel not running", 503, "unavailable")}
         scope="proxy-selector"
+        path="/api/service/status"
       />,
     )
     expect(screen.getByTestId("card-query-error")).toHaveAttribute("data-error-code", "unavailable")

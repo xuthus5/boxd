@@ -1,4 +1,4 @@
-import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -38,6 +38,13 @@ export function DashboardPage() {
     { queryKey: ["memory"], queryFn: api.runtime.memory, refetchInterval: 10000 },
     { queryKey: ["version"], queryFn: api.runtime.version },
   ] })
+  const readiness = useQuery({
+    queryKey: ["health", "readiness"],
+    queryFn: api.health.readiness,
+    refetchInterval: 10000,
+    staleTime: 5000,
+    retry: false,
+  })
   const serviceMutation = useMutation({
     mutationFn: async (action: keyof typeof serviceActions) => {
       setPendingAction(action)
@@ -93,7 +100,18 @@ export function DashboardPage() {
           streamStatus={connections.status}
           onReconnect={connections.reconnect}
         />
-        <ServiceCard status={status.data!} pending={pendingAction} onAction={(action) => serviceMutation.mutate(action)} />
+        <ServiceCard
+          status={status.data!}
+          pending={pendingAction}
+          onAction={(action) => serviceMutation.mutate(action)}
+          readiness={{
+            isLoading: readiness.isLoading,
+            isFetching: readiness.isFetching,
+            ready: readiness.data?.status === "ready" && !readiness.error,
+            error: readiness.error,
+            onRetry: () => { void readiness.refetch() },
+          }}
+        />
         <ProxySelectorCard />
         <ClashModeCard enabled={Boolean(status.data?.running)} />
         <RuntimeStatsCard memory={memory.data!} panelVersion={version.data!.version} kernelVersion={version.data!.kernel_version} />

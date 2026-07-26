@@ -19,6 +19,7 @@ import type {
   URLTestDefaults,
   URLTestOverrides,
   RouteRuleMetadata,
+  ReadinessStatus,
   VersionInfo,
   NetworkInterfaceInfo,
   UIPreferences,
@@ -57,6 +58,9 @@ export interface SubscriptionInput {
 export interface TestInput { tag: string; test_type: "tcp" | "http" | "icmp"; server: string; port: number }
 
 export const api = {
+  health: {
+    readiness: () => apiRequest<ReadinessStatus>("/readyz"),
+  },
   auth: {
     login: (input: LoginInput) => apiRequest<AuthResponse>("/api/auth/login", json("POST", input)),
     logout: () => apiRequest<void>("/api/auth/logout", json("POST")),
