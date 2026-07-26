@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { memo, useMemo, useState } from "react"
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts"
 import { useTranslation } from "react-i18next"
 
@@ -14,18 +14,18 @@ function formatRate(value: number) {
   return `${formatBytes(value)}/s`
 }
 
-function TrafficLines({ data, uploadKey, downloadKey, formatter, config }: { data: object[]; uploadKey: string; downloadKey: string; formatter: (value: number) => string; config: ChartConfig }) {
+const TrafficLines = memo(function TrafficLines({ data, uploadKey, downloadKey, formatter, config }: { data: object[]; uploadKey: string; downloadKey: string; formatter: (value: number) => string; config: ChartConfig }) {
   return <ChartContainer config={config} className="h-64 w-full"><LineChart accessibilityLayer data={data}>
     <CartesianGrid vertical={false} />
     <YAxis width={72} tickLine={false} axisLine={false} tickFormatter={(value: number) => formatter(value)} />
     <XAxis dataKey="timestamp" tickLine={false} axisLine={false} tickFormatter={(value: string) => new Date(value).toLocaleTimeString()} />
     <ChartTooltip content={<ChartTooltipContent formatter={(value) => formatter(Number(value))} />} />
-    <Line dataKey={uploadKey} type="monotone" stroke={`var(--color-${uploadKey})`} dot={false} />
-    <Line dataKey={downloadKey} type="monotone" stroke={`var(--color-${downloadKey})`} dot={false} />
+    <Line dataKey={uploadKey} type="monotone" stroke={`var(--color-${uploadKey})`} dot={false} isAnimationActive={false} />
+    <Line dataKey={downloadKey} type="monotone" stroke={`var(--color-${downloadKey})`} dot={false} isAnimationActive={false} />
   </LineChart></ChartContainer>
-}
+})
 
-export function TrafficChart({
+export const TrafficChart = memo(function TrafficChart({
   points,
   streamError,
   streamStatus,
@@ -40,15 +40,15 @@ export function TrafficChart({
 }) {
   const { t } = useTranslation()
   const [mode, setMode] = useState<"rate" | "total">("rate")
-  const rates = calculateTrafficRates(points)
-  const totalConfig = {
+  const rates = useMemo(() => calculateTrafficRates(points), [points])
+  const totalConfig = useMemo(() => ({
     upload_bytes: { label: t("dashboard.upload"), color: "var(--chart-2)" },
     download_bytes: { label: t("dashboard.download"), color: "var(--chart-1)" },
-  } satisfies ChartConfig
-  const rateConfig = {
+  } satisfies ChartConfig), [t])
+  const rateConfig = useMemo(() => ({
     upload_rate: { label: t("dashboard.upload"), color: "var(--chart-2)" },
     download_rate: { label: t("dashboard.download"), color: "var(--chart-1)" },
-  } satisfies ChartConfig
+  } satisfies ChartConfig), [t])
   const latestTotal = points.at(-1)
   const latestRate = rates.at(-1)
   const description = mode === "rate"
@@ -80,4 +80,4 @@ export function TrafficChart({
       ) : null}
     </Card>
   )
-}
+})
