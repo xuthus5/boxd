@@ -530,12 +530,14 @@ func TestNewRouterHealthWorksWithoutStaticFiles(t *testing.T) {
 	nodeMgr, subMgr, settingsMgr, configPath := newAPIManagers(t)
 	logWriter := core.NewLogWriter(10)
 	instance := core.NewSBInstance(configPath, logWriter)
+	statsHandler := NewStatsHandler(logWriter, logWriter, instance)
+	t.Cleanup(statsHandler.Stop)
 	router := NewRouter(
 		fstest.MapFS{},
 		NewAuthHandler("admin", "pass", staticSecretProvider("secret-key-123456")),
 		NewConfigHandler(configPath, nil, nil, nil, nil, nil),
 		NewServiceHandler(instance),
-		NewStatsHandler(logWriter, logWriter, instance),
+		statsHandler,
 		NewImportHandler(nodeMgr, subMgr, configPath),
 		NewSubscriptionHandler(subMgr, nodeMgr, configPath),
 		NewNodesHandler(nodeMgr, subMgr, configPath),

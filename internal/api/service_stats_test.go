@@ -443,6 +443,48 @@ func TestStatsSSEWithTrafficTracker(t *testing.T) {
 	}
 }
 
+func TestStatsHandlerReadsTrafficTrackerOnce(t *testing.T) {
+	instance := &singleReadStatsInstance{tracker: core.NewTrafficTracker()}
+	handler := &StatsHandler{instance: instance}
+
+	up, down := handler.getTraffic()
+	if up != 0 || down != 0 {
+		t.Fatalf("traffic = %d,%d", up, down)
+	}
+	if instance.calls != 1 {
+		t.Fatalf("tracker calls = %d, want 1", instance.calls)
+	}
+
+	instance.calls = 0
+	count, connections := handler.getConns()
+	if count != 0 || len(connections) != 0 {
+		t.Fatalf("connections = %d,%v", count, connections)
+	}
+	if instance.calls != 1 {
+		t.Fatalf("tracker calls = %d, want 1", instance.calls)
+	}
+}
+
+func TestStatsHandlerStopIsIdempotent(t *testing.T) {
+	handler := NewStatsHandler(nil, nil, &fakeStatsInstance{tracker: core.NewTrafficTracker()})
+	handler.Stop()
+	handler.Stop()
+}
+
+type singleReadStatsInstance struct {
+	fakeStatsInstance
+	tracker *core.TrafficTracker
+	calls   int
+}
+
+func (s *singleReadStatsInstance) TrafficTracker() *core.TrafficTracker {
+	s.calls++
+	if s.calls > 1 {
+		panic("traffic tracker read more than once")
+	}
+	return s.tracker
+}
+
 func TestTrafficHistoryBufferOrderAndTrim(t *testing.T) {
 	buffer := newTrafficHistoryBuffer(3)
 

@@ -2,8 +2,11 @@ package core
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"testing"
+
+	box "github.com/sagernet/sing-box"
 )
 
 func TestSBInstanceTrafficTracker(t *testing.T) {
@@ -23,6 +26,31 @@ func TestSBInstanceRestartStopError(t *testing.T) {
 	err := instance.Restart()
 	if err == nil {
 		t.Fatal("expected error from Restart with missing config")
+	}
+}
+
+func TestSBInstanceTrafficTrackerClearsAfterStop(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "config.json")
+	if err := os.WriteFile(configPath, []byte(`{}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	fake := newFakeBox()
+	withNewBox(t, func(options box.Options) (boxInstance, error) {
+		return fake, nil
+	})
+
+	instance := NewSBInstance(configPath, NewLogWriter(5))
+	if err := instance.Start(); err != nil {
+		t.Fatal(err)
+	}
+	if instance.TrafficTracker() == nil {
+		t.Fatal("expected tracker while running")
+	}
+	if err := instance.Stop(); err != nil {
+		t.Fatal(err)
+	}
+	if instance.TrafficTracker() != nil {
+		t.Fatal("expected tracker to clear after stop")
 	}
 }
 

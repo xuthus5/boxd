@@ -296,6 +296,7 @@ func TestNewHandlerHealth(t *testing.T) {
 		Username:   "admin",
 		Password:   "pass",
 	}, db, settingsMgr)
+	t.Cleanup(runtime.Stop)
 	handler := runtime.handler
 
 	rr := httptest.NewRecorder()
@@ -312,12 +313,17 @@ func TestHandlerRuntimeLifecycle(t *testing.T) {
 			recordingBackgroundService{name: "rules", events: &events},
 			recordingBackgroundService{name: "subscriptions", events: &events},
 		},
+		stopStats: func() { events = append(events, "stop-stats") },
+		stopKernel: func() error {
+			events = append(events, "stop-kernel")
+			return nil
+		},
 	}
 
 	runtime.Start()
 	runtime.Stop()
 
-	if got, want := strings.Join(events, ","), "start-rules,start-subscriptions,stop-subscriptions,stop-rules"; got != want {
+	if got, want := strings.Join(events, ","), "start-rules,start-subscriptions,stop-subscriptions,stop-rules,stop-stats,stop-kernel"; got != want {
 		t.Fatalf("lifecycle events = %q, want %q", got, want)
 	}
 }

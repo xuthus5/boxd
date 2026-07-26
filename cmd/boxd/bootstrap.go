@@ -21,6 +21,8 @@ type handlerRuntime struct {
 	kernelLogWriter *core.LogWriter
 	appLogWriter    *core.LogWriter
 	services        []backgroundService
+	stopStats       func()
+	stopKernel      func() error
 }
 
 type handlerBuildState struct {
@@ -63,6 +65,14 @@ func (r *handlerRuntime) Stop() {
 	for index := len(r.services) - 1; index >= 0; index-- {
 		r.services[index].Stop()
 	}
+	if r.stopStats != nil {
+		r.stopStats()
+	}
+	if r.stopKernel != nil {
+		if err := r.stopKernel(); err != nil {
+			slog.Error("failed to stop sing-box", "err", err)
+		}
+	}
 }
 
 func newHandler(cfg *config.Config, db *bbolt.DB, settingsManager *core.SettingsManager) *handlerRuntime {
@@ -89,6 +99,8 @@ func newHandler(cfg *config.Config, db *bbolt.DB, settingsManager *core.Settings
 		kernelLogWriter: state.kernelLogWriter,
 		appLogWriter:    state.appLogWriter,
 		services:        []backgroundService{ruleSetAutoUpdater, subscriptionAutoRefresher},
+		stopStats:       handlers.statsHandler.Stop,
+		stopKernel:      state.instance.Stop,
 	}
 }
 

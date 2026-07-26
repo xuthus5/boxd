@@ -88,18 +88,26 @@ func prepareSSE(w http.ResponseWriter) (http.Flusher, bool) {
 }
 
 func (h *StatsHandler) getTraffic() (up, down int64) {
-	if h.instance != nil && h.instance.TrafficTracker() != nil {
-		return h.instance.TrafficTracker().Total()
+	if h.instance == nil {
+		return 0, 0
 	}
-	return 0, 0
+	tracker := h.instance.TrafficTracker()
+	if tracker == nil {
+		return 0, 0
+	}
+	return tracker.Total()
 }
 
 func (h *StatsHandler) getConns() (int, []core.TrafficConn) {
-	if h.instance != nil && h.instance.TrafficTracker() != nil {
-		list := h.instance.TrafficTracker().Connections()
-		return len(list), list
+	if h.instance == nil {
+		return 0, nil
 	}
-	return 0, nil
+	tracker := h.instance.TrafficTracker()
+	if tracker == nil {
+		return 0, nil
+	}
+	list := tracker.Connections()
+	return len(list), list
 }
 
 func (h *StatsHandler) runTrafficSampler(interval time.Duration) {
@@ -120,6 +128,14 @@ func (h *StatsHandler) stopTrafficSampler() {
 	h.stopOnce.Do(func() {
 		close(h.stopCh)
 	})
+}
+
+// Stop stops the background traffic history sampler. It is safe to call repeatedly.
+func (h *StatsHandler) Stop() {
+	if h == nil {
+		return
+	}
+	h.stopTrafficSampler()
 }
 
 func (h *StatsHandler) recordTrafficHistoryPoint() {

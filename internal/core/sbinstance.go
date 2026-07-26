@@ -150,9 +150,8 @@ func (s *SBInstance) Start() error {
 		return err
 	}
 
-	// 在启动前注册流量追踪器
-	s.Traffic = NewTrafficTracker()
-	instance.Router().AppendTracker(s.Traffic)
+	traffic := NewTrafficTracker()
+	instance.Router().AppendTracker(traffic)
 
 	if err := instance.Start(); err != nil {
 		_ = instance.Close()
@@ -164,6 +163,7 @@ func (s *SBInstance) Start() error {
 	s.box = instance
 	s.boxCtx = ctx
 	s.cancel = cancel
+	s.Traffic = traffic
 	s.running = true
 	s.startTime = time.Now()
 	s.lastError = ""
@@ -177,12 +177,14 @@ func (s *SBInstance) Stop() error {
 	defer s.mu.Unlock()
 
 	if !s.running || s.box == nil {
+		s.Traffic = nil
 		return nil
 	}
 
 	closeErr := s.box.Close()
 	s.box = nil
 	s.boxCtx = nil
+	s.Traffic = nil
 	if s.cancel != nil {
 		s.cancel()
 		s.cancel = nil
