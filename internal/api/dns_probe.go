@@ -41,10 +41,12 @@ type DNSProbeResult struct {
 
 // 可注入钩子，便于单测覆盖协议分支而不依赖真实网络。
 var (
-	dnsUDPExchange = exchangeDNSUDP
-	dnsTCPExchange = exchangeDNSTCP
-	dnsTLSExchange = exchangeDNSTLS
-	dnsDoHExchange = exchangeDNSDoH
+	dnsUDPExchange  = exchangeDNSUDP
+	dnsTCPExchange  = exchangeDNSTCP
+	dnsTLSExchange  = exchangeDNSTLS
+	dnsQUICExchange = exchangeDNSQUIC
+	dnsDoHExchange  = exchangeDNSDoH
+	dnsH3Exchange   = exchangeDNSHTTP3
 )
 
 func probeDNSServer(req DNSProbeRequest) DNSProbeResult {
@@ -75,11 +77,14 @@ func probeDNSServer(req DNSProbeRequest) DNSProbeResult {
 		resp, err = dnsUDPExchange(msg, joinHostPort(server, port), defaultDNSProbeTimeout)
 	case "tcp":
 		resp, err = dnsTCPExchange(msg, joinHostPort(server, port), defaultDNSProbeTimeout)
-	case "tls", "quic":
-		// quic/DoQ 在本路径以 DoT 近似验证主机可达；完整 DoQ 依赖内核。
+	case "tls":
 		resp, err = dnsTLSExchange(msg, joinHostPort(server, port), server, defaultDNSProbeTimeout)
-	case "https", "h3":
+	case "quic":
+		resp, err = dnsQUICExchange(msg, joinHostPort(server, port), server, defaultDNSProbeTimeout)
+	case "https":
 		resp, err = dnsDoHExchange(msg, server, port, path, defaultDNSProbeTimeout)
+	case "h3":
+		resp, err = dnsH3Exchange(msg, server, port, path, defaultDNSProbeTimeout)
 	default:
 		err = fmt.Errorf("dns type %q is not probeable", proto)
 	}

@@ -117,9 +117,13 @@ func TestProbeDNSServerWithHooks(t *testing.T) {
 		&dns.A{Hdr: dns.RR_Header{Name: "cloudflare.com.", Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 60}, A: []byte{1, 1, 1, 1}},
 	}
 
-	origUDP, origTCP, origTLS, origDoH := dnsUDPExchange, dnsTCPExchange, dnsTLSExchange, dnsDoHExchange
+	origUDP, origTCP := dnsUDPExchange, dnsTCPExchange
+	origTLS, origQUIC := dnsTLSExchange, dnsQUICExchange
+	origDoH, origH3 := dnsDoHExchange, dnsH3Exchange
 	t.Cleanup(func() {
-		dnsUDPExchange, dnsTCPExchange, dnsTLSExchange, dnsDoHExchange = origUDP, origTCP, origTLS, origDoH
+		dnsUDPExchange, dnsTCPExchange = origUDP, origTCP
+		dnsTLSExchange, dnsQUICExchange = origTLS, origQUIC
+		dnsDoHExchange, dnsH3Exchange = origDoH, origH3
 	})
 
 	dnsUDPExchange = func(msg *dns.Msg, addr string, timeout time.Duration) (*dns.Msg, error) {
@@ -137,9 +141,21 @@ func TestProbeDNSServerWithHooks(t *testing.T) {
 		}
 		return successMsg, nil
 	}
+	dnsQUICExchange = func(msg *dns.Msg, addr, serverName string, timeout time.Duration) (*dns.Msg, error) {
+		if addr != "dns.google:853" || serverName != "dns.google" {
+			t.Fatalf("quic target = %s sni=%s", addr, serverName)
+		}
+		return successMsg, nil
+	}
 	dnsDoHExchange = func(msg *dns.Msg, server string, port int, path string, timeout time.Duration) (*dns.Msg, error) {
 		if server != "dns.google" || port != 443 {
 			t.Fatalf("doh target = %s:%d", server, port)
+		}
+		return successMsg, nil
+	}
+	dnsH3Exchange = func(msg *dns.Msg, server string, port int, path string, timeout time.Duration) (*dns.Msg, error) {
+		if server != "dns.google" || port != 443 || path != "/dns-query" {
+			t.Fatalf("h3 target = %s:%d%s", server, port, path)
 		}
 		return successMsg, nil
 	}
@@ -159,6 +175,9 @@ func TestProbeDNSServerWithHooks(t *testing.T) {
 	}
 	if !probeDNSServer(DNSProbeRequest{Type: "quic", Server: "dns.google"}).Success {
 		t.Fatal("quic failed")
+	}
+	if !probeDNSServer(DNSProbeRequest{Type: "h3", Server: "dns.google"}).Success {
+		t.Fatal("h3 failed")
 	}
 
 	dnsUDPExchange = func(msg *dns.Msg, addr string, timeout time.Duration) (*dns.Msg, error) {
