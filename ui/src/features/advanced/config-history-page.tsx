@@ -1,12 +1,16 @@
 import { useQuery } from "@tanstack/react-query"
 import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 
 import { PageLoadErrorAlert } from "@/features/common/page-load-error-alert"
 import { useConfigQuery } from "@/features/config/config-hooks"
+import { reportExportError } from "@/features/observability/export-error-actions"
 import { useConfigRestore } from "@/features/dashboard/use-config-restore"
+import { buildConfigHistoryExportFilename, formatConfigHistoryExport } from "@/features/advanced/config-history-export"
 import { filterConfigHistory, type ConfigHistoryFilter } from "@/features/advanced/config-history-filter"
 import { ConfigHistoryView } from "@/features/advanced/config-history-view"
+import { downloadTextFile } from "@/features/observability/log-export"
 import { api } from "@/lib/api/endpoints"
 import type { ConfigApplyEvent } from "@/lib/api/types"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -23,7 +27,7 @@ function useConfigHistoryData() {
 }
 
 export function ConfigHistoryPage() {
-  const { i18n } = useTranslation()
+  const { i18n, t } = useTranslation()
   const [query, setQuery] = useState("")
   const [filter, setFilter] = useState<ConfigHistoryFilter>("all")
   const { restore, restoringID } = useConfigRestore()
@@ -35,6 +39,22 @@ export function ConfigHistoryPage() {
     setQuery("")
     setFilter("all")
   }
+  const exportHistory = () => {
+    if (filtered.length === 0) return
+    const filename = buildConfigHistoryExportFilename()
+    try {
+      downloadTextFile(filename, formatConfigHistoryExport(filtered, { query, filter }))
+      toast.success(t("configHistory.exported", { count: filtered.length }))
+    } catch (error) {
+      reportExportError(error, t, {
+        scope: "config-history",
+        kind: "export",
+        count: filtered.length,
+        filename,
+        fallback: t("configHistory.exportFailed"),
+      })
+    }
+  }
 
   if (history.isLoading) return <Skeleton className="h-64 w-full" />
   if (history.error) {
@@ -44,6 +64,7 @@ export function ConfigHistoryPage() {
     <ConfigHistoryView
       isFetching={history.isFetching}
       onRefresh={() => { void history.refetch() }}
+      onExport={exportHistory}
       events={events}
       filtered={filtered}
       query={query}

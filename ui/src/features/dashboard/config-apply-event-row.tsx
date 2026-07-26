@@ -33,6 +33,7 @@ interface ConfigApplyEventRowProps {
   currentConfigLoading: boolean
   restoring: boolean
   onRestore: ConfigRestoreHandler
+  fullError?: boolean
 }
 
 function formatBytes(size: number) {
@@ -95,11 +96,12 @@ function EventErrorActions({
   )
 }
 
-function EventErrorBlock({ event, sourceLabel, sourceHref, onCopy }: {
+function EventErrorBlock({ event, sourceLabel, sourceHref, onCopy, fullError }: {
   event: ConfigApplyEvent
   sourceLabel: string
   sourceHref: string
   onCopy: () => void
+  fullError: boolean
 }) {
   const { t } = useTranslation()
   const code = resolveKernelErrorCode(event)
@@ -109,7 +111,7 @@ function EventErrorBlock({ event, sourceLabel, sourceHref, onCopy }: {
   return (
     <div className="mt-1.5 flex flex-col gap-1.5">
       <EventErrorBadges code={code} path={path} href={sectionHref} />
-      <p className="line-clamp-2 text-xs text-destructive" title={event.error}>{event.error}</p>
+      <p className={cn(fullError ? "max-h-40 overflow-auto whitespace-pre-wrap" : "line-clamp-2", "break-words text-xs text-destructive")} title={event.error}>{event.error}</p>
       <p className="line-clamp-2 text-[11px] text-muted-foreground">{t(kernelErrorHintKey(code))}</p>
       <EventErrorActions path={path} sourceHref={sourceHref} sectionHref={sectionHref} sectionOnlyHref={sectionOnlyHref} sourceLabel={sourceLabel} onCopy={onCopy} />
     </div>
@@ -130,7 +132,7 @@ function EventSummary({ event, relative, sourceHref, sourceLabel, statusLabel, o
       <div className="min-w-0">
         <p className="truncate text-sm font-medium"><Link to={sourceHref} className="underline-offset-4 hover:underline" aria-label={sourceLabel}>{sourceLabel}</Link></p>
         <p className="truncate text-xs text-muted-foreground" title={event.applied_at}>
-          {relative}{" · "}
+          <time dateTime={event.applied_at}>{event.applied_at}</time>{" · "}{relative}{" · "}
           <button type="button" className="font-mono underline-offset-2 hover:underline" onClick={onCopyHash} aria-label={t("dashboard.copyApplyHash")} title={event.hash}>
             {shortConfigHash(event.hash)}
           </button>
@@ -153,6 +155,7 @@ export function ConfigApplyEventRow({
   currentConfigLoading,
   restoring,
   onRestore,
+  fullError = false,
 }: ConfigApplyEventRowProps) {
   const { t } = useTranslation()
   const failed = configApplyEventFailed(event.status)
@@ -167,7 +170,7 @@ export function ConfigApplyEventRow({
   return (
     <li className={cn("min-w-0 rounded-md border px-2.5 py-1.5", failed ? "border-destructive/40 bg-destructive/5" : "bg-muted/30")}>
       <EventSummary event={event} relative={relative} sourceHref={sourceHref} sourceLabel={sourceLabel} statusLabel={statusLabel} onCopyHash={copyHash} />
-      {event.error ? <EventErrorBlock event={event} sourceLabel={sourceLabel} sourceHref={sourceHref} onCopy={copyError} /> : null}
+      {event.error ? <EventErrorBlock event={event} sourceLabel={sourceLabel} sourceHref={sourceHref} onCopy={copyError} fullError={fullError} /> : null}
       {event.restorable && event.id && !event.current && !failed ? (
         <ConfigRestoreAction
           event={event}

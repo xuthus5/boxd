@@ -1,4 +1,4 @@
-import { RefreshCwIcon } from "lucide-react"
+import { DownloadIcon, RefreshCwIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
@@ -10,10 +10,12 @@ import { ConfigApplyEventRow } from "@/features/dashboard/config-apply-event-row
 import { type ConfigRestoreHandler } from "@/features/dashboard/use-config-restore"
 import { configHistoryFilters, isConfigHistoryFilter, type ConfigHistoryFilter } from "@/features/advanced/config-history-filter"
 import type { ConfigApplyEvent, SingBoxConfig } from "@/lib/api/types"
+import { summarizeConfigHistory } from "@/features/advanced/config-history-summary"
 
 export interface ConfigHistoryViewProps {
   isFetching: boolean
   onRefresh: () => void
+  onExport: () => void
   events: ConfigApplyEvent[]
   filtered: ConfigApplyEvent[]
   query: string
@@ -30,7 +32,7 @@ export interface ConfigHistoryViewProps {
   onClear: () => void
 }
 
-function HistoryPageHeader({ isFetching, onRefresh }: Pick<ConfigHistoryViewProps, "isFetching" | "onRefresh">) {
+function HistoryPageHeader({ isFetching, onRefresh, onExport, canExport }: Pick<ConfigHistoryViewProps, "isFetching" | "onRefresh" | "onExport"> & { canExport: boolean }) {
   const { t } = useTranslation()
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -38,10 +40,16 @@ function HistoryPageHeader({ isFetching, onRefresh }: Pick<ConfigHistoryViewProp
         <h1 className="text-2xl font-semibold">{t("configHistory.title")}</h1>
         <p className="text-sm text-muted-foreground">{t("configHistory.description")}</p>
       </div>
-      <Button type="button" size="sm" variant="outline" className="h-8 self-start sm:self-auto" disabled={isFetching} aria-busy={isFetching} onClick={onRefresh}>
-        <RefreshCwIcon data-icon="inline-start" />
-        {isFetching ? t("configHistory.refreshing") : t("configHistory.refresh")}
-      </Button>
+      <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+        <Button type="button" size="sm" variant="outline" className="h-8" disabled={isFetching} aria-busy={isFetching} onClick={onRefresh}>
+          <RefreshCwIcon data-icon="inline-start" />
+          {isFetching ? t("configHistory.refreshing") : t("configHistory.refresh")}
+        </Button>
+        <Button type="button" size="sm" variant="outline" className="h-8" disabled={!canExport || isFetching} onClick={onExport}>
+          <DownloadIcon data-icon="inline-start" />
+          {t("configHistory.export")}
+        </Button>
+      </div>
     </div>
   )
 }
@@ -98,8 +106,31 @@ function HistoryEmpty({ hasEvents, hasFilters, onClear }: { hasEvents: boolean; 
   )
 }
 
+function HistorySummary({ events }: { events: readonly ConfigApplyEvent[] }) {
+  const { t } = useTranslation()
+  const summary = summarizeConfigHistory(events)
+  const items = [
+    ["summaryTotal", summary.total],
+    ["summaryApplied", summary.applied],
+    ["summaryValidated", summary.validated],
+    ["summaryFailed", summary.failed],
+    ["summaryRestorable", summary.restorable],
+    ["summaryCurrent", summary.current],
+  ] as const
+  return (
+    <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+      {items.map(([label, value]) => (
+        <div key={label} className="rounded-md border bg-muted/30 px-2.5 py-1.5">
+          <dt className="text-xs text-muted-foreground">{t(`configHistory.${label}`)}</dt>
+          <dd className="text-lg font-semibold tabular-nums">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
 function HistoryRows({ events, now, locale, currentConfig, currentConfigLoading, restoringID, onRestore }: Pick<ConfigHistoryViewProps, "events" | "now" | "locale" | "currentConfig" | "currentConfigLoading" | "restoringID" | "onRestore">) {
-  return <ul className="flex flex-col gap-1.5">{events.map((event) => <ConfigApplyEventRow key={event.id || `${event.applied_at}-${event.hash}`} event={event} now={now} locale={locale} currentConfig={currentConfig} currentConfigLoading={currentConfigLoading} onRestore={onRestore} restoring={restoringID !== null} />)}</ul>
+  return <ul className="flex flex-col gap-1.5">{events.map((event) => <ConfigApplyEventRow key={event.id || `${event.applied_at}-${event.hash}`} event={event} now={now} locale={locale} currentConfig={currentConfig} currentConfigLoading={currentConfigLoading} onRestore={onRestore} restoring={restoringID !== null} fullError />)}</ul>
 }
 
 function HistoryContent({ events, filtered, ...props }: Pick<ConfigHistoryViewProps, "events" | "filtered" | "now" | "locale" | "currentConfig" | "currentConfigLoading" | "restoringID" | "onRestore" | "hasFilters" | "onClear">) {
@@ -113,6 +144,7 @@ function HistoryCard(props: Omit<ConfigHistoryViewProps, "isFetching" | "onRefre
     <Card size="sm">
       <CardHeader className="gap-1.5"><CardTitle>{t("configHistory.listTitle")}</CardTitle><CardDescription>{t("configHistory.listDescription")}</CardDescription></CardHeader>
       <CardContent className="flex flex-col gap-3">
+        <HistorySummary events={props.events} />
         <HistoryFilters query={props.query} filter={props.filter} onQueryChange={props.onQueryChange} onFilterChange={props.onFilterChange} onClear={props.onClear} />
         <p className="text-xs text-muted-foreground" aria-live="polite">{t("configHistory.resultCount", { shown: props.filtered.length, total: props.events.length })}</p>
         <HistoryContent {...props} />
@@ -122,5 +154,5 @@ function HistoryCard(props: Omit<ConfigHistoryViewProps, "isFetching" | "onRefre
 }
 
 export function ConfigHistoryView(props: ConfigHistoryViewProps) {
-  return <div className="flex flex-col gap-3 sm:gap-4"><HistoryPageHeader isFetching={props.isFetching} onRefresh={props.onRefresh} /><HistoryCard {...props} /></div>
+  return <div className="flex flex-col gap-3 sm:gap-4"><HistoryPageHeader isFetching={props.isFetching} onRefresh={props.onRefresh} onExport={props.onExport} canExport={props.filtered.length > 0} /><HistoryCard {...props} /></div>
 }

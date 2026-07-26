@@ -2,8 +2,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { toast } from "sonner"
 
 import { ConfigHistoryPage } from "@/features/advanced/config-history-page"
+import * as logExport from "@/features/observability/log-export"
 import type { ConfigApplyEvent } from "@/lib/api/types"
 import { renderApp } from "@/test/render"
 
@@ -65,6 +67,7 @@ function renderPage(events: ConfigApplyEvent[], historyFailure = false, deferRef
 
 afterEach(() => {
   vi.clearAllMocks()
+  vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
 
@@ -81,7 +84,36 @@ describe("config history page", () => {
     expect(screen.getByText("审计记录")).toBeInTheDocument()
     expect(screen.getAllByRole("listitem")).toHaveLength(10)
     expect(screen.getByText("显示 10 / 10 条记录")).toBeInTheDocument()
+    expect(screen.getByText("总记录")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "可恢复" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "恢复此配置" })).toBeInTheDocument()
+  })
+
+  it("exports the currently visible records as JSON", async () => {
+    const downloadSpy = vi.spyOn(logExport, "downloadTextFile").mockImplementation(() => {})
+    const { user } = renderPage([event({ error: "line one\nline two" })])
+
+    const fullError = await screen.findByText(/line one/)
+    expect(fullError).toHaveClass("max-h-40", "whitespace-pre-wrap")
+    expect(document.querySelector('time[datetime="2026-07-26T00:00:00Z"]')).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "导出 JSON" }))
+
+    expect(downloadSpy).toHaveBeenCalledTimes(1)
+    const [filename, payload] = downloadSpy.mock.calls[0] ?? []
+    expect(filename).toMatch(/^boxd-config-history-.*\.json$/)
+    expect(JSON.parse(String(payload))).toMatchObject({ count: 1, filter: "all", records: [{ id: "event-1" }] })
+    expect(toast.success).toHaveBeenCalledWith("已导出 1 条记录")
+  })
+
+  it("reports export failures with a retry-safe error toast", async () => {
+    vi.spyOn(logExport, "downloadTextFile").mockImplementation(() => { throw new Error("createObjectURL failed") })
+    const { user } = renderPage([event()])
+    await screen.findByText("显示 1 / 1 条记录")
+    await user.click(screen.getByRole("button", { name: "导出 JSON" }))
+    expect(toast.error).toHaveBeenCalledWith(
+      "download_failed: createObjectURL failed",
+      expect.objectContaining({ description: expect.any(String) }),
+    )
   })
 
   it("filters by status, restorable state, and search text", async () => {
@@ -110,6 +142,7 @@ describe("config history page", () => {
     const { user, fetchMock, getHistoryCalls } = renderPage([])
     expect(await screen.findByText("暂无配置历史")).toBeInTheDocument()
     expect(screen.getByText("保存或校验配置后，记录会显示在这里。")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "导出 JSON" })).toBeDisabled()
     await user.click(screen.getByRole("button", { name: "刷新历史" }))
     await waitFor(() => expect(getHistoryCalls()).toBe(2))
     expect(fetchMock).toHaveBeenCalledWith("/api/config/apply-history", expect.anything())
