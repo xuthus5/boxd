@@ -37,6 +37,7 @@ describe("ConfigApplyTimelineCard", () => {
     renderCard()
     expect(await screen.findByText("配置应用记录")).toBeInTheDocument()
     expect(screen.getByText("暂无应用记录")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "查看全部记录" })).toHaveAttribute("href", "/advanced/history")
     expect(screen.getByRole("link", { name: "打开完整配置" })).toHaveAttribute("href", "/advanced/raw")
   })
 

@@ -34,8 +34,18 @@ describe("application routing", () => {
     expect(within(screen.getByRole("banner")).getByText("仪表盘")).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "日志" })).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "NTP" })).toHaveAttribute("href", "/advanced/ntp")
+    expect(screen.getByRole("link", { name: "配置历史" })).toHaveAttribute("href", "/advanced/history")
     expect(screen.queryByRole("link", { name: "内核日志" })).not.toBeInTheDocument()
     expect(screen.queryByRole("link", { name: "应用日志" })).not.toBeInTheDocument()
+  })
+
+  it("opens the full configuration history page", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    installMockAPI()
+    renderApp(<App />, "/advanced/history")
+
+    expect(await screen.findByRole("heading", { name: "配置历史" })).toBeInTheDocument()
+    expect(screen.getByText("暂无配置历史")).toBeInTheDocument()
   })
 
   it("logs out from the sidebar", async () => {

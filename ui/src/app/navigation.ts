@@ -6,6 +6,7 @@ import {
   ClockIcon,
   FlaskConicalIcon,
   GlobeIcon,
+  HistoryIcon,
   ListTreeIcon,
   NetworkIcon,
   RadioTowerIcon,
@@ -52,6 +53,7 @@ export const navigationGroups: NavigationGroup[] = [
     { label: "nav.endpoints", to: "/advanced/endpoints", icon: BoxIcon },
     { label: "nav.ntp", to: "/advanced/ntp", icon: ClockIcon },
     { label: "nav.experimental", to: "/advanced/experimental", icon: FlaskConicalIcon },
+    { label: "nav.configHistory", to: "/advanced/history", icon: HistoryIcon },
     { label: "nav.rawConfig", to: "/advanced/raw", icon: BracesIcon },
   ] },
 ]

@@ -18,6 +18,7 @@ const LogsPage = lazy(() => import("@/features/observability/logs-page").then((m
 const EndpointsPage = lazy(() => import("@/features/advanced/endpoints-page").then((module) => ({ default: module.EndpointsPage })))
 const NTPPage = lazy(() => import("@/features/advanced/ntp-page").then((module) => ({ default: module.NTPPage })))
 const ExperimentalPage = lazy(() => import("@/features/advanced/experimental-page").then((module) => ({ default: module.ExperimentalPage })))
+const ConfigHistoryPage = lazy(() => import("@/features/advanced/config-history-page").then((module) => ({ default: module.ConfigHistoryPage })))
 const RawConfigPage = lazy(() => import("@/features/advanced/raw-config-page").then((module) => ({ default: module.RawConfigPage })))
 const SettingsPage = lazy(() => import("@/features/settings/settings-page").then((module) => ({ default: module.SettingsPage })))
 
@@ -43,6 +44,7 @@ export function AppRoutes() {
           <Route path="/advanced/endpoints" element={<EndpointsPage />} />
           <Route path="/advanced/ntp" element={<NTPPage />} />
           <Route path="/advanced/experimental" element={<ExperimentalPage />} />
+          <Route path="/advanced/history" element={<ConfigHistoryPage />} />
           <Route path="/advanced/raw" element={<RawConfigPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>

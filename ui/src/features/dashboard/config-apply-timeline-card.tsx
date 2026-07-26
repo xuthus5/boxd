@@ -112,8 +112,11 @@ export function ConfigApplyTimelineCard() {
           onRestore={restore}
         />
       </CardContent>
-      <CardFooter>
-        <Link to="/advanced/raw" className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}>
+      <CardFooter className="flex-wrap gap-2">
+        <Link to="/advanced/history" className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}>
+          {t("configHistory.openApplyHistory")}
+        </Link>
+        <Link to="/advanced/raw" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "h-8")}>
           {t("dashboard.openRawConfig")}
         </Link>
       </CardFooter>
