@@ -54,7 +54,7 @@ describe("TrafficChart stability", () => {
     recharts.xAxis.mockClear()
   })
 
-  it("keeps a rolling time axis and smoothly interpolates new samples", async () => {
+  it("keeps the chart mounted without replaying line animations", async () => {
     const user = userEvent.setup()
     renderApp(<Harness />)
 
@@ -75,10 +75,12 @@ describe("TrafficChart stability", () => {
     expect(timestampValue({ timestamp: 1 as unknown as string })).toBe(0)
     expect(tickFormatter(Date.parse("2026-01-01T00:00:01Z"))).not.toBe("")
     expect(tickFormatter("invalid")).toBe("")
-    expect(recharts.line.mock.calls.at(-1)?.[0]).toMatchObject({
-      isAnimationActive: "auto",
-      animateNewValues: false,
-    })
+    for (const [props] of recharts.line.mock.calls) {
+      expect(props).toMatchObject({
+        isAnimationActive: false,
+        animateNewValues: false,
+      })
+    }
 
     await user.click(screen.getByRole("button", { name: "rerender parent" }))
     expect(screen.getByLabelText("unrelated state")).toHaveTextContent("1")
@@ -88,9 +90,7 @@ describe("TrafficChart stability", () => {
     expect(recharts.line.mock.calls.length).toBeGreaterThan(initialLineCount)
     expect(screen.getByTestId("traffic-chart-instance")).toBe(chartInstance)
     expect(recharts.line.mock.calls.at(-1)?.[0]).toMatchObject({
-      isAnimationActive: "auto",
-      animationDuration: 900,
-      animationEasing: "linear",
+      isAnimationActive: false,
       animateNewValues: false,
     })
   })

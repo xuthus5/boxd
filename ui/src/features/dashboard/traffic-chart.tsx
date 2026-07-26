@@ -15,7 +15,6 @@ function formatRate(value: number) {
 }
 
 const TRAFFIC_WINDOW_MS = 60_000
-const TRAFFIC_UPDATE_DURATION_MS = 900
 const TRAFFIC_CHART_MARGIN = { top: 4, right: 8, bottom: 0, left: 0 }
 
 type TrafficChartPoint = { timestamp: string }
@@ -28,7 +27,7 @@ interface TrafficLinesProps {
   config: ChartConfig
 }
 
-interface SmoothTrafficLineProps {
+interface TrafficLineProps {
   dataKey: string
 }
 
@@ -61,18 +60,15 @@ function getTimeDomain(data: readonly TrafficChartPoint[]): [number, number] {
   return [latest - TRAFFIC_WINDOW_MS, latest]
 }
 
-function SmoothTrafficLine({ dataKey }: SmoothTrafficLineProps) {
+function TrafficLine({ dataKey }: TrafficLineProps) {
   return <Line
     id={`traffic-${dataKey}`}
     dataKey={dataKey}
     type="monotone"
     stroke={`var(--color-${dataKey})`}
     dot={false}
-    isAnimationActive="auto"
+    isAnimationActive={false}
     animateNewValues={false}
-    animationBegin={0}
-    animationDuration={TRAFFIC_UPDATE_DURATION_MS}
-    animationEasing="linear"
   />
 }
 
@@ -98,8 +94,8 @@ const TrafficLines = memo(function TrafficLines({ data, uploadKey, downloadKey, 
       tickFormatter={formatTimestamp}
     />
     <ChartTooltip content={tooltipContent} />
-    <SmoothTrafficLine dataKey={uploadKey} />
-    <SmoothTrafficLine dataKey={downloadKey} />
+    <TrafficLine dataKey={uploadKey} />
+    <TrafficLine dataKey={downloadKey} />
   </LineChart></ChartContainer>
 })
 
