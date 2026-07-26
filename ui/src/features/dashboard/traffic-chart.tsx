@@ -10,6 +10,7 @@ import { HealthStreamErrorBlock } from "@/features/dashboard/health-stream-error
 import {
   getTrafficTimeDomain,
   getTrafficValueDomain,
+  TRAFFIC_CHART_POINT_LIMIT,
   TRAFFIC_CHART_MARGIN,
   formatTrafficTimestamp,
   type TrafficChartPoint,
@@ -73,7 +74,11 @@ export const TrafficChart = memo(function TrafficChart({
 }: TrafficChartProps) {
   const { t } = useTranslation()
   const [mode, setMode] = useState<"rate" | "total">("rate")
-  const rates = useMemo(() => calculateTrafficRates(points), [points])
+  const visiblePoints = useMemo(() => points.slice(-TRAFFIC_CHART_POINT_LIMIT), [points])
+  const rates = useMemo(
+    () => calculateTrafficRates(points).slice(-TRAFFIC_CHART_POINT_LIMIT),
+    [points],
+  )
   const totalConfig = useMemo(() => ({
     upload_bytes: { label: t("dashboard.upload"), color: "var(--chart-2)" },
     download_bytes: { label: t("dashboard.download"), color: "var(--chart-1)" },
@@ -82,7 +87,7 @@ export const TrafficChart = memo(function TrafficChart({
     upload_rate: { label: t("dashboard.upload"), color: "var(--chart-2)" },
     download_rate: { label: t("dashboard.download"), color: "var(--chart-1)" },
   } satisfies ChartConfig), [t])
-  const latestTotal = points.at(-1)
+  const latestTotal = visiblePoints.at(-1)
   const latestRate = rates.at(-1)
   const description = mode === "rate"
     ? `${t("dashboard.upload")} ${formatRate(latestRate?.upload_rate ?? 0)} · ${t("dashboard.download")} ${formatRate(latestRate?.download_rate ?? 0)}`
@@ -99,7 +104,7 @@ export const TrafficChart = memo(function TrafficChart({
         </TabsList>
       </CardHeader>
       <TabsContent value="rate"><CardContent><TrafficLines data={rates} uploadKey="upload_rate" downloadKey="download_rate" formatter={formatRate} config={rateConfig} /></CardContent></TabsContent>
-      <TabsContent value="total"><CardContent><TrafficLines data={points} uploadKey="upload_bytes" downloadKey="download_bytes" formatter={formatBytes} config={totalConfig} /></CardContent></TabsContent>
+      <TabsContent value="total"><CardContent><TrafficLines data={visiblePoints} uploadKey="upload_bytes" downloadKey="download_bytes" formatter={formatBytes} config={totalConfig} /></CardContent></TabsContent>
       </Tabs>
       {streamError || streamStatus === "reconnecting" ? (
         <CardContent className="pt-0">

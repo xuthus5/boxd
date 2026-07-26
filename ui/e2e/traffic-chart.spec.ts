@@ -6,10 +6,19 @@ interface TrafficSample {
   timestamp: string
 }
 
-const initialPoints: TrafficSample[] = [
-  { upload_bytes: 0, download_bytes: 0, timestamp: "2026-01-01T00:00:00Z" },
-  { upload_bytes: 1024, download_bytes: 2048, timestamp: "2026-01-01T00:00:01Z" },
-]
+const trafficStartedAt = Date.parse("2026-01-01T00:00:00Z")
+
+function trafficSample(index: number): TrafficSample {
+  const uploadBytes = ((index * (index + 1)) / 2) * 1024
+  return {
+    upload_bytes: uploadBytes,
+    download_bytes: uploadBytes * 2,
+    timestamp: new Date(trafficStartedAt + (index * 1000)).toISOString(),
+  }
+}
+
+const initialPoints = Array.from({ length: 60 }, (_, index) => trafficSample(index))
+const livePoints = Array.from({ length: 62 }, (_, index) => trafficSample(index + 60))
 
 function apiBody(path: string) {
   if (path === "/readyz") return { status: "ready" }
@@ -66,7 +75,7 @@ async function installTrafficStream(page: Page) {
   })
 }
 
-test("live traffic curve appends segments without redrawing history", async ({ page }) => {
+test("live traffic curve rolls the full window without redrawing history", async ({ page }) => {
   await page.addInitScript(() => {
     sessionStorage.setItem("boxd.session.v1", JSON.stringify({ token: "token", expiresAt: "2099-01-01T00:00:00Z" }))
   })
@@ -78,6 +87,14 @@ test("live traffic curve appends segments without redrawing history", async ({ p
   const firstSegment = uploadSegments.first()
   await expect(firstSegment).toBeVisible()
   await expect(firstSegment.locator("..")).toHaveClass(/transition-transform/)
+  await page.evaluate((samples) => {
+    const scope = window as typeof window & { __pushTraffic?: (next: TrafficSample) => void }
+    for (const sample of samples) scope.__pushTraffic?.(sample)
+  }, livePoints.slice(0, 61))
+  await page.waitForFunction(() => {
+    const segments = document.querySelectorAll<SVGPathElement>('path.traffic-chart-curve[data-series="upload_rate"]')
+    return segments.item(segments.length - 1)?.getAttribute("d")?.startsWith("M119000,")
+  })
   await page.waitForFunction(() => {
     const path = document.querySelector('path.traffic-chart-curve[data-series="upload_rate"]')
     const motion = path?.parentElement
@@ -97,7 +114,7 @@ test("live traffic curve appends segments without redrawing history", async ({ p
   })
   await page.evaluate(() => {
     const selector = 'path.traffic-chart-curve[data-series="upload_rate"]'
-    const segments = Array.from(document.querySelectorAll<SVGPathElement>(selector))
+    const segments = Array.from(document.querySelectorAll<SVGPathElement>(selector)).slice(1)
     const state = {
       d: segments.map((segment) => segment.getAttribute("d")),
       dMutations: 0,
@@ -114,12 +131,12 @@ test("live traffic curve appends segments without redrawing history", async ({ p
   await page.evaluate((sample) => {
     const scope = window as typeof window & { __pushTraffic?: (next: TrafficSample) => void }
     scope.__pushTraffic?.(sample)
-  }, { upload_bytes: 3072, download_bytes: 6144, timestamp: "2026-01-01T00:00:02Z" } satisfies TrafficSample)
+  }, livePoints[61])
   await page.waitForFunction((transform) => {
     const path = document.querySelector('path.traffic-chart-curve[data-series="upload_rate"]')
     return path?.parentElement?.style.transform !== transform
   }, initial.transform)
-  await expect(uploadSegments).toHaveCount(initial.count + 1)
+  await expect(uploadSegments).toHaveCount(initial.count)
   await page.waitForTimeout(100)
 
   const updated = await firstSegment.evaluate((path) => {

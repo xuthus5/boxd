@@ -50,6 +50,15 @@ const initialPoints: TrafficHistoryPoint[] = [
   { timestamp: "2026-01-01T00:00:01Z", upload_bytes: 1024, download_bytes: 2048 },
 ]
 
+function rollingPoint(index: number): TrafficHistoryPoint {
+  const uploadBytes = ((index * (index + 1)) / 2) * 1024
+  return {
+    timestamp: new Date(Date.parse("2026-01-01T00:00:00Z") + (index * 1000)).toISOString(),
+    upload_bytes: uploadBytes,
+    download_bytes: uploadBytes * 2,
+  }
+}
+
 function Harness() {
   const [unrelated, setUnrelated] = useState(0)
   const [points, setPoints] = useState(initialPoints)
@@ -82,6 +91,14 @@ function ScaleHarness() {
     <button onClick={() => setPoints((current) => [...current, {
       timestamp: "2026-01-01T00:00:02Z", upload_bytes: 3072, download_bytes: 6144,
     }])}>increase scale</button>
+    <TrafficChart points={points} />
+  </>
+}
+
+function RollingWindowHarness() {
+  const [points, setPoints] = useState(() => Array.from({ length: 61 }, (_, index) => rollingPoint(index)))
+  return <>
+    <button onClick={() => setPoints((current) => [...current.slice(1), rollingPoint(61)])}>roll window</button>
     <TrafficChart points={points} />
   </>
 }
@@ -234,5 +251,20 @@ describe("TrafficChart stability", () => {
     expect(document.querySelector<SVGPathElement>(selector)).toBe(initialSegment)
     expect(initialSegment?.getAttribute("d")).toBe(initialGeometry)
     expect(motion?.style.transform).not.toBe(initialTransform)
+  })
+
+  it("keeps retained rate segments stable when the source seed rolls", async () => {
+    const user = userEvent.setup()
+    renderApp(<RollingWindowHarness />)
+    const selector = 'path.traffic-chart-curve[data-series="upload_rate"]'
+    const retained = Array.from(document.querySelectorAll<SVGPathElement>(selector)).slice(1)
+    const geometry = retained.map((segment) => segment.getAttribute("d"))
+
+    await user.click(screen.getByRole("button", { name: "roll window" }))
+
+    for (const [index, segment] of retained.entries()) {
+      expect(segment.isConnected).toBe(true)
+      expect(segment.getAttribute("d")).toBe(geometry[index])
+    }
   })
 })

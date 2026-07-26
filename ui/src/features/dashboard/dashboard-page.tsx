@@ -17,6 +17,7 @@ import { RuntimeStatsCard } from "@/features/dashboard/runtime-stats-card"
 import { RecentLogs } from "@/features/dashboard/recent-logs"
 import { ServiceCard } from "@/features/dashboard/service-card"
 import { TrafficChart } from "@/features/dashboard/traffic-chart"
+import { TRAFFIC_CHART_SOURCE_LIMIT } from "@/features/dashboard/traffic-chart-model"
 import { useAuth } from "@/features/auth/auth-context"
 import { reportDashboardRequestError } from "@/features/dashboard/dashboard-request-error-actions"
 import { PageLoadErrorAlert } from "@/features/common/page-load-error-alert"
@@ -32,7 +33,7 @@ export function DashboardPage() {
   const queryClient = useQueryClient()
   const token = useAuth().session!.token
   const [pendingAction, setPendingAction] = useState("")
-  const traffic = useStreamBuffer<TrafficEvent>(api.stats.paths.traffic, token, 60)
+  const traffic = useStreamBuffer<TrafficEvent>(api.stats.paths.traffic, token, TRAFFIC_CHART_SOURCE_LIMIT)
   const connections = useStreamBuffer<ConnectionEvent>(api.stats.paths.connections, token, 2)
   const logs = useStreamBuffer<LogEvent>(api.stats.paths.logs, token, 20)
   const appLogs = useStreamBuffer<LogEvent>(api.stats.paths.appLogs, token, 50)
@@ -76,7 +77,10 @@ export function DashboardPage() {
       fallback: t("dashboard.maintenanceFailed"),
     }),
   })
-  const points = useMemo(() => [...(history.data?.points ?? []), ...traffic.items].slice(-60), [history.data?.points, traffic.items])
+  const points = useMemo(
+    () => [...(history.data?.points ?? []), ...traffic.items].slice(-TRAFFIC_CHART_SOURCE_LIMIT),
+    [history.data?.points, traffic.items],
+  )
 
   if ([status, history, memory, version].some((query) => query.isLoading)) return <div className="flex flex-col gap-4"><h1 className="text-2xl font-semibold">{t("pages.dashboard")}</h1><Skeleton className="h-64 w-full" /></div>
   const error = [status, history, memory, version].find((query) => query.error)?.error
