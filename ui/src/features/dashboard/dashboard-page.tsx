@@ -10,6 +10,7 @@ import { SetupChecklistCard } from "@/features/dashboard/setup-checklist-card"
 import { ProxySelectorCard } from "@/features/dashboard/proxy-selector-card"
 import { ConfigApplyTimelineCard } from "@/features/dashboard/config-apply-timeline-card"
 import { ConfigDiagnosticsCard } from "@/features/dashboard/config-diagnostics-card"
+import { RuleSetHealthCard } from "@/features/dashboard/rule-set-health-card"
 import { OpsShortcutsCard } from "@/features/dashboard/ops-shortcuts-card"
 import { RuntimeActions } from "@/features/dashboard/runtime-actions"
 import { RuntimeStatsCard } from "@/features/dashboard/runtime-stats-card"
@@ -33,6 +34,7 @@ export function DashboardPage() {
   const traffic = useStreamBuffer<TrafficEvent>(api.stats.paths.traffic, token, 60)
   const connections = useStreamBuffer<ConnectionEvent>(api.stats.paths.connections, token, 2)
   const logs = useStreamBuffer<LogEvent>(api.stats.paths.logs, token, 20)
+  const appLogs = useStreamBuffer<LogEvent>(api.stats.paths.appLogs, token, 50)
   const [status, history, memory, version] = useQueries({ queries: [
     { queryKey: ["service"], queryFn: api.service.status, refetchInterval: 5000 },
     { queryKey: ["traffic-history"], queryFn: api.stats.history },
@@ -117,6 +119,12 @@ export function DashboardPage() {
         <ClashModeCard enabled={Boolean(status.data?.running)} />
         <RuntimeStatsCard memory={memory.data!} panelVersion={version.data!.version} kernelVersion={version.data!.kernel_version} />
         <ConfigDiagnosticsCard />
+        <RuleSetHealthCard
+          appLogs={appLogs.items}
+          appLogError={appLogs.error}
+          appLogStatus={appLogs.status}
+          onReconnectAppLogs={appLogs.reconnect}
+        />
         <OpsShortcutsCard />
         <ConfigApplyTimelineCard />
         <TrafficChart

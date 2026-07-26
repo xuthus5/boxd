@@ -44,6 +44,11 @@ const apiBodies: Record<string, unknown> = {
     features: { tun: false, clash_api: true, cache_file: false, fakeip: true, selector: true, urltest: false, wireguard: false, remote_rule_set: true },
     issues: [],
   },
+  "/api/config/rule-sets/status": [{
+    tag: "geo", type: "remote", builtin: true, updatable: true, update_interval: "24h", file_size: 1024,
+    last_updated: "2026-01-01T00:00:00Z",
+  }],
+  "/api/config/rule-sets/auto-update": { enabled: true, interval: "24h" },
   "/api/runtime/clash-mode": { mode: "Rule", mode_list: ["Rule", "Global", "Direct"] },
   "/api/config/": config,
   "/api/config/raw": config,
@@ -166,6 +171,8 @@ async function checkDNSPolicy(page: Page) {
 test("smoke: login, navigation, log tabs, and raw save", async ({ page }) => {
   await page.route("http://127.0.0.1:4173/api/**", fulfillAPI)
   await login(page)
+  await expect(page.getByText("规则集运行健康")).toBeVisible()
+  await expect(page.getByRole("link", { name: "查看路由配置" })).toHaveAttribute("href", "/policy/route")
 
   await page.getByLabel("日志", { exact: true }).click()
   await expect(page.getByRole("tab", { name: "内核日志" })).toBeVisible()

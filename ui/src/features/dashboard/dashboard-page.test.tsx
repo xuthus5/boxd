@@ -10,6 +10,11 @@ function responseFor(path: string) {
   if (path === "/readyz") return { status: "ready" }
   if (path === "/api/service/status") return { running: true, uptime: "1m", version: "1.13" }
   if (path === "/api/stats/traffic/history") return { points: [{ upload_bytes: 10, download_bytes: 20, timestamp: "2026-01-01T00:00:00Z" }] }
+  if (path === "/api/config/rule-sets/status") return [{
+    tag: "geo-cn", type: "remote", builtin: true, updatable: true, update_interval: "24h", file_size: 1024,
+    last_updated: "2026-01-01T00:00:00Z",
+  }]
+  if (path === "/api/config/rule-sets/auto-update") return { enabled: true, interval: "24h" }
   if (path === "/api/runtime/memory") return { alloc: 1024, total: 2048, sys: 4096, num_gc: 2, heap_inuse: 512, stack_inuse: 128, num_goroutine: 12 }
   if (path === "/api/runtime/version") return { version: "dev", kernel_version: "1.13.14" }
   if (path === "/api/config/diagnostics") return {
@@ -65,6 +70,7 @@ describe("DashboardPage", () => {
       if (path === "/api/stats/traffic") return Promise.resolve(eventStream({ upload_bytes: 30, download_bytes: 40, timestamp: "2026-01-01T00:00:01Z" }))
       if (path === "/api/stats/connections") return Promise.resolve(eventStream({ active_connections: 2, list: [{ id: 1, target: "example.com:443", outbound: "proxy", rule: "geosite-google", network: "tcp", upload: 10, download: 20, start: "2026-01-01T00:00:00Z" }, { id: 2, target: "cdn.example.net:443", outbound: "direct", rule: "geoip-cn", network: "udp", upload: 1, download: 2, start: "2026-01-01T00:00:01Z" }] }))
       if (path === "/api/stats/logs") return Promise.resolve(eventStream({ level: "info", message: "ready" }))
+      if (path === "/api/stats/app-logs") return Promise.resolve(eventStream({ level: "info", message: "ruleset auto update finished updated=1 failed=0 skipped=0", timestamp: "2026-01-01T00:00:00Z" }))
       return Promise.resolve(new Response(JSON.stringify(responseFor(path))))
     }))
 
