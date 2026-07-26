@@ -46,6 +46,8 @@ describe("connection list helpers", () => {
     expect(cellValue(sample, "target", "3s")).toBe("example.com:443")
     expect(cellValue(sample, "outbound", "3s")).toBe("proxy")
     expect(cellValue(sample, "upload", "3s")).toBe("1.00 KB")
+    expect(cellValue({ ...sample, uploadRate: 1024, downloadRate: 2048 }, "rate", "3s"))
+      .toBe("↑ 1.00 KB/s · ↓ 2.00 KB/s")
     expect(cellValue(sample, "duration", "3s")).toBe("3s")
     expect(titleFor(sample, "target")).toBe("example.com:443")
     expect(titleFor(sample, "network")).toBeUndefined()
@@ -63,6 +65,7 @@ describe("connection list helpers", () => {
     const ids = ["target", "source", "network", "inbound", "outbound", "rule", "protocol", "process"] as const
     for (const id of ids) expect(cellValue(empty, id, "2s")).toBe("—")
     expect(cellValue(empty, "download", "2s")).toBe("0 B")
+    expect(cellValue(empty, "rate", "2s")).toBe("—")
     expect(cellValue(empty, "duration", "2s")).toBe("2s")
     expect(cellValue(empty, "actions", "2s")).toBe("—")
     expect(titleFor(empty, "target")).toBeUndefined()

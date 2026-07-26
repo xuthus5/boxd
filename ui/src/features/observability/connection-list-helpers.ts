@@ -4,6 +4,7 @@ import {
   type ConnectionColumnId,
 } from "@/features/observability/connection-columns"
 import { formatBytes } from "@/features/dashboard/format"
+import { formatConnectionRatePair, type ConnectionWithRates } from "@/features/observability/connection-rate"
 import { buildNodesHref } from "@/features/nodes/nodes-filter"
 import { connectionTargetLogQuery } from "@/features/observability/connection-facets"
 import { buildLogsHref } from "@/features/observability/log-filter-presets"
@@ -33,7 +34,7 @@ export function formatDuration(start: string) {
   return `${Math.floor(Math.max(0, Date.now() - startedAt) / 1000)}s`
 }
 
-export function cellValue(connection: Connection, id: ConnectionColumnId, duration: string): string {
+export function cellValue(connection: ConnectionWithRates, id: ConnectionColumnId, duration: string): string {
   switch (id) {
     case "target":
       return connection.target || "—"
@@ -55,6 +56,8 @@ export function cellValue(connection: Connection, id: ConnectionColumnId, durati
       return formatBytes(connection.upload)
     case "download":
       return formatBytes(connection.download)
+    case "rate":
+      return formatConnectionRatePair(connection.uploadRate, connection.downloadRate)
     case "duration":
       return duration
     default:

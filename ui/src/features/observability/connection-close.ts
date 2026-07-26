@@ -46,10 +46,10 @@ export function pruneSuppressedIds(
   return next
 }
 
-export function filterSuppressedConnections(
-  connections: readonly Connection[],
+export function filterSuppressedConnections<T extends Connection>(
+  connections: readonly T[],
   suppressed: ReadonlySet<string>,
-): Connection[] {
+): T[] {
   if (suppressed.size === 0) return [...connections]
   return connections.filter((item) => !suppressed.has(String(item.id)))
 }

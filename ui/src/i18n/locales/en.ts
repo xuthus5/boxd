@@ -685,5 +685,10 @@ export const en = {
       ...enBase.translation.dashboard,
       sourceValidateLog: "Kernel logging validate",
     },
+    observability: {
+      ...enBase.translation.observability,
+      rate: "Rate",
+      sortByRate: "Sort by real-time rate",
+    },
   },
 } as const

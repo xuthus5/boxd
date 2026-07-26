@@ -149,6 +149,7 @@ describe("connection-facets", () => {
 
   it("parses connection sort from the URL", () => {
     expect(parseConnectionSearchParams(new URLSearchParams("sort=duration")).sort).toBe("duration")
+    expect(parseConnectionSearchParams(new URLSearchParams("sort=rate")).sort).toBe("rate")
     expect(parseConnectionSearchParams(new URLSearchParams("sort=nope")).sort).toBeUndefined()
     expect(toConnectionSearchParams({ sort: "traffic", query: "api" }).toString()).toBe("q=api")
     expect(buildConnectionsHref({ sort: "outbound", network: "tcp" })).toBe(

@@ -109,10 +109,10 @@ export function matchesConnectionFacet(
   return connectionFacetValue(connection, field) === selected
 }
 
-export function filterConnectionsByFacets(
-  connections: readonly Connection[],
+export function filterConnectionsByFacets<T extends Connection>(
+  connections: readonly T[],
   filters: ConnectionFacetFilters,
-): Connection[] {
+): T[] {
   const query = filters.query?.trim().toLowerCase() ?? ""
   return connections.filter((connection) => (
     matchesConnection(connection, query)
@@ -138,7 +138,7 @@ export function connectionFiltersActive(filters: ConnectionFacetFilters): boolea
 }
 
 const CONNECTION_VIEWS = new Set<ConnectionView>(["list", "outbound", "rule", "process"])
-const CONNECTION_SORTS = new Set<ConnectionSortKey>(["traffic", "download", "upload", "duration", "target", "outbound"])
+const CONNECTION_SORTS = new Set<ConnectionSortKey>(["traffic", "rate", "download", "upload", "duration", "target", "outbound"])
 
 export function parseConnectionSearchParams(
   params: URLSearchParams | { get(name: string): string | null },

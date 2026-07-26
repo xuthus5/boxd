@@ -8,6 +8,7 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { formatBytes } from "@/features/dashboard/format"
+import { formatConnectionRatePair } from "@/features/observability/connection-rate"
 import {
   isGroupClosing,
   type ClosingTarget,
@@ -24,7 +25,13 @@ import { cn } from "@/lib/utils"
 type GroupField = "outbound" | "rule" | "process"
 
 const DESKTOP_GROUP_ROW_HEIGHT = 52
-const MOBILE_GROUP_CARD_HEIGHT = 120
+const MOBILE_GROUP_CARD_HEIGHT = 140
+
+function groupRate(group: ConnectionGroupStat): string {
+  return group.rateSamples === group.count
+    ? formatConnectionRatePair(group.uploadRate, group.downloadRate)
+    : "—"
+}
 
 function groupListHref(field: GroupField, key: string, base: ConnectionFacetFilters = {}) {
   return buildConnectionsHref({
@@ -146,6 +153,7 @@ export function ConnectionGroupTable({
               <CardContent className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
                 <span>{t("dashboard.upload")}: {formatBytes(group.upload)}</span>
                 <span>{t("dashboard.download")}: {formatBytes(group.download)}</span>
+                <span>{t("observability.rate")}: {groupRate(group)}</span>
               </CardContent>
             </Card>
           </div>
@@ -198,13 +206,14 @@ function GroupDesktopVirtualTable({
             <TableHead>{t("observability.count")}</TableHead>
             <TableHead>{t("dashboard.upload")}</TableHead>
             <TableHead>{t("dashboard.download")}</TableHead>
+            <TableHead>{t("observability.rate")}</TableHead>
             <TableHead>{t("common.actions")}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {window.startIndex > 0 ? (
             <TableRow aria-hidden="true">
-              <td colSpan={5} style={{ height: window.offsetTop, padding: 0, border: 0 }} />
+              <td colSpan={6} style={{ height: window.offsetTop, padding: 0, border: 0 }} />
             </TableRow>
           ) : null}
           {slice.map((group) => (
@@ -221,6 +230,7 @@ function GroupDesktopVirtualTable({
               <TableCell>{group.count}</TableCell>
               <TableCell>{formatBytes(group.upload)}</TableCell>
               <TableCell>{formatBytes(group.download)}</TableCell>
+              <TableCell>{groupRate(group)}</TableCell>
               <TableCell>
                 <div className="flex flex-wrap items-center gap-1">
                   <GroupListLink field={field} groupKey={group.key} baseFilters={baseFilters} />
@@ -237,7 +247,7 @@ function GroupDesktopVirtualTable({
           {window.endIndex < groups.length ? (
             <TableRow aria-hidden="true">
               <td
-                colSpan={5}
+                colSpan={6}
                 style={{
                   height: window.totalHeight - window.endIndex * DESKTOP_GROUP_ROW_HEIGHT,
                   padding: 0,

@@ -24,6 +24,11 @@ describe("connection-export", () => {
     expect(sortConnections(sample, "target").map((item) => item.id)).toEqual([2, 3, 1])
     expect(sortConnections(sample, "upload").map((item) => item.id)).toEqual([2, 1, 3])
     expect(sortConnections(sample, "download").map((item) => item.id)).toEqual([1, 2, 3])
+    expect(sortConnections([
+      { ...sample[0], uploadRate: 1, downloadRate: 2 },
+      { ...sample[1], uploadRate: 10, downloadRate: 20 },
+      sample[2],
+    ], "rate").map((item) => item.id)).toEqual([2, 1, 3])
     expect(sortConnections(sample, "outbound").map((item) => item.id)).toEqual([2, 3, 1])
     expect(compareConnections(
       { ...sample[0], upload: 1, download: 1 },
@@ -52,7 +57,7 @@ describe("connection-export", () => {
   })
 
   it("formats export payload", () => {
-    expect(formatConnectionLine(sample[1])).toBe("2\ta.com:443\tdirect\t-\t-\t-\t-\t-\t-\t50\t10\t2026-07-23T00:00:00Z")
+    expect(formatConnectionLine(sample[1])).toBe("2\ta.com:443\tdirect\t-\t-\t-\t-\t-\t-\t50\t10\t\t\t2026-07-23T00:00:00Z")
     expect(formatConnectionLine({
       ...sample[1],
       network: "tcp",
@@ -61,8 +66,10 @@ describe("connection-export", () => {
       protocol: "tls",
       process: "/usr/bin/curl",
       rule: "r1",
-    })).toBe("2\ta.com:443\tdirect\tr1\ttcp\t10.0.0.2:1\tmixed-in\ttls\t/usr/bin/curl\t50\t10\t2026-07-23T00:00:00Z")
-    expect(formatConnectionExport([sample[1]])).toContain("network\tsource\tinbound")
+      uploadRate: 12.5,
+      downloadRate: 25,
+    })).toBe("2\ta.com:443\tdirect\tr1\ttcp\t10.0.0.2:1\tmixed-in\ttls\t/usr/bin/curl\t50\t10\t12.5\t25\t2026-07-23T00:00:00Z")
+    expect(formatConnectionExport([sample[1]])).toContain("network\tsource\tinbound\tprotocol\tprocess\tupload\tdownload\tupload_rate\tdownload_rate")
     expect(formatConnectionExport([])).toBe("")
     expect(formatConnectionLine({
       id: 8,
@@ -77,7 +84,7 @@ describe("connection-export", () => {
       inbound: "  ",
       protocol: "  ",
       process: "  ",
-    })).toBe("8\t-\t-\t-\t-\t-\t-\t-\t-\t0\t0\t-")
+    })).toBe("8\t-\t-\t-\t-\t-\t-\t-\t-\t0\t0\t\t\t-")
   })
 
   it("builds filename", () => {
@@ -101,6 +108,7 @@ describe("connection-export", () => {
     expect(text).toContain("target: api.example.com:443")
     expect(text).toContain("outbound: proxy")
     expect(text).toContain("rule: geosite-google")
+    expect(formatConnectionClipboardText({ ...sample[0], uploadRate: 3, downloadRate: 4 })).toContain("upload_rate: 3")
   })
 
   it("omits blank optional clipboard fields", () => {

@@ -13,6 +13,7 @@ export type ConnectionColumnId =
   | "process"
   | "upload"
   | "download"
+  | "rate"
   | "duration"
   | "actions"
 
@@ -34,6 +35,7 @@ export const CONNECTION_COLUMNS: readonly ConnectionColumnSpec[] = [
   { id: "process", labelKey: "observability.process", defaultVisible: true },
   { id: "upload", labelKey: "dashboard.upload", defaultVisible: true },
   { id: "download", labelKey: "dashboard.download", defaultVisible: true },
+  { id: "rate", labelKey: "observability.rate", defaultVisible: true },
   { id: "duration", labelKey: "observability.duration", defaultVisible: true },
   { id: "actions", labelKey: "common.actions", required: true, defaultVisible: true },
 ] as const

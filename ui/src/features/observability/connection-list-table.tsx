@@ -22,7 +22,7 @@ import { useVirtualWindow } from "@/hooks/use-virtual-window"
 import type { Connection } from "@/lib/api/types"
 
 const DESKTOP_ROW_HEIGHT = 56
-const MOBILE_CARD_HEIGHT = 176
+const MOBILE_CARD_HEIGHT = 192
 
 export function ConnectionListTable({
   connections,

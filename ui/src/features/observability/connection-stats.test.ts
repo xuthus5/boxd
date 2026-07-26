@@ -12,12 +12,28 @@ const sample: Connection[] = [
 
 describe("connection-stats", () => {
   it("summarizes totals", () => {
-    expect(summarizeConnections(sample)).toEqual({ upload: 116, download: 227, outbounds: 2 })
+    expect(summarizeConnections(sample)).toEqual({
+      upload: 116,
+      download: 227,
+      uploadRate: 0,
+      downloadRate: 0,
+      rateSamples: 0,
+      outbounds: 2,
+    })
+    expect(summarizeConnections([
+      { ...sample[0], uploadRate: 10, downloadRate: 20 },
+      { ...sample[1], uploadRate: 5, downloadRate: 7 },
+    ])).toMatchObject({ uploadRate: 15, downloadRate: 27, rateSamples: 2 })
   })
 
   it("aggregates by outbound traffic", () => {
-    const groups = aggregateConnections(sample, "outbound")
+    const groups = aggregateConnections([
+      { ...sample[0], uploadRate: 10, downloadRate: 20 },
+      { ...sample[1], uploadRate: 5, downloadRate: 7 },
+      ...sample.slice(2),
+    ], "outbound")
     expect(groups[0]).toMatchObject({ key: "proxy", count: 3, upload: 115, download: 225 })
+    expect(groups[0]).toMatchObject({ uploadRate: 15, downloadRate: 27, rateSamples: 2 })
     expect(groups[1]).toMatchObject({ key: "direct", count: 1 })
   })
 
@@ -75,4 +91,3 @@ describe("aggregateConnections limit", () => {
     expect(aggregateConnections(many, "outbound", 100).length).toBe(20)
   })
 })
-

@@ -21,6 +21,7 @@ describe("connection-columns", () => {
     expect(defaults).toContain("outbound")
     expect(defaults).toContain("actions")
     expect(defaults).toContain("process")
+    expect(defaults).toContain("rate")
     expect(normalizeConnectionColumns(["process"])).toEqual(
       expect.arrayContaining(["target", "outbound", "actions", "process"]),
     )

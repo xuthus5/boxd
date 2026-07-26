@@ -22,7 +22,7 @@ import { filterConnectionsByGroup } from "@/features/observability/connection-st
 import { api } from "@/lib/api/endpoints"
 import type { Connection } from "@/lib/api/types"
 
-export function useConnectionCloseActions(liveConnections: Connection[]) {
+export function useConnectionCloseActions<T extends Connection>(liveConnections: T[]) {
   const { t } = useTranslation()
   const [closingId, setClosingId] = useState<ClosingTarget>(null)
   const [suppressedIds, setSuppressedIds] = useState<Set<string>>(() => new Set())

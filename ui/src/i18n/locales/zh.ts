@@ -685,5 +685,10 @@ export const zh = {
       ...zhBase.translation.dashboard,
       sourceValidateLog: "内核日志校验",
     },
+    observability: {
+      ...zhBase.translation.observability,
+      rate: "实时速率",
+      sortByRate: "按实时速率",
+    },
   },
 } as const

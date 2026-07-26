@@ -26,6 +26,7 @@ import {
 } from "@/features/observability/connection-export"
 import { ConnectionGroupTable } from "@/features/observability/connection-group-table"
 import { ConnectionListTable } from "@/features/observability/connection-list-table"
+import { formatConnectionRatePair } from "@/features/observability/connection-rate"
 import {
   connectionFiltersActive,
   filterConnectionsByFacets,
@@ -48,6 +49,7 @@ import { StreamErrorAlert } from "@/features/observability/stream-error-alert"
 import { StreamStatusBadge } from "@/features/observability/stream-status-badge"
 import { useStreamBuffer } from "@/features/observability/use-stream-buffer"
 import { useConnectionCloseActions } from "@/features/observability/use-connection-close-actions"
+import { useConnectionRates } from "@/features/observability/use-connection-rates"
 import { api } from "@/lib/api/endpoints"
 import type { ConnectionEvent } from "@/lib/api/types"
 
@@ -60,7 +62,8 @@ export function ConnectionsPage() {
   const view: ConnectionView = filters.view ?? "list"
   const sort: ConnectionSortKey = filters.sort ?? "traffic"
   const [columns, setColumns] = useState<ConnectionColumnId[]>(() => loadConnectionColumns())
-  const liveConnections = useMemo(() => stream.items.at(-1)?.list ?? [], [stream.items])
+  const snapshotConnections = useMemo(() => stream.items.at(-1)?.list ?? [], [stream.items])
+  const liveConnections = useConnectionRates(snapshotConnections)
   const {
     connections,
     closingId,
@@ -89,6 +92,7 @@ export function ConnectionsPage() {
   const canExport = sorted.length > 0
   const sortOptions = useMemo(() => ([
     { label: t("observability.sortByTraffic"), value: "traffic" as const },
+    { label: t("observability.sortByRate"), value: "rate" as const },
     { label: t("observability.sortByDownload"), value: "download" as const },
     { label: t("observability.sortByUpload"), value: "upload" as const },
     { label: t("observability.sortByDuration"), value: "duration" as const },
@@ -183,6 +187,7 @@ export function ConnectionsPage() {
             <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground sm:text-sm">
               <span>{t("dashboard.upload")}: {formatBytes(summary.upload)}</span>
               <span>{t("dashboard.download")}: {formatBytes(summary.download)}</span>
+              <span>{t("observability.rate")}: {summary.rateSamples === filtered.length && filtered.length > 0 ? formatConnectionRatePair(summary.uploadRate, summary.downloadRate) : "—"}</span>
               <span>{t("observability.outboundCount", { count: summary.outbounds })}</span>
             </div>
           </div>

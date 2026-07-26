@@ -1,17 +1,24 @@
 import type { Connection } from "@/lib/api/types"
+import { connectionRateTotal, type ConnectionWithRates } from "@/features/observability/connection-rate"
 
 export interface ConnectionGroupStat {
   key: string
   count: number
   upload: number
   download: number
+  uploadRate: number
+  downloadRate: number
+  rateSamples: number
 }
 
-export function summarizeConnections(connections: Connection[]) {
+export function summarizeConnections(connections: ConnectionWithRates[]) {
   const upload = connections.reduce((sum, item) => sum + (item.upload || 0), 0)
   const download = connections.reduce((sum, item) => sum + (item.download || 0), 0)
+  const uploadRate = connections.reduce((sum, item) => sum + (item.uploadRate ?? 0), 0)
+  const downloadRate = connections.reduce((sum, item) => sum + (item.downloadRate ?? 0), 0)
+  const rateSamples = connections.filter((item) => connectionRateTotal(item) !== undefined).length
   const outbounds = new Set(connections.map((item) => item.outbound).filter(Boolean)).size
-  return { upload, download, outbounds }
+  return { upload, download, uploadRate, downloadRate, rateSamples, outbounds }
 }
 
 function groupFieldValue(connection: Connection, field: "outbound" | "rule" | "process"): string {
@@ -24,17 +31,20 @@ function groupFieldValue(connection: Connection, field: "outbound" | "rule" | "p
 }
 
 export function aggregateConnections(
-  connections: Connection[],
+  connections: ConnectionWithRates[],
   field: "outbound" | "rule" | "process",
   limit = 8,
 ): ConnectionGroupStat[] {
   const buckets = new Map<string, ConnectionGroupStat>()
   for (const connection of connections) {
     const key = groupFieldValue(connection, field)
-    const current = buckets.get(key) ?? { key, count: 0, upload: 0, download: 0 }
+    const current = buckets.get(key) ?? { key, count: 0, upload: 0, download: 0, uploadRate: 0, downloadRate: 0, rateSamples: 0 }
     current.count += 1
     current.upload += connection.upload || 0
     current.download += connection.download || 0
+    current.uploadRate += connection.uploadRate ?? 0
+    current.downloadRate += connection.downloadRate ?? 0
+    if (connectionRateTotal(connection) !== undefined) current.rateSamples += 1
     buckets.set(key, current)
   }
   return [...buckets.values()]

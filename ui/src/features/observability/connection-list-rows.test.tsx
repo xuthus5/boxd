@@ -6,6 +6,7 @@ import { MemoryRouter } from "react-router-dom"
 import { toast } from "sonner"
 
 import { ConnectionDesktopRow, ConnectionMobileCard } from "@/features/observability/connection-list-rows"
+import type { ConnectionWithRates } from "@/features/observability/connection-rate"
 import { i18n } from "@/i18n"
 import * as copy from "@/features/proxy/copy-tag-button"
 import type { Connection } from "@/lib/api/types"
@@ -58,12 +59,14 @@ describe("ConnectionDesktopRow", () => {
   it("renders all desktop cells, deep links, and close actions", async () => {
     const spy = vi.spyOn(copy, "copyText").mockResolvedValue()
     const onClose = vi.fn()
-    const fullConnection: Connection = {
+    const fullConnection: ConnectionWithRates = {
       ...connection,
       source: "10.0.0.2:1234",
       inbound: "mixed-in",
       protocol: "tls",
       process: "/usr/bin/curl",
+      uploadRate: 1024,
+      downloadRate: 2048,
     }
     render(
       <I18nextProvider i18n={i18n}>
@@ -72,7 +75,7 @@ describe("ConnectionDesktopRow", () => {
             <tbody>
               <ConnectionDesktopRow
                 connection={fullConnection}
-                columns={["target", "source", "network", "inbound", "outbound", "rule", "protocol", "process", "upload", "download", "duration", "actions"]}
+                columns={["target", "source", "network", "inbound", "outbound", "rule", "protocol", "process", "upload", "download", "rate", "duration", "actions"]}
                 busy={false}
                 onClose={onClose}
               />
@@ -98,6 +101,7 @@ describe("ConnectionDesktopRow", () => {
     expect(screen.getByTitle("10.0.0.2:1234")).toBeInTheDocument()
     expect(screen.getByText("mixed-in")).toBeInTheDocument()
     expect(screen.getByText("tls")).toBeInTheDocument()
+    expect(screen.getByText("↑ 1.00 KB/s · ↓ 2.00 KB/s")).toBeInTheDocument()
 
     await user.click(screen.getByRole("button", { name: "复制目标: api.example.com:443" }))
     await user.click(screen.getByRole("button", { name: "复制连接: api.example.com:443" }))
@@ -154,8 +158,8 @@ describe("ConnectionMobileCard", () => {
       <I18nextProvider i18n={i18n}>
         <MemoryRouter>
           <ConnectionMobileCard
-            connection={{ ...connection, source: "10.0.0.2:1234", inbound: "mixed-in", protocol: "tls", process: "/usr/bin/curl" }}
-            columns={["target", "network", "inbound", "outbound", "rule", "protocol", "process", "source", "upload", "download", "duration", "actions"]}
+            connection={{ ...connection, source: "10.0.0.2:1234", inbound: "mixed-in", protocol: "tls", process: "/usr/bin/curl", uploadRate: 1024, downloadRate: 2048 }}
+            columns={["target", "network", "inbound", "outbound", "rule", "protocol", "process", "source", "upload", "download", "rate", "duration", "actions"]}
             busy={false}
             onClose={onClose}
           />
@@ -169,6 +173,7 @@ describe("ConnectionMobileCard", () => {
     expect(screen.getByTitle("10.0.0.2:1234")).toBeInTheDocument()
     expect(screen.getByText(/上传:/)).toBeInTheDocument()
     expect(screen.getByText(/下载:/)).toBeInTheDocument()
+    expect(screen.getByText(/实时速率:/)).toHaveTextContent("↑ 1.00 KB/s · ↓ 2.00 KB/s")
     expect(screen.getByText(/时长:/)).toBeInTheDocument()
     await user.click(screen.getByRole("button", { name: "复制目标: api.example.com:443" }))
     await user.click(screen.getByRole("button", { name: "复制连接: api.example.com:443" }))

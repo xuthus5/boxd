@@ -7,6 +7,7 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { TableCell, TableRow } from "@/components/ui/table"
 import { formatBytes } from "@/features/dashboard/format"
+import { formatConnectionRatePair, type ConnectionWithRates } from "@/features/observability/connection-rate"
 import {
   CONNECTION_COLUMNS,
   connectionColumnVisible,
@@ -24,10 +25,9 @@ import {
   titleFor,
 } from "@/features/observability/connection-list-helpers"
 import { copyText } from "@/features/proxy/copy-tag-button"
-import type { Connection } from "@/lib/api/types"
 import { cn } from "@/lib/utils"
 
-function copyConnectionDiagnostics(connection: Connection, t: (key: string) => string) {
+function copyConnectionDiagnostics(connection: ConnectionWithRates, t: (key: string) => string) {
   const payload = formatConnectionClipboardText(connection)
   if (!payload) return
   void copyText(payload).then(
@@ -46,7 +46,7 @@ export function ConnectionMobileCard({
   busy,
   onClose,
 }: {
-  connection: Connection
+  connection: ConnectionWithRates
   columns: readonly ConnectionColumnId[]
   busy: boolean
   onClose: (id: string) => void
@@ -122,19 +122,18 @@ export function ConnectionMobileCard({
               {t("observability.viewRule")}
             </Link>
           ) : null}
-                  <Button
-          type="button"
-          size="sm"
-          className="h-8"
-          variant="outline"
-          aria-label={`${t("observability.copyConnection")}: ${connection.target || id}`}
-          onClick={() => copyConnectionDiagnostics(connection, t)}
-        >
-          <CopyIcon data-icon="inline-start" />
-          {t("observability.copyConnection")}
-        </Button>
-        <Button size="sm" className="h-8" variant="destructive" disabled={busy} onClick={() => onClose(id)}>
-
+          <Button
+            type="button"
+            size="sm"
+            className="h-8"
+            variant="outline"
+            aria-label={`${t("observability.copyConnection")}: ${connection.target || id}`}
+            onClick={() => copyConnectionDiagnostics(connection, t)}
+          >
+            <CopyIcon data-icon="inline-start" />
+            {t("observability.copyConnection")}
+          </Button>
+          <Button size="sm" className="h-8" variant="destructive" disabled={busy} onClick={() => onClose(id)}>
             {t("observability.close")}
           </Button>
         </CardAction>
@@ -150,6 +149,7 @@ export function ConnectionMobileCard({
         <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
           {show("upload") ? <span>{t("dashboard.upload")}: {formatBytes(connection.upload)}</span> : null}
           {show("download") ? <span>{t("dashboard.download")}: {formatBytes(connection.download)}</span> : null}
+          {show("rate") ? <span>{t("observability.rate")}: {formatConnectionRatePair(connection.uploadRate, connection.downloadRate)}</span> : null}
           {show("duration") ? <span>{t("observability.duration")}: {duration}</span> : null}
         </div>
       </CardContent>
@@ -163,7 +163,7 @@ export function ConnectionDesktopRow({
   busy,
   onClose,
 }: {
-  connection: Connection
+  connection: ConnectionWithRates
   columns: readonly ConnectionColumnId[]
   busy: boolean
   onClose: (id: string) => void
@@ -221,7 +221,6 @@ export function ConnectionDesktopRow({
                   {t("observability.copyConnection")}
                 </Button>
                 <Button size="sm" className="h-8" variant="destructive" disabled={busy} onClick={() => onClose(id)}>
-
                   {t("observability.close")}
                 </Button>
               </div>
@@ -244,10 +243,10 @@ export function ConnectionDesktopRow({
                     void copyText(connection.target!).then(
                       () => toast.success(t("observability.targetCopied")),
                       (error: unknown) => reportExportError(error, t, {
-                    scope: "connections",
-                    kind: "copy-target",
-                    fallback: t("observability.targetCopyFailed"),
-                  }),
+                        scope: "connections",
+                        kind: "copy-target",
+                        fallback: t("observability.targetCopyFailed"),
+                      }),
                     )
                   }}
                 >
