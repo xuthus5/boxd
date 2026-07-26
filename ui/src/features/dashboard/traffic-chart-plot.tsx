@@ -16,6 +16,7 @@ const TRAFFIC_MIN_TIME_TICK_SPACING = 80
 const TRAFFIC_VALUE_TICK_COUNT = 4
 const TRAFFIC_X_LABEL_OFFSET = 20
 const TRAFFIC_Y_LABEL_OFFSET = 8
+const TRAFFIC_ORIGIN_BUCKET_MS = 60 * 60 * 1000
 const EMPTY_CURVE_POINTS: readonly TrafficCurvePoint[] = []
 
 type TrafficPlotArea = NonNullable<ReturnType<typeof usePlotArea>>
@@ -28,6 +29,7 @@ interface TrafficCurvePoint {
 
 interface SmoothTrafficCurveProps extends Omit<CurveProps, "points"> {
   points?: readonly TrafficCurvePoint[]
+  translateX?: number
   transitionDuration?: number
 }
 
@@ -47,99 +49,58 @@ interface TrafficAxesProps extends Pick<TrafficPlotProps, "timeDomain" | "valueD
 interface TrafficSeriesProps {
   data: TrafficChartPoint[]
   dataKey: string
+  timeOrigin: number
   timeDomain: TrafficDomain
   valueDomain: TrafficDomain
 }
 
-function curveTimestamp(point: TrafficCurvePoint) {
-  const timestamp = point.payload?.timestamp
-  return typeof timestamp === "string" ? timestamp : undefined
-}
-
-function curveStartPoints(previous: readonly TrafficCurvePoint[], target: readonly TrafficCurvePoint[]) {
-  if (previous.length === 0 || target.length === 0) return undefined
-  const previousByTimestamp = new Map<string, TrafficCurvePoint>()
-  for (const point of previous) {
-    const timestamp = curveTimestamp(point)
-    if (timestamp) previousByTimestamp.set(timestamp, point)
-  }
-  const tail = previous.at(-1)
-  let matches = 0
-  const start = target.map((point, index) => {
-    const timestamp = curveTimestamp(point)
-    const matched = timestamp ? previousByTimestamp.get(timestamp) : previous[index]
-    if (matched) matches += 1
-    const origin = matched ?? tail
-    return origin ? { ...point, x: origin.x, y: origin.y } : point
-  })
-  return matches > 0 ? start : undefined
-}
-
-function interpolateCoordinate(start: number | null, target: number | null, progress: number) {
-  if (start === null || target === null) return target
-  return start + ((target - start) * progress)
-}
-
-function interpolateCurvePoints(
-  start: readonly TrafficCurvePoint[],
-  target: readonly TrafficCurvePoint[],
-  progress: number,
-) {
-  return target.map((point, index) => {
-    const origin = start[index] ?? point
-    return {
-      ...point,
-      x: interpolateCoordinate(origin.x, point.x, progress),
-      y: interpolateCoordinate(origin.y, point.y, progress),
-    }
-  })
-}
-
-function shouldSkipCurveMotion(duration: number) {
-  return duration <= 0 || window.matchMedia("(prefers-reduced-motion: reduce)").matches
-}
-
 export function SmoothTrafficCurve({
-  points,
+  points = EMPTY_CURVE_POINTS,
+  translateX = 0,
   transitionDuration = TRAFFIC_UPDATE_DURATION_MS,
   ...curveProps
 }: SmoothTrafficCurveProps) {
-  const [displayedPoints, setDisplayedPoints] = useState<readonly TrafficCurvePoint[]>(points ?? EMPTY_CURVE_POINTS)
-  const displayedPointsRef = useRef(displayedPoints)
-
+  const motionRef = useRef<SVGGElement | null>(null)
+  const hasPoints = points.length > 0
   useEffect(() => {
-    if (points === undefined || displayedPointsRef.current === points) return
-    const start = curveStartPoints(displayedPointsRef.current, points)
-    if (!start || shouldSkipCurveMotion(transitionDuration)) {
-      displayedPointsRef.current = points
-      setDisplayedPoints(points)
+    const motion = motionRef.current
+    if (!motion) return
+    if (!hasPoints) {
+      motion.classList.remove("transition-transform")
       return
     }
-    const startedAt = performance.now()
-    let frame = 0
-    const update = (timestamp: number) => {
-      const progress = Math.min(1, Math.max(0, (timestamp - startedAt) / transitionDuration))
-      const next = progress === 1 ? points : interpolateCurvePoints(start, points, progress)
-      displayedPointsRef.current = next
-      setDisplayedPoints(next)
-      if (progress < 1) frame = window.requestAnimationFrame(update)
+    let readyFrame = 0
+    const paintFrame = window.requestAnimationFrame(() => {
+      readyFrame = window.requestAnimationFrame(() => motion.classList.add("transition-transform"))
+    })
+    return () => {
+      window.cancelAnimationFrame(paintFrame)
+      window.cancelAnimationFrame(readyFrame)
     }
-    frame = window.requestAnimationFrame(update)
-    return () => window.cancelAnimationFrame(frame)
-  }, [points, transitionDuration])
+  }, [hasPoints])
 
-  return <Curve {...curveProps} points={displayedPoints} />
+  return <g
+    ref={motionRef}
+    className="ease-linear motion-reduce:transition-none will-change-transform"
+    style={{ transform: `translateX(${translateX}px)`, transitionDuration: `${transitionDuration}ms` }}
+  >
+    <Curve {...curveProps} points={points} />
+  </g>
+}
+
+function samePlotArea(left: TrafficPlotArea | undefined, right: TrafficPlotArea | undefined) {
+  return left?.x === right?.x
+    && left?.y === right?.y
+    && left?.width === right?.width
+    && left?.height === right?.height
 }
 
 function useStablePlotArea() {
   const current = usePlotArea()
   const [stable, setStable] = useState(current)
-  useEffect(() => {
-    if (!current || current === stable) return
-    const frame = window.requestAnimationFrame(() => setStable(current))
-    return () => window.cancelAnimationFrame(frame)
-  }, [current, stable])
-  return current ?? stable
+  if (!current || samePlotArea(current, stable)) return stable
+  setStable(current)
+  return current
 }
 
 function scaleCoordinate(input: {
@@ -156,12 +117,14 @@ function scaleCoordinate(input: {
 
 function scaledCurvePoints(input: TrafficSeriesProps & { plotArea: TrafficPlotArea }) {
   const points: TrafficCurvePoint[] = []
+  const windowSize = input.timeDomain[1] - input.timeDomain[0]
+  const pixelsPerMillisecond = windowSize > 0 ? input.plotArea.width / windowSize : 0
   for (const point of input.data) {
     const timestamp = getTrafficTimestampValue(point)
     const value = getTrafficPointValue(point, input.dataKey)
     if (value === undefined || timestamp < input.timeDomain[0] || timestamp > input.timeDomain[1]) continue
     points.push({
-      x: scaleCoordinate({ value: timestamp, domain: input.timeDomain, start: input.plotArea.x, length: input.plotArea.width }),
+      x: (timestamp - input.timeOrigin) * pixelsPerMillisecond,
       y: scaleCoordinate({ value, domain: input.valueDomain, start: input.plotArea.y, length: input.plotArea.height, invert: true }),
       payload: point,
     })
@@ -169,23 +132,47 @@ function scaledCurvePoints(input: TrafficSeriesProps & { plotArea: TrafficPlotAr
   return points
 }
 
+function trafficCurveTranslateX(input: Pick<TrafficSeriesProps, "timeDomain" | "timeOrigin"> & { plotArea: TrafficPlotArea }) {
+  const windowSize = input.timeDomain[1] - input.timeDomain[0]
+  if (windowSize <= 0) return input.plotArea.x
+  const pixelsPerMillisecond = input.plotArea.width / windowSize
+  return input.plotArea.x - ((input.timeDomain[0] - input.timeOrigin) * pixelsPerMillisecond)
+}
+
 function TrafficSeries(props: TrafficSeriesProps) {
-  const { data, dataKey, timeDomain, valueDomain } = props
+  const { data, dataKey, timeDomain, timeOrigin, valueDomain } = props
   const plotArea = useStablePlotArea()
-  const points = useMemo(
-    () => plotArea ? scaledCurvePoints({ data, dataKey, timeDomain, valueDomain, plotArea }) : undefined,
-    [data, dataKey, plotArea, timeDomain, valueDomain],
+  const geometry = useMemo(
+    () => plotArea ? {
+      points: scaledCurvePoints({ data, dataKey, timeDomain, timeOrigin, valueDomain, plotArea }),
+      translateX: trafficCurveTranslateX({ timeDomain, timeOrigin, plotArea }),
+    } : undefined,
+    [data, dataKey, plotArea, timeDomain, timeOrigin, valueDomain],
   )
   return <SmoothTrafficCurve
     className="traffic-chart-curve"
     data-series={dataKey}
-    points={points}
+    points={geometry?.points}
+    translateX={geometry?.translateX}
     type="monotone"
     fill="none"
     stroke={`var(--color-${dataKey})`}
     strokeLinecap="round"
     strokeLinejoin="round"
   />
+}
+
+function trafficTimeOrigin(data: readonly TrafficChartPoint[]) {
+  const timestamp = data.map(getTrafficTimestampValue).find((value) => value > 0)
+  return timestamp === undefined ? undefined : Math.floor(timestamp / TRAFFIC_ORIGIN_BUCKET_MS) * TRAFFIC_ORIGIN_BUCKET_MS
+}
+
+function useTrafficTimeOrigin(data: readonly TrafficChartPoint[]) {
+  const candidate = trafficTimeOrigin(data)
+  const [origin, setOrigin] = useState(candidate)
+  if (origin !== undefined || candidate === undefined) return origin ?? 0
+  setOrigin(candidate)
+  return candidate
 }
 
 function domainTicks(domain: TrafficDomain, count: number) {
@@ -210,7 +197,7 @@ function timeTicks(domain: TrafficDomain, width: number) {
 
 function TrafficAxes({ timeDomain, valueDomain, formatter, hasData }: TrafficAxesProps) {
   const plotArea = useStablePlotArea()
-  const [initialDomainEnd] = useState(timeDomain[1])
+  const [initialDomainEnd] = useState(() => timeDomain[1])
   if (!plotArea || !hasData) return null
   const xTicks = timeTicks(timeDomain, plotArea.width)
   const yTicks = domainTicks(valueDomain, TRAFFIC_VALUE_TICK_COUNT)
@@ -259,6 +246,7 @@ function TrafficLine({ dataKey }: { dataKey: string }) {
 
 export function TrafficPlot(props: TrafficPlotProps) {
   const hasData = props.data.some((point) => getTrafficTimestampValue(point) > 0)
+  const timeOrigin = useTrafficTimeOrigin(props.data)
   return <>
     <YAxis width={TRAFFIC_AXIS_WIDTH} domain={props.valueDomain} allowDataOverflow tick={false} tickLine={false} axisLine={false} tickFormatter={props.formatter} />
     <XAxis
@@ -274,7 +262,7 @@ export function TrafficPlot(props: TrafficPlotProps) {
     <TrafficAxes timeDomain={props.timeDomain} valueDomain={props.valueDomain} formatter={props.formatter} hasData={hasData} />
     <TrafficLine dataKey={props.uploadKey} />
     <TrafficLine dataKey={props.downloadKey} />
-    <TrafficSeries data={props.data} dataKey={props.uploadKey} timeDomain={props.timeDomain} valueDomain={props.valueDomain} />
-    <TrafficSeries data={props.data} dataKey={props.downloadKey} timeDomain={props.timeDomain} valueDomain={props.valueDomain} />
+    <TrafficSeries data={props.data} dataKey={props.uploadKey} timeDomain={props.timeDomain} timeOrigin={timeOrigin} valueDomain={props.valueDomain} />
+    <TrafficSeries data={props.data} dataKey={props.downloadKey} timeDomain={props.timeDomain} timeOrigin={timeOrigin} valueDomain={props.valueDomain} />
   </>
 }
