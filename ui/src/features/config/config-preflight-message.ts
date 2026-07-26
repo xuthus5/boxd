@@ -14,5 +14,9 @@ export function configPreflightMessageKey(code: ConfigPreflightCode): string {
       return "advanced.preflightMissingRuleSet"
     case "empty_group":
       return "advanced.preflightEmptyGroup"
+    case "invalid_group_default":
+      return "advanced.preflightInvalidGroupDefault"
+    case "outbound_dependency_cycle":
+      return "advanced.preflightOutboundDependencyCycle"
   }
 }

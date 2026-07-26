@@ -17,6 +17,8 @@ describe("config diagnostics helpers", () => {
     expect(configDiagnosticIssueLabelKey("invalid_json")).toContain("invalidJSON")
     expect(configDiagnosticIssueLabelKey("missing_tag")).toContain("missingTag")
     expect(configDiagnosticIssueHintKey("empty_group")).toContain("emptyGroup")
+    expect(configDiagnosticIssueLabelKey("invalid_group_default")).toContain("invalidGroupDefault")
+    expect(configDiagnosticIssueHintKey("outbound_dependency_cycle")).toContain("outboundDependencyCycle")
     expect(configDiagnosticIssueHintKey("future_code")).toContain("unknown")
   })
 

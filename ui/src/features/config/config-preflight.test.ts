@@ -11,6 +11,10 @@ function hasIssue(issues: ConfigPreflightIssue[], code: ConfigPreflightIssue["co
   return issues.some((item) => item.code === code && item.path === path)
 }
 
+function issueByCode(issues: ConfigPreflightIssue[], code: string, path: string) {
+  return issues.find((item) => item.code === code && item.path === path)
+}
+
 describe("preflightConfig", () => {
   it("accepts valid outbound, DNS, route, and nested rule references", () => {
     const issues = issuesFor({
@@ -116,7 +120,7 @@ describe("preflightConfig", () => {
     expect(hasIssue(issues, "missing_dns_server", "route.rules[0].server")).toBe(true)
   })
 
-  it("warns about empty selector and urltest groups", () => {
+  it("rejects empty selector and urltest groups", () => {
     const issues = issuesFor({
       outbounds: [
         { type: "selector", tag: "selector", outbounds: [] },
@@ -125,9 +129,40 @@ describe("preflightConfig", () => {
       ],
     })
     expect(issues).toEqual([
-      expect.objectContaining({ code: "empty_group", path: "outbounds[0].outbounds", severity: "warning", reference: "selector" }),
-      expect.objectContaining({ code: "empty_group", path: "outbounds[1].outbounds", severity: "warning", reference: "urltest" }),
+      expect.objectContaining({ code: "empty_group", path: "outbounds[0].outbounds", severity: "error", reference: "selector" }),
+      expect.objectContaining({ code: "empty_group", path: "outbounds[1].outbounds", severity: "error", reference: "urltest" }),
     ])
+  })
+
+  it("rejects selector defaults outside the member list", () => {
+    const issues = issuesFor({
+      outbounds: [
+        { type: "direct", tag: "direct" },
+        { type: "direct", tag: "other" },
+        { type: "selector", tag: "group", outbounds: ["direct"], default: "other" },
+      ],
+    })
+    expect(issueByCode(issues, "invalid_group_default", "outbounds[2].default")).toEqual(expect.objectContaining({
+      severity: "error",
+      reference: "other",
+    }))
+  })
+
+  it("detects group and detour dependency cycles", () => {
+    const issues = issuesFor({
+      outbounds: [
+        { type: "selector", tag: "group-a", outbounds: ["group-b"] },
+        { type: "urltest", tag: "group-b", outbounds: ["group-a"] },
+        { type: "direct", tag: "detour-a", detour: "detour-b" },
+        { type: "direct", tag: "detour-b", detour: "detour-a" },
+      ],
+    })
+    expect(issueByCode(issues, "outbound_dependency_cycle", "outbounds[1].outbounds[0]")).toEqual(
+      expect.objectContaining({ severity: "error", reference: "group-a", relatedPath: "outbounds[0].tag" }),
+    )
+    expect(issueByCode(issues, "outbound_dependency_cycle", "outbounds[3].detour")).toEqual(
+      expect.objectContaining({ severity: "error", reference: "detour-a", relatedPath: "outbounds[2].tag" }),
+    )
   })
 
   it("supports implicit tags and ignores incomplete non-object sections", () => {

@@ -49,6 +49,8 @@ describe("ConfigPreflightPanel", () => {
       "missing_dns_server",
       "missing_rule_set",
       "empty_group",
+      "invalid_group_default",
+      "outbound_dependency_cycle",
     ]
     for (const code of codes) expect(configPreflightMessageKey(code)).toMatch(/^advanced\.preflight/)
   })

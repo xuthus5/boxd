@@ -1,4 +1,5 @@
 import type { SingBoxConfig } from "@/lib/api/types"
+import { checkOutboundTopology } from "@/features/config/config-preflight-outbound"
 
 export type ConfigPreflightSeverity = "error" | "warning"
 
@@ -9,6 +10,8 @@ export type ConfigPreflightCode =
   | "missing_dns_server"
   | "missing_rule_set"
   | "empty_group"
+  | "invalid_group_default"
+  | "outbound_dependency_cycle"
 
 export interface ConfigPreflightIssue {
   severity: ConfigPreflightSeverity
@@ -202,7 +205,7 @@ function checkOutboundEntries(
       const type = stringValue(entry.value.type)
       const members = arrayValue(entry.value.outbounds)
       if ((type === "selector" || type === "urltest") && members.length === 0) {
-        issues.push(issue("empty_group", `${path}.outbounds`, type, undefined, "warning"))
+        issues.push(issue("empty_group", `${path}.outbounds`, type))
       }
       for (const [index, member] of members.entries()) {
         checkReference(member, `${path}.outbounds[${index}]`, outboundTags, "missing_outbound", issues)
@@ -283,6 +286,7 @@ export function preflightConfig(config: SingBoxConfig): ConfigPreflightIssue[] {
   const dnsNamespace = isObject(dns) ? collectEntries(namedEntries(dns.servers, "dns.servers")) : { tags: new Map<string, NamedEntry>(), issues: [] }
   issues.push(...dnsNamespace.issues)
   checkOutboundEntries(config, outboundNamespace.tags, dnsNamespace.tags, issues)
+  issues.push(...checkOutboundTopology(outboundNamespace.tags))
   if (isObject(route)) checkRouteSection(route, outboundNamespace.tags, dnsNamespace.tags, ruleSetNamespace.tags, issues)
   if (isObject(dns)) checkDNSSection(dns, outboundNamespace.tags, dnsNamespace.tags, ruleSetNamespace.tags, issues)
   const ntp = objectValue(config, "ntp")

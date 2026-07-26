@@ -7,9 +7,10 @@ import (
 )
 
 type expectedConfigDiagnostic struct {
-	code  string
-	path  string
-	value string
+	code     string
+	severity string
+	path     string
+	value    string
 }
 
 const preflightReferenceParityConfig = `{
@@ -76,7 +77,7 @@ const preflightReferenceParityConfig = `{
 var preflightReferenceParityDiagnostics = []expectedConfigDiagnostic{
 	{code: "duplicate_tag", path: "dns.servers[1].tag", value: "duplicate"},
 	{code: "missing_tag", path: "route.rule_set[1].tag"},
-	{code: "empty_group", path: "outbounds[3].outbounds", value: "urltest"},
+	{code: "empty_group", severity: model.ConfigDiagnosticSeverityError, path: "outbounds[3].outbounds", value: "urltest"},
 	{code: "unknown_outbound_reference", path: "outbounds[1].detour", value: "missing-detour"},
 	{code: "unknown_outbound_reference", path: "outbounds[2].outbounds[0]", value: "missing-member"},
 	{code: "unknown_outbound_reference", path: "outbounds[2].default", value: "missing-default"},
@@ -181,7 +182,8 @@ func TestAnalyzeConfigAcceptsModernReferenceForms(t *testing.T) {
 	for _, issue := range report.Issues {
 		switch issue.Code {
 		case "duplicate_tag", "missing_tag", "empty_group", "unknown_outbound_reference",
-			"unknown_dns_reference", "unknown_ruleset_reference":
+			"unknown_dns_reference", "unknown_ruleset_reference", "invalid_group_default",
+			"outbound_dependency_cycle":
 			t.Fatalf("unexpected reference diagnostic = %#v", issue)
 		}
 	}
@@ -208,7 +210,8 @@ func requireConfigDiagnostic(
 	t.Helper()
 	for _, issue := range issues {
 		valueMatches := expected.value == "" || issue.Value == expected.value
-		if issue.Code == expected.code && issue.Path == expected.path && valueMatches {
+		severityMatches := expected.severity == "" || issue.Severity == expected.severity
+		if issue.Code == expected.code && issue.Path == expected.path && valueMatches && severityMatches {
 			return
 		}
 	}

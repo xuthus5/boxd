@@ -53,6 +53,7 @@ func checkOutboundReferences(
 		outboundChecker.check(entry.path+".default", object["default"])
 		outboundChecker.checkEmptyGroup(entry.path, object)
 	}
+	checkOutboundTopology(report, cfg, allOutbounds)
 	outboundChecker.checkDNSDetours(objectValue(cfg["dns"]))
 	outboundChecker.checkNTPDetour(objectValue(cfg["ntp"]))
 	outboundChecker.checkExperimentalDetour(objectValue(cfg["experimental"]))
@@ -132,7 +133,7 @@ func (c configReferenceChecker) checkEmptyGroup(path string, object map[string]a
 	}
 	members, _ := object["outbounds"].([]any)
 	if len(members) == 0 {
-		addDiagnostic(c.report, "empty_group", model.ConfigDiagnosticSeverityWarning, path+".outbounds", typeName, "")
+		addDiagnostic(c.report, "empty_group", model.ConfigDiagnosticSeverityError, path+".outbounds", typeName, "")
 	}
 }
 
