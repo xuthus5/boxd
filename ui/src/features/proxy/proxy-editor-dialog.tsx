@@ -16,10 +16,11 @@ interface ProxyEditorDialogProps {
   onJumpPathHandled?: () => void
   reportError?: (error: unknown) => ConfigSaveErrorState
   clearSaveError?: () => void
+  saving?: boolean
 }
 
 export function ProxyEditorDialog({
-  title, kind, item, index = -1, onClose, onSave, jumpPath, onJumpPathHandled, reportError, clearSaveError,
+  title, kind, item, index = -1, onClose, onSave, jumpPath, onJumpPathHandled, reportError, clearSaveError, saving = false,
 }: ProxyEditorDialogProps) {
   if (kind === "inbounds") {
     return (
@@ -33,6 +34,7 @@ export function ProxyEditorDialog({
         onJumpPathHandled={onJumpPathHandled}
         reportError={reportError}
         clearSaveError={clearSaveError}
+        saving={saving}
       />
     )
   }
@@ -47,6 +49,7 @@ export function ProxyEditorDialog({
       onJumpPathHandled={onJumpPathHandled}
       reportError={reportError}
       clearSaveError={clearSaveError}
+      saving={saving}
     />
   )
 }

@@ -34,6 +34,7 @@ interface OutboundEditorDialogProps {
   onJumpPathHandled?: () => void
   reportError?: (error: unknown) => ConfigSaveErrorState
   clearSaveError?: () => void
+  saving?: boolean
 }
 
 function parseObject(value: string) {
@@ -212,7 +213,7 @@ function FormTabs({ object, value, title, revision, activeTab, onTabChange, edit
   </Tabs>
 }
 
-export function OutboundEditorDialog({ title, item, index = -1, onClose, onSave, jumpPath, onJumpPathHandled, reportError, clearSaveError }: OutboundEditorDialogProps) {
+export function OutboundEditorDialog({ title, item, index = -1, onClose, onSave, jumpPath, onJumpPathHandled, reportError, clearSaveError, saving = false }: OutboundEditorDialogProps) {
   const { t } = useTranslation()
   const [value, setValue] = useState(() => JSON.stringify(item, null, 2))
   const [revision, setRevision] = useState(0)
@@ -237,7 +238,7 @@ export function OutboundEditorDialog({ title, item, index = -1, onClose, onSave,
     onReportedError: (err) => { if (err.path) reveal(err.path) },
   })
   useProxyJumpPath(jumpPath, onJumpPathHandled, reveal)
-  return <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
+  return <Dialog open onOpenChange={(open) => { if (!open && !saving) onClose() }}>
     <DialogContent className="max-h-[calc(100dvh-1rem)] min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] gap-3 p-3 sm:max-h-[calc(100dvh-2rem)] sm:max-w-5xl sm:gap-4 sm:p-4">
       <DialogHeader>
         <DialogTitle className="truncate">{title}</DialogTitle>
@@ -269,6 +270,7 @@ export function OutboundEditorDialog({ title, item, index = -1, onClose, onSave,
         onClose={onClose}
         onSave={() => { if (object) onSave(object) }}
         onValidate={() => { void validate() }}
+        saving={saving}
       />
     </DialogContent>
   </Dialog>

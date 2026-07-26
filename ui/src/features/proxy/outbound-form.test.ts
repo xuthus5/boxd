@@ -33,6 +33,8 @@ describe("outbound form metadata", () => {
     ]))
     expect(protocolFields("http")).toEqual(expect.arrayContaining([expect.objectContaining({ path: "headers", kind: "json-object" })]))
     expect(protocolFields("tor")).toEqual(expect.arrayContaining([expect.objectContaining({ path: "torrc", kind: "json-object" })]))
+    expect(protocolFields("shadowtls").map((field) => field.path)).not.toContain("server_name")
+    expect(outboundTLSFields.map((field) => field.path)).toContain("tls.server_name")
     expect(groupFields("selector")).toEqual(expect.arrayContaining([expect.objectContaining({ path: "outbounds", kind: "list" })]))
     expect(groupFields("urltest")).toEqual(expect.arrayContaining([expect.objectContaining({ path: "tolerance", kind: "number" })]))
   })

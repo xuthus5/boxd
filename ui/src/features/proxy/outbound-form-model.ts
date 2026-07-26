@@ -168,7 +168,6 @@ const protocolMap: Record<string, FieldSpec[]> = {
   shadowtls: [
     { path: "version", label: "version", kind: "number", section: "protocol" },
     { path: "password", label: "password", section: "auth" },
-    { path: "server_name", label: "serverName", section: "protocol" },
   ],
   anytls: [
     { path: "password", label: "password", section: "auth" },

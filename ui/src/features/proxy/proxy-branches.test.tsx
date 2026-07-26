@@ -45,4 +45,10 @@ describe("ProxyEditorDialog states", () => {
     await user.click(screen.getByRole("button", { name: "保存" }))
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ tag: "node", server: "new.example.com", server_port: 443 }))
   })
+
+  it("disables editor actions while saving", () => {
+    renderEditor(<ProxyEditorDialog title="编辑出站" kind="outbounds" item={{ tag: "node", type: "vless", server: "host", server_port: 443 }} saving onClose={vi.fn()} onSave={vi.fn()} />)
+    expect(screen.getByRole("button", { name: "取消" })).toBeDisabled()
+    expect(screen.getByRole("button", { name: "保存" })).toBeDisabled()
+  })
 })
