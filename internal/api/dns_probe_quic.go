@@ -24,7 +24,7 @@ var newDNSProbeTLSConfig = func(serverName string) *tls.Config {
 	return &tls.Config{MinVersion: tls.VersionTLS13, ServerName: serverName}
 }
 
-func exchangeDNSQUIC(msg *dns.Msg, addr, serverName string, timeout time.Duration) (*dns.Msg, error) {
+func exchangeDNSQUIC(ctx context.Context, msg *dns.Msg, addr, serverName string, timeout time.Duration) (*dns.Msg, error) {
 	frame, err := packDNSQUICFrame(msg)
 	if err != nil {
 		return nil, err
@@ -33,9 +33,9 @@ func exchangeDNSQUIC(msg *dns.Msg, addr, serverName string, timeout time.Duratio
 	if err != nil {
 		return nil, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	probeCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	connection, err := quic.DialAddr(ctx, addr, tlsConfig, &quic.Config{
+	connection, err := quic.DialAddr(probeCtx, addr, tlsConfig, &quic.Config{
 		HandshakeIdleTimeout: timeout,
 		MaxIdleTimeout:       timeout,
 	})
@@ -43,7 +43,7 @@ func exchangeDNSQUIC(msg *dns.Msg, addr, serverName string, timeout time.Duratio
 		return nil, err
 	}
 	defer func() { _ = connection.CloseWithError(0, "dns probe complete") }()
-	stream, err := connection.OpenStreamSync(ctx)
+	stream, err := connection.OpenStreamSync(probeCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +58,7 @@ func exchangeDNSQUIC(msg *dns.Msg, addr, serverName string, timeout time.Duratio
 	return readDNSQUICResponse(stream)
 }
 
-func exchangeDNSHTTP3(msg *dns.Msg, server string, port int, path string, timeout time.Duration) (*dns.Msg, error) {
+func exchangeDNSHTTP3(ctx context.Context, msg *dns.Msg, server string, port int, path string, timeout time.Duration) (*dns.Msg, error) {
 	endpoint, err := dnsHTTP3Endpoint(server, port, path)
 	if err != nil {
 		return nil, err
@@ -73,9 +73,9 @@ func exchangeDNSHTTP3(msg *dns.Msg, server string, port int, path string, timeou
 	}
 	transport := &http3.Transport{TLSClientConfig: tlsConfig}
 	defer func() { _ = transport.Close() }()
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	probeCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(wire))
+	request, err := http.NewRequestWithContext(probeCtx, http.MethodPost, endpoint, bytes.NewReader(wire))
 	if err != nil {
 		return nil, err
 	}

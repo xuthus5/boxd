@@ -29,19 +29,25 @@ var newDNSHTTPClient = func(server string, timeout time.Duration) *http.Client {
 	}
 }
 
-func exchangeDNSUDP(msg *dns.Msg, addr string, timeout time.Duration) (*dns.Msg, error) {
+func exchangeDNSUDP(ctx context.Context, msg *dns.Msg, addr string, timeout time.Duration) (*dns.Msg, error) {
+	probeCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 	client := &dns.Client{Net: "udp", Timeout: timeout}
-	resp, _, err := client.Exchange(msg, addr)
+	resp, _, err := client.ExchangeContext(probeCtx, msg, addr)
 	return resp, err
 }
 
-func exchangeDNSTCP(msg *dns.Msg, addr string, timeout time.Duration) (*dns.Msg, error) {
+func exchangeDNSTCP(ctx context.Context, msg *dns.Msg, addr string, timeout time.Duration) (*dns.Msg, error) {
+	probeCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 	client := &dns.Client{Net: "tcp", Timeout: timeout}
-	resp, _, err := client.Exchange(msg, addr)
+	resp, _, err := client.ExchangeContext(probeCtx, msg, addr)
 	return resp, err
 }
 
-func exchangeDNSTLS(msg *dns.Msg, addr, serverName string, timeout time.Duration) (*dns.Msg, error) {
+func exchangeDNSTLS(ctx context.Context, msg *dns.Msg, addr, serverName string, timeout time.Duration) (*dns.Msg, error) {
+	probeCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 	client := &dns.Client{
 		Net:     "tcp-tls",
 		Timeout: timeout,
@@ -50,11 +56,11 @@ func exchangeDNSTLS(msg *dns.Msg, addr, serverName string, timeout time.Duration
 			ServerName: serverName,
 		},
 	}
-	resp, _, err := client.Exchange(msg, addr)
+	resp, _, err := client.ExchangeContext(probeCtx, msg, addr)
 	return resp, err
 }
 
-func exchangeDNSDoH(msg *dns.Msg, server string, port int, path string, timeout time.Duration) (*dns.Msg, error) {
+func exchangeDNSDoH(ctx context.Context, msg *dns.Msg, server string, port int, path string, timeout time.Duration) (*dns.Msg, error) {
 	server, err := normalizeDNSProbeServer(server)
 	if err != nil {
 		return nil, err
@@ -79,10 +85,10 @@ func exchangeDNSDoH(msg *dns.Msg, server string, port int, path string, timeout 
 	q.Set("dns", base64.RawURLEncoding.EncodeToString(wire))
 	reqURL := endpoint + "?" + q.Encode()
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	probeCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	httpReq, err := http.NewRequestWithContext(probeCtx, http.MethodGet, reqURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -97,14 +103,20 @@ func exchangeDNSDoH(msg *dns.Msg, server string, port int, path string, timeout 
 		if httpResp != nil && httpResp.Body != nil {
 			_ = httpResp.Body.Close()
 		}
-		return exchangeDNSDoHPost(ctx, client, endpoint, wire)
+		if probeCtx.Err() != nil {
+			return nil, probeCtx.Err()
+		}
+		return exchangeDNSDoHPost(probeCtx, client, endpoint, wire)
 	}
 	if httpResp == nil || httpResp.Body == nil {
 		return nil, fmt.Errorf("doh response body is nil")
 	}
 	if httpResp.StatusCode != http.StatusOK {
 		_ = httpResp.Body.Close()
-		return exchangeDNSDoHPost(ctx, client, endpoint, wire)
+		if probeCtx.Err() != nil {
+			return nil, probeCtx.Err()
+		}
+		return exchangeDNSDoHPost(probeCtx, client, endpoint, wire)
 	}
 	defer func() { _ = httpResp.Body.Close() }()
 	body, err := readDNSMessageBody(httpResp.Body)

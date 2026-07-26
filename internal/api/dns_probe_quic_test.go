@@ -31,7 +31,7 @@ func TestExchangeDNSQUICUsesDoQFraming(t *testing.T) {
 
 	message := new(dns.Msg)
 	message.SetQuestion("example.com.", dns.TypeA)
-	response, err := exchangeDNSQUIC(message, listener.Addr().String(), "127.0.0.1", 2*time.Second)
+	response, err := exchangeDNSQUIC(t.Context(), message, listener.Addr().String(), "127.0.0.1", 2*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +52,7 @@ func TestExchangeDNSHTTP3UsesHTTP3Post(t *testing.T) {
 
 	message := new(dns.Msg)
 	message.SetQuestion("example.com.", dns.TypeA)
-	response, err := exchangeDNSHTTP3(message, "127.0.0.1", port, "/custom-dns", 2*time.Second)
+	response, err := exchangeDNSHTTP3(t.Context(), message, "127.0.0.1", port, "/custom-dns", 2*time.Second)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -154,7 +154,7 @@ func TestExchangeDNSHTTP3RejectsProtocolErrors(t *testing.T) {
 			installDNSProbeTestRoots(t, roots)
 			message := new(dns.Msg)
 			message.SetQuestion("example.com.", dns.TypeA)
-			if _, err := exchangeDNSHTTP3(message, "127.0.0.1", port, "/dns-query", time.Second); err == nil {
+			if _, err := exchangeDNSHTTP3(t.Context(), message, "127.0.0.1", port, "/dns-query", time.Second); err == nil {
 				t.Fatal("expected DoH3 protocol error")
 			}
 		})

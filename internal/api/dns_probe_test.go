@@ -126,87 +126,87 @@ func TestProbeDNSServerWithHooks(t *testing.T) {
 		dnsDoHExchange, dnsH3Exchange = origDoH, origH3
 	})
 
-	dnsUDPExchange = func(msg *dns.Msg, addr string, timeout time.Duration) (*dns.Msg, error) {
+	dnsUDPExchange = func(_ context.Context, msg *dns.Msg, addr string, timeout time.Duration) (*dns.Msg, error) {
 		if addr != "1.1.1.1:53" {
 			t.Fatalf("udp addr = %s", addr)
 		}
 		return successMsg, nil
 	}
-	dnsTCPExchange = func(msg *dns.Msg, addr string, timeout time.Duration) (*dns.Msg, error) {
+	dnsTCPExchange = func(_ context.Context, msg *dns.Msg, addr string, timeout time.Duration) (*dns.Msg, error) {
 		return successMsg, nil
 	}
-	dnsTLSExchange = func(msg *dns.Msg, addr, serverName string, timeout time.Duration) (*dns.Msg, error) {
+	dnsTLSExchange = func(_ context.Context, msg *dns.Msg, addr, serverName string, timeout time.Duration) (*dns.Msg, error) {
 		if serverName != "dns.google" {
 			t.Fatalf("tls sni = %s", serverName)
 		}
 		return successMsg, nil
 	}
-	dnsQUICExchange = func(msg *dns.Msg, addr, serverName string, timeout time.Duration) (*dns.Msg, error) {
+	dnsQUICExchange = func(_ context.Context, msg *dns.Msg, addr, serverName string, timeout time.Duration) (*dns.Msg, error) {
 		if addr != "dns.google:853" || serverName != "dns.google" {
 			t.Fatalf("quic target = %s sni=%s", addr, serverName)
 		}
 		return successMsg, nil
 	}
-	dnsDoHExchange = func(msg *dns.Msg, server string, port int, path string, timeout time.Duration) (*dns.Msg, error) {
+	dnsDoHExchange = func(_ context.Context, msg *dns.Msg, server string, port int, path string, timeout time.Duration) (*dns.Msg, error) {
 		if server != "dns.google" || port != 443 {
 			t.Fatalf("doh target = %s:%d", server, port)
 		}
 		return successMsg, nil
 	}
-	dnsH3Exchange = func(msg *dns.Msg, server string, port int, path string, timeout time.Duration) (*dns.Msg, error) {
+	dnsH3Exchange = func(_ context.Context, msg *dns.Msg, server string, port int, path string, timeout time.Duration) (*dns.Msg, error) {
 		if server != "dns.google" || port != 443 || path != "/dns-query" {
 			t.Fatalf("h3 target = %s:%d%s", server, port, path)
 		}
 		return successMsg, nil
 	}
 
-	udp := probeDNSServer(DNSProbeRequest{Tag: "cf", Type: "udp", Server: "1.1.1.1"})
+	udp := probeDNSServer(t.Context(), DNSProbeRequest{Tag: "cf", Type: "udp", Server: "1.1.1.1"})
 	if !udp.Success || udp.LatencyMs < 1 || len(udp.Answers) == 0 {
 		t.Fatalf("udp result = %+v", udp)
 	}
-	if !probeDNSServer(DNSProbeRequest{Type: "tcp", Server: "8.8.8.8"}).Success {
+	if !probeDNSServer(t.Context(), DNSProbeRequest{Type: "tcp", Server: "8.8.8.8"}).Success {
 		t.Fatal("tcp failed")
 	}
-	if !probeDNSServer(DNSProbeRequest{Type: "tls", Server: "dns.google"}).Success {
+	if !probeDNSServer(t.Context(), DNSProbeRequest{Type: "tls", Server: "dns.google"}).Success {
 		t.Fatal("tls failed")
 	}
-	if !probeDNSServer(DNSProbeRequest{Type: "https", Server: "dns.google"}).Success {
+	if !probeDNSServer(t.Context(), DNSProbeRequest{Type: "https", Server: "dns.google"}).Success {
 		t.Fatal("https failed")
 	}
-	if !probeDNSServer(DNSProbeRequest{Type: "quic", Server: "dns.google"}).Success {
+	if !probeDNSServer(t.Context(), DNSProbeRequest{Type: "quic", Server: "dns.google"}).Success {
 		t.Fatal("quic failed")
 	}
-	if !probeDNSServer(DNSProbeRequest{Type: "h3", Server: "dns.google"}).Success {
+	if !probeDNSServer(t.Context(), DNSProbeRequest{Type: "h3", Server: "dns.google"}).Success {
 		t.Fatal("h3 failed")
 	}
 
-	dnsUDPExchange = func(msg *dns.Msg, addr string, timeout time.Duration) (*dns.Msg, error) {
+	dnsUDPExchange = func(_ context.Context, msg *dns.Msg, addr string, timeout time.Duration) (*dns.Msg, error) {
 		return nil, fmt.Errorf("network down")
 	}
-	fail := probeDNSServer(DNSProbeRequest{Type: "udp", Server: "1.1.1.1"})
+	fail := probeDNSServer(t.Context(), DNSProbeRequest{Type: "udp", Server: "1.1.1.1"})
 	if fail.Success || fail.Error == "" || fail.ErrorCode != ProbeErrorNetwork {
 		t.Fatalf("expected network failure, got %+v", fail)
 	}
 
-	local := probeDNSServer(DNSProbeRequest{Type: "local", Tag: "sys"})
+	local := probeDNSServer(t.Context(), DNSProbeRequest{Type: "local", Tag: "sys"})
 	if local.Success || !strings.Contains(local.Error, "not probeable") || local.ErrorCode != ProbeErrorUnsupported {
 		t.Fatalf("local = %+v", local)
 	}
 
-	dnsUDPExchange = func(msg *dns.Msg, addr string, timeout time.Duration) (*dns.Msg, error) {
+	dnsUDPExchange = func(_ context.Context, msg *dns.Msg, addr string, timeout time.Duration) (*dns.Msg, error) {
 		msg2 := new(dns.Msg)
 		msg2.Rcode = dns.RcodeServerFailure
 		return msg2, nil
 	}
-	servfail := probeDNSServer(DNSProbeRequest{Type: "udp", Server: "1.1.1.1"})
+	servfail := probeDNSServer(t.Context(), DNSProbeRequest{Type: "udp", Server: "1.1.1.1"})
 	if servfail.Success || !strings.Contains(servfail.Error, "SERVFAIL") || servfail.ErrorCode != ProbeErrorDNSRcode {
 		t.Fatalf("servfail = %+v", servfail)
 	}
 
-	dnsUDPExchange = func(msg *dns.Msg, addr string, timeout time.Duration) (*dns.Msg, error) {
+	dnsUDPExchange = func(_ context.Context, msg *dns.Msg, addr string, timeout time.Duration) (*dns.Msg, error) {
 		return nil, nil
 	}
-	empty := probeDNSServer(DNSProbeRequest{Type: "udp", Server: "1.1.1.1"})
+	empty := probeDNSServer(t.Context(), DNSProbeRequest{Type: "udp", Server: "1.1.1.1"})
 	if empty.Success || empty.Error != "empty dns response" || empty.ErrorCode != ProbeErrorEmpty {
 		t.Fatalf("empty = %+v", empty)
 	}
@@ -215,7 +215,7 @@ func TestProbeDNSServerWithHooks(t *testing.T) {
 func TestProbeDNSHandlers(t *testing.T) {
 	origUDP := dnsUDPExchange
 	t.Cleanup(func() { dnsUDPExchange = origUDP })
-	dnsUDPExchange = func(msg *dns.Msg, addr string, timeout time.Duration) (*dns.Msg, error) {
+	dnsUDPExchange = func(_ context.Context, msg *dns.Msg, addr string, timeout time.Duration) (*dns.Msg, error) {
 		out := new(dns.Msg)
 		out.SetReply(msg)
 		out.Rcode = dns.RcodeSuccess
@@ -329,7 +329,7 @@ func TestExchangeDNSUDPAndTCPLocal(t *testing.T) {
 	addr := pc.LocalAddr().String()
 	msg := new(dns.Msg)
 	msg.SetQuestion("example.com.", dns.TypeA)
-	resp, err := exchangeDNSUDP(msg, addr, 2*time.Second)
+	resp, err := exchangeDNSUDP(t.Context(), msg, addr, 2*time.Second)
 	if err != nil || resp == nil || resp.Rcode != dns.RcodeSuccess {
 		t.Fatalf("udp exchange err=%v resp=%v", err, resp)
 	}
@@ -342,7 +342,7 @@ func TestExchangeDNSUDPAndTCPLocal(t *testing.T) {
 	go func() { _ = tcpServer.ActivateAndServe() }()
 	defer func() { _ = tcpServer.Shutdown() }()
 
-	resp, err = exchangeDNSTCP(msg, ln.Addr().String(), 2*time.Second)
+	resp, err = exchangeDNSTCP(t.Context(), msg, ln.Addr().String(), 2*time.Second)
 	if err != nil || resp == nil || resp.Rcode != dns.RcodeSuccess {
 		t.Fatalf("tcp exchange err=%v resp=%v", err, resp)
 	}
@@ -437,7 +437,7 @@ func TestExchangeDNSDoHWithHooklessServer(t *testing.T) {
 	// Invalid path prefix normalization + unreachable host error.
 	msg := new(dns.Msg)
 	msg.SetQuestion("example.com.", dns.TypeA)
-	_, err := exchangeDNSDoH(msg, "127.0.0.1", 1, "dns-query", 200*time.Millisecond)
+	_, err := exchangeDNSDoH(t.Context(), msg, "127.0.0.1", 1, "dns-query", 200*time.Millisecond)
 	if err == nil {
 		t.Fatal("expected connection error")
 	}
@@ -446,7 +446,7 @@ func TestExchangeDNSDoHWithHooklessServer(t *testing.T) {
 func TestExchangeDNSTLSUnreachable(t *testing.T) {
 	msg := new(dns.Msg)
 	msg.SetQuestion("example.com.", dns.TypeA)
-	_, err := exchangeDNSTLS(msg, "127.0.0.1:1", "localhost", 200*time.Millisecond)
+	_, err := exchangeDNSTLS(t.Context(), msg, "127.0.0.1:1", "localhost", 200*time.Millisecond)
 	if err == nil {
 		t.Fatal("expected tls dial error")
 	}
@@ -491,7 +491,7 @@ func TestExchangeDNSDoHGetSuccess(t *testing.T) {
 		return srv.Client()
 	}
 
-	resp, err := exchangeDNSDoH(msg, host, port, "dns-query", 2*time.Second)
+	resp, err := exchangeDNSDoH(t.Context(), msg, host, port, "dns-query", 2*time.Second)
 	if err != nil || resp == nil || resp.Rcode != dns.RcodeSuccess || len(resp.Answer) != 1 {
 		t.Fatalf("doh get err=%v resp=%v", err, resp)
 	}
@@ -527,7 +527,7 @@ func TestExchangeDNSDoHGetFallbackPost(t *testing.T) {
 	orig := newDNSHTTPClient
 	t.Cleanup(func() { newDNSHTTPClient = orig })
 	newDNSHTTPClient = func(server string, timeout time.Duration) *http.Client { return srv.Client() }
-	resp, err := exchangeDNSDoH(msg, host, port, "/dns-query", 2*time.Second)
+	resp, err := exchangeDNSDoH(t.Context(), msg, host, port, "/dns-query", 2*time.Second)
 	if err != nil || resp == nil || resp.Rcode != dns.RcodeSuccess {
 		t.Fatalf("fallback err=%v resp=%v", err, resp)
 	}
@@ -627,7 +627,7 @@ func TestDNSProbeBatchLimits(t *testing.T) {
 
 	origUDP := dnsUDPExchange
 	t.Cleanup(func() { dnsUDPExchange = origUDP })
-	dnsUDPExchange = func(*dns.Msg, string, time.Duration) (*dns.Msg, error) {
+	dnsUDPExchange = func(context.Context, *dns.Msg, string, time.Duration) (*dns.Msg, error) {
 		response := new(dns.Msg)
 		response.Rcode = dns.RcodeSuccess
 		return response, nil
@@ -664,7 +664,7 @@ func TestExchangeDNSDoHInvalidBody(t *testing.T) {
 	}
 	msg := new(dns.Msg)
 	msg.SetQuestion("example.com.", dns.TypeA)
-	_, err = exchangeDNSDoH(msg, host, port, "/dns-query", 2*time.Second)
+	_, err = exchangeDNSDoH(t.Context(), msg, host, port, "/dns-query", 2*time.Second)
 	if err == nil {
 		t.Fatal("expected unpack error")
 	}

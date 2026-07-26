@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/url"
@@ -49,7 +50,7 @@ var (
 	dnsH3Exchange   = exchangeDNSHTTP3
 )
 
-func probeDNSServer(req DNSProbeRequest) DNSProbeResult {
+func probeDNSServer(ctx context.Context, req DNSProbeRequest) DNSProbeResult {
 	tag := firstNonEmpty(req.Tag, req.Server, req.Address)
 	domain := strings.TrimSpace(req.Domain)
 	if domain == "" {
@@ -74,17 +75,17 @@ func probeDNSServer(req DNSProbeRequest) DNSProbeResult {
 	var resp *dns.Msg
 	switch proto {
 	case "udp":
-		resp, err = dnsUDPExchange(msg, joinHostPort(server, port), defaultDNSProbeTimeout)
+		resp, err = dnsUDPExchange(ctx, msg, joinHostPort(server, port), defaultDNSProbeTimeout)
 	case "tcp":
-		resp, err = dnsTCPExchange(msg, joinHostPort(server, port), defaultDNSProbeTimeout)
+		resp, err = dnsTCPExchange(ctx, msg, joinHostPort(server, port), defaultDNSProbeTimeout)
 	case "tls":
-		resp, err = dnsTLSExchange(msg, joinHostPort(server, port), server, defaultDNSProbeTimeout)
+		resp, err = dnsTLSExchange(ctx, msg, joinHostPort(server, port), server, defaultDNSProbeTimeout)
 	case "quic":
-		resp, err = dnsQUICExchange(msg, joinHostPort(server, port), server, defaultDNSProbeTimeout)
+		resp, err = dnsQUICExchange(ctx, msg, joinHostPort(server, port), server, defaultDNSProbeTimeout)
 	case "https":
-		resp, err = dnsDoHExchange(msg, server, port, path, defaultDNSProbeTimeout)
+		resp, err = dnsDoHExchange(ctx, msg, server, port, path, defaultDNSProbeTimeout)
 	case "h3":
-		resp, err = dnsH3Exchange(msg, server, port, path, defaultDNSProbeTimeout)
+		resp, err = dnsH3Exchange(ctx, msg, server, port, path, defaultDNSProbeTimeout)
 	default:
 		err = fmt.Errorf("dns type %q is not probeable", proto)
 	}

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"sync"
@@ -15,7 +16,11 @@ func (h *RuntimeHandler) ProbeDNS(w http.ResponseWriter, r *http.Request) {
 		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, "invalid request")
 		return
 	}
-	writeJSON(w, http.StatusOK, probeDNSServer(req))
+	result := probeDNSServer(r.Context(), req)
+	if r.Context().Err() != nil {
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 // ProbeDNSBatch POST /api/runtime/dns/probe-batch — 并发探测多个 DNS 服务器。
@@ -43,18 +48,47 @@ func (h *RuntimeHandler) ProbeDNSBatch(w http.ResponseWriter, r *http.Request) {
 		req.Concurrency = maxDNSProbeConcurrency
 	}
 
-	results := make([]DNSProbeResult, len(req.Items))
-	sem := make(chan struct{}, req.Concurrency)
-	var wg sync.WaitGroup
-	for i, item := range req.Items {
-		wg.Add(1)
-		go func(idx int, it DNSProbeRequest) {
-			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
-			results[idx] = probeDNSServer(it)
-		}(i, item)
+	results, completed := runDNSProbeBatch(r.Context(), req.Items, req.Concurrency)
+	if !completed {
+		return
 	}
-	wg.Wait()
 	writeJSON(w, http.StatusOK, map[string]any{"results": results})
+}
+
+func runDNSProbeBatch(ctx context.Context, items []DNSProbeRequest, concurrency int) ([]DNSProbeResult, bool) {
+	results := make([]DNSProbeResult, len(items))
+	jobs := make(chan int)
+	var wg sync.WaitGroup
+	workerCount := min(max(concurrency, 1), len(items))
+	for range workerCount {
+		wg.Go(func() {
+			for {
+				if ctx.Err() != nil {
+					return
+				}
+				select {
+				case <-ctx.Done():
+					return
+				case index, ok := <-jobs:
+					if !ok {
+						return
+					}
+					results[index] = probeDNSServer(ctx, items[index])
+				}
+			}
+		})
+	}
+	completed := true
+sendJobs:
+	for index := range items {
+		select {
+		case <-ctx.Done():
+			completed = false
+			break sendJobs
+		case jobs <- index:
+		}
+	}
+	close(jobs)
+	wg.Wait()
+	return results, completed && ctx.Err() == nil
 }
