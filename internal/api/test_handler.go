@@ -3,13 +3,10 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"net"
 	"net/http"
-	"os/exec"
-	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/xuthus5/boxd/internal/core"
@@ -29,15 +26,6 @@ type TestHandler struct {
 	instance    outboundDialer
 }
 
-var commandOutput = func(name string, args ...string) ([]byte, error) {
-	return exec.Command(name, args...).Output()
-}
-
-const (
-	maxBatchItems       = 128
-	maxBatchConcurrency = 32
-)
-
 type outboundDialer interface {
 	DialOutbound(ctx context.Context, tag, network, addr string) (net.Conn, error)
 	OutboundDelay(ctx context.Context, tag, link string, timeout time.Duration) (uint16, error)
@@ -45,24 +33,6 @@ type outboundDialer interface {
 
 func NewTestHandler(settingsURLFn func() string, nodeManager *core.NodeManager, instance outboundDialer) *TestHandler {
 	return &TestHandler{settingsURL: settingsURLFn, nodeManager: nodeManager, instance: instance}
-}
-
-// dispatchTest 执行单点测速并返回结果（不持久化）。不支持类型返回 error。
-func (h *TestHandler) dispatchTest(req TestRequest) (model.TestResult, error) {
-	var result model.TestResult
-	switch req.TestType {
-	case "tcp":
-		result = h.tcpPing(req)
-	case "http":
-		result = h.httpTest(req)
-	case "icmp":
-		result = h.icmpPing(req)
-	default:
-		return model.TestResult{}, fmt.Errorf("unsupported test_type: %s", req.TestType)
-	}
-	result.Tag = req.Tag
-	result.TestType = req.TestType
-	return result, nil
 }
 
 func (h *TestHandler) Run(w http.ResponseWriter, r *http.Request) {
@@ -76,99 +46,33 @@ func (h *TestHandler) Run(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.dispatchTest(req)
+	result, err := h.dispatchTest(r.Context(), req)
+	if r.Context().Err() != nil {
+		return
+	}
 	if err != nil {
 		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, err.Error())
 		return
 	}
-
-	// 持久化结果
-	key := req.Tag + "_" + req.TestType
-	if err := h.nodeManager.SaveTestResult(key, result); err != nil {
+	if err := h.persistTestResult(result); err != nil {
 		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorInternal, "failed to save test result")
 		return
 	}
-
+	if r.Context().Err() != nil {
+		return
+	}
 	writeJSON(w, http.StatusOK, result)
 }
 
-// RunBatch POST /api/nodes/test-batch：并发对多节点测速，结果统一返回并持久化。
-// 失败的节点隔离为独立错误结果，不影响其他节点。
-func (h *TestHandler) RunBatch(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Items       []TestRequest `json:"items"`
-		Concurrency int           `json:"concurrency"`
+func (h *TestHandler) persistTestResult(result model.TestResult) error {
+	if h.nodeManager == nil {
+		return errors.New("node manager not available")
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, "invalid request")
-		return
-	}
-	if len(req.Items) == 0 {
-		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, "items is empty")
-		return
-	}
-	if len(req.Items) > maxBatchItems {
-		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, "too many test items")
-		return
-	}
-	if req.Concurrency <= 0 {
-		req.Concurrency = defaultBatchConcurrency
-	}
-	if req.Concurrency > maxBatchConcurrency {
-		req.Concurrency = maxBatchConcurrency
-	}
-
-	results := make([]model.TestResult, len(req.Items))
-	sem := make(chan struct{}, req.Concurrency)
-	var wg sync.WaitGroup
-
-	for i, item := range req.Items {
-		wg.Add(1)
-		go func(idx int, it TestRequest) {
-			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
-
-			it.Tag = firstNonEmpty(it.Tag, it.Server)
-			r, err := h.dispatchTest(it)
-			if err != nil {
-				r = failedTestResult(err.Error(), err)
-				r.Tag = it.Tag
-				r.TestType = it.TestType
-			}
-			results[idx] = r
-
-			// 持久化（失败不影响整体）
-			key := r.Tag + "_" + nonEmpty(r.TestType, "test")
-			if h.nodeManager != nil {
-				_ = h.nodeManager.SaveTestResult(key, r)
-			}
-		}(i, item)
-	}
-	wg.Wait()
-
-	writeJSON(w, http.StatusOK, map[string]any{"results": results})
+	key := result.Tag + "_" + nonEmpty(result.TestType, "test")
+	return h.nodeManager.SaveTestResult(key, result)
 }
 
-var defaultBatchConcurrency = 8
-
-func firstNonEmpty(values ...string) string {
-	for _, v := range values {
-		if v != "" {
-			return v
-		}
-	}
-	return ""
-}
-
-func nonEmpty(a, fallback string) string {
-	if a != "" {
-		return a
-	}
-	return fallback
-}
-
-func (h *TestHandler) ListResults(w http.ResponseWriter, r *http.Request) {
+func (h *TestHandler) ListResults(w http.ResponseWriter, _ *http.Request) {
 	all := h.nodeManager.GetAllTestResults()
 	writeJSON(w, http.StatusOK, all)
 }
@@ -186,156 +90,4 @@ func (h *TestHandler) ListHistory(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"history": h.nodeManager.GetAllTestHistory(),
 	})
-}
-
-func (h *TestHandler) tcpPing(req TestRequest) model.TestResult {
-	if h.instance == nil {
-		return failedTestResult("test service not available", nil)
-	}
-	link := ""
-	if h.settingsURL != nil {
-		link = h.settingsURL()
-	}
-	if link != "" {
-		if err := core.ValidateHTTPURL(link); err != nil {
-			link = ""
-		}
-	}
-	const timeout = 5 * time.Second
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	delay, err := h.instance.OutboundDelay(ctx, req.Tag, link, timeout)
-	if err != nil {
-		return failedTestResult(err.Error(), err)
-	}
-	if delay == 0 {
-		return failedTestResult("delay test failed: no response", nil)
-	}
-	return model.TestResult{Success: true, LatencyMs: float64(delay)}
-}
-
-func (h *TestHandler) httpTest(req TestRequest) model.TestResult {
-	target := req.Server
-	if h.settingsURL != nil {
-		if u := h.settingsURL(); u != "" {
-			target = u
-		}
-	}
-	if target == "" {
-		target = defaultTestURL
-	}
-	if err := core.ValidateHTTPURL(target); err != nil {
-		return failedTestResult(err.Error(), err)
-	}
-
-	start := time.Now()
-
-	if h.instance == nil {
-		return failedTestResult("test service not available", nil)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	transport := &http.Transport{
-		DialContext: func(c context.Context, network, addr string) (net.Conn, error) {
-			return h.instance.DialOutbound(c, req.Tag, network, addr)
-		},
-	}
-	defer transport.CloseIdleConnections()
-	client := &http.Client{
-		Transport: transport,
-		Timeout:   5 * time.Second,
-		CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
-	if err != nil {
-		return failedTestResult(err.Error(), err)
-	}
-	resp, err := client.Do(httpReq)
-	if err != nil {
-		return failedTestResult(err.Error(), err)
-	}
-	if resp == nil || resp.Body == nil {
-		return failedTestResult("http test response body is nil", nil)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	latency := time.Since(start).Seconds() * 1000
-	return model.TestResult{Success: true, LatencyMs: latency}
-}
-
-// isValidPingTarget 使用 allowlist 验证 ping 目标：仅允许 IP 地址或合法域名。
-func isValidPingTarget(server string) bool {
-	if server == "" || len(server) > 253 {
-		return false
-	}
-	// 拒绝包含 shell 元字符的输入
-	if strings.ContainsAny(server, ";&|`$(){}\n\r\t ") {
-		return false
-	}
-	// 允许 IPv4/IPv6 地址
-	if net.ParseIP(server) != nil {
-		return true
-	}
-	// 允许合法域名格式（字母、数字、点、连字符）
-	for _, c := range server {
-		isLower := c >= 'a' && c <= 'z'
-		isUpper := c >= 'A' && c <= 'Z'
-		isDigit := c >= '0' && c <= '9'
-		isAllowed := isLower || isUpper || isDigit || c == '.' || c == '-'
-		if !isAllowed {
-			return false
-		}
-	}
-	// 必须包含至少一个点（防止 localhost 等特殊名称）
-	return strings.Contains(server, ".")
-}
-
-func (h *TestHandler) icmpPing(req TestRequest) model.TestResult {
-	server := strings.TrimSpace(req.Server)
-	if server == "" || !isValidPingTarget(server) {
-		return failedTestResult("invalid server address", nil)
-	}
-
-	start := time.Now()
-	output, err := commandOutput("ping", "-c", "1", "-W", "3", server)
-	latency := time.Since(start).Seconds() * 1000
-	if err != nil {
-		msg := fmt.Sprintf("ping failed: %s", strings.TrimSpace(string(output)))
-		if strings.TrimSpace(string(output)) == "" {
-			msg = fmt.Sprintf("ping failed: %s", err.Error())
-		}
-		return failedTestResult(msg, err)
-	}
-
-	for _, line := range strings.Split(string(output), "\n") {
-		if ms, ok := parsePingLatency(line); ok {
-			latency = ms
-			break
-		}
-	}
-	return model.TestResult{Success: true, LatencyMs: latency}
-}
-
-func parsePingLatency(line string) (float64, bool) {
-	idx := strings.Index(line, "time=")
-	if idx < 0 {
-		return 0, false
-	}
-
-	value := line[idx+len("time="):]
-	value = strings.TrimSpace(value)
-	fields := strings.Fields(value)
-	if len(fields) == 0 {
-		return 0, false
-	}
-
-	raw := strings.TrimSuffix(fields[0], "ms")
-	ms, err := strconv.ParseFloat(raw, 64)
-	if err != nil || ms <= 0 {
-		return 0, false
-	}
-	return ms, true
 }

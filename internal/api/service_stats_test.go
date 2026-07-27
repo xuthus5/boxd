@@ -123,7 +123,7 @@ func TestTestHandlerRunAndListResults(t *testing.T) {
 		t.Fatalf("results status/body = %d %s", rr.Code, rr.Body.String())
 	}
 
-	result := handler.icmpPing(TestRequest{Server: "bad;host"})
+	result := handler.icmpPing(t.Context(), TestRequest{Server: "bad;host"})
 	if result.Error != "invalid server address" {
 		t.Fatalf("icmp error = %q", result.Error)
 	}
@@ -132,7 +132,7 @@ func TestTestHandlerRunAndListResults(t *testing.T) {
 func TestTestHandlerTCPPing(t *testing.T) {
 	dialer := &fakeDialer{delay: 187}
 	handler := NewTestHandler(func() string { return "https://example.com/ping" }, nil, dialer)
-	result := handler.tcpPing(TestRequest{Tag: "proxy", Server: "example.com", Port: 443})
+	result := handler.tcpPing(t.Context(), TestRequest{Tag: "proxy", Server: "example.com", Port: 443})
 	if !result.Success || result.Error != "" || result.LatencyMs != 187 {
 		t.Fatalf("tcp result = %#v", result)
 	}
@@ -142,17 +142,17 @@ func TestTestHandlerTCPPing(t *testing.T) {
 	}
 
 	dialer.delayErr = errors.New("delay failed")
-	result = handler.tcpPing(TestRequest{Server: "example.com", Port: 443})
+	result = handler.tcpPing(t.Context(), TestRequest{Server: "example.com", Port: 443})
 	if result.Error == "" {
 		t.Fatalf("expected delay error, got %#v", result)
 	}
 
 	dialer.delayErr = nil
 	dialer.delay = 0
-	if result = handler.tcpPing(TestRequest{Tag: "proxy"}); result.Error == "" {
+	if result = handler.tcpPing(t.Context(), TestRequest{Tag: "proxy"}); result.Error == "" {
 		t.Fatalf("expected zero delay error, got %#v", result)
 	}
-	if result = NewTestHandler(nil, nil, nil).tcpPing(TestRequest{Tag: "proxy"}); result.Error == "" {
+	if result = NewTestHandler(nil, nil, nil).tcpPing(t.Context(), TestRequest{Tag: "proxy"}); result.Error == "" {
 		t.Fatalf("expected unavailable error, got %#v", result)
 	}
 }
@@ -163,7 +163,7 @@ func TestTestHandlerHTTPTestWithDialer(t *testing.T) {
 		nil,
 		&fakeDialer{connFactory: func() net.Conn { return newHTTPResponseConn() }},
 	)
-	result := handler.httpTest(TestRequest{Tag: "proxy", Server: "http://ignored.test/"})
+	result := handler.httpTest(t.Context(), TestRequest{Tag: "proxy", Server: "http://ignored.test/"})
 	if !result.Success || result.Error != "" {
 		t.Fatalf("http result = %#v", result)
 	}
@@ -173,7 +173,7 @@ func TestTestHandlerHTTPTestWithDialer(t *testing.T) {
 		nil,
 		&fakeDialer{err: errors.New("dial failed")},
 	)
-	result = handler.httpTest(TestRequest{Tag: "proxy"})
+	result = handler.httpTest(t.Context(), TestRequest{Tag: "proxy"})
 	if result.Error == "" {
 		t.Fatalf("expected dial error, got %#v", result)
 	}
@@ -183,7 +183,7 @@ func TestTestHandlerHTTPTestWithDialer(t *testing.T) {
 		nil,
 		&fakeDialer{connFactory: func() net.Conn { return newHTTPResponseConn() }},
 	)
-	result = invalid.httpTest(TestRequest{Tag: "proxy"})
+	result = invalid.httpTest(t.Context(), TestRequest{Tag: "proxy"})
 	if result.Success || result.ErrorCode != ProbeErrorInvalidInput {
 		t.Fatalf("invalid HTTP target = %#v", result)
 	}
@@ -194,18 +194,18 @@ func TestTestHandlerICMPPingAndLatencyParsing(t *testing.T) {
 	t.Cleanup(func() { commandOutput = previous })
 
 	handler := NewTestHandler(nil, nil, nil)
-	commandOutput = func(name string, args ...string) ([]byte, error) {
+	commandOutput = func(_ context.Context, name string, args ...string) ([]byte, error) {
 		return []byte("64 bytes from 1.1.1.1: icmp_seq=1 ttl=57 time=12.34 ms\n"), nil
 	}
-	result := handler.icmpPing(TestRequest{Server: "1.1.1.1"})
+	result := handler.icmpPing(t.Context(), TestRequest{Server: "1.1.1.1"})
 	if !result.Success || result.LatencyMs != 12.34 {
 		t.Fatalf("icmp result = %#v", result)
 	}
 
-	commandOutput = func(name string, args ...string) ([]byte, error) {
+	commandOutput = func(_ context.Context, name string, args ...string) ([]byte, error) {
 		return []byte("permission denied"), errors.New("failed")
 	}
-	result = handler.icmpPing(TestRequest{Server: "1.1.1.1"})
+	result = handler.icmpPing(t.Context(), TestRequest{Server: "1.1.1.1"})
 	if result.Error == "" {
 		t.Fatalf("expected ping error, got %#v", result)
 	}
