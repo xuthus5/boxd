@@ -1,5 +1,6 @@
 import { useMemo } from "react"
 
+import { buildSparklinePath } from "@/features/nodes/latency-sparkline-model"
 import type { LatencyPoint } from "@/lib/api/types"
 import { cn } from "@/lib/utils"
 
@@ -19,22 +20,4 @@ export function LatencySparkline({ points = [], className, "aria-label": ariaLab
       <path d={path} fill="none" stroke="currentColor" strokeWidth="2" vectorEffect="non-scaling-stroke" className="text-sky-600 dark:text-sky-400" />
     </svg>
   )
-}
-
-export function buildSparklinePath(points: readonly LatencyPoint[]): string | null {
-  const values = points.map((point) => (point.success && typeof point.latency_ms === "number" ? point.latency_ms : null))
-  const finite = values.filter((value): value is number => value !== null && Number.isFinite(value))
-  if (finite.length < 2) return null
-  const min = Math.min(...finite)
-  const max = Math.max(...finite)
-  const span = Math.max(max - min, 1)
-  const coords: Array<[number, number]> = []
-  values.forEach((value, index) => {
-    if (value === null || !Number.isFinite(value)) return
-    const x = (index / Math.max(points.length - 1, 1)) * 100
-    const y = 28 - ((value - min) / span) * 24
-    coords.push([x, y])
-  })
-  if (coords.length < 2) return null
-  return coords.map(([x, y], index) => `${index === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`).join(" ")
 }

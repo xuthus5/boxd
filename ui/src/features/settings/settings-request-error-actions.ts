@@ -2,7 +2,7 @@
 
 import { toast } from "sonner"
 
-import { copyText } from "@/features/proxy/copy-tag-button"
+import { copyText } from "@/lib/clipboard"
 import {
   classifySettingsRequestError,
   formatSettingsRequestErrorToast,

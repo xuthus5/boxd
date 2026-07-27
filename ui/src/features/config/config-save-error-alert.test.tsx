@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import { ConfigSaveErrorAlert } from "@/features/config/config-save-error-alert"
 import { i18n } from "@/i18n"
-import * as copy from "@/features/proxy/copy-tag-button"
+import * as copy from "@/lib/clipboard"
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 

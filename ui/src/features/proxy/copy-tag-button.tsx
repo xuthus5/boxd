@@ -3,14 +3,7 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
-
-export async function copyText(value: string) {
-  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(value)
-    return
-  }
-  throw new Error("clipboard unavailable")
-}
+import { copyText } from "@/lib/clipboard"
 
 export function CopyTagButton({ tag }: { tag: string }) {
   const { t } = useTranslation()

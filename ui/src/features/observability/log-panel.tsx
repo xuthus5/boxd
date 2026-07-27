@@ -11,7 +11,6 @@ import { VirtualList } from "@/components/virtual-list"
 import { useAuth } from "@/features/auth/auth-context"
 import {
   buildLogExportFilename,
-  copyText,
   downloadTextFile,
   formatLogExport,
 } from "@/features/observability/log-export"
@@ -39,6 +38,7 @@ import { useIsMobile } from "@/hooks/use-mobile"
 import { useVirtualWindow } from "@/hooks/use-virtual-window"
 import { usePreferences } from "@/features/preferences/preferences-provider"
 import type { LogEvent } from "@/lib/api/types"
+import { copyText } from "@/lib/clipboard"
 
 const DESKTOP_ROW_HEIGHT = 52
 const MOBILE_CARD_HEIGHT = 132

@@ -8,7 +8,7 @@ import {
   exportErrorHintKey,
   formatExportErrorToast,
 } from "@/features/observability/export-error"
-import { copyText } from "@/features/proxy/copy-tag-button"
+import { copyText } from "@/lib/clipboard"
 
 export function reportExportError(
   error: unknown,

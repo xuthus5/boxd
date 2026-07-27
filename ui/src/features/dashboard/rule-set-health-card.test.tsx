@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { toast } from "sonner"
 
 import { RuleSetHealthCard } from "@/features/dashboard/rule-set-health-card"
-import { copyText } from "@/features/proxy/copy-tag-button"
+import { copyText } from "@/lib/clipboard"
 import type { RuleSetStatusItem } from "@/lib/api/types"
 import { sessionStore } from "@/lib/session"
 import { renderApp } from "@/test/render"
@@ -13,7 +13,7 @@ import { renderApp } from "@/test/render"
 vi.mock("sonner", () => ({
   toast: { success: vi.fn(), warning: vi.fn(), error: vi.fn() },
 }))
-vi.mock("@/features/proxy/copy-tag-button", () => ({
+vi.mock("@/lib/clipboard", () => ({
   copyText: vi.fn().mockResolvedValue(undefined),
 }))
 

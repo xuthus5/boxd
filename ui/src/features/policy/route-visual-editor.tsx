@@ -36,7 +36,7 @@ import {
   ruleSetUpdateToastTone,
   summarizeRuleSetUpdate,
 } from "@/features/policy/ruleset-update-error"
-import { copyText } from "@/features/proxy/copy-tag-button"
+import { copyText } from "@/lib/clipboard"
 import { RouteVisualDialogs, type RouteEditorSelection } from "@/features/policy/route-visual-dialogs"
 import { routeRuleSets, routeRules, setRouteRuleSets, setRouteRules } from "@/features/policy/route-form-model"
 import { usePolicyVisualPathJump } from "@/features/policy/use-policy-visual-path-jump"

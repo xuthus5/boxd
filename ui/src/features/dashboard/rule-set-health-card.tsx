@@ -29,7 +29,7 @@ import {
   ruleSetUpdateToastTone,
   summarizeRuleSetUpdate,
 } from "@/features/policy/ruleset-update-error"
-import { copyText } from "@/features/proxy/copy-tag-button"
+import { copyText } from "@/lib/clipboard"
 import { api } from "@/lib/api/endpoints"
 import type { LogEvent, RuleSetAutoUpdate } from "@/lib/api/types"
 import { cn } from "@/lib/utils"

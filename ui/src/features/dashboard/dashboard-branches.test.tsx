@@ -83,7 +83,7 @@ describe("dashboard component states", () => {
   })
 
   it("surfaces kernel start diagnostics and error log deep-link", async () => {
-    const copySpy = vi.spyOn(await import("@/features/proxy/copy-tag-button"), "copyText").mockResolvedValue()
+    const copySpy = vi.spyOn(await import("@/lib/clipboard"), "copyText").mockResolvedValue()
     const user = userEvent.setup()
     renderApp(
       <ServiceCard
@@ -180,8 +180,8 @@ describe("dashboard component states", () => {
   })
 
   it("copies recent log message from dashboard card", async () => {
-    const exportLib = await import("@/features/observability/log-export")
-    const spy = vi.spyOn(exportLib, "copyText").mockResolvedValue()
+    const clipboard = await import("@/lib/clipboard")
+    const spy = vi.spyOn(clipboard, "copyText").mockResolvedValue()
     const user = userEvent.setup()
     renderApp(
       <AuthProvider>

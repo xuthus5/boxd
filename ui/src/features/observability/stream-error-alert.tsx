@@ -11,7 +11,7 @@ import {
   streamErrorClipboardText,
   streamErrorHintKey,
 } from "@/features/observability/stream-error"
-import { copyText } from "@/features/proxy/copy-tag-button"
+import { copyText } from "@/lib/clipboard"
 
 export function StreamErrorAlert({
   error,

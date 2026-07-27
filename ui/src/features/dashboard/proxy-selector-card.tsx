@@ -15,7 +15,7 @@ import {
   sortDelayEntries,
   type DelayMap,
 } from "@/features/dashboard/proxy-delay"
-import { copyText } from "@/features/proxy/copy-tag-button"
+import { copyText } from "@/lib/clipboard"
 import { toast } from "sonner"
 import { CardQueryError } from "@/features/common/card-query-error"
 import { useProxySelector } from "@/features/dashboard/use-proxy-selector"

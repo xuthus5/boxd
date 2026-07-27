@@ -7,7 +7,7 @@ import {
   configSaveErrorHintKey,
   type ConfigSaveErrorState,
 } from "@/features/config/config-save-error"
-import { copyText } from "@/features/proxy/copy-tag-button"
+import { copyText } from "@/lib/clipboard"
 import { i18n } from "@/i18n"
 
 export function formatConfigSaveErrorToast(state: ConfigSaveErrorState): string {

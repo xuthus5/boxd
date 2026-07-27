@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { buildSparklinePath } from "@/features/nodes/latency-sparkline"
+import { buildSparklinePath } from "@/features/nodes/latency-sparkline-model"
 
 describe("buildSparklinePath", () => {
   it("returns null for insufficient points", () => {

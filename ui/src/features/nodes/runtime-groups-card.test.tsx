@@ -8,11 +8,11 @@ import { MemoryRouter } from "react-router-dom"
 import { toast } from "sonner"
 
 import { RuntimeGroupCard, RuntimeGroupsCard } from "@/features/nodes/runtime-groups-card"
-import { copyText } from "@/features/proxy/copy-tag-button"
+import { copyText } from "@/lib/clipboard"
 import { i18n } from "@/i18n"
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() } }))
-vi.mock("@/features/proxy/copy-tag-button", () => ({ copyText: vi.fn() }))
+vi.mock("@/lib/clipboard", () => ({ copyText: vi.fn() }))
 
 function wrap(ui: ReactElement) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })

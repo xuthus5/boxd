@@ -6,7 +6,7 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
 import { HealthApplyFailurePreview } from "@/features/dashboard/health-apply-failure-preview"
 import { renderApp } from "@/test/render"
-import * as copy from "@/features/proxy/copy-tag-button"
+import * as copy from "@/lib/clipboard"
 
 describe("HealthApplyFailurePreview", () => {
   it("renders path, status, and copy control", async () => {

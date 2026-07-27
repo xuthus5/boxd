@@ -7,7 +7,7 @@ import { toast } from "sonner"
 
 import { SubscriptionItem } from "@/features/subscriptions/subscription-item"
 import { i18n } from "@/i18n"
-import * as copy from "@/features/proxy/copy-tag-button"
+import * as copy from "@/lib/clipboard"
 import type { Subscription } from "@/lib/api/types"
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }))

@@ -159,7 +159,7 @@ describe("ConnectionsPage", () => {
   it("copies connection target to clipboard", async () => {
     sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
     mockConnectionsFetch()
-    const copySpy = vi.spyOn(await import("@/features/proxy/copy-tag-button"), "copyText").mockResolvedValue()
+    const copySpy = vi.spyOn(await import("@/lib/clipboard"), "copyText").mockResolvedValue()
     const user = userEvent.setup()
     renderApp(<App />, "/observability/connections")
 

@@ -8,7 +8,7 @@ import { toast } from "sonner"
 import { ConnectionDesktopRow, ConnectionMobileCard } from "@/features/observability/connection-list-rows"
 import type { ConnectionWithRates } from "@/features/observability/connection-rate"
 import { i18n } from "@/i18n"
-import * as copy from "@/features/proxy/copy-tag-button"
+import * as copy from "@/lib/clipboard"
 import type { Connection } from "@/lib/api/types"
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }))

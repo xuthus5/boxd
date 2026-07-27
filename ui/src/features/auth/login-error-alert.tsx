@@ -11,7 +11,7 @@ import {
   loginErrorHintKey,
   type LoginErrorState,
 } from "@/features/auth/login-error"
-import { copyText } from "@/features/proxy/copy-tag-button"
+import { copyText } from "@/lib/clipboard"
 
 interface LoginErrorAlertProps {
   error: LoginErrorState | null

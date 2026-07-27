@@ -11,7 +11,7 @@ import {
   nodeTestErrorLabel,
   resolveNodeTestErrorCode,
 } from "@/features/nodes/node-test-error"
-import { copyText } from "@/features/proxy/copy-tag-button"
+import { copyText } from "@/lib/clipboard"
 import { api } from "@/lib/api/endpoints"
 import type { TestResult } from "@/lib/api/types"
 

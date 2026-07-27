@@ -2,11 +2,11 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import {
   buildLogExportFilename,
-  copyText,
   downloadTextFile,
   formatLogExport,
   formatLogLine,
   formatLogMessage,
+  formatLogTimestamp,
 } from "@/features/observability/log-export"
 
 describe("log-export", () => {
@@ -26,13 +26,6 @@ describe("log-export", () => {
   it("builds a stable filename", () => {
     expect(buildLogExportFilename("Kernel Logs", new Date("2026-07-23T01:02:03.004Z")))
       .toBe("boxd-kernel-logs-2026-07-23T01-02-03-004Z.log")
-  })
-
-  it("copies text through clipboard", async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined)
-    await copyText("hello", { writeText })
-    expect(writeText).toHaveBeenCalledWith("hello")
-    await expect(copyText("x", undefined as never)).rejects.toThrow(/clipboard/i)
   })
 
   it("downloads text via temporary anchor", () => {
@@ -72,6 +65,12 @@ describe("log-export", () => {
   it("formats message-only clipboard text", () => {
     expect(formatLogMessage({ timestamp: "t", level: "info", message: " hello " })).toBe("hello")
     expect(formatLogMessage({ message: "" })).toBe("")
+  })
+
+  it("formats display timestamps safely", () => {
+    expect(formatLogTimestamp()).toBe("—")
+    expect(formatLogTimestamp("invalid")).toBe("—")
+    expect(formatLogTimestamp("2026-07-24T00:00:00Z")).not.toBe("—")
   })
 
 })

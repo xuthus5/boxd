@@ -83,7 +83,7 @@ describe("RouteRuleSetCard", () => {
 
 describe("RouteRuleSetCard update errors", () => {
   it("renders failed update diagnostics and copies them", async () => {
-    const copy = await import("@/features/proxy/copy-tag-button")
+    const copy = await import("@/lib/clipboard")
     const spy = vi.spyOn(copy, "copyText").mockResolvedValue()
     renderCard({
       status: { tag: "geo", type: "remote", updatable: true, builtin: false },

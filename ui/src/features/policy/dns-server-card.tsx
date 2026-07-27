@@ -22,7 +22,7 @@ import {
   resolveDNSProbeErrorCode,
 } from "@/features/policy/dns-probe-error"
 import { dnsProbeInput, isDNSServerProbeable } from "@/features/policy/dns-probe"
-import { copyText } from "@/features/proxy/copy-tag-button"
+import { copyText } from "@/lib/clipboard"
 import { buildLogsHref } from "@/features/observability/log-filter-presets"
 import { inferDNSServerType, summarizeDNSServer } from "@/features/policy/dns-form-model"
 import type { JsonObject } from "@/features/policy/policy-form-model"

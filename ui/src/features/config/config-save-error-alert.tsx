@@ -13,7 +13,7 @@ import {
   formatConfigSaveErrorTitle,
   type ConfigSaveErrorState,
 } from "@/features/config/config-save-error"
-import { copyText } from "@/features/proxy/copy-tag-button"
+import { copyText } from "@/lib/clipboard"
 import { cn } from "@/lib/utils"
 
 interface ConfigSaveErrorAlertProps {

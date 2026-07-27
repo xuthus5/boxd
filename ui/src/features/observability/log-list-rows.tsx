@@ -9,15 +9,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { TableCell, TableRow } from "@/components/ui/table"
 import { logConnectionsHref, logDNSHref } from "@/features/observability/connection-facets"
 import { reportExportError } from "@/features/observability/export-error-actions"
-import { copyText, formatLogLine, formatLogMessage } from "@/features/observability/log-export"
+import { formatLogLine, formatLogMessage, formatLogTimestamp } from "@/features/observability/log-export"
 import type { LogEvent } from "@/lib/api/types"
+import { copyText } from "@/lib/clipboard"
 import { cn } from "@/lib/utils"
-
-export function formatLogTimestamp(timestamp?: string) {
-  if (!timestamp) return "—"
-  const date = new Date(timestamp)
-  return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString()
-}
 
 function copyLogPayload(payload: string, okKey: string, failKey: string, t: (key: string) => string) {
   if (!payload) return

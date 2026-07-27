@@ -14,7 +14,7 @@ import {
   nodeRequestErrorClipboardText,
   nodeRequestErrorHintKey,
 } from "@/features/nodes/node-request-error"
-import { copyText } from "@/features/proxy/copy-tag-button"
+import { copyText } from "@/lib/clipboard"
 import { api } from "@/lib/api/endpoints"
 
 export function ClashModeCard({ enabled }: { enabled: boolean }) {

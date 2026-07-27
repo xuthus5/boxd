@@ -30,7 +30,7 @@ import {
   nodeRequestErrorClipboardText,
   nodeRequestErrorHintKey,
 } from "@/features/nodes/node-request-error"
-import { copyText } from "@/features/proxy/copy-tag-button"
+import { copyText } from "@/lib/clipboard"
 import { api } from "@/lib/api/endpoints"
 import { cn } from "@/lib/utils"
 import type { OutboundGroup } from "@/lib/api/types"

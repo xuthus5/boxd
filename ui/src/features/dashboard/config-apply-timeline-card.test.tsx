@@ -9,7 +9,7 @@ import { AuthProvider } from "@/features/auth/auth-context"
 import { PreferencesProvider } from "@/features/preferences/preferences-provider"
 import { sessionStore } from "@/lib/session"
 import { renderApp } from "@/test/render"
-import * as copy from "@/features/proxy/copy-tag-button"
+import * as copy from "@/lib/clipboard"
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 

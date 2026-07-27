@@ -15,7 +15,7 @@ import {
 } from "@/features/dashboard/kernel-error"
 import { PanelReadiness, type PanelReadinessState } from "@/features/dashboard/panel-readiness"
 import { buildLogsHref } from "@/features/observability/log-filter-presets"
-import { copyText } from "@/features/proxy/copy-tag-button"
+import { copyText } from "@/lib/clipboard"
 import type { ServiceStatus } from "@/lib/api/types"
 import { cn } from "@/lib/utils"
 

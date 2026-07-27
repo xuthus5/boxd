@@ -7,7 +7,7 @@ import { toast } from "sonner"
 
 import { NodeResultsCard } from "@/features/nodes/node-results-card"
 import { i18n } from "@/i18n"
-import * as copy from "@/features/proxy/copy-tag-button"
+import * as copy from "@/lib/clipboard"
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 

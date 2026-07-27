@@ -16,7 +16,7 @@ import {
   nodeRequestErrorClipboardText,
   nodeRequestErrorHintKey,
 } from "@/features/nodes/node-request-error"
-import { copyText } from "@/features/proxy/copy-tag-button"
+import { copyText } from "@/lib/clipboard"
 import { api } from "@/lib/api/endpoints"
 import type { JsonValue, Outbound } from "@/lib/api/types"
 import { PageLoadErrorAlert } from "@/features/common/page-load-error-alert"

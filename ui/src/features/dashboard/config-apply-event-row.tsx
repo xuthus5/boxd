@@ -20,7 +20,7 @@ import {
 import { ConfigRestoreAction } from "@/features/dashboard/config-restore-action"
 import type { ConfigRestoreHandler } from "@/features/dashboard/use-config-restore"
 import { kernelErrorHintKey, resolveKernelErrorCode } from "@/features/dashboard/kernel-error"
-import { copyText } from "@/features/proxy/copy-tag-button"
+import { copyText } from "@/lib/clipboard"
 import { formatRelativeTime } from "@/features/subscriptions/relative-time"
 import { cn } from "@/lib/utils"
 import type { ConfigApplyEvent, SingBoxConfig } from "@/lib/api/types"

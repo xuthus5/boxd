@@ -1,19 +1,8 @@
-import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { Navigate, useLocation } from "react-router-dom"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { api } from "@/lib/api/endpoints"
-
-export function useDefaultPasswordStatus() {
-  return useQuery({
-    queryKey: ["settings", "password"],
-    queryFn: api.settings.password,
-    staleTime: 15_000,
-    retry: false,
-    refetchOnWindowFocus: false,
-  })
-}
+import { useDefaultPasswordStatus } from "@/features/settings/use-default-password-status"
 
 export function DefaultPasswordBanner() {
   const { t } = useTranslation()

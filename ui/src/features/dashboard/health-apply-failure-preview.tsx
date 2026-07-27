@@ -13,7 +13,7 @@ import {
   configApplyStatusLabelKey,
 } from "@/features/dashboard/config-apply-source"
 import { resolveKernelErrorCode } from "@/features/dashboard/kernel-error"
-import { copyText } from "@/features/proxy/copy-tag-button"
+import { copyText } from "@/lib/clipboard"
 import type { ConfigApplyEvent } from "@/lib/api/types"
 import { cn } from "@/lib/utils"
 

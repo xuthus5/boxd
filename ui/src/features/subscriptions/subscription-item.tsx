@@ -10,7 +10,7 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { buildNodesHref } from "@/features/nodes/nodes-filter"
 import { buildLogsHref } from "@/features/observability/log-filter-presets"
-import { copyText } from "@/features/proxy/copy-tag-button"
+import { copyText } from "@/lib/clipboard"
 import { formatRelativeTime } from "@/features/subscriptions/relative-time"
 import { subscriptionRefreshSchedule } from "@/features/subscriptions/subscription-schedule"
 import {

@@ -24,7 +24,7 @@ import {
   targetLogsHref,
   titleFor,
 } from "@/features/observability/connection-list-helpers"
-import { copyText } from "@/features/proxy/copy-tag-button"
+import { copyText } from "@/lib/clipboard"
 import { cn } from "@/lib/utils"
 
 function copyConnectionDiagnostics(connection: ConnectionWithRates, t: (key: string) => string) {

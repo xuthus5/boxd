@@ -12,7 +12,7 @@ import {
   pageLoadErrorHintKey,
   pageLoadErrorMessage,
 } from "@/features/common/page-load-error"
-import { copyText } from "@/features/proxy/copy-tag-button"
+import { copyText } from "@/lib/clipboard"
 
 interface PageLoadErrorAlertProps {
   error: unknown

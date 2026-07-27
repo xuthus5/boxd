@@ -18,7 +18,7 @@ import {
   nodeTestErrorHintKey,
   nodeTestRequestErrorClipboardText,
 } from "@/features/nodes/node-test-error"
-import { copyText } from "@/features/proxy/copy-tag-button"
+import { copyText } from "@/lib/clipboard"
 import { NodeCard } from "@/features/nodes/node-card"
 import { nodeTestInputs } from "@/features/nodes/node-test-inputs"
 import { api } from "@/lib/api/endpoints"

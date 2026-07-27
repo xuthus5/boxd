@@ -7,8 +7,8 @@ import { toast } from "sonner"
 
 import { LogDesktopRow, LogMobileCard } from "@/features/observability/log-list-rows"
 import { i18n } from "@/i18n"
-import * as exportLib from "@/features/observability/log-export"
 import type { LogEvent } from "@/lib/api/types"
+import * as clipboard from "@/lib/clipboard"
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
@@ -25,7 +25,7 @@ afterEach(() => {
 
 describe("log list row actions", () => {
   it("copies message and full line from desktop row", async () => {
-    const spy = vi.spyOn(exportLib, "copyText").mockResolvedValue()
+    const spy = vi.spyOn(clipboard, "copyText").mockResolvedValue()
     render(
       <I18nextProvider i18n={i18n}>
         <MemoryRouter>

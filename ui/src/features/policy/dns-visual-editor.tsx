@@ -42,7 +42,7 @@ import {
   dnsProbeRequestErrorClipboardText,
   formatDNSProbeRequestErrorToast,
 } from "@/features/policy/dns-probe-error"
-import { copyText } from "@/features/proxy/copy-tag-button"
+import { copyText } from "@/lib/clipboard"
 import { dnsRules, dnsServers, setDNSRules, setDNSServers } from "@/features/policy/dns-form-model"
 import { usePolicyVisualPathJump } from "@/features/policy/use-policy-visual-path-jump"
 import type { PolicyDialogSelection } from "@/features/policy/policy-path"

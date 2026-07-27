@@ -9,7 +9,7 @@ import { RecentLogs } from "@/features/dashboard/recent-logs"
 import { AuthProvider } from "@/features/auth/auth-context"
 import { PreferencesProvider } from "@/features/preferences/preferences-provider"
 import { renderApp } from "@/test/render"
-import * as copy from "@/features/proxy/copy-tag-button"
+import * as copy from "@/lib/clipboard"
 
 describe("dashboard stream densify", () => {
   it("shows densified traffic stream error with copy", async () => {

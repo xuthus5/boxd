@@ -8,7 +8,7 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: v
 vi.mock("@/lib/api/endpoints", () => ({
   api: { nodes: { groups: vi.fn(), select: vi.fn() } },
 }))
-vi.mock("@/features/proxy/copy-tag-button", () => ({ copyText: vi.fn() }))
+vi.mock("@/lib/clipboard", () => ({ copyText: vi.fn() }))
 vi.mock("@/features/dashboard/proxy-delay", () => ({
   delayBatchFailureClipboardText: vi.fn(),
   delayBatchToastTone: vi.fn(),
@@ -26,7 +26,7 @@ import { toast } from "sonner"
 
 import { useProxySelector } from "@/features/dashboard/use-proxy-selector"
 import * as delay from "@/features/dashboard/proxy-delay"
-import { copyText } from "@/features/proxy/copy-tag-button"
+import { copyText } from "@/lib/clipboard"
 import { i18n } from "@/i18n"
 import { api } from "@/lib/api/endpoints"
 

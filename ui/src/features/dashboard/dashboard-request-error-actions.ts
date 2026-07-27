@@ -8,7 +8,7 @@ import {
   dashboardRequestErrorHintKey,
   formatDashboardRequestErrorToast,
 } from "@/features/dashboard/dashboard-request-error"
-import { copyText } from "@/features/proxy/copy-tag-button"
+import { copyText } from "@/lib/clipboard"
 
 export function reportDashboardRequestError(
   error: unknown,

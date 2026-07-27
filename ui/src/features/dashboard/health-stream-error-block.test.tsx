@@ -6,7 +6,7 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
 import { HealthStreamErrorBlock } from "@/features/dashboard/health-stream-error-block"
 import { renderApp } from "@/test/render"
-import * as copy from "@/features/proxy/copy-tag-button"
+import * as copy from "@/lib/clipboard"
 
 describe("HealthStreamErrorBlock", () => {
   it("renders densified stream error with copy", async () => {

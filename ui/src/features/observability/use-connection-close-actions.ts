@@ -17,7 +17,7 @@ import {
   suppressConnectionIds,
   type ClosingTarget,
 } from "@/features/observability/connection-close"
-import { copyText } from "@/features/proxy/copy-tag-button"
+import { copyText } from "@/lib/clipboard"
 import { filterConnectionsByGroup } from "@/features/observability/connection-stats"
 import { api } from "@/lib/api/endpoints"
 import type { Connection } from "@/lib/api/types"

@@ -16,7 +16,7 @@ import {
   ruleSetErrorHintKey,
   ruleSetUpdateErrorClipboardText,
 } from "@/features/policy/ruleset-update-error"
-import { copyText } from "@/features/proxy/copy-tag-button"
+import { copyText } from "@/lib/clipboard"
 import type { RuleSetStatusItem, RuleSetUpdateResult } from "@/lib/api/types"
 
 interface RouteRuleSetCardProps {
