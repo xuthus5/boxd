@@ -17,6 +17,9 @@ vi.mock("@/lib/clipboard", () => ({
   copyText: vi.fn().mockResolvedValue(undefined),
 }))
 
+// 相对当前时间的更新时间：模块加载时取 1 小时前，避免因真实时钟推移而过期（stale）。
+const recentTimestamp = () => new Date(Date.now() - 60 * 60 * 1000).toISOString()
+
 const status: RuleSetStatusItem[] = [
   {
     tag: "geo-cn",
@@ -25,7 +28,7 @@ const status: RuleSetStatusItem[] = [
     updatable: true,
     update_interval: "24h",
     file_size: 2048,
-    last_updated: "2026-07-26T08:00:00Z",
+    last_updated: recentTimestamp(),
   },
   {
     tag: "missing-set",
