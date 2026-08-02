@@ -30,11 +30,15 @@ jobs:
           node-version: 20
           cache: npm
           cache-dependency-path: ui/package-lock.json
-      - name: Install GTK4 + WebKitGTK 6.0 and wails3
+      - name: Install GTK4 + WebKitGTK 6.0 and tools
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev
           go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117
+          go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.8.0
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+      - name: Desktop module quality gate
+        run: ./scripts/check-desktop.sh
       - name: Package desktop app
         env:
           GOPROXY: https://goproxy.io,direct
