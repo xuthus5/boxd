@@ -81,15 +81,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          # 清理历史遗留的旧命名附件（boxd_nightly-<date>-<sha>_*.tar.gz），
-          # 避免 Release 附件不断累积造成混淆。仅保留固定名附件。
+          # 等待 release 资产列表最终一致。
+          sleep 5
+          # 从 release 主端点读取资产（稳定返回数组），过滤旧命名附件并删除。
           # 失败不阻断主流程（best-effort）。
-          asset_ids=$(gh release view nightly --json assets --jq '.assets[] | select(.name | test("^boxd_nightly-")) | .id' 2>/dev/null || true)
+          asset_ids=$(gh api "repos/${{ github.repository }}/releases/tags/nightly" \
+            --jq '.assets[] | select(.name | test("^boxd_nightly-")) | .id' 2>/dev/null || true)
           if [ -n "$asset_ids" ]; then
             for asset_id in $asset_ids; do
+              echo "Deleting stale asset $asset_id"
               gh api -X DELETE "repos/${{ github.repository }}/releases/assets/$asset_id" || true
             done
-            echo "Pruned $asset_ids"
           else
             echo "No stale assets to prune"
           fi
