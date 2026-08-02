@@ -99,6 +99,10 @@ func (s *BoxdBridgeService) dispatch(ctx context.Context, req BridgeRequest) (Br
 			return okResult(setJWTSecretBridge(s.rt, req.Body))
 		case "/api/runtime/clash-mode":
 			return okResult(setClashModeBridge(s.rt, req.Body))
+		case "/api/desktop/autostart":
+			return errResult(setAutostartBridge(s.rt, req.Body))
+		case "/api/desktop/system-proxy":
+			return errResult(setSystemProxyBridge(s.rt, req.Body))
 		}
 	}
 
@@ -138,6 +142,16 @@ func (s *BoxdBridgeService) dispatch(ctx context.Context, req BridgeRequest) (Br
 		return okResult(s.rt.svc.Runtime().OutboundGroups(ctx))
 	case "/api/network/interfaces":
 		return okResult(s.rt.svc.Network().ListInterfaces(ctx))
+	case "/api/desktop/runtime":
+		return BridgeResponse{Data: NewNativeCapabilities(s.rt).Runtime(ctx), Status: "ok"}, nil
+	case "/api/desktop/autostart":
+		return okResult(NewNativeCapabilities(s.rt).IsAutostartEnabled(ctx))
+	case "/api/desktop/system-proxy":
+		return okResult(NewNativeCapabilities(s.rt).SystemProxyStatus(ctx))
+	case "/api/desktop/data-dir":
+		return okResult(NewNativeCapabilities(s.rt).DataDir(ctx))
+	case "/api/desktop/config-path":
+		return okResult(NewNativeCapabilities(s.rt).ConfigPath(ctx))
 	case "/readyz":
 		return okResult(s.rt.svc.Health().Readiness(ctx))
 	case "/healthz", "/health":
@@ -243,6 +257,26 @@ func setClashModeBridge(rt *desktopRuntime, body json.RawMessage) (any, error) {
 		return nil, err
 	}
 	return rt.svc.Runtime().SetClashMode(ctx(), req.Mode)
+}
+
+func setAutostartBridge(rt *desktopRuntime, body json.RawMessage) error {
+	req, err := bridgeBody[struct {
+		Enabled bool `json:"enabled"`
+	}](body)
+	if err != nil {
+		return err
+	}
+	return NewNativeCapabilities(rt).SetAutostart(ctx(), req.Enabled)
+}
+
+func setSystemProxyBridge(rt *desktopRuntime, body json.RawMessage) error {
+	req, err := bridgeBody[struct {
+		Enabled bool `json:"enabled"`
+	}](body)
+	if err != nil {
+		return err
+	}
+	return NewNativeCapabilities(rt).SetSystemProxy(ctx(), req.Enabled)
 }
 
 func okResult(data any, err error) (BridgeResponse, error) {

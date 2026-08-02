@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/wailsapp/wails/v3/pkg/application"
 	"go.etcd.io/bbolt"
 
 	"github.com/xuthus5/boxd/internal/core"
@@ -41,10 +42,11 @@ func defaultDesktopConfig() desktopConfig {
 
 // desktopRuntime 聚合桌面端共享的运行时依赖。
 type desktopRuntime struct {
-	cfg      desktopConfig
-	db       *bbolt.DB
-	svc      *service.ServiceSet
-	instance *core.SBInstance
+	cfg       desktopConfig
+	db        *bbolt.DB
+	svc       *service.ServiceSet
+	instance  *core.SBInstance
+	autostart *application.AutostartManager
 }
 
 // initRuntime 初始化内嵌模式所需的 DB 与核心依赖。

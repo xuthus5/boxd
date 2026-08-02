@@ -194,8 +194,8 @@ func TestRegisterServicesRemoteMode(t *testing.T) {
 func TestRegisterServicesEmbedded(t *testing.T) {
 	rt := newTestRuntimeWithService(t)
 	services := registerServices(rt)
-	if len(services) != 6 {
-		t.Fatalf("services = %d, want 6", len(services))
+	if len(services) != 8 {
+		t.Fatalf("services = %d, want 8", len(services))
 	}
 }
 

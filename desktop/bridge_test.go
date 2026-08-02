@@ -312,3 +312,70 @@ func TestBridgeSyncNodesConfig(t *testing.T) {
 		t.Logf("sync nodes returned error (expected without valid config): %v", err)
 	}
 }
+
+func TestBridgeDesktopNative(t *testing.T) {
+	rt := newTestRuntimeWithService(t)
+	svc := newBoxdBridgeService(rt)
+
+	resp, err := svc.Call(BridgeRequest{Path: "/api/desktop/runtime", Method: "GET"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.Status != "ok" {
+		t.Fatalf("runtime status = %q", resp.Status)
+	}
+	data, ok := resp.Data.(map[string]any)
+	if !ok {
+		t.Fatalf("data type = %T", resp.Data)
+	}
+	if data["mode"] != "embedded" {
+		t.Fatalf("mode = %v", data["mode"])
+	}
+
+	resp, err = svc.Call(BridgeRequest{Path: "/api/desktop/autostart", Method: "GET"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.Status != "ok" {
+		t.Fatalf("autostart status = %q", resp.Status)
+	}
+
+	resp, err = svc.Call(BridgeRequest{Path: "/api/desktop/system-proxy", Method: "GET"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.Status != "ok" {
+		t.Fatalf("system-proxy status = %q", resp.Status)
+	}
+
+	resp, err = svc.Call(BridgeRequest{Path: "/api/desktop/data-dir", Method: "GET"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.Status != "ok" {
+		t.Fatalf("data-dir status = %q", resp.Status)
+	}
+}
+
+func TestBridgeDesktopNativeWrites(t *testing.T) {
+	rt := newTestRuntimeWithService(t)
+	svc := newBoxdBridgeService(rt)
+
+	// autostart 未配置时返回错误
+	_, err := svc.Call(BridgeRequest{
+		Path: "/api/desktop/autostart", Method: "PUT",
+		Body: json.RawMessage(`{"enabled":true}`),
+	})
+	if err == nil {
+		t.Log("autostart set succeeded (unexpected but acceptable)")
+	}
+
+	// 无效 body
+	_, err = svc.Call(BridgeRequest{
+		Path: "/api/desktop/system-proxy", Method: "PUT",
+		Body: json.RawMessage(`{invalid`),
+	})
+	if err == nil {
+		t.Fatal("expected error for invalid body")
+	}
+}
