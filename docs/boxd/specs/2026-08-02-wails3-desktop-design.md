@@ -161,7 +161,7 @@ type ConfigService interface {
 3. **M3 实时流与全页面**（✅ 完成）：`desktop/streamer.go` EventStreamer 订阅 `core.LogWriter` 与 `core.TrafficTracker`，通过 Wails Events（`boxd:traffic`/`boxd:connections`/`boxd:kernel-log`/`boxd:app-log`）推送给前端，替代桌面模式 SSE。前端 `useStreamBuffer` 桌面模式自动切换为事件订阅（`subscribeDesktopStream`），`client.ts` 桌面模式所有请求（含 POST/PUT/DELETE 写操作）走 bridge，未知路径回退 HTTP。desktop.ts 覆盖率 100%，前端整体 >90%。
 4. **M4 原生能力**（✅ 完成）：`desktop/native.go` NativeCapabilities（开机自启 XDG autostart、系统通知 notify-send、GNOME 系统代理切换 gsettings、数据目录/配置路径查询），`desktop/dialog.go` DialogService（原生打开/保存文件对话框，GTK4 xdg-desktop-portal），`desktop/url_scheme.go` URLHandler（boxd:// 深链：import 导入节点链接、show 聚焦窗口），单实例守护（SingleInstanceOptions 二次启动聚焦窗口）、隐私/极简模式（窗口关闭隐藏到托盘）、全局快捷键（Ctrl+Shift+B 显示/隐藏窗口）。bridge 新增 `/api/desktop/*` 原生能力路径。
 5. **M5 打包**（✅ 完成）：`scripts/package-desktop.sh` 完整打包流程（前端构建 → bindings 生成 → 桌面二进制 → .desktop 入口 → deb/rpm/AppImage），`desktop/build/linux/nfpm/nfpm.yaml` 包元数据与 GTK 依赖。产出：裸二进制（55M）、deb（26M）、rpm（27M）、AppImage（128M）、.desktop。AppImage 需将图标复制为与 .desktop Icon 名一致（规避 wails3 appimage 插件 bug）。CI 集成：`ci.yml` 新增 desktop job（GTK4/WebKitGTK 6.0 安装、desktop 测试、桌面二进制构建门禁），`release.yml` 新增 desktop-package job（tag 触发时上传桌面包到 GitHub Release）。
-6. **M6 收尾**：README 更新、清理、全量验证（check-go / check-ui / 桌面冒烟）。
+6. **M6 收尾**（✅ 完成）：全量验证通过（主 module check-go 覆盖率 91.02%、lint 0 issues、race 通过；desktop 测试/race/lint 通过、完整构建成功；前端 typecheck/lint/build 通过、246 文件 1296 测试通过、覆盖率全维度 >90%）。README 补充桌面构建/打包说明。构建产物已清理，工作区干净。
 
 ## 验证方式
 
