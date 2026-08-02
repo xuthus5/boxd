@@ -30,6 +30,7 @@ export default defineConfig({
         "src/**/*.test.{ts,tsx}",
         "src/main.tsx",
         "src/lib/api/types.ts",
+        "src/lib/api/bindings/**",
         "src/**/*.d.ts",
         // Dead modules not mounted in the SPA (kept for possible reuse).
         "src/features/advanced/section-config-page.tsx",

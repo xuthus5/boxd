@@ -1,4 +1,5 @@
 import type { APIEnvelope, ApiErrorBody } from "@/lib/api/types"
+import { desktopGet, isDesktop } from "@/lib/api/desktop"
 import { sessionStore } from "@/lib/session"
 
 type UnauthorizedHandler = (() => void) | undefined
@@ -68,6 +69,22 @@ function responseError<T>(response: Response, payload: unknown, envelope?: APIEn
 }
 
 export async function apiRequestEnvelope<T>(path: string, init: RequestInit = {}) {
+  if (isDesktop() && (init.method === undefined || init.method === "GET")) {
+    try {
+      const data = await desktopGet(path)
+      return { status: "ok" as const, data: data as T, error: null, meta: null }
+    } catch (error) {
+      if (error instanceof ApiError) {
+        if (error.status === 401) notifyUnauthorized()
+        throw error
+      }
+      throw new ApiError(
+        error instanceof Error ? error.message : "Desktop request failed",
+        500,
+        "request_failed",
+      )
+    }
+  }
   const response = await fetch(path, { ...init, headers: createHeaders(init) })
   const payload = await parseResponse(response)
   const envelope = isEnvelope<T>(payload) ? payload : undefined

@@ -24,6 +24,7 @@ Single-node control plane for [sing-box](https://github.com/SagerNet/sing-box). 
 | Layer | Choice |
 | --- | --- |
 | Backend | Go, chi, bbolt, statically linked sing-box |
+| Business | `internal/service` transport-agnostic use-case layer (shared by HTTP handlers and desktop) |
 | Frontend | React 19, TypeScript, Vite, shadcn/ui, Tailwind CSS |
 | Auth | JWT (HS256), Argon2id passwords |
 
@@ -299,6 +300,17 @@ goimports-reviser -rm-unused -set-alias -project-name github.com/xuthus5/boxd -r
 ./scripts/package-release.sh v0.1.0 release
 # produces release/boxd_v0.1.0_linux_amd64.tar.gz, release/boxd_v0.1.0_linux_arm64.tar.gz, and sha256 files
 ```
+
+### Desktop app (Wails3)
+
+Build the desktop binary (requires GTK4 + WebKitGTK 6.0):
+
+```bash
+make build-desktop
+# produces desktop/bin/boxd-desktop
+```
+
+The desktop app runs the sing-box core in-process (embedded mode, data in `~/.local/share/boxd`), or connects to a remote boxd service (`BOXD_DESKTOP_MODE=remote`). It exposes a system tray and native windows; the React frontend auto-detects the desktop runtime and uses Wails bindings instead of HTTP.
 
 Pushing a `v*` tag runs the GitHub Release workflow (full gates, archive, SBOM).
 

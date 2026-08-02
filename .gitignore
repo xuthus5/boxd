@@ -5,6 +5,10 @@ node_modules/
 .superpowers/
 .worktrees/
 cmd/boxd/ui/
+desktop/bin/
+desktop/ui/
+desktop/desktop
+ui/src/lib/api/bindings/
 *.test
 *.db
 *.log

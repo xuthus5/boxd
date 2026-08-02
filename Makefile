@@ -1,4 +1,4 @@
-.PHONY: dev build clean check-go check-ui check-embedded-ui
+.PHONY: dev build build-desktop clean check-go check-ui check-embedded-ui
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 KERNEL_VERSION ?= 1.13.14
@@ -38,6 +38,9 @@ build:
 	@rm -rf cmd/boxd/ui
 	@echo "Built bin/boxd"
 
+build-desktop:
+	@./scripts/build-desktop.sh $(VERSION)
+
 clean:
-	@rm -rf bin/ ui/dist/ cmd/boxd/ui/
+	@rm -rf bin/ ui/dist/ cmd/boxd/ui/ desktop/bin/ desktop/ui/ desktop/desktop
 	@echo "Cleaned"

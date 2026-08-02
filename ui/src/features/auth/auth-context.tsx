@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react"
 
 import { setUnauthorizedHandler } from "@/lib/api/client"
+import { autoLogin, isDesktop } from "@/lib/api/desktop"
 import { api, type LoginInput } from "@/lib/api/endpoints"
 import { sessionStore, type Session } from "@/lib/session"
 
@@ -24,6 +25,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setUnauthorizedHandler(clear)
     return () => setUnauthorizedHandler(undefined)
+  }, [])
+
+  // 内嵌桌面模式自动登录：注入一次性 JWT 会话，免手动登录。
+  useEffect(() => {
+    if (!isDesktop() || sessionStore.get()) return
+    let cancelled = false
+    void autoLogin().then((embedded) => {
+      if (cancelled) return
+      const next = { token: embedded.token, expiresAt: embedded.expires_at }
+      sessionStore.set(next)
+      setSession(next)
+    }).catch(() => {
+      // 自动登录失败时保持未登录，由登录页接管。
+    })
+    return () => { cancelled = true }
   }, [])
 
   const value = useMemo<AuthContextValue>(() => ({
