@@ -78,7 +78,7 @@ jobs:
           make check-go
           make check-ui
           make check-embedded-ui
-          npm audit --omit=dev --audit-level=high --registry=https://registry.npmjs.org --prefix ui
+          ./scripts/audit-ui.sh
       - name: Package Linux amd64/arm64 release
         run: ./scripts/package-release.sh "${GITHUB_REF_NAME}" release
       - name: Extract release binaries for SBOM

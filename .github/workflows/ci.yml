@@ -43,7 +43,7 @@ jobs:
       - run: npm ci
       - run: npm run check
       - name: Audit production dependencies
-        run: npm audit --omit=dev --audit-level=high --registry=https://registry.npmjs.org
+        run: ./scripts/audit-ui.sh
       - uses: actions/upload-artifact@v4
         with:
           name: frontend-coverage
