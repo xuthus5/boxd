@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 
+import { isDesktop, subscribeDesktopStream } from "@/lib/api/desktop"
 import { openSSE, type SSEStatus } from "@/lib/api/sse"
 
 export type StreamConnectionStatus = SSEStatus
@@ -24,18 +25,41 @@ export function useStreamBuffer<T>(path: string, token: string, limit = 500) {
 
   useEffect(() => {
     if (!token || paused) return
+    const append = (item: T) => {
+      setError("")
+      setItems((current) => [...current, item].slice(-limit))
+    }
+    const onError = (reason: Error) => setError(reason.message)
+    const onStatus = (next: StreamConnectionStatus) => {
+      setStatus(next)
+      if (next === "open") setError("")
+    }
+
+    if (isDesktop()) {
+      let disposed = false
+      let cleanup: (() => void) | undefined
+      void subscribeDesktopStream<T>(path, {
+        onEvent: append,
+        onStatus,
+      }).then((stop) => {
+        if (disposed) {
+          stop()
+          return
+        }
+        cleanup = stop
+      })
+      return () => {
+        disposed = true
+        cleanup?.()
+      }
+    }
+
     return openSSE<T>({
       path,
       token,
-      onEvent: (item) => {
-        setError("")
-        setItems((current) => [...current, item].slice(-limit))
-      },
-      onError: (reason) => setError(reason.message),
-      onStatus: (next) => {
-        setStatus(next)
-        if (next === "open") setError("")
-      },
+      onEvent: append,
+      onError,
+      onStatus,
     })
   }, [generation, limit, path, paused, token])
 

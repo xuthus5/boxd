@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
 func main() {
@@ -48,8 +49,20 @@ func main() {
 
 	setupTray(app, rt)
 
+	// 前端 runtime 就绪后启动事件流推送（替代 SSE）。
+	var streamer *EventStreamer
+	if rt.svc != nil {
+		window.OnWindowEvent(events.Common.WindowRuntimeReady, func(_ *application.WindowEvent) {
+			streamer = NewEventStreamer(app, rt)
+			streamer.Start()
+		})
+	}
+
 	if err := app.Run(); err != nil {
 		log.Fatalf("app run failed: %v", err)
+	}
+	if streamer != nil {
+		streamer.Stop()
 	}
 }
 

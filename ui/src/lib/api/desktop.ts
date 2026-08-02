@@ -20,16 +20,29 @@ export interface DesktopBridgeResponse {
 }
 
 /** callBridge 调用桌面 bridge 服务。 */
-export async function callBridge(path: string): Promise<DesktopBridgeResponse> {
+export async function callBridge(path: string, method = "GET", body?: unknown): Promise<DesktopBridgeResponse> {
   // 动态导入避免 web 模式打包时引入 wails 运行时依赖。
   const mod = await import("@/lib/api/bindings/github.com/xuthus5/boxd/desktop/boxdbridgeservice")
-  const resp = await mod.Call({ path })
+  const req: { path: string; method: string; body?: unknown } = { path, method }
+  if (body !== undefined) {
+    req.body = body
+  }
+  const resp = await mod.Call(req)
   return resp as DesktopBridgeResponse
 }
 
-/** desktopFetch 桌面模式下的通用请求入口（仅支持 GET 类只读操作）。 */
+/** desktopGet 桌面模式下的通用请求入口（仅支持 GET 类只读操作）。 */
 export async function desktopGet(path: string): Promise<unknown> {
   const resp = await callBridge(path)
+  if (resp.error) {
+    throw new Error(resp.error)
+  }
+  return resp.data
+}
+
+/** desktopRequest 桌面模式下完整请求入口（支持任意方法）。 */
+export async function desktopRequest(path: string, method: string, body?: unknown): Promise<unknown> {
+  const resp = await callBridge(path, method, body)
   if (resp.error) {
     throw new Error(resp.error)
   }
@@ -47,4 +60,51 @@ export async function autoLogin(): Promise<EmbeddedSession> {
   const mod = await import("@/lib/api/bindings/github.com/xuthus5/boxd/desktop/boxdauthservice")
   const session = await mod.AutoLogin()
   return session as EmbeddedSession
+}
+
+/** streamPathToEventName 将 SSE 路径映射到 Wails 事件名。 */
+const STREAM_EVENT_MAP: Record<string, string> = {
+  "/api/stats/traffic": "boxd:traffic",
+  "/api/stats/connections": "boxd:connections",
+  "/api/stats/logs": "boxd:kernel-log",
+  "/api/stats/app-logs": "boxd:app-log",
+}
+
+/** streamEventName 返回路径对应的事件名；未知路径返回 null。 */
+export function streamEventName(path: string): string | null {
+  return STREAM_EVENT_MAP[path] ?? null
+}
+
+/** StreamEventSubscription 描述一次事件订阅。 */
+export interface StreamEventSubscription<T> {
+  onEvent: (event: T) => void
+  onStatus?: (status: "connecting" | "open" | "reconnecting" | "closed") => void
+}
+
+/**
+ * subscribeDesktopStream 在桌面模式订阅 Wails 事件流，替代 SSE fetch。
+ * 返回取消函数。
+ */
+export async function subscribeDesktopStream<T>(
+  path: string,
+  options: StreamEventSubscription<T>,
+): Promise<() => void> {
+  const eventName = streamEventName(path)
+  if (!eventName) {
+    options.onStatus?.("closed")
+    return () => {}
+  }
+  const runtime = await import("@wailsio/runtime")
+  options.onStatus?.("connecting")
+  options.onStatus?.("open")
+  const unsubscribe = runtime.Events.On(eventName, (ev: { data: unknown }) => {
+    if (ev.data && typeof ev.data === "object" && "type" in (ev.data as object) && (ev.data as { type: string }).type === "heartbeat") {
+      return
+    }
+    options.onEvent(ev.data as T)
+  })
+  return () => {
+    unsubscribe()
+    options.onStatus?.("closed")
+  }
 }

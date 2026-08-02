@@ -1,5 +1,5 @@
 import type { APIEnvelope, ApiErrorBody } from "@/lib/api/types"
-import { desktopGet, isDesktop } from "@/lib/api/desktop"
+import { desktopRequest, isDesktop } from "@/lib/api/desktop"
 import { sessionStore } from "@/lib/session"
 
 type UnauthorizedHandler = (() => void) | undefined
@@ -69,14 +69,21 @@ function responseError<T>(response: Response, payload: unknown, envelope?: APIEn
 }
 
 export async function apiRequestEnvelope<T>(path: string, init: RequestInit = {}) {
-  if (isDesktop() && (init.method === undefined || init.method === "GET")) {
+  if (isDesktop()) {
     try {
-      const data = await desktopGet(path)
+      const method = (init.method ?? "GET").toUpperCase()
+      const body = init.body === undefined ? undefined
+        : typeof init.body === "string" ? init.body : init.body
+      const data = await desktopRequest(path, method, body)
       return { status: "ok" as const, data: data as T, error: null, meta: null }
     } catch (error) {
       if (error instanceof ApiError) {
         if (error.status === 401) notifyUnauthorized()
         throw error
+      }
+      if (error instanceof Error && error.message.includes("unknown path")) {
+        // bridge 未实现的路径回退到 HTTP（远程模式）。
+        return requestViaFetch<T>(path, init)
       }
       throw new ApiError(
         error instanceof Error ? error.message : "Desktop request failed",
@@ -85,6 +92,10 @@ export async function apiRequestEnvelope<T>(path: string, init: RequestInit = {}
       )
     }
   }
+  return requestViaFetch<T>(path, init)
+}
+
+async function requestViaFetch<T>(path: string, init: RequestInit) {
   const response = await fetch(path, { ...init, headers: createHeaders(init) })
   const payload = await parseResponse(response)
   const envelope = isEnvelope<T>(payload) ? payload : undefined

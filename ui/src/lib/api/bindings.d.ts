@@ -1,6 +1,7 @@
 declare module "@/lib/api/bindings/github.com/xuthus5/boxd/desktop/boxdbridgeservice" {
   export interface BridgeRequest {
     path: string
+    method?: string
     body?: unknown
   }
 
