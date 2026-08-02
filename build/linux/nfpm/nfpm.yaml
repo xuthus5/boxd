@@ -1,0 +1,36 @@
+name: "boxd"
+arch: ${GOARCH}
+platform: "linux"
+version: "0.0.0"
+section: "net"
+priority: "optional"
+maintainer: "boxd developers <boxd@example.com>"
+description: "boxd — single-node control plane for sing-box"
+vendor: "boxd"
+homepage: "https://github.com/xuthus5/boxd"
+license: "Apache-2.0"
+release: "1"
+
+contents:
+  - src: "./bin/boxd"
+    dst: "/usr/local/bin/boxd"
+  - src: "./deploy/boxd.service"
+    dst: "/lib/systemd/system/boxd.service"
+  - src: "./deploy/boxd.env.example"
+    dst: "/etc/boxd/boxd.env.example"
+  - src: "./LICENSE"
+    dst: "/usr/share/doc/boxd/LICENSE-APACHE-2.0"
+  - src: "./THIRD_PARTY_NOTICES.md"
+    dst: "/usr/share/doc/boxd/THIRD_PARTY_NOTICES.md"
+  - src: "./README.md"
+    dst: "/usr/share/doc/boxd/README.md"
+  - src: "./README.zh-CN.md"
+    dst: "/usr/share/doc/boxd/README.zh-CN.md"
+  - src: "./docs/operations.md"
+    dst: "/usr/share/doc/boxd/OPERATIONS.md"
+  - src: "./scripts/install/postinstall.sh"
+    dst: "/usr/lib/boxd/postinstall.sh"
+
+scripts:
+  postinstall: ./scripts/install/postinstall.sh
+  preremove: ./scripts/install/preremove.sh

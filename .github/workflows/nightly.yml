@@ -30,8 +30,12 @@ jobs:
           cache-dependency-path: ui/package-lock.json
       - name: Install frontend deps
         run: npm ci --prefix ui
+      - name: Install wails3
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117
       - name: Package Linux amd64/arm64 nightly
         run: ./scripts/package-release.sh nightly release
+      - name: Package headless deb/rpm/AppImage
+        run: ./scripts/package-linux.sh nightly amd64 arm64
       - name: Upload nightly artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -41,6 +45,11 @@ jobs:
             release/boxd_nightly_linux_amd64.tar.gz.sha256
             release/boxd_nightly_linux_arm64.tar.gz
             release/boxd_nightly_linux_arm64.tar.gz.sha256
+            build/linux/bin/boxd_nightly_linux_amd64.deb
+            build/linux/bin/boxd_nightly_linux_amd64.rpm
+            build/linux/bin/boxd_nightly_linux_amd64.AppImage
+            build/linux/bin/boxd_nightly_linux_arm64.deb
+            build/linux/bin/boxd_nightly_linux_arm64.rpm
           if-no-files-found: error
           retention-days: 14
       - name: Update rolling nightly GitHub Release
@@ -72,6 +81,11 @@ jobs:
             release/boxd_nightly_linux_amd64.tar.gz.sha256 \
             release/boxd_nightly_linux_arm64.tar.gz \
             release/boxd_nightly_linux_arm64.tar.gz.sha256 \
+            build/linux/bin/boxd_nightly_linux_amd64.deb \
+            build/linux/bin/boxd_nightly_linux_amd64.rpm \
+            build/linux/bin/boxd_nightly_linux_amd64.AppImage \
+            build/linux/bin/boxd_nightly_linux_arm64.deb \
+            build/linux/bin/boxd_nightly_linux_arm64.rpm \
             --clobber
           git tag -f nightly "${{ github.sha }}"
           git push -f origin refs/tags/nightly

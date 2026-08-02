@@ -301,6 +301,13 @@ goimports-reviser -rm-unused -set-alias -project-name github.com/xuthus5/boxd -r
 # produces release/boxd_v0.1.0_linux_amd64.tar.gz, release/boxd_v0.1.0_linux_arm64.tar.gz, and sha256 files
 ```
 
+Package the headless (web service) boxd into deb/rpm/AppImage (AppImage is amd64-only):
+
+```bash
+./scripts/package-linux.sh v0.1.0 amd64 arm64
+# produces build/linux/bin/boxd_v0.1.0_linux_<arch>.deb|.rpm and boxd_v0.1.0_linux_amd64.AppImage
+```
+
 ### Desktop app (Wails3)
 
 Build the desktop binary (requires GTK4 + WebKitGTK 6.0):

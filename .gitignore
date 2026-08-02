@@ -9,6 +9,7 @@ desktop/bin/
 desktop/ui/
 desktop/desktop
 desktop/build/linux/appimage/build/
+build/linux/bin/
 *.test
 *.db
 *.log
