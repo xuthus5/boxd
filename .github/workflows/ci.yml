@@ -66,6 +66,46 @@ jobs:
         working-directory: ui
       - run: ./scripts/check-embedded-ui.sh
 
+  desktop:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - name: Install GTK4 + WebKitGTK 6.0
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev
+      - name: Install wails3
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117
+      - name: Desktop module tests
+        working-directory: desktop
+        run: |
+          export GOPROXY=https://goproxy.io,direct
+          go test ./...
+          go vet ./...
+      - name: Build desktop binary
+        working-directory: desktop
+        run: |
+          export GOPROXY=https://goproxy.io,direct
+          npm ci --prefix ../ui
+          npm run build --prefix ../ui
+          mkdir -p ui/dist
+          cp -r ../ui/dist/* ui/dist/
+          wails3 generate bindings -d ../ui/src/lib/api/bindings
+          go build -tags "desktop embed_ui with_gvisor with_quic with_dhcp with_wireguard with_utls with_acme with_clash_api" -o /tmp/boxd-desktop ./
+      - name: Verify desktop binary
+        run: |
+          test -x /tmp/boxd-desktop
+          file /tmp/boxd-desktop
+
   docker-smoke:
     runs-on: ubuntu-latest
     steps:

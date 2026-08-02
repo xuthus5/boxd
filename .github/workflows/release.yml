@@ -13,6 +13,42 @@ permissions:
   contents: read
 
 jobs:
+  desktop-package:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - name: Install GTK4 + WebKitGTK 6.0 and wails3
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev
+          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117
+      - name: Package desktop app
+        env:
+          GOPROXY: https://goproxy.io,direct
+        run: ./scripts/package-desktop.sh "${GITHUB_REF_NAME}"
+      - name: Upload desktop artifacts
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            desktop/bin/boxd-desktop
+            desktop/bin/boxd-desktop.deb
+            desktop/bin/boxd-desktop.rpm
+            desktop/bin/boxd-desktop-x86_64.AppImage
+            desktop/build/linux/boxd-desktop.desktop
+
   release:
     runs-on: ubuntu-latest
     permissions:

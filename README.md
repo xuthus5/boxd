@@ -310,7 +310,14 @@ make build-desktop
 # produces desktop/bin/boxd-desktop
 ```
 
-The desktop app runs the sing-box core in-process (embedded mode, data in `~/.local/share/boxd`), or connects to a remote boxd service (`BOXD_DESKTOP_MODE=remote`). It exposes a system tray and native windows; the React frontend auto-detects the desktop runtime and uses Wails bindings instead of HTTP.
+Package the desktop app into deb/rpm/AppImage plus a `.desktop` entry:
+
+```bash
+./scripts/package-desktop.sh v0.1.0
+# produces desktop/bin/boxd-desktop, boxd-desktop.deb, boxd-desktop.rpm, boxd-desktop-x86_64.AppImage
+```
+
+The desktop app runs the sing-box core in-process (embedded mode, data in `~/.local/share/boxd`), or connects to a remote boxd service (`BOXD_DESKTOP_MODE=remote`). It exposes a system tray, native windows, file dialogs, autostart, and URL scheme deep links; the React frontend auto-detects the desktop runtime and uses Wails bindings and events instead of HTTP/SSE.
 
 Pushing a `v*` tag runs the GitHub Release workflow (full gates, archive, SBOM).
 

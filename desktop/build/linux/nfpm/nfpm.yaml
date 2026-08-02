@@ -1,0 +1,34 @@
+name: "boxd-desktop"
+arch: ${GOARCH}
+platform: "linux"
+version: "0.1.0"
+section: "net"
+priority: "optional"
+maintainer: "boxd developers <boxd@example.com>"
+description: "boxd desktop — sing-box control plane"
+vendor: "boxd"
+homepage: "https://github.com/xuthus5/boxd"
+license: "Apache-2.0"
+release: "1"
+
+contents:
+  - src: "./bin/boxd-desktop"
+    dst: "/usr/local/bin/boxd-desktop"
+  - src: "./build/appicon.png"
+    dst: "/usr/share/icons/hicolor/256x256/apps/boxd-desktop.png"
+  - src: "./build/linux/boxd-desktop.desktop"
+    dst: "/usr/share/applications/boxd-desktop.desktop"
+
+depends:
+  - libgtk-4-1
+  - libwebkitgtk-6.0-4
+
+overrides:
+  rpm:
+    depends:
+      - gtk4
+      - webkitgtk6.0
+  archlinux:
+    depends:
+      - gtk4
+      - webkitgtk-6.0

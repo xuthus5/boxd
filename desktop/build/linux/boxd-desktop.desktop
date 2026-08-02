@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=boxd-desktop
+Exec=boxd-desktop
+Icon=boxd-desktop
+Categories=Network;Utility;
+Comment=sing-box control plane
+Terminal=false
+Keywords=wails
+Version=1.0
+StartupNotify=false
