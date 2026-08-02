@@ -73,15 +73,26 @@ jobs:
             release/boxd_nightly_linux_arm64.tar.gz \
             release/boxd_nightly_linux_arm64.tar.gz.sha256 \
             --clobber
-          # 清理历史遗留的旧命名附件（boxd_nightly-<date>-<sha>_*.tar.gz），
-          # 避免 Release 附件不断累积造成混淆。仅保留固定名附件。
-          gh api --paginate "/repos/${{ github.repository }}/releases/tags/nightly/assets" \
-            --jq '.[] | select(.name | test("^boxd_nightly-")) | .id' \
-            | while read -r asset_id; do
-              gh api -X DELETE "/repos/${{ github.repository }}/releases/assets/$asset_id" || true
-            done
           git tag -f nightly "${{ github.sha }}"
           git push -f origin refs/tags/nightly
+      - name: Prune stale nightly assets
+        if: ${{ !cancelled() && !failure() }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # 清理历史遗留的旧命名附件（boxd_nightly-<date>-<sha>_*.tar.gz），
+          # 避免 Release 附件不断累积造成混淆。仅保留固定名附件。
+          # 失败不阻断主流程（best-effort）。
+          asset_ids=$(gh release view nightly --json assets --jq '.assets[] | select(.name | test("^boxd_nightly-")) | .id' 2>/dev/null || true)
+          if [ -n "$asset_ids" ]; then
+            for asset_id in $asset_ids; do
+              gh api -X DELETE "repos/${{ github.repository }}/releases/assets/$asset_id" || true
+            done
+            echo "Pruned $asset_ids"
+          else
+            echo "No stale assets to prune"
+          fi
 
   docker:
     runs-on: ubuntu-latest
