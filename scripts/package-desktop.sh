@@ -1,14 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# package-desktop.sh 构建并打包 boxd 桌面应用（deb/rpm/AppImage + .desktop + 裸二进制）。
-# 用法: ./scripts/package-desktop.sh [VERSION]
+# package-desktop.sh 构建并打包 boxd 桌面应用（二进制/deb/rpm/AppImage + .desktop）。
+# 用法: ./scripts/package-desktop.sh [VERSION] [ARCH]
+#   VERSION  版本号（默认 git describe）
+#   ARCH     amd64 或 arm64（默认 amd64；arm64 需在 arm64 runner 原生构建或交叉编译）
 # 依赖: GTK4 + WebKitGTK 6.0 开发库, npm, wails3 CLI
 
 root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 version="${1:-$(git -C "$root_dir" describe --tags --always --dirty 2>/dev/null || echo dev)}"
+arch="${2:-amd64}"
 export PATH="$PATH:/usr/local/go/bin:$HOME/go/bin"
 export GOPROXY="${GOPROXY:-https://goproxy.io,direct}"
+export GOOS=linux
+export CGO_ENABLED=1
+export GOARCH="$arch"
 
 cd "$root_dir/desktop"
 
@@ -25,7 +31,7 @@ find "$root_dir/desktop/ui" -type f -exec chmod 0600 {} +
 echo "==> Generating Wails bindings"
 wails3 generate bindings -d "$root_dir/ui/src/lib/api/bindings" >/dev/null
 
-echo "==> Building desktop binary"
+echo "==> Building desktop binary (${arch})"
 install -d -m 0700 bin
 go build \
   -tags "desktop embed_ui with_gvisor with_quic with_dhcp with_wireguard with_utls with_acme with_clash_api" \
@@ -50,11 +56,12 @@ wails3 generate .desktop \
   -categories "Network;Utility;" \
   -outputfile build/linux/boxd-desktop.desktop
 
-echo "==> Packaging deb/rpm"
+echo "==> Packaging deb/rpm (${arch})"
+# nfpm 配置中的 ${GOARCH} 由 wails3 tool package 按环境展开。
 wails3 tool package -name boxd-desktop -format deb -config build/linux/nfpm/nfpm.yaml -out bin
 wails3 tool package -name boxd-desktop -format rpm -config build/linux/nfpm/nfpm.yaml -out bin
 
-echo "==> Packaging AppImage"
+echo "==> Packaging AppImage (${arch})"
 cp bin/boxd-desktop build/linux/appimage/boxd-desktop
 cp build/appicon.png build/linux/appimage/appicon.png
 # 复制为与 .desktop Icon 名一致的副本，规避 wails3 appimage 插件图标名不匹配问题。

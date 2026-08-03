@@ -76,17 +76,13 @@ package_arch() {
   mv -f "$out/boxd.deb" "$out/boxd_${version}_linux_${arch}.deb" 2>/dev/null || true
   mv -f "$out/boxd.rpm" "$out/boxd_${version}_linux_${arch}.rpm" 2>/dev/null || true
 
-  # AppImage 工具链仅提供 x86_64 宿主版本；arm64 分发走 deb/rpm。
-  if [[ "$arch" == "amd64" ]]; then
-    echo "Packaging linux/${arch} AppImage..."
-    package_appimage "$arch" "$binary" "$out"
-    echo "Packed linux/${arch} deb/rpm/AppImage"
-  else
-    echo "Packed linux/${arch} deb/rpm"
-  fi
+  # AppImage 封装格式与内部二进制架构无关：x86_64 宿主 appimagetool 可封装 arm64 内容。
+  echo "Packaging linux/${arch} AppImage..."
+  package_appimage "$arch" "$binary" "$out"
+  echo "Packed linux/${arch} deb/rpm/AppImage"
 }
 
-# appimagetool_path 返回 appimagetool 二进制；无则下载（优先已缓存，其次 FUSE 解包）。
+# appimagetool_path 返回 x86_64 宿主 appimagetool（AppImage 封装格式可承载任意内部架构）。
 appimagetool_path() {
   local tool="/tmp/appimagetool"
   if [[ ! -x "$tool" ]]; then
@@ -102,7 +98,7 @@ package_appimage() {
   local binary=$2
   local out=$3
   local tool
-  tool=$(appimagetool_path)
+  tool=$(appimagetool_path) || return 0
   local appdir="/tmp/boxd-appdir-${arch}"
   local icon="$root_dir/desktop/build/appicon.png"
 

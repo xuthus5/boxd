@@ -14,9 +14,19 @@ permissions:
 
 jobs:
   desktop-package:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            goarch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            goarch: arm64
+            runner: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
         with:
@@ -58,31 +68,45 @@ jobs:
       - name: Prepare AppImage runtime
         run: |
           set -euo pipefail
+          case "${{ matrix.goarch }}" in
+            amd64) runtime_arch="x86_64" ;;
+            arm64) runtime_arch="aarch64" ;;
+            *) echo "unsupported AppImage arch: ${{ matrix.goarch }}" >&2; exit 1 ;;
+          esac
           runtime_dir="${RUNNER_TEMP}/appimage-runtime"
           mkdir -p "${runtime_dir}"
-          runtime_file="${runtime_dir}/runtime-x86_64"
+          runtime_file="${runtime_dir}/runtime-${runtime_arch}"
           curl --fail --silent --show-error --location \
-            "https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-x86_64" \
+            "https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-${runtime_arch}" \
             --output "${runtime_file}"
           chmod 0755 "${runtime_file}"
           echo "LDAI_RUNTIME_FILE=${runtime_file}" >> "${GITHUB_ENV}"
       - name: Desktop module quality gate
         run: ./scripts/check-desktop.sh
-      - name: Package desktop app
+      - name: Package desktop app (${{ matrix.arch }})
         env:
           GOPROXY: https://goproxy.io,direct
+          GOARCH: ${{ matrix.goarch }}
           APPIMAGE_EXTRACT_AND_RUN: "1"
           NO_STRIP: "1"
-        run: ./scripts/package-desktop.sh "${GITHUB_REF_NAME}"
-      - name: Upload desktop artifacts
+        run: ./scripts/package-desktop.sh "${GITHUB_REF_NAME}" "${{ matrix.goarch }}"
+      - name: Stage desktop artifacts (${{ matrix.arch }})
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/desktop-dist"
+          cp desktop/bin/boxd-desktop "$RUNNER_TEMP/desktop-dist/boxd-desktop-linux-${{ matrix.arch }}"
+          cp desktop/bin/boxd-desktop.deb "$RUNNER_TEMP/desktop-dist/boxd-desktop-linux-${{ matrix.arch }}.deb"
+          cp desktop/bin/boxd-desktop.rpm "$RUNNER_TEMP/desktop-dist/boxd-desktop-linux-${{ matrix.arch }}.rpm"
+          appimage=$(find desktop/bin -maxdepth 1 -type f \( -name '*.AppImage' -o -name '*.appimage' \) | head -1)
+          if [[ -n "$appimage" ]]; then
+            cp "$appimage" "$RUNNER_TEMP/desktop-dist/boxd-desktop-linux-${{ matrix.arch }}.AppImage"
+          fi
+          cp desktop/build/linux/boxd-desktop.desktop "$RUNNER_TEMP/desktop-dist/boxd-desktop-linux-${{ matrix.arch }}.desktop"
+      - name: Upload desktop artifacts (${{ matrix.arch }})
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            desktop/bin/boxd-desktop
-            desktop/bin/boxd-desktop.deb
-            desktop/bin/boxd-desktop.rpm
-            desktop/bin/boxd-desktop-x86_64.AppImage
-            desktop/build/linux/boxd-desktop.desktop
+            ${{ runner.temp }}/desktop-dist/*
 
   release:
     runs-on: ubuntu-latest
@@ -159,6 +183,7 @@ jobs:
             build/linux/bin/boxd_${{ github.ref_name }}_linux_amd64.AppImage
             build/linux/bin/boxd_${{ github.ref_name }}_linux_arm64.deb
             build/linux/bin/boxd_${{ github.ref_name }}_linux_arm64.rpm
+            build/linux/bin/boxd_${{ github.ref_name }}_linux_arm64.AppImage
       - name: Docker metadata
         id: meta
         run: |

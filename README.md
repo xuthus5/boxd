@@ -301,11 +301,11 @@ goimports-reviser -rm-unused -set-alias -project-name github.com/xuthus5/boxd -r
 # produces release/boxd_v0.1.0_linux_amd64.tar.gz, release/boxd_v0.1.0_linux_arm64.tar.gz, and sha256 files
 ```
 
-Package the headless (web service) boxd into deb/rpm/AppImage (AppImage is amd64-only):
+Package the headless (web service) boxd into deb/rpm/AppImage for amd64 and arm64:
 
 ```bash
 ./scripts/package-linux.sh v0.1.0 amd64 arm64
-# produces build/linux/bin/boxd_v0.1.0_linux_<arch>.deb|.rpm and boxd_v0.1.0_linux_amd64.AppImage
+# produces build/linux/bin/boxd_v0.1.0_linux_<arch>.deb|.rpm|.AppImage
 ```
 
 ### Desktop app (Wails3)
@@ -317,11 +317,13 @@ make build-desktop
 # produces desktop/bin/boxd-desktop
 ```
 
-Package the desktop app into deb/rpm/AppImage plus a `.desktop` entry:
+Package the desktop app into a binary, deb/rpm/AppImage plus a `.desktop` entry
+(arm64 builds run natively on an arm64 host/runner):
 
 ```bash
-./scripts/package-desktop.sh v0.1.0
-# produces desktop/bin/boxd-desktop, boxd-desktop.deb, boxd-desktop.rpm, boxd-desktop-x86_64.AppImage
+./scripts/package-desktop.sh v0.1.0 amd64
+./scripts/package-desktop.sh v0.1.0 arm64
+# produces desktop/bin/boxd-desktop, boxd-desktop.deb, boxd-desktop.rpm, boxd-desktop-<arch>.AppImage
 ```
 
 The desktop app runs the sing-box core in-process (embedded mode, data in `~/.local/share/boxd`), or connects to a remote boxd service (`BOXD_DESKTOP_MODE=remote`). It exposes a system tray, native windows, file dialogs, autostart, and URL scheme deep links; the React frontend auto-detects the desktop runtime and uses Wails bindings and events instead of HTTP/SSE.
