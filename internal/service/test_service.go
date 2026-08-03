@@ -5,8 +5,6 @@ import (
 	"errors"
 	"net"
 	"net/http"
-	"os/exec"
-	"strconv"
 	"strings"
 	"time"
 
@@ -21,11 +19,6 @@ const testProbeTimeout = 5 * time.Second
 type outboundDialer interface {
 	DialOutbound(ctx context.Context, tag, network, addr string) (net.Conn, error)
 	OutboundDelay(ctx context.Context, tag, link string, timeout time.Duration) (uint16, error)
-}
-
-// 可注入的 ping 命令钩子，便于单测覆盖。
-var commandOutput = func(ctx context.Context, name string, args ...string) ([]byte, error) {
-	return exec.CommandContext(ctx, name, args...).Output()
 }
 
 // TestRequest 单次测速请求。
@@ -230,23 +223,6 @@ func isValidPingTarget(server string) bool {
 		}
 	}
 	return strings.Contains(server, ".")
-}
-
-func parsePingLatency(line string) (float64, bool) {
-	index := strings.Index(line, "time=")
-	if index < 0 {
-		return 0, false
-	}
-	fields := strings.Fields(strings.TrimSpace(line[index+len("time="):]))
-	if len(fields) == 0 {
-		return 0, false
-	}
-	raw := strings.TrimSuffix(fields[0], "ms")
-	milliseconds, err := strconv.ParseFloat(raw, 64)
-	if err != nil || milliseconds <= 0 {
-		return 0, false
-	}
-	return milliseconds, true
 }
 
 func nonEmpty(value, fallback string) string {

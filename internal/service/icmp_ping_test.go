@@ -6,57 +6,17 @@ import (
 	"net"
 	"testing"
 
+	"golang.org/x/net/icmp"
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
 )
 
-func TestICMPPingFallbackOnRawSocketUnavailable(t *testing.T) {
-	originalEcho := ICMPEcho
-	originalCmd := PingCommandOutput
-	t.Cleanup(func() {
-		ICMPEcho = originalEcho
-		PingCommandOutput = originalCmd
-	})
-
-	ICMPEcho = func(_ context.Context, _ string) (float64, error) {
-		return 0, errICMPUnavailable
-	}
-	var called bool
-	PingCommandOutput = func(_ context.Context, name string, args ...string) ([]byte, error) {
-		called = true
-		if name != "ping" {
-			t.Fatalf("command = %q", name)
-		}
-		return []byte("64 bytes from 1.1.1.1: icmp_seq=1 ttl=56 time=5.5 ms\n"), nil
-	}
-
-	latency, err := ICMPPing(context.Background(), "1.1.1.1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !called {
-		t.Fatal("expected ping command fallback")
-	}
-	if latency != 5.5 {
-		t.Fatalf("latency = %v", latency)
-	}
-}
-
 func TestICMPPingDirectEcho(t *testing.T) {
 	originalEcho := ICMPEcho
-	originalCmd := PingCommandOutput
-	t.Cleanup(func() {
-		ICMPEcho = originalEcho
-		PingCommandOutput = originalCmd
-	})
+	t.Cleanup(func() { ICMPEcho = originalEcho })
 
 	ICMPEcho = func(_ context.Context, _ string) (float64, error) {
 		return 7.5, nil
-	}
-	var cmdCalled bool
-	PingCommandOutput = func(_ context.Context, _ string, _ ...string) ([]byte, error) {
-		cmdCalled = true
-		return nil, nil
 	}
 
 	latency, err := ICMPPing(context.Background(), "example.com")
@@ -66,35 +26,32 @@ func TestICMPPingDirectEcho(t *testing.T) {
 	if latency != 7.5 {
 		t.Fatalf("latency = %v", latency)
 	}
-	if cmdCalled {
-		t.Fatal("did not expect ping fallback when icmp succeeds")
-	}
 }
 
-func TestICMPPingNoFallbackOnGenericError(t *testing.T) {
+func TestICMPPingPropagatesError(t *testing.T) {
 	originalEcho := ICMPEcho
-	originalCmd := PingCommandOutput
-	t.Cleanup(func() {
-		ICMPEcho = originalEcho
-		PingCommandOutput = originalCmd
-	})
+	t.Cleanup(func() { ICMPEcho = originalEcho })
 
-	genericErr := errors.New("network unreachable")
+	sentinel := errors.New("network unreachable")
 	ICMPEcho = func(_ context.Context, _ string) (float64, error) {
-		return 0, genericErr
-	}
-	var cmdCalled bool
-	PingCommandOutput = func(_ context.Context, _ string, _ ...string) ([]byte, error) {
-		cmdCalled = true
-		return nil, nil
+		return 0, sentinel
 	}
 
 	_, err := ICMPPing(context.Background(), "1.1.1.1")
-	if !errors.Is(err, genericErr) {
+	if !errors.Is(err, sentinel) {
 		t.Fatalf("err = %v", err)
 	}
-	if cmdCalled {
-		t.Fatal("did not expect ping fallback on generic icmp error")
+}
+
+func TestProbeICMPEchoNoPrivilegeError(t *testing.T) {
+	originalListen := listenICMP
+	t.Cleanup(func() { listenICMP = originalListen })
+	listenICMP = func(net.IP) (string, *icmp.PacketConn, error) {
+		return "", nil, errors.New("operation not permitted")
+	}
+	_, err := probeICMPEcho(context.Background(), "127.0.0.1")
+	if !errors.Is(err, errICMPNoPrivilege) {
+		t.Fatalf("err = %v, want %v", err, errICMPNoPrivilege)
 	}
 }
 
@@ -200,27 +157,5 @@ func TestPeerMatches(t *testing.T) {
 	// 非 IPAddr 类型默认视为匹配
 	if !peerMatches(&net.TCPAddr{IP: ip, Port: 80}, ip) {
 		t.Fatal("non-IPAddr should default to match")
-	}
-}
-
-func TestProbeICMPEchoCanceledContext(t *testing.T) {
-	originalEcho := ICMPEcho
-	originalCmd := PingCommandOutput
-	t.Cleanup(func() {
-		ICMPEcho = originalEcho
-		PingCommandOutput = originalCmd
-	})
-	// icmp 库失败触发回退，但 ctx 已取消，ping 命令应感知取消。
-	ICMPEcho = func(_ context.Context, _ string) (float64, error) {
-		return 0, errICMPUnavailable
-	}
-	PingCommandOutput = func(ctx context.Context, _ string, _ ...string) ([]byte, error) {
-		<-ctx.Done()
-		return nil, ctx.Err()
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	if _, err := ICMPPing(ctx, "example.com"); !errors.Is(err, context.Canceled) {
-		t.Fatalf("err = %v, want context canceled", err)
 	}
 }

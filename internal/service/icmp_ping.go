@@ -21,55 +21,13 @@ var ICMPEcho = func(ctx context.Context, target string) (float64, error) {
 	return probeICMPEcho(ctx, target)
 }
 
-// PingCommandOutput 保留 ping 命令回退路径（原始 socket 无权限时使用），可注入便于测试。
-var PingCommandOutput = func(ctx context.Context, name string, args ...string) ([]byte, error) {
-	return commandOutput(ctx, name, args...)
-}
-
-// errICMPUnavailable 表示原始 socket 不可用（如非 root），需回退到系统 ping 命令。
-var errICMPUnavailable = errors.New("icmp raw socket unavailable")
+// errICMPNoPrivilege 表示进程缺少创建 ICMP 原始 socket 所需的 CAP_NET_RAW。
+var errICMPNoPrivilege = errors.New("icmp raw socket requires CAP_NET_RAW")
 
 // ICMPPing 执行一次 ICMP echo 探测，返回毫秒延迟。
-// target 为 IP 或域名。原始 socket 不可用时（如非 root），回退到系统 ping 命令。
+// target 为 IP 或域名。需要进程具备 CAP_NET_RAW（或等价 ping_group_range 授权）。
 func ICMPPing(ctx context.Context, target string) (float64, error) {
-	latency, err := ICMPEcho(ctx, target)
-	if err == nil {
-		return latency, nil
-	}
-	if !errors.Is(err, errICMPUnavailable) {
-		return 0, err
-	}
-	return pingCommandFallback(ctx, target)
-}
-
-// pingCommandFallback 用系统 ping 命令测量延迟（兼容非特权环境）。
-func pingCommandFallback(ctx context.Context, target string) (float64, error) {
-	if err := validatePingTarget(target); err != nil {
-		return 0, err
-	}
-	probeCtx, cancel := context.WithTimeout(ctx, icmpProbeTimeout)
-	defer cancel()
-	startedAt := time.Now()
-	output, err := PingCommandOutput(probeCtx, "ping", "-c", "1", "-W", "3", target)
-	latency := time.Since(startedAt).Seconds() * 1000
-	if err != nil {
-		// 保留 context 取消/超时语义，便于调用方识别。
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			return 0, err
-		}
-		message := strings.TrimSpace(string(output))
-		if message == "" {
-			message = err.Error()
-		}
-		return 0, errors.New(message)
-	}
-	for _, line := range strings.Split(string(output), "\n") {
-		if milliseconds, ok := parsePingLatency(line); ok {
-			latency = milliseconds
-			break
-		}
-	}
-	return latency, nil
+	return ICMPEcho(ctx, target)
 }
 
 // probeICMPEcho 用 x/net/icmp 发送单个 echo 请求并测量往返延迟。
@@ -85,8 +43,8 @@ func probeICMPEcho(ctx context.Context, target string) (float64, error) {
 
 	network, conn, err := listenICMP(ip)
 	if err != nil {
-		// 原始 socket 不可用（无 CAP_NET_RAW / 非特权），回退到系统 ping。
-		return 0, fmt.Errorf("%w: %v", errICMPUnavailable, err)
+		// 无 CAP_NET_RAW 时无法创建原始 socket，提示部署方补齐网络权限。
+		return 0, fmt.Errorf("%w: %v", errICMPNoPrivilege, err)
 	}
 	defer func() { _ = conn.Close() }()
 
@@ -135,8 +93,8 @@ func probeICMPEcho(ctx context.Context, target string) (float64, error) {
 	}
 }
 
-// listenICMP 按 IP 族打开 ICMP socket。
-func listenICMP(ip net.IP) (string, *icmp.PacketConn, error) {
+// listenICMP 按 IP 族打开 ICMP socket（可注入便于测试）。
+var listenICMP = func(ip net.IP) (string, *icmp.PacketConn, error) {
 	if ip.To4() != nil {
 		conn, err := icmp.ListenPacket("ip4:icmp", "0.0.0.0")
 		return "ip4", conn, err

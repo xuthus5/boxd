@@ -177,6 +177,13 @@ export BOXD_CONFIG=/etc/sing-box/config.json
   --password 'your-strong-password'
 ```
 
+### ICMP 测速需要网络权限
+
+ICMP 测速会打开原始套接字，需要 `CAP_NET_RAW` 能力。
+
+- **systemd 安装**：`boxd.service` 已内置 `AmbientCapabilities=CAP_NET_RAW`，直接 `systemctl start boxd.service` 即可。若自建 unit，需自行加入 `AmbientCapabilities=CAP_NET_RAW` 与 `CapabilityBoundingSet=... CAP_NET_RAW`。
+- **不使用 systemd 直接运行**：以 root 运行，或为服务用户授予该能力。否则 ICMP 测速会报 `icmp raw socket requires CAP_NET_RAW`（TCP/HTTP 测速不受影响）。
+
 ## Docker
 
 公开镜像（CI 推送后）：
@@ -200,6 +207,7 @@ docker run -d --name boxd --restart unless-stopped \
   -v boxd-data:/var/lib/boxd \
   -v boxd-config:/etc/sing-box \
   --cap-add NET_ADMIN \
+  --cap-add NET_RAW \
   ghcr.io/xuthus5/boxd:latest
 ```
 
@@ -208,6 +216,7 @@ docker run -d --name boxd --restart unless-stopped \
 - 通过 `-e BOXD_*` 或 `--env-file` 传入配置；容器内进程不会自行读取 `/etc/boxd/boxd.env`。
 - 请持久化 `/var/lib/boxd`（数据库、缓存）与 `/etc/sing-box`（内核配置）。
 - 使用 TUN 等高级网络能力时建议加 `NET_ADMIN`。
+- ICMP 测速需要 `NET_RAW`（原始套接字）。容器内进程以 root 运行，能力生效；不加则禁用 ICMP 测速。
 - 健康检查访问容器内 `http://127.0.0.1:9091/healthz`。
 
 ### 本地构建镜像

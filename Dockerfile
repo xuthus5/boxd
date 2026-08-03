@@ -23,14 +23,14 @@ RUN CGO_ENABLED=0 go build \
 # Runtime
 FROM alpine:3.20
 RUN apk add --no-cache ca-certificates iptables iproute2 wget && \
-    addgroup -S boxd && adduser -S -G boxd boxd && \
     mkdir -p /var/lib/boxd /etc/sing-box && \
-    chmod 0700 /var/lib/boxd && \
-    chown -R boxd:boxd /var/lib/boxd /etc/sing-box
+    chmod 0700 /var/lib/boxd
 WORKDIR /app
-COPY --from=go-builder --chown=boxd:boxd /bin/boxd /app/boxd
-USER boxd
+COPY --from=go-builder /bin/boxd /app/boxd
+COPY --chmod=0700 deploy/docker-entrypoint.sh /app/docker-entrypoint.sh
+# ICMP 测速需要原始 socket：容器默认以 root 运行，需在 docker run 时
+# 追加 --cap-add NET_RAW（见 README「Docker」章节）。
 EXPOSE 9091
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
     CMD wget -q -O /dev/null http://127.0.0.1:9091/healthz || exit 1
-ENTRYPOINT ["/app/boxd"]
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

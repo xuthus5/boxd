@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -140,21 +139,4 @@ func isValidPingTarget(server string) bool {
 		}
 	}
 	return strings.Contains(server, ".")
-}
-
-func parsePingLatency(line string) (float64, bool) {
-	index := strings.Index(line, "time=")
-	if index < 0 {
-		return 0, false
-	}
-	fields := strings.Fields(strings.TrimSpace(line[index+len("time="):]))
-	if len(fields) == 0 {
-		return 0, false
-	}
-	raw := strings.TrimSuffix(fields[0], "ms")
-	milliseconds, err := strconv.ParseFloat(raw, 64)
-	if err != nil || milliseconds <= 0 {
-		return 0, false
-	}
-	return milliseconds, true
 }

@@ -20,7 +20,35 @@
 - [ ] systemd 单元以非 root 服务用户运行，二进制权限 `root:boxd 0750`
 - [ ] 数据目录 `/var/lib/boxd` 权限收敛（目录 0700，关键文件 0600）
 
-## 3. TLS 推荐部署
+## 3. ICMP 测速网络权限
+
+ICMP 测速使用原始套接字，需要 `CAP_NET_RAW`。缺失时测速报
+`icmp raw socket requires CAP_NET_RAW`（TCP/HTTP 测速不受影响）。
+
+| 部署形态 | 处理方式 |
+| --- | --- |
+| systemd（deb/rpm） | `boxd.service` 已内置 `AmbientCapabilities=CAP_NET_RAW`，无需额外操作 |
+| 直接运行二进制 | 以 root 运行，或为服务用户授予 `CAP_NET_RAW`（如 `AmbientCapabilities`） |
+| 容器 | `docker run --cap-add NET_RAW ...`（容器内进程以 root 运行，能力生效） |
+
+自建 systemd unit 的最小配置：
+
+```ini
+[Service]
+User=boxd
+CapabilityBoundingSet=CAP_NET_RAW
+AmbientCapabilities=CAP_NET_RAW
+```
+
+验证 ICMP 测速可用：
+
+```bash
+curl -s 'http://127.0.0.1:9091/api/v1/test/probe' \
+  -H 'Authorization: Bearer <token>' \
+  -d '{"server":"1.1.1.1","test_type":"icmp"}'
+```
+
+## 4. TLS 推荐部署
 
 boxd 支持内置 TLS：
 
@@ -43,7 +71,7 @@ BOXD_LISTEN=[::]:9091 \
 - 同时配置 cert/key，缺一不可
 - 对外只暴露 HTTPS，不暴露明文管理口
 
-## 4. 默认密码与账号
+## 5. 默认密码与账号
 
 密码优先级：数据库哈希 → 首次 `BOXD_PASSWORD` → `admin123`。
 
@@ -54,7 +82,7 @@ BOXD_LISTEN=[::]:9091 \
 3. 确认设置页不再显示默认密码告警
 4. 轮换后使用新密码重新登录
 
-## 5. 备份与恢复演练
+## 6. 备份与恢复演练
 
 面板「设置 → 数据备份」可导出同格式归档（需登录）。恢复仍仅支持 CLI。
 
@@ -79,7 +107,7 @@ systemctl start boxd.service
 - [ ] 订阅 / 设置 / 内核配置关键数据在
 - [ ] 服务 `active (running)`，`/health` 返回正常
 
-## 6. 升级回滚
+## 7. 升级回滚
 
 升级：
 
@@ -96,7 +124,7 @@ systemctl start boxd.service
 3. 如配置不兼容，使用升级前备份 `--restore`
 4. 启动并验证
 
-## 7. 长稳与真链路验收
+## 8. 长稳与真链路验收
 
 短时 smoke（每次发布）：
 
@@ -124,7 +152,7 @@ GA 前长稳（推荐）：
 - `SOAK_PASS`
 - 发布窗口内无启动失败、无配置回滚风暴
 
-## 8. 发布说明模板
+## 9. 发布说明模板
 
 - 版本号：
 - 对应 commit：

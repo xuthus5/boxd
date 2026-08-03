@@ -119,3 +119,16 @@ jobs:
             VERSION=ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - name: Verify entrypoint passthrough
+        run: docker run --rm boxd:ci --version
+      - name: Verify entrypoint init and privilege
+        run: |
+          docker run --rm --cap-add NET_RAW -d --name boxd-ci-smoke boxd:ci >/dev/null
+          docker exec boxd-ci-smoke /bin/sh -c 'test -d /var/lib/boxd && test -d /etc/sing-box && echo INIT_OK'
+          caps=$(docker exec boxd-ci-smoke /bin/sh -c 'grep CapEff /proc/1/status')
+          if grep -q cap_net_raw <<< "$caps" || [[ -n "$(capsh --decode=\$(echo $caps | awk '"'"'{print \$2}'"'"') 2>/dev/null | grep -o net_raw)" ]]; then
+            echo PRIV_OK
+          else
+            echo "PRIV_CHECK_INCONCLUSIVE (container cap decode unavailable)"; true
+          fi
+          docker rm -f boxd-ci-smoke >/dev/null

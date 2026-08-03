@@ -190,7 +190,7 @@ func TestTestHandlerHTTPTestWithDialer(t *testing.T) {
 	}
 }
 
-func TestTestHandlerICMPPingAndLatencyParsing(t *testing.T) {
+func TestTestHandlerICMPPing(t *testing.T) {
 	previous := service.ICMPEcho
 	t.Cleanup(func() { service.ICMPEcho = previous })
 
@@ -209,19 +209,6 @@ func TestTestHandlerICMPPingAndLatencyParsing(t *testing.T) {
 	result = handler.icmpPing(t.Context(), TestRequest{Server: "1.1.1.1"})
 	if result.Error == "" {
 		t.Fatalf("expected ping error, got %#v", result)
-	}
-
-	if ms, ok := parsePingLatency("time=7.5ms"); !ok || ms != 7.5 {
-		t.Fatalf("latency = %v,%v", ms, ok)
-	}
-	if _, ok := parsePingLatency("no latency"); ok {
-		t.Fatal("expected parse miss")
-	}
-	if _, ok := parsePingLatency("time=0ms"); ok {
-		t.Fatal("expected zero latency to be ignored")
-	}
-	if _, ok := parsePingLatency("time=not-a-number ms"); ok {
-		t.Fatal("expected invalid latency to be ignored")
 	}
 }
 

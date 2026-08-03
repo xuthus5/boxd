@@ -180,6 +180,13 @@ Or pass flags:
   --password 'your-strong-password'
 ```
 
+### ICMP latency tests require network privilege
+
+ICMP latency tests open raw sockets, which need the `CAP_NET_RAW` capability.
+
+- **systemd install**: `boxd.service` already sets `AmbientCapabilities=CAP_NET_RAW`; start via `systemctl start boxd.service` and nothing more is needed. If you hand-roll your own unit, add `AmbientCapabilities=CAP_NET_RAW` and `CapabilityBoundingSet=... CAP_NET_RAW`.
+- **Direct binary run without systemd**: launch as root, or grant the capability to the service user. Without it, ICMP tests fail with `icmp raw socket requires CAP_NET_RAW` (TCP/HTTP tests are unaffected).
+
 ## Docker
 
 Public images (after CI push):
@@ -203,6 +210,7 @@ docker run -d --name boxd --restart unless-stopped \
   -v boxd-data:/var/lib/boxd \
   -v boxd-config:/etc/sing-box \
   --cap-add NET_ADMIN \
+  --cap-add NET_RAW \
   ghcr.io/xuthus5/boxd:latest
 ```
 
@@ -211,6 +219,7 @@ Notes:
 - Pass config via `-e BOXD_*` (or `--env-file`); the container process does not read `/etc/boxd/boxd.env` by itself.
 - Persist `/var/lib/boxd` (database, caches) and `/etc/sing-box` (kernel config).
 - `NET_ADMIN` is recommended when using TUN / advanced networking features of sing-box.
+- `NET_RAW` is required for ICMP latency tests (raw sockets). The container process runs as root so the capability applies; omit it to disable ICMP tests.
 - Health check hits `http://127.0.0.1:9091/healthz` inside the container.
 
 ### Build the image locally

@@ -182,17 +182,10 @@ func TestTestServiceRunICMPInvalidServer(t *testing.T) {
 
 func TestTestServiceRunICMPPingFailure(t *testing.T) {
 	originalEcho := ICMPEcho
-	originalCmd := PingCommandOutput
-	t.Cleanup(func() {
-		ICMPEcho = originalEcho
-		PingCommandOutput = originalCmd
-	})
-	// icmp 库失败（如无原始 socket 权限），回退到 ping 命令也失败。
+	t.Cleanup(func() { ICMPEcho = originalEcho })
+	// icmp 库失败（如无原始 socket 权限），测速结果应标记为失败。
 	ICMPEcho = func(_ context.Context, _ string) (float64, error) {
-		return 0, errors.New("no permission")
-	}
-	PingCommandOutput = func(_ context.Context, _ string, _ ...string) ([]byte, error) {
-		return []byte("ping: unreachable"), errors.New("exit status 1")
+		return 0, errors.New("icmp probe failed")
 	}
 	nodeMgr, _ := newTestManagers(t)
 	svc := NewTestService(nil, nodeMgr, &fakeDialer{})
@@ -241,8 +234,6 @@ func TestTestServiceBatchTooMany(t *testing.T) {
 }
 
 func TestTestServiceBatchCancellation(t *testing.T) {
-	original := commandOutput
-	t.Cleanup(func() { commandOutput = original })
 	nodeMgr, _ := newTestManagers(t)
 	svc := NewTestService(nil, nodeMgr, &fakeDialer{delayErr: errors.New("down")})
 	ctx, cancel := context.WithCancel(context.Background())
@@ -342,21 +333,6 @@ func TestIsValidPingTarget(t *testing.T) {
 		if got := isValidPingTarget(server); got != want {
 			t.Fatalf("%q = %v, want %v", server, got, want)
 		}
-	}
-}
-
-func TestParsePingLatency(t *testing.T) {
-	if got, ok := parsePingLatency("64 bytes: time=12.3 ms"); !ok || got != 12.3 {
-		t.Fatalf("got %v %v", got, ok)
-	}
-	if _, ok := parsePingLatency("no match"); ok {
-		t.Fatal("unexpected match")
-	}
-	if _, ok := parsePingLatency("time=abc ms"); ok {
-		t.Fatal("unexpected match for non-numeric")
-	}
-	if _, ok := parsePingLatency("time=-5 ms"); ok {
-		t.Fatal("unexpected match for negative")
 	}
 }
 
