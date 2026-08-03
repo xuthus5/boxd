@@ -30,6 +30,26 @@ jobs:
           cache-dependency-path: ui/package-lock.json
       - name: Install frontend deps
         run: npm ci --prefix ui
+      - name: Install Linux package tooling
+        run: |
+          retry() {
+            local attempt=1
+            local max_attempts=3
+            until "$@"; do
+              status=$?
+              if [ "${attempt}" -ge "${max_attempts}" ]; then
+                return "${status}"
+              fi
+              echo "command failed with ${status}; retrying ${attempt}/${max_attempts}" >&2
+              attempt=$((attempt + 1))
+              sleep 15
+            done
+          }
+          export DEBIAN_FRONTEND=noninteractive
+          retry timeout 5m sudo apt-get update -o Acquire::Retries=5
+          retry timeout 10m sudo apt-get install -y --no-install-recommends -o Acquire::Retries=5 \
+            build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev \
+            rpm file desktop-file-utils
       - name: Install wails3
         run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117
       - name: Package Linux amd64/arm64 nightly
@@ -127,14 +147,44 @@ jobs:
           node-version: 20
           cache: npm
           cache-dependency-path: ui/package-lock.json
-      - name: Install GTK4 + WebKitGTK 6.0 and wails3
+      - name: Install Linux package tooling
         run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev
-          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117
+          retry() {
+            local attempt=1
+            local max_attempts=3
+            until "$@"; do
+              status=$?
+              if [ "${attempt}" -ge "${max_attempts}" ]; then
+                return "${status}"
+              fi
+              echo "command failed with ${status}; retrying ${attempt}/${max_attempts}" >&2
+              attempt=$((attempt + 1))
+              sleep 15
+            done
+          }
+          export DEBIAN_FRONTEND=noninteractive
+          retry timeout 5m sudo apt-get update -o Acquire::Retries=5
+          retry timeout 10m sudo apt-get install -y --no-install-recommends -o Acquire::Retries=5 \
+            build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev libwebkitgtk-6.0-4 \
+            rpm file libfuse2 fuse3 desktop-file-utils wget
+      - name: Install wails3
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117
+      - name: Prepare AppImage runtime
+        run: |
+          set -euo pipefail
+          runtime_dir="${RUNNER_TEMP}/appimage-runtime"
+          mkdir -p "${runtime_dir}"
+          runtime_file="${runtime_dir}/runtime-x86_64"
+          curl --fail --silent --show-error --location \
+            "https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-x86_64" \
+            --output "${runtime_file}"
+          chmod 0755 "${runtime_file}"
+          echo "LDAI_RUNTIME_FILE=${runtime_file}" >> "${GITHUB_ENV}"
       - name: Package desktop app
         env:
           GOPROXY: https://goproxy.io,direct
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+          NO_STRIP: "1"
         run: ./scripts/package-desktop.sh nightly
       - name: Upload desktop artifacts
         uses: actions/upload-artifact@v4
