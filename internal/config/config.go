@@ -1,7 +1,10 @@
 package config
 
 import (
+	"errors"
 	"flag"
+	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -23,10 +26,26 @@ type Config struct {
 	ShowVersion        bool
 }
 
-func Parse() *Config {
+// Parse 解析命令行参数与环境变量（输出到 stderr）。
+// 参数解析失败返回错误（flag.ErrHelp 表示用户请求了帮助）。
+func Parse() (*Config, error) {
+	return parseArgs(os.Args[1:], os.Stderr)
+}
+
+// ParseArgs 从指定参数与输出流解析配置，便于测试注入。
+func ParseArgs(args []string, output io.Writer) (*Config, error) {
+	return parseArgs(args, output)
+}
+
+// parseArgs 从指定参数与输出流解析配置，便于测试注入。
+func parseArgs(args []string, output io.Writer) (*Config, error) {
 	cfg := &Config{}
 
 	fs := flag.NewFlagSet("boxd", flag.ContinueOnError)
+	fs.SetOutput(output)
+	fs.Usage = func() {
+		printUsage(fs)
+	}
 	fs.StringVar(&cfg.Listen, "listen", resolveListen(), "listen address")
 	fs.StringVar(&cfg.ConfigPath, "config", getEnv("BOXD_CONFIG", "/etc/sing-box/config.json"), "sing-box config path")
 	fs.StringVar(&cfg.DataDir, "data-dir", getEnv("BOXD_DATA_DIR", "/var/lib/boxd"), "data directory")
@@ -39,11 +58,20 @@ func Parse() *Config {
 	fs.StringVar(&cfg.BackupPath, "backup", "", "create a backup archive and exit")
 	fs.StringVar(&cfg.RestorePath, "restore", "", "restore a backup archive and exit")
 	fs.BoolVar(&cfg.ShowVersion, "version", false, "print version and exit")
-	_ = fs.Parse(os.Args[1:])
+	if err := fs.Parse(args); err != nil {
+		return nil, err
+	}
 
 	cfg.CORSAllowedOrigins = parseCORSOrigins(os.Getenv("BOXD_CORS_ALLOWED_ORIGINS"))
 
-	return cfg
+	return cfg, nil
+}
+
+// printUsage 输出 boxd 命令用法。
+func printUsage(fs *flag.FlagSet) {
+	_, _ = fmt.Fprintf(fs.Output(), "Usage: boxd [options]\n\n")
+	_, _ = fmt.Fprintf(fs.Output(), "boxd — single-node control plane for sing-box\n\nOptions:\n")
+	fs.PrintDefaults()
 }
 
 func parseCORSOrigins(raw string) []string {
@@ -91,4 +119,9 @@ func resolveListen() string {
 		return "[::]:" + port
 	}
 	return "[::]:9091"
+}
+
+// IsHelpError 判断是否因请求帮助（--help）返回。
+func IsHelpError(err error) bool {
+	return errors.Is(err, flag.ErrHelp)
 }

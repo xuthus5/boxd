@@ -7,18 +7,27 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 )
 
 // 可注入命令执行钩子，便于单测覆盖而不依赖真实系统命令。
+// 使用 context 超时避免 dbus 等外部命令挂起阻塞调用方。
 var (
 	execLookPath = exec.LookPath
 	runCommand   = func(name string, args ...string) ([]byte, error) {
-		return exec.Command(name, args...).CombinedOutput()
+		ctx, cancel := context.WithTimeout(context.Background(), nativeCommandTimeout)
+		defer cancel()
+		return exec.CommandContext(ctx, name, args...).CombinedOutput()
 	}
 	runOutputCommand = func(name string, args ...string) ([]byte, error) {
-		return exec.Command(name, args...).Output()
+		ctx, cancel := context.WithTimeout(context.Background(), nativeCommandTimeout)
+		defer cancel()
+		return exec.CommandContext(ctx, name, args...).Output()
 	}
 )
+
+// nativeCommandTimeout 外部命令执行超时，防止 dbus 不可用时阻塞。
+const nativeCommandTimeout = 5 * time.Second
 
 // NativeCapabilities 提供桌面原生能力：自启、单实例、对话框、通知、代理切换等。
 // 封装为 Wails 可绑定服务，供前端与托盘调用。

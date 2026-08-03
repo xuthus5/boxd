@@ -1,9 +1,17 @@
 package config
 
-import "testing"
+import (
+	"bytes"
+	"flag"
+	"strings"
+	"testing"
+)
 
 func TestParseDefaults(t *testing.T) {
-	cfg := Parse()
+	cfg, err := parseArgs(nil, &bytes.Buffer{})
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
 	if cfg.Listen != "[::]:9091" {
 		t.Errorf("expected default listen [::]:9091, got %s", cfg.Listen)
 	}
@@ -26,7 +34,10 @@ func TestParseFromEnv(t *testing.T) {
 	t.Setenv("BOXD_REFRESH_INTERVAL", "30")
 	t.Setenv("BOXD_CORS_ALLOWED_ORIGINS", "https://a.example, https://b.example ")
 
-	cfg := Parse()
+	cfg, err := parseArgs(nil, &bytes.Buffer{})
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
 	if cfg.Listen != "0.0.0.0:8080" {
 		t.Errorf("expected 0.0.0.0:8080, got %s", cfg.Listen)
 	}
@@ -44,6 +55,58 @@ func TestParseFromEnv(t *testing.T) {
 	}
 	if len(cfg.CORSAllowedOrigins) != 2 || cfg.CORSAllowedOrigins[0] != "https://a.example" || cfg.CORSAllowedOrigins[1] != "https://b.example" {
 		t.Errorf("unexpected cors origins %#v", cfg.CORSAllowedOrigins)
+	}
+}
+
+func TestParseFlagsOverrideEnv(t *testing.T) {
+	t.Setenv("BOXD_LISTEN", "0.0.0.0:9999")
+	t.Setenv("BOXD_USERNAME", "envuser")
+	cfg, err := parseArgs([]string{"--listen", "127.0.0.1:8080", "--username", "flaguser"}, &bytes.Buffer{})
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if cfg.Listen != "127.0.0.1:8080" {
+		t.Errorf("expected flag listen, got %s", cfg.Listen)
+	}
+	if cfg.Username != "flaguser" {
+		t.Errorf("expected flag username, got %s", cfg.Username)
+	}
+}
+
+func TestParseInvalidFlagReturnsError(t *testing.T) {
+	var output bytes.Buffer
+	_, err := parseArgs([]string{"--nonexistent"}, &output)
+	if err == nil {
+		t.Fatal("expected error for unknown flag")
+	}
+	if !strings.Contains(output.String(), "Usage") {
+		t.Errorf("expected usage in output, got %q", output.String())
+	}
+}
+
+func TestParseInvalidIntReturnsError(t *testing.T) {
+	_, err := parseArgs([]string{"--refresh-interval", "abc"}, &bytes.Buffer{})
+	if err == nil {
+		t.Fatal("expected error for invalid integer")
+	}
+}
+
+func TestParseHelpReturnsErrHelp(t *testing.T) {
+	_, err := parseArgs([]string{"--help"}, &bytes.Buffer{})
+	if err != flag.ErrHelp {
+		t.Fatalf("expected flag.ErrHelp, got %v", err)
+	}
+}
+
+func TestIsHelpError(t *testing.T) {
+	if !IsHelpError(flag.ErrHelp) {
+		t.Fatal("expected flag.ErrHelp to be recognized")
+	}
+	if IsHelpError(nil) {
+		t.Fatal("expected nil to not be help error")
+	}
+	if IsHelpError(flag.ErrHelp) == false {
+		t.Fatal("expected flag.ErrHelp wrapped to be recognized")
 	}
 }
 
@@ -85,7 +148,10 @@ func TestGetEnvList(t *testing.T) {
 
 func TestParseWithPortEnv(t *testing.T) {
 	t.Setenv("BOXD_PORT", "7777")
-	cfg := Parse()
+	cfg, err := parseArgs(nil, &bytes.Buffer{})
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
 	if cfg.Listen != "[::]:7777" {
 		t.Errorf("expected [::]:7777, got %s", cfg.Listen)
 	}
@@ -94,7 +160,10 @@ func TestParseWithPortEnv(t *testing.T) {
 func TestParseListenOverridesPort(t *testing.T) {
 	t.Setenv("BOXD_LISTEN", "0.0.0.0:8888")
 	t.Setenv("BOXD_PORT", "7777")
-	cfg := Parse()
+	cfg, err := parseArgs(nil, &bytes.Buffer{})
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
 	if cfg.Listen != "0.0.0.0:8888" {
 		t.Errorf("expected 0.0.0.0:8888 (listen overrides port), got %s", cfg.Listen)
 	}

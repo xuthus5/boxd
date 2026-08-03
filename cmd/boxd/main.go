@@ -19,11 +19,24 @@ import (
 )
 
 func main() {
-	cfg := config.Parse()
-	if err := execute(cfg, os.Stdout); err != nil {
-		slog.Error("fatal error", "err", err)
-		os.Exit(1)
+	os.Exit(parseAndExecute(os.Args[1:], os.Stdout, os.Stderr))
+}
+
+// parseAndExecute 解析参数并执行，返回进程退出码，便于测试。
+func parseAndExecute(args []string, stdout, stderr io.Writer) int {
+	cfg, err := config.ParseArgs(args, stderr)
+	if err != nil {
+		if config.IsHelpError(err) {
+			return 0
+		}
+		_, _ = fmt.Fprintln(stderr, "boxd:", err)
+		return 2
 	}
+	if err := execute(cfg, stdout); err != nil {
+		slog.Error("fatal error", "err", err)
+		return 1
+	}
+	return 0
 }
 
 func execute(cfg *config.Config, stdout io.Writer) error {

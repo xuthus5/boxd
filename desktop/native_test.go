@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestNativeRuntimeInfo(t *testing.T) {
@@ -368,5 +369,27 @@ func TestNativeSystemProxyStatus(t *testing.T) {
 	n := NewNativeCapabilities(&desktopRuntime{})
 	if _, err := n.SystemProxyStatus(context.Background()); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestRunCommandTimeout(t *testing.T) {
+	// 用 sleep 验证超时终止（5s 超时内应快速返回）。
+	start := time.Now()
+	_, err := runCommand("sleep", "10")
+	if err == nil {
+		t.Fatal("expected timeout error")
+	}
+	if time.Since(start) > 6*time.Second {
+		t.Fatalf("timeout took too long: %v", time.Since(start))
+	}
+}
+
+func TestRunCommandSuccess(t *testing.T) {
+	output, err := runCommand("true")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(output) != 0 {
+		t.Fatalf("unexpected output %q", output)
 	}
 }

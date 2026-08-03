@@ -469,3 +469,41 @@ func TestValidateConfigTLSPair(t *testing.T) {
 		t.Fatal("expected missing key error")
 	}
 }
+
+func TestParseAndExecuteHelp(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	if code := parseAndExecute([]string{"--help"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("help exit code = %d", code)
+	}
+}
+
+func TestParseAndExecuteInvalidFlag(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	if code := parseAndExecute([]string{"--nonexistent"}, &stdout, &stderr); code != 2 {
+		t.Fatalf("invalid flag exit code = %d", code)
+	}
+	if !strings.Contains(stderr.String(), "boxd:") {
+		t.Fatalf("expected error prefix, got %q", stderr.String())
+	}
+}
+
+func TestParseAndExecuteVersion(t *testing.T) {
+	previous := core.Version
+	core.Version = "v3.0.0-cli"
+	t.Cleanup(func() { core.Version = previous })
+	var stdout, stderr bytes.Buffer
+	if code := parseAndExecute([]string{"--version"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("version exit code = %d", code)
+	}
+	if stdout.String() != "v3.0.0-cli\n" {
+		t.Fatalf("version output = %q", stdout.String())
+	}
+}
+
+func TestParseAndExecuteFatal(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	// backup 需要合法参数，构造会触发 execute 内错误的情形：--backup 指向不存在路径。
+	if code := parseAndExecute([]string{"--backup", "/nonexistent/out.tar.gz"}, &stdout, &stderr); code != 1 {
+		t.Fatalf("fatal exit code = %d", code)
+	}
+}
