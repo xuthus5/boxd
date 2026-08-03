@@ -18,6 +18,7 @@ import (
 
 	"github.com/xuthus5/boxd/internal/core"
 	"github.com/xuthus5/boxd/internal/model"
+	"github.com/xuthus5/boxd/internal/service"
 )
 
 func TestServiceHandlerStatusAndErrors(t *testing.T) {
@@ -190,20 +191,20 @@ func TestTestHandlerHTTPTestWithDialer(t *testing.T) {
 }
 
 func TestTestHandlerICMPPingAndLatencyParsing(t *testing.T) {
-	previous := commandOutput
-	t.Cleanup(func() { commandOutput = previous })
+	previous := service.ICMPEcho
+	t.Cleanup(func() { service.ICMPEcho = previous })
 
 	handler := NewTestHandler(nil, nil, nil)
-	commandOutput = func(_ context.Context, name string, args ...string) ([]byte, error) {
-		return []byte("64 bytes from 1.1.1.1: icmp_seq=1 ttl=57 time=12.34 ms\n"), nil
+	service.ICMPEcho = func(_ context.Context, _ string) (float64, error) {
+		return 12.34, nil
 	}
 	result := handler.icmpPing(t.Context(), TestRequest{Server: "1.1.1.1"})
 	if !result.Success || result.LatencyMs != 12.34 {
 		t.Fatalf("icmp result = %#v", result)
 	}
 
-	commandOutput = func(_ context.Context, name string, args ...string) ([]byte, error) {
-		return []byte("permission denied"), errors.New("failed")
+	service.ICMPEcho = func(_ context.Context, _ string) (float64, error) {
+		return 0, errors.New("permission denied")
 	}
 	result = handler.icmpPing(t.Context(), TestRequest{Server: "1.1.1.1"})
 	if result.Error == "" {

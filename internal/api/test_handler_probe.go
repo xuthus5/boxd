@@ -5,20 +5,16 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os/exec"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/xuthus5/boxd/internal/core"
 	"github.com/xuthus5/boxd/internal/model"
+	"github.com/xuthus5/boxd/internal/service"
 )
 
 const testProbeTimeout = 5 * time.Second
-
-var commandOutput = func(ctx context.Context, name string, args ...string) ([]byte, error) {
-	return exec.CommandContext(ctx, name, args...).Output()
-}
 
 // dispatchTest 执行单点测速并返回结果（不持久化）。
 func (h *TestHandler) dispatchTest(ctx context.Context, req TestRequest) (model.TestResult, error) {
@@ -117,23 +113,9 @@ func (h *TestHandler) icmpPing(ctx context.Context, req TestRequest) model.TestR
 		return failedTestResult("invalid server address", nil)
 	}
 
-	probeCtx, cancel := context.WithTimeout(ctx, testProbeTimeout)
-	defer cancel()
-	startedAt := time.Now()
-	output, err := commandOutput(probeCtx, "ping", "-c", "1", "-W", "3", server)
-	latency := time.Since(startedAt).Seconds() * 1000
+	latency, err := service.ICMPPing(ctx, server)
 	if err != nil {
-		message := fmt.Sprintf("ping failed: %s", strings.TrimSpace(string(output)))
-		if strings.TrimSpace(string(output)) == "" {
-			message = fmt.Sprintf("ping failed: %s", err.Error())
-		}
-		return failedTestResult(message, err)
-	}
-	for _, line := range strings.Split(string(output), "\n") {
-		if milliseconds, ok := parsePingLatency(line); ok {
-			latency = milliseconds
-			break
-		}
+		return failedTestResult(err.Error(), err)
 	}
 	return model.TestResult{Success: true, LatencyMs: latency}
 }

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/xuthus5/boxd/internal/core"
+	"github.com/xuthus5/boxd/internal/service"
 )
 
 type testContextKey struct{}
@@ -161,12 +162,12 @@ func TestTestHandlerProbeContextPropagation(t *testing.T) {
 	}
 	assertTestContextValue(t, <-dialer.dialContext)
 
-	previous := commandOutput
-	t.Cleanup(func() { commandOutput = previous })
+	previous := service.ICMPEcho
+	t.Cleanup(func() { service.ICMPEcho = previous })
 	var commandContext context.Context
-	commandOutput = func(ctx context.Context, _ string, _ ...string) ([]byte, error) {
+	service.ICMPEcho = func(ctx context.Context, _ string) (float64, error) {
 		commandContext = ctx
-		return []byte("time=3.5 ms"), nil
+		return 3.5, nil
 	}
 	if result := handler.icmpPing(ctx, TestRequest{Server: "1.1.1.1"}); !result.Success {
 		t.Fatalf("icmp result = %#v", result)

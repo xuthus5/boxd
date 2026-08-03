@@ -149,10 +149,10 @@ func TestTestServiceRunHTTPInvalidURL(t *testing.T) {
 }
 
 func TestTestServiceRunICMP(t *testing.T) {
-	original := commandOutput
-	t.Cleanup(func() { commandOutput = original })
-	commandOutput = func(_ context.Context, _ string, _ ...string) ([]byte, error) {
-		return []byte("64 bytes from 1.1.1.1: icmp_seq=1 ttl=56 time=12.3 ms"), nil
+	original := ICMPEcho
+	t.Cleanup(func() { ICMPEcho = original })
+	ICMPEcho = func(_ context.Context, _ string) (float64, error) {
+		return 12.3, nil
 	}
 	nodeMgr, _ := newTestManagers(t)
 	svc := NewTestService(nil, nodeMgr, &fakeDialer{})
@@ -162,6 +162,9 @@ func TestTestServiceRunICMP(t *testing.T) {
 	}
 	if !result.Success {
 		t.Fatalf("result = %+v", result)
+	}
+	if result.LatencyMs != 12.3 {
+		t.Fatalf("latency = %v", result.LatencyMs)
 	}
 }
 
@@ -178,9 +181,17 @@ func TestTestServiceRunICMPInvalidServer(t *testing.T) {
 }
 
 func TestTestServiceRunICMPPingFailure(t *testing.T) {
-	original := commandOutput
-	t.Cleanup(func() { commandOutput = original })
-	commandOutput = func(_ context.Context, _ string, _ ...string) ([]byte, error) {
+	originalEcho := ICMPEcho
+	originalCmd := PingCommandOutput
+	t.Cleanup(func() {
+		ICMPEcho = originalEcho
+		PingCommandOutput = originalCmd
+	})
+	// icmp 库失败（如无原始 socket 权限），回退到 ping 命令也失败。
+	ICMPEcho = func(_ context.Context, _ string) (float64, error) {
+		return 0, errors.New("no permission")
+	}
+	PingCommandOutput = func(_ context.Context, _ string, _ ...string) ([]byte, error) {
 		return []byte("ping: unreachable"), errors.New("exit status 1")
 	}
 	nodeMgr, _ := newTestManagers(t)

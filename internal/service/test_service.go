@@ -203,23 +203,9 @@ func (s *TestService) icmpPing(ctx context.Context, req TestRequest) model.TestR
 		return failedTestResult("invalid server address", nil)
 	}
 
-	probeCtx, cancel := context.WithTimeout(ctx, testProbeTimeout)
-	defer cancel()
-	startedAt := time.Now()
-	output, err := commandOutput(probeCtx, "ping", "-c", "1", "-W", "3", server)
-	latency := time.Since(startedAt).Seconds() * 1000
+	latency, err := ICMPPing(ctx, server)
 	if err != nil {
-		message := "ping failed: " + strings.TrimSpace(string(output))
-		if strings.TrimSpace(string(output)) == "" {
-			message = "ping failed: " + err.Error()
-		}
-		return failedTestResult(message, err)
-	}
-	for _, line := range strings.Split(string(output), "\n") {
-		if milliseconds, ok := parsePingLatency(line); ok {
-			latency = milliseconds
-			break
-		}
+		return failedTestResult(err.Error(), err)
 	}
 	return model.TestResult{Success: true, LatencyMs: latency}
 }
