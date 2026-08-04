@@ -5,6 +5,7 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
+	"github.com/wailsapp/wails/v3/pkg/services/notifications"
 )
 
 // globalApp 保存应用实例，供单实例二次启动回调引用。
@@ -132,6 +133,8 @@ func registerServices(rt *desktopRuntime) []application.Service {
 	if rt.svc == nil {
 		return nil
 	}
+	notificationService := notifications.New()
+	registeredNotificationService = notificationService
 	return []application.Service{
 		application.NewService(newBoxdConfigService(rt)),
 		application.NewService(newBoxdServiceControlService(rt)),
@@ -141,5 +144,6 @@ func registerServices(rt *desktopRuntime) []application.Service {
 		application.NewService(newBoxdBridgeService(rt)),
 		application.NewService(NewNativeCapabilities(rt)),
 		application.NewService(NewDialogService()),
+		application.NewService(notificationService),
 	}
 }

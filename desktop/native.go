@@ -3,11 +3,14 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/wailsapp/wails/v3/pkg/services/notifications"
 )
 
 // 可注入命令执行钩子，便于单测覆盖而不依赖真实系统命令。
@@ -86,28 +89,49 @@ func (n *NativeCapabilities) Runtime(_ context.Context) map[string]any {
 	}
 }
 
-// Notify 发送系统通知（Linux 用 notify-send）。
+// Notify 发送系统通知（Linux 通过 freedesktop 通知规范，不依赖 notify-send）。
 func (n *NativeCapabilities) Notify(_ context.Context, title, message string) error {
-	if runtime.GOOS == "linux" {
-		return notifyLinux(title, message)
-	}
-	return nil
-}
-
-// notifyLinux 通过 notify-send 发送通知；失败时静默（不阻塞调用方）。
-func notifyLinux(title, message string) error {
-	if _, err := execLookPath("notify-send"); err != nil {
+	if runtime.GOOS != "linux" {
 		return nil
 	}
-	output, err := runCommand("notify-send", "-a", "boxd", title, message)
-	if err != nil {
-		detail := strings.TrimSpace(string(output))
-		if detail == "" {
-			return err
-		}
-		return errors.New(detail)
+	return notifyLinux(title, message)
+}
+
+// notifyLinux 通过 Wails notifications 服务发送通知；服务不可用（如无 DBus 会话）时静默降级。
+func notifyLinux(title, message string) error {
+	return sendNotification(title, message)
+}
+
+// sendNotification 可注入的通知发送钩子，便于单测替换。
+var sendNotification = func(title, message string) error {
+	svc := getWailsNotificationService()
+	if svc == nil {
+		// DBus 会话不可用或服务未初始化时静默降级，不阻塞调用方。
+		return nil
 	}
-	return nil
+	return notifyViaService(svc, title, message)
+}
+
+// notifyViaService 通过 notifications 服务发送通知，防御服务未完全初始化导致的 panic。
+func notifyViaService(svc *notifications.NotificationService, title, message string) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("notification service panic: %v", r)
+		}
+	}()
+	return svc.SendNotification(notifications.NotificationOptions{
+		ID:    fmt.Sprintf("boxd-%d", time.Now().UnixNano()),
+		Title: title,
+		Body:  message,
+	})
+}
+
+// registeredNotificationService 保存注册的 notifications 服务实例，供发送时获取。
+var registeredNotificationService *notifications.NotificationService
+
+// getWailsNotificationService 返回已注册的通知服务（未注册时为 nil）。
+func getWailsNotificationService() *notifications.NotificationService {
+	return registeredNotificationService
 }
 
 // SetSystemProxy 切换 GNOME 系统代理（仅内嵌模式且桌面会话）。

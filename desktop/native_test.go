@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/wailsapp/wails/v3/pkg/services/notifications"
 )
 
 func TestNativeRuntimeInfo(t *testing.T) {
@@ -47,66 +49,58 @@ func TestNativeAutostartNotAvailable(t *testing.T) {
 	}
 }
 
-func TestNotifyLinuxNotFound(t *testing.T) {
-	oldLook := execLookPath
-	t.Cleanup(func() { execLookPath = oldLook })
-	execLookPath = func(string) (string, error) {
-		return "", errors.New("not found")
+func TestNotifyLinuxCallsSend(t *testing.T) {
+	original := sendNotification
+	var gotTitle, gotMsg string
+	sendNotification = func(title, message string) error {
+		gotTitle, gotMsg = title, message
+		return nil
 	}
+	t.Cleanup(func() { sendNotification = original })
 	if err := notifyLinux("t", "m"); err != nil {
 		t.Fatal(err)
 	}
-}
-
-func TestNotifyLinuxSuccess(t *testing.T) {
-	oldLook := execLookPath
-	oldRun := runCommand
-	t.Cleanup(func() {
-		execLookPath = oldLook
-		runCommand = oldRun
-	})
-	execLookPath = func(string) (string, error) { return "/usr/bin/notify-send", nil }
-	runCommand = func(name string, args ...string) ([]byte, error) {
-		return nil, nil
-	}
-	if err := notifyLinux("t", "m"); err != nil {
-		t.Fatal(err)
+	if gotTitle != "t" || gotMsg != "m" {
+		t.Fatalf("title=%q msg=%q", gotTitle, gotMsg)
 	}
 }
 
-func TestNotifyLinuxError(t *testing.T) {
-	oldLook := execLookPath
-	oldRun := runCommand
-	t.Cleanup(func() {
-		execLookPath = oldLook
-		runCommand = oldRun
-	})
-	execLookPath = func(string) (string, error) { return "/usr/bin/notify-send", nil }
-	runCommand = func(name string, args ...string) ([]byte, error) {
-		return []byte("dbus error"), errors.New("failed")
+func TestNotifyLinuxPropagatesError(t *testing.T) {
+	original := sendNotification
+	sendNotification = func(_, _ string) error {
+		return errors.New("dbus error")
 	}
-	err := notifyLinux("t", "m")
-	if err == nil {
-		t.Fatal("expected error")
-	}
-	if err.Error() != "dbus error" {
-		t.Fatalf("err = %q", err.Error())
-	}
-}
-
-func TestNotifyLinuxEmptyOutputError(t *testing.T) {
-	oldLook := execLookPath
-	oldRun := runCommand
-	t.Cleanup(func() {
-		execLookPath = oldLook
-		runCommand = oldRun
-	})
-	execLookPath = func(string) (string, error) { return "/usr/bin/notify-send", nil }
-	runCommand = func(name string, args ...string) ([]byte, error) {
-		return []byte(""), errors.New("failed")
-	}
+	t.Cleanup(func() { sendNotification = original })
 	if err := notifyLinux("t", "m"); err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+func TestSendNotificationNoService(t *testing.T) {
+	original := registeredNotificationService
+	registeredNotificationService = nil
+	t.Cleanup(func() { registeredNotificationService = original })
+	if err := sendNotification("t", "m"); err != nil {
+		t.Fatalf("expected silent degradation, got %v", err)
+	}
+}
+
+func TestGetWailsNotificationService(t *testing.T) {
+	original := registeredNotificationService
+	registeredNotificationService = nil
+	t.Cleanup(func() { registeredNotificationService = original })
+	if svc := getWailsNotificationService(); svc != nil {
+		t.Fatal("expected nil service")
+	}
+}
+
+func TestNotifyViaServicePanicSafe(t *testing.T) {
+	original := registeredNotificationService
+	registeredNotificationService = notifications.New()
+	t.Cleanup(func() { registeredNotificationService = original })
+	// 服务已创建但 Startup 未执行（dbus 未连接），SendNotification 应被 recover 为错误而非 panic。
+	if err := sendNotification("t", "m"); err == nil {
+		t.Fatal("expected dbus-uninitialized send to return error")
 	}
 }
 
@@ -326,17 +320,19 @@ func TestNativeResolvePathEmpty(t *testing.T) {
 }
 
 func TestNativeNotify(t *testing.T) {
-	oldLook := execLookPath
-	oldRun := runCommand
-	t.Cleanup(func() {
-		execLookPath = oldLook
-		runCommand = oldRun
-	})
-	execLookPath = func(string) (string, error) { return "/usr/bin/notify-send", nil }
-	runCommand = func(name string, args ...string) ([]byte, error) { return nil, nil }
+	original := sendNotification
+	var called bool
+	sendNotification = func(_, _ string) error {
+		called = true
+		return nil
+	}
+	t.Cleanup(func() { sendNotification = original })
 	n := NewNativeCapabilities(&desktopRuntime{})
 	if err := n.Notify(context.Background(), "title", "message"); err != nil {
 		t.Fatal(err)
+	}
+	if !called {
+		t.Fatal("expected sendNotification to be called")
 	}
 }
 
