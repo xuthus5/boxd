@@ -108,6 +108,104 @@ jobs:
           files: |
             ${{ runner.temp }}/desktop-dist/*
 
+  package-cross:
+    runs-on: ${{ matrix.runner }}
+    needs: release
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows
+            runner: windows-2022
+          - os: darwin
+            runner: macos-14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - name: Package headless ${{ matrix.os }} amd64/arm64
+        shell: bash
+        env:
+          GOPROXY: https://goproxy.io,direct
+        run: ./scripts/package-cross.sh "${GITHUB_REF_NAME}" release ${{ matrix.os }} amd64 arm64
+      - name: Publish headless ${{ matrix.os }} binaries
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/boxd_${{ github.ref_name }}_${{ matrix.os }}_amd64.tar.gz
+            release/boxd_${{ github.ref_name }}_${{ matrix.os }}_amd64.tar.gz.sha256
+            release/boxd_${{ github.ref_name }}_${{ matrix.os }}_arm64.tar.gz
+            release/boxd_${{ github.ref_name }}_${{ matrix.os }}_arm64.tar.gz.sha256
+
+  desktop-cross:
+    runs-on: ${{ matrix.runner }}
+    needs: release
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows
+            arch: amd64
+            runner: windows-2022
+          - os: macos
+            arch: arm64
+            runner: macos-14
+          - os: macos
+            arch: amd64
+            runner: macos-13
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - name: Install wails3
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117
+      - name: Package desktop app (${{ matrix.os }} ${{ matrix.arch }})
+        shell: bash
+        env:
+          GOPROXY: https://goproxy.io,direct
+        run: |
+          set -euo pipefail
+          if [ "${{ matrix.os }}" = "windows" ]; then
+            ./scripts/package-desktop-windows.sh "${GITHUB_REF_NAME}" "${{ matrix.arch }}"
+          else
+            ./scripts/package-desktop-macos.sh "${GITHUB_REF_NAME}" "${{ matrix.arch }}"
+          fi
+      - name: Publish desktop ${{ matrix.os }} artifacts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          assets=(desktop/bin/boxd-desktop* boxd-desktop-*.zip)
+          for f in boxd-desktop-*.dmg; do
+            [ -e "$f" ] && assets+=("$f")
+          done
+          for asset in "${assets[@]}"; do
+            echo "Uploading: $asset"
+            gh release upload "${GITHUB_REF_NAME}" "$asset" --clobber
+          done
+
   release:
     runs-on: ubuntu-latest
     permissions:

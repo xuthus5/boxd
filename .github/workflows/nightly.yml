@@ -132,6 +132,60 @@ jobs:
             echo "No stale assets to prune"
           fi
 
+  package-cross:
+    runs-on: ${{ matrix.runner }}
+    needs: package
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows
+            runner: windows-2022
+          - os: darwin
+            runner: macos-14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - name: Package headless ${{ matrix.os }} amd64/arm64
+        shell: bash
+        env:
+          GOPROXY: https://goproxy.io,direct
+        run: ./scripts/package-cross.sh nightly release ${{ matrix.os }} amd64 arm64
+      - name: Upload headless ${{ matrix.os }} artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: boxd-nightly-${{ matrix.os }}
+          path: |
+            release/boxd_nightly_${{ matrix.os }}_amd64.tar.gz
+            release/boxd_nightly_${{ matrix.os }}_amd64.tar.gz.sha256
+            release/boxd_nightly_${{ matrix.os }}_arm64.tar.gz
+            release/boxd_nightly_${{ matrix.os }}_arm64.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 14
+      - name: Update rolling nightly GitHub Release (${{ matrix.os }})
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release upload nightly \
+            release/boxd_nightly_${{ matrix.os }}_amd64.tar.gz \
+            release/boxd_nightly_${{ matrix.os }}_amd64.tar.gz.sha256 \
+            release/boxd_nightly_${{ matrix.os }}_arm64.tar.gz \
+            release/boxd_nightly_${{ matrix.os }}_arm64.tar.gz.sha256 \
+            --clobber
+
   desktop:
     runs-on: ${{ matrix.runner }}
     permissions:
@@ -239,6 +293,72 @@ jobs:
           gh release upload nightly \
             "$RUNNER_TEMP/desktop-dist"/* \
             --clobber
+
+  desktop-cross:
+    runs-on: ${{ matrix.runner }}
+    needs: package
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows
+            arch: amd64
+            runner: windows-2022
+          - os: macos
+            arch: arm64
+            runner: macos-14
+          - os: macos
+            arch: amd64
+            runner: macos-13
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - name: Install wails3
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117
+      - name: Package desktop app (${{ matrix.os }} ${{ matrix.arch }})
+        shell: bash
+        env:
+          GOPROXY: https://goproxy.io,direct
+        run: |
+          set -euo pipefail
+          if [ "${{ matrix.os }}" = "windows" ]; then
+            ./scripts/package-desktop-windows.sh nightly "${{ matrix.arch }}"
+          else
+            ./scripts/package-desktop-macos.sh nightly "${{ matrix.arch }}"
+          fi
+      - name: Upload desktop ${{ matrix.os }} artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: boxd-nightly-desktop-${{ matrix.os }}-${{ matrix.arch }}
+          path: |
+            desktop/bin/boxd-desktop*
+            boxd-desktop-*.zip
+            boxd-desktop-*.dmg
+          if-no-files-found: error
+          retention-days: 14
+      - name: Update rolling nightly GitHub Release (desktop ${{ matrix.os }} ${{ matrix.arch }})
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          assets=(desktop/bin/boxd-desktop* boxd-desktop-*.zip)
+          # DMG 可选（macOS 生成失败不阻断），存在才上传。
+          for f in boxd-desktop-*.dmg; do
+            [ -e "$f" ] && assets+=("$f")
+          done
+          gh release upload nightly "${assets[@]}" --clobber
 
   docker:
     runs-on: ubuntu-latest

@@ -251,8 +251,10 @@ BOXD_TLS_KEY=/etc/boxd/tls/privkey.pem \
 | 触发条件 | 二进制 | Docker（GHCR） |
 | --- | --- | --- |
 | Pull Request | 仅质量门禁 | 构建冒烟（不推送） |
-| 推送到 `main` | 滚动 **nightly** GitHub Release + Actions 产物（固定 `boxd_nightly_linux_amd64.tar.gz` / `boxd_nightly_linux_arm64.tar.gz`） | 多架构 `ghcr.io/<owner>/boxd:nightly`（`linux/amd64`、`linux/arm64`） |
+| 推送到 `main` | 滚动 **nightly** GitHub Release + Actions 产物（`boxd_nightly_linux_amd64/arm64.tar.gz`、`boxd_nightly_windows_amd64/arm64.tar.gz`、`boxd_nightly_darwin_amd64/arm64.tar.gz`；桌面：`boxd-desktop-windows`、`boxd-desktop-macos`） | 多架构 `ghcr.io/<owner>/boxd:nightly`（`linux/amd64`、`linux/arm64`） |
 | 打 `v*` tag | 正式 GitHub Release + SBOM（`linux/amd64`、`linux/arm64`） | 多架构 `ghcr.io/<owner>/boxd:<tag>`、`:<version>`、`:latest` |
+
+headless 二进制发布覆盖 **Linux**（`linux/amd64`、`linux/arm64`）、**Windows**（`windows/amd64`、`windows/arm64`）与 **macOS**（`darwin/amd64`、`darwin/arm64`），以 `.tar.gz` + sha256 校验和发布。桌面应用发布覆盖 **Linux**（deb/rpm/AppImage）、**Windows**（zip）与 **macOS**（zip，DMG 尽力生成）。
 
 示例（替换 owner）：
 

@@ -254,8 +254,10 @@ Release gates and rollback: [docs/boxd/release-checklist.md](docs/boxd/release-c
 | Trigger | Binary | Docker (GHCR) |
 | --- | --- | --- |
 | Pull request | quality checks only | build smoke (`push: false`) |
-| Push to `main` | rolling **nightly** GitHub Release + Actions artifacts (`boxd_nightly_linux_amd64.tar.gz`, `boxd_nightly_linux_arm64.tar.gz`) | multi-arch `ghcr.io/<owner>/boxd:nightly` (`linux/amd64`, `linux/arm64`) |
+| Push to `main` | rolling **nightly** GitHub Release + Actions artifacts (`boxd_nightly_linux_amd64/arm64.tar.gz`, `boxd_nightly_windows_amd64/arm64.tar.gz`, `boxd_nightly_darwin_amd64/arm64.tar.gz`; desktop: `boxd-desktop-windows`, `boxd-desktop-macos`) | multi-arch `ghcr.io/<owner>/boxd:nightly` (`linux/amd64`, `linux/arm64`) |
 | Tag `v*` | formal GitHub Release + SBOM (`linux/amd64`, `linux/arm64`) | multi-arch `ghcr.io/<owner>/boxd:<tag>`, `:<version>`, `:latest` |
+
+Headless binaries are published for **Linux** (`linux/amd64`, `linux/arm64`), **Windows** (`windows/amd64`, `windows/arm64`) and **macOS** (`darwin/amd64`, `darwin/arm64`) as `.tar.gz` archives with sha256 checksums. The desktop app is published for **Linux** (deb/rpm/AppImage), **Windows** (zip) and **macOS** (zip, DMG best-effort).
 
 Examples (replace owner):
 
