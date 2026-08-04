@@ -405,6 +405,20 @@ func TestServeUntilSignal(t *testing.T) {
 	}
 }
 
+func TestServeUntilSignalInterrupt(t *testing.T) {
+	quit := make(chan os.Signal, 1)
+	// os.Interrupt（Unix 为 SIGINT，Windows 为 ^C/^BREAK）应同样触发优雅关闭。
+	quit <- os.Interrupt
+
+	server := &fakeServer{listenErr: http.ErrServerClosed}
+	if err := serveUntilSignal(server, &config.Config{Listen: "127.0.0.1:0"}, quit); err != nil {
+		t.Fatal(err)
+	}
+	if !server.shutdownCalled {
+		t.Fatal("shutdown should be called on os.Interrupt")
+	}
+}
+
 func TestServeUntilSignalReturnsListenError(t *testing.T) {
 	quit := make(chan os.Signal)
 	server := &fakeServer{listenErr: errors.New("listen failed")}

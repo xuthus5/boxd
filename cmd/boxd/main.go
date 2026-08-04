@@ -202,7 +202,9 @@ var makeSignalChannel = signalChannel
 
 func signalChannel() chan os.Signal {
 	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	// os.Interrupt 在 Unix 上为 SIGINT，在 Windows 上对应 ^C/^BREAK，跨平台可捕获。
+	// SIGTERM 用于 systemd/容器等发送的终止信号（Windows 上该信号不触发，注册无害）。
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	return quit
 }
 
