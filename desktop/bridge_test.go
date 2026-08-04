@@ -340,14 +340,6 @@ func TestBridgeDesktopNative(t *testing.T) {
 		t.Fatalf("autostart status = %q", resp.Status)
 	}
 
-	resp, err = svc.Call(BridgeRequest{Path: "/api/desktop/system-proxy", Method: "GET"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp.Status != "ok" {
-		t.Fatalf("system-proxy status = %q", resp.Status)
-	}
-
 	resp, err = svc.Call(BridgeRequest{Path: "/api/desktop/data-dir", Method: "GET"})
 	if err != nil {
 		t.Fatal(err)

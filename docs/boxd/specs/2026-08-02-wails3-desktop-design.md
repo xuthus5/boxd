@@ -10,7 +10,7 @@
 
 - 目标平台：Linux 优先（GTK4 + WebKitGTK 6.0，本机已具备 4.22.4 / 2.52.5）。Wails3 官方支持 `-tags gtk3` 遗留路径，后续如需扩 Windows/macOS 再议。
 - 桌面运行形态：**双模式**——默认内嵌（进程内自含 boxd 核心，数据目录默认用户目录），同时支持配置连接已有 boxd 服务（复用现有 JWT 登录）。
-- 原生能力：系统托盘、开机自启、单实例守护、原生文件对话框、系统通知、URL Scheme 深链、系统代理切换、全局快捷键、隐私/极简模式。
+- 原生能力：系统托盘、开机自启、单实例守护、原生文件对话框、系统通知、URL Scheme 深链、全局快捷键、隐私/极简模式。
 - 认证：内嵌模式启动时自动注入一次性本地凭据免登录；远程模式保留现有登录页与 JWT。
 - 打包：产出二进制 + `.desktop` 入口，以及 deb/rpm/AppImage。
 - 代码质量门禁沿用项目既有要求（Go 覆盖率 ≥90%、函数 ≤50 行、文件 ≤300 行、golangci-lint、goimports-reviser；前端 vitest 覆盖率 ≥90%）。
@@ -121,9 +121,9 @@ type ConfigService interface {
 | 开机自启 | Wails `app.Preferences` / Linux XDG autostart `.desktop` 到 `~/.config/autostart` |
 | 单实例守护 | 应用启动互斥（锁文件或 Wails 单实例选项），二次启动聚焦已有窗口 |
 | 原生文件对话框 | 导入/导出本地 JSON、备份导出用 `app.Dialog`（GTK4 走 `xdg-desktop-portal`） |
-| 系统通知 | `app.Notification`（内核崩溃、订阅刷新完成、配置回滚） |
+| 系统通知 | Wails notifications 服务（freedesktop 通知规范，Linux 直连 DBus，不依赖 notify-send） |
 | URL Scheme 深链 | 注册 `boxd://` scheme，`ApplicationLaunchedWithUrl` 处理 |
-| 系统代理切换 | Linux `gsettings` 设置 org.gnome.system.proxy（仅内嵌模式且需桌面会话） |
+| 系统代理切换 | ~~Linux `gsettings` 设置 org.gnome.system.proxy~~ 已移除（不直接修改系统代理配置） |
 | 全局快捷键 | Wails KeyBinding（显示/隐藏窗口、启停内核） |
 | 隐私/极简模式 | 关闭窗口最小化到托盘，设置内可切换 |
 
@@ -134,7 +134,7 @@ type ConfigService interface {
   - `desktopTransport`：调用 Wails 生成 Bindings + `Events.On`。
   - 运行时探测（`window.go` / 生成绑定存在性）选择 transport，页面代码不感知。
 - `session` 层：内嵌模式使用注入凭据，远程模式沿用 sessionStorage。
-- 配置页新增"运行形态"设置（内嵌 / 远程地址），与系统代理、自启等原生设置并入 Settings。
+- 配置页新增"运行形态"设置（内嵌 / 远程地址），与自启等原生设置并入 Settings。
 
 ### 7. 打包与交付
 
@@ -159,7 +159,7 @@ type ConfigService interface {
 1. **M1 服务层抽取**（✅ 已完成）：`internal/service` 建包，15 个 handler 域业务逻辑迁入（config、dns_probe、nodes_sync、network、kernel、service_control、test、settings、subscription、auth、runtime、import、health、stats、backup），api 包保持公开签名不变，headless 行为零变化。service 覆盖率 87.8%，整体覆盖率 91.13%（≥90% 通过），`make check-go` 中 test/race/lint 全绿。
 2. **M2 桌面壳**（✅ 完成）：`desktop/` 独立 Go module（独立 go.mod + replace 引用主 module，headless 零污染），`main.go` 窗口 + 系统托盘 + 服务注册，`runtime.go` 内嵌/远程双模式初始化，`bindings.go` Wails 服务绑定（config/service/settings/auth/stats），`bridge.go` REST 路径到用例层的通用分发，`BoxdAuthService.AutoLogin` 内嵌自动登录，`scripts/build-desktop.sh` 构建桌面二进制（含全部 sing-box build tags + 前端 embed）。前端 transport：`ui/src/lib/api/desktop.ts` 运行环境探测 + bridge 调用 + autoLogin，`client.ts` GET 请求桌面模式走 bridge，Wails bindings 生成到 `ui/src/lib/api/bindings`，`auth-context.tsx` 内嵌自动登录注入会话。前端覆盖率门禁通过（整体 >90%，desktop.ts 100%）。
 3. **M3 实时流与全页面**（✅ 完成）：`desktop/streamer.go` EventStreamer 订阅 `core.LogWriter` 与 `core.TrafficTracker`，通过 Wails Events（`boxd:traffic`/`boxd:connections`/`boxd:kernel-log`/`boxd:app-log`）推送给前端，替代桌面模式 SSE。前端 `useStreamBuffer` 桌面模式自动切换为事件订阅（`subscribeDesktopStream`），`client.ts` 桌面模式所有请求（含 POST/PUT/DELETE 写操作）走 bridge，未知路径回退 HTTP。desktop.ts 覆盖率 100%，前端整体 >90%。
-4. **M4 原生能力**（✅ 完成）：`desktop/native.go` NativeCapabilities（开机自启 XDG autostart、系统通知 notify-send、GNOME 系统代理切换 gsettings、数据目录/配置路径查询），`desktop/dialog.go` DialogService（原生打开/保存文件对话框，GTK4 xdg-desktop-portal），`desktop/url_scheme.go` URLHandler（boxd:// 深链：import 导入节点链接、show 聚焦窗口），单实例守护（SingleInstanceOptions 二次启动聚焦窗口）、隐私/极简模式（窗口关闭隐藏到托盘）、全局快捷键（Ctrl+Shift+B 显示/隐藏窗口）。bridge 新增 `/api/desktop/*` 原生能力路径。
+4. **M4 原生能力**（✅ 完成）：`desktop/native.go` NativeCapabilities（开机自启 XDG autostart、系统通知 Wails notifications 服务（freedesktop 规范，不依赖 notify-send；系统代理切换 gsettings 已移除，不直接修改系统代理配置）、数据目录/配置路径查询），`desktop/dialog.go` DialogService（原生打开/保存文件对话框，GTK4 xdg-desktop-portal），`desktop/url_scheme.go` URLHandler（boxd:// 深链：import 导入节点链接、show 聚焦窗口），单实例守护（SingleInstanceOptions 二次启动聚焦窗口）、隐私/极简模式（窗口关闭隐藏到托盘）、全局快捷键（Ctrl+Shift+B 显示/隐藏窗口）。bridge 新增 `/api/desktop/*` 原生能力路径。
 5. **M5 打包**（✅ 完成）：`scripts/package-desktop.sh` 完整打包流程（前端构建 → bindings 生成 → 桌面二进制 → .desktop 入口 → deb/rpm/AppImage），`desktop/build/linux/nfpm/nfpm.yaml` 包元数据与 GTK 依赖。产出：裸二进制（55M）、deb（26M）、rpm（27M）、AppImage（128M）、.desktop。AppImage 需将图标复制为与 .desktop Icon 名一致（规避 wails3 appimage 插件 bug）。CI 集成：`ci.yml` 新增 desktop job（GTK4/WebKitGTK 6.0 安装、desktop 测试、桌面二进制构建门禁），`release.yml` 新增 desktop-package job（tag 触发时上传桌面包到 GitHub Release）。
 6. **M6 收尾**（✅ 完成）：全量验证通过（主 module check-go 覆盖率 91.02%、lint 0 issues、race 通过；desktop 测试/race/lint 通过、完整构建成功；前端 typecheck/lint/build 通过、246 文件 1296 测试通过、覆盖率全维度 >90%）。README 补充桌面构建/打包说明。构建产物已清理，工作区干净。
 

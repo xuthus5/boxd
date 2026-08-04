@@ -101,8 +101,6 @@ func (s *BoxdBridgeService) dispatch(ctx context.Context, req BridgeRequest) (Br
 			return okResult(setClashModeBridge(s.rt, req.Body))
 		case "/api/desktop/autostart":
 			return errResult(setAutostartBridge(s.rt, req.Body))
-		case "/api/desktop/system-proxy":
-			return errResult(setSystemProxyBridge(s.rt, req.Body))
 		}
 	}
 
@@ -146,8 +144,6 @@ func (s *BoxdBridgeService) dispatch(ctx context.Context, req BridgeRequest) (Br
 		return BridgeResponse{Data: NewNativeCapabilities(s.rt).Runtime(ctx), Status: "ok"}, nil
 	case "/api/desktop/autostart":
 		return okResult(NewNativeCapabilities(s.rt).IsAutostartEnabled(ctx))
-	case "/api/desktop/system-proxy":
-		return okResult(NewNativeCapabilities(s.rt).SystemProxyStatus(ctx))
 	case "/api/desktop/data-dir":
 		return okResult(NewNativeCapabilities(s.rt).DataDir(ctx))
 	case "/api/desktop/config-path":
@@ -267,16 +263,6 @@ func setAutostartBridge(rt *desktopRuntime, body json.RawMessage) error {
 		return err
 	}
 	return NewNativeCapabilities(rt).SetAutostart(ctx(), req.Enabled)
-}
-
-func setSystemProxyBridge(rt *desktopRuntime, body json.RawMessage) error {
-	req, err := bridgeBody[struct {
-		Enabled bool `json:"enabled"`
-	}](body)
-	if err != nil {
-		return err
-	}
-	return NewNativeCapabilities(rt).SetSystemProxy(ctx(), req.Enabled)
 }
 
 func okResult(data any, err error) (BridgeResponse, error) {
