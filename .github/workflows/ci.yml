@@ -122,14 +122,16 @@ jobs:
           cache-to: type=gha,mode=max
       - name: Verify entrypoint passthrough
         run: docker run --rm boxd:ci --version
-      - name: Verify entrypoint init and privilege
+      - name: Verify entrypoint init
         run: |
           docker run --rm --cap-add NET_RAW -d --name boxd-ci-smoke boxd:ci >/dev/null
           docker exec boxd-ci-smoke /bin/sh -c 'test -d /var/lib/boxd && test -d /etc/sing-box && echo INIT_OK'
-          caps=$(docker exec boxd-ci-smoke /bin/sh -c 'grep CapEff /proc/1/status')
-          if grep -q cap_net_raw <<< "$caps" || [[ -n "$(capsh --decode=\$(echo $caps | awk '"'"'{print \$2}'"'"') 2>/dev/null | grep -o net_raw)" ]]; then
-            echo PRIV_OK
+          # boxd 进程（PID 1）应持有 CAP_NET_RAW（容器内非 POSIX 解码，直接匹配 CapEff 位）。
+          cap_eff=$(docker exec boxd-ci-smoke /bin/sh -c 'grep CapEff /proc/1/status | awk "{print \$2}"')
+          if [ -n "$cap_eff" ] && [ $((0x$cap_eff & 0x2000)) -ne 0 ]; then
+            echo "PRIV_OK (net_raw bit set: $cap_eff)"
           else
-            echo "PRIV_CHECK_INCONCLUSIVE (container cap decode unavailable)"; true
+            echo "PRIV_MISSING (cap_eff=$cap_eff)"
+            exit 1
           fi
           docker rm -f boxd-ci-smoke >/dev/null
