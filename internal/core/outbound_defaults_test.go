@@ -86,3 +86,26 @@ func TestDefaultOutboundsInstallerPreserveExistingProxyDefault(t *testing.T) {
 		}
 	}
 }
+
+func TestDefaultOutboundsInstallerNoRoutingMarkOnNonLinux(t *testing.T) {
+	original := supportRoutingMark
+	supportRoutingMark = false
+	t.Cleanup(func() { supportRoutingMark = original })
+
+	installer := NewDefaultOutboundsInstaller()
+	result, err := installer.Install(map[string]any{})
+	if err != nil {
+		t.Fatalf("Install() error = %v", err)
+	}
+	byTag := make(map[string]map[string]any)
+	for _, item := range result.Outbounds {
+		ob := item.(map[string]any)
+		byTag[ob["tag"].(string)] = ob
+	}
+	if _, ok := byTag["direct"]["routing_mark"]; ok {
+		t.Fatal("direct.routing_mark should be absent on non-Linux")
+	}
+	if _, ok := byTag["bypass"]["routing_mark"]; ok {
+		t.Fatal("bypass.routing_mark should be absent on non-Linux")
+	}
+}

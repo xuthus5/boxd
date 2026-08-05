@@ -1,5 +1,7 @@
 package core
 
+import "runtime"
+
 type InboundDefaultsInstaller interface {
 	Install(cfg map[string]any) (*InboundDefaultsResult, error)
 }
@@ -32,10 +34,15 @@ func mixedInboundTemplate() map[string]any {
 }
 
 func tunInboundTemplate() map[string]any {
+	// stack: system 仅 Linux 支持；其他平台使用 gvisor（跨平台，无需系统驱动）。
+	stack := "system"
+	if runtime.GOOS != "linux" {
+		stack = "gvisor"
+	}
 	return map[string]any{
 		"type": "tun", "tag": "tun-in", "interface_name": "boxd0",
 		"address": []string{"172.19.0.1/30", "fdfe:dcba:9876::1/126"},
-		"mtu":     9000, "auto_route": true, "strict_route": true, "stack": "system",
+		"mtu":     9000, "auto_route": true, "strict_route": true, "stack": stack,
 	}
 }
 

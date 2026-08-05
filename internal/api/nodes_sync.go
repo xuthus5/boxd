@@ -161,7 +161,8 @@ func buildManagedOutbound(existing map[string]any, outbound model.Outbound) (map
 			entry[key] = value
 		}
 	}
-	if isProxyLikeOutboundType(outbound.Type) {
+	// routing_mark（SO_MARK）仅 Linux 支持，其他平台会致内核启动失败。
+	if isProxyLikeOutboundType(outbound.Type) && core.SupportRoutingMark() {
 		if _, ok := entry["routing_mark"]; !ok {
 			entry["routing_mark"] = 128
 		}

@@ -1,6 +1,9 @@
 package core
 
-import "maps"
+import (
+	"maps"
+	"runtime"
+)
 
 type OutboundDefaultsInstaller interface {
 	Install(cfg map[string]any) (*OutboundDefaultsResult, error)
@@ -13,6 +16,13 @@ type OutboundDefaultsResult struct {
 }
 
 type DefaultOutboundsInstaller struct{}
+
+// supportRoutingMark 指示当前平台是否支持出站 routing_mark（SO_MARK 仅 Linux）。
+// 包级变量便于测试注入非 Linux 平台。
+var supportRoutingMark = func() bool { return runtime.GOOS == "linux" }()
+
+// SupportRoutingMark 返回当前平台是否支持出站 routing_mark（SO_MARK）。
+func SupportRoutingMark() bool { return supportRoutingMark }
 
 func NewDefaultOutboundsInstaller() *DefaultOutboundsInstaller {
 	return &DefaultOutboundsInstaller{}
@@ -52,11 +62,14 @@ func (i *DefaultOutboundsInstaller) Install(cfg map[string]any) (*OutboundDefaul
 	ensureBuiltin("bypass", "direct")
 	ensureBuiltin("block", "block")
 	delete(outboundsByTag, "dns-out")
-	if direct, ok := outboundsByTag["direct"]; ok {
-		direct["routing_mark"] = 128
-	}
-	if bypass, ok := outboundsByTag["bypass"]; ok {
-		bypass["routing_mark"] = 128
+	// routing_mark（SO_MARK 策略路由标记）仅 Linux 支持，其他平台会致内核启动失败。
+	if supportRoutingMark {
+		if direct, ok := outboundsByTag["direct"]; ok {
+			direct["routing_mark"] = 128
+		}
+		if bypass, ok := outboundsByTag["bypass"]; ok {
+			bypass["routing_mark"] = 128
+		}
 	}
 
 	if len(proxyCandidates) == 0 {
