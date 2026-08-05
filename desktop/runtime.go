@@ -93,6 +93,7 @@ func initRuntime(cfg desktopConfig) (*desktopRuntime, error) {
 		NodeManager:      core.NewNodeManager(db),
 		SubManager:       core.NewSubscriptionManager(db, cfg.DataDir),
 		RuleSetInstaller: core.NewLoyalsoldierRuleSetInstaller(cfg.DataDir),
+		RuleSetUpdater:   core.NewRuleSetUpdater(cfg.ConfigPath, cfg.DataDir, nil, instance.Stop, instance.Start),
 		KernelLogWriter:  kernelLogWriter,
 		AppLogWriter:     appLogWriter,
 		ApplyHistory:     core.NewConfigApplyHistoryManager(db),

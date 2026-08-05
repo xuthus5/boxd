@@ -2,7 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
+
+	"github.com/xuthus5/boxd/internal/model"
 )
 
 func TestBridgeServiceNotReady(t *testing.T) {
@@ -369,5 +372,52 @@ func TestBridgeDesktopNativeWrites(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected error for invalid body")
+	}
+}
+
+func TestBridgeRuleSetsAutoUpdate(t *testing.T) {
+	rt := newTestRuntimeWithService(t)
+	svc := newBoxdBridgeService(rt)
+
+	// GET 默认值（未设置时返回禁用 + 默认间隔）。
+	resp, err := svc.Call(BridgeRequest{Path: "/api/config/rule-sets/auto-update", Method: "GET"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.Status != "ok" {
+		t.Fatalf("status = %q, error = %v", resp.Status, resp.Error)
+	}
+
+	// PUT 保存配置。
+	body := `{"enabled": true, "interval": "24h"}`
+	resp, err = svc.Call(BridgeRequest{Path: "/api/config/rule-sets/auto-update", Method: "PUT", Body: json.RawMessage(body)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.Status != "ok" {
+		t.Fatalf("status = %q, error = %v", resp.Status, resp.Error)
+	}
+	data, ok := resp.Data.(model.RuleSetAutoUpdate)
+	if !ok {
+		t.Fatalf("data type = %T", resp.Data)
+	}
+	if !data.Enabled {
+		t.Fatalf("enabled = %v", data.Enabled)
+	}
+}
+
+func TestBridgeRuleSetsStatus(t *testing.T) {
+	rt := newTestRuntimeWithService(t)
+	svc := newBoxdBridgeService(rt)
+	// 配置不存在时 Status 返回业务错误；关键是不能是 "unknown path"（路由必须已接线）。
+	resp, _ := svc.Call(BridgeRequest{Path: "/api/config/rule-sets/status", Method: "GET"})
+	if strings.Contains(resp.Error, "unknown path") {
+		t.Fatalf("rule-sets/status route not wired: %s", resp.Error)
+	}
+	if resp.Status == "ok" {
+		return
+	}
+	if resp.Error == "" {
+		t.Fatal("expected an error or ok status")
 	}
 }

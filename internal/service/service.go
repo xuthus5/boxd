@@ -131,6 +131,11 @@ func (s *ServiceSet) Backup() *BackupService {
 	return NewBackupService(s.Deps.DB, s.Deps.ConfigPath, s.Deps.Version)
 }
 
+// RuleSets 返回规则集状态/更新/自动更新用例服务。
+func (s *ServiceSet) RuleSets() *RuleSetService {
+	return NewRuleSetService(s.Deps.RuleSetUpdater, s.Deps.Settings)
+}
+
 // testDialer 适配 *core.SBInstance 为 outboundDialer。
 type testDialer struct{ instance *core.SBInstance }
 

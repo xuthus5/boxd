@@ -77,6 +77,12 @@ func (s *BoxdBridgeService) dispatch(ctx context.Context, req BridgeRequest) (Br
 			return okResult(s.rt.svc.Config().InstallDefaultRouteRules(ctx))
 		case "/api/nodes/sync-config":
 			return errResult(syncNodesConfig(s.rt))
+		case "/api/config/rule-sets/update":
+			req, err := bridgeBody[core.RuleSetUpdateRequest](req.Body)
+			if err != nil {
+				return errResult(err)
+			}
+			return okResult(s.rt.svc.RuleSets().Update(ctx, req))
 		}
 	}
 
@@ -101,6 +107,16 @@ func (s *BoxdBridgeService) dispatch(ctx context.Context, req BridgeRequest) (Br
 			return okResult(setClashModeBridge(s.rt, req.Body))
 		case "/api/desktop/autostart":
 			return errResult(setAutostartBridge(s.rt, req.Body))
+		case "/api/config/rule-sets/auto-update":
+			cfg, err := bridgeBody[model.RuleSetAutoUpdate](req.Body)
+			if err != nil {
+				return errResult(err)
+			}
+			if err := s.rt.svc.RuleSets().SetAutoUpdate(cfg); err != nil {
+				return errResult(err)
+			}
+			saved, err := s.rt.svc.RuleSets().AutoUpdate()
+			return okResult(saved, err)
 		}
 	}
 
@@ -140,6 +156,10 @@ func (s *BoxdBridgeService) dispatch(ctx context.Context, req BridgeRequest) (Br
 		return okResult(s.rt.svc.Runtime().OutboundGroups(ctx))
 	case "/api/network/interfaces":
 		return okResult(s.rt.svc.Network().ListInterfaces(ctx))
+	case "/api/config/rule-sets/status":
+		return okResult(s.rt.svc.RuleSets().Status(ctx))
+	case "/api/config/rule-sets/auto-update":
+		return okResult(s.rt.svc.RuleSets().AutoUpdate())
 	case "/api/desktop/runtime":
 		return BridgeResponse{Data: NewNativeCapabilities(s.rt).Runtime(ctx), Status: "ok"}, nil
 	case "/api/desktop/autostart":
