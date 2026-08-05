@@ -97,8 +97,8 @@ The archive database entry is `boxd.db`.
 | --- | --- | --- | --- |
 | `BOXD_LISTEN` | `--listen` | `[::]:9091` | Listen address (wins over `BOXD_PORT`) |
 | `BOXD_PORT` | - | `9091` | Port-only form |
-| `BOXD_CONFIG` | `--config` | `/etc/sing-box/config.json` | Kernel config path |
-| `BOXD_DATA_DIR` | `--data-dir` | `/var/lib/boxd` | Data dir (DB, backups, rule-set cache) |
+| `BOXD_CONFIG` | `--config` | `/etc/sing-box/config.json` (Linux); `%ProgramData%\sing-box\config.json` (Windows) | Kernel config path |
+| `BOXD_DATA_DIR` | `--data-dir` | `/var/lib/boxd` (Linux); `%ProgramData%\boxd` (Windows) | Data dir (DB, backups, rule-set cache) |
 | `BOXD_USERNAME` | `--username` | `admin` | Login username |
 | `BOXD_PASSWORD` | `--password` | `admin123` | First-run password only; ignored once a hash exists |
 | `BOXD_LOG_LEVEL` | `--log-level` | `info` | Application log level |

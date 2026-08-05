@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -47,8 +49,8 @@ func parseArgs(args []string, output io.Writer) (*Config, error) {
 		printUsage(fs)
 	}
 	fs.StringVar(&cfg.Listen, "listen", resolveListen(), "listen address")
-	fs.StringVar(&cfg.ConfigPath, "config", getEnv("BOXD_CONFIG", "/etc/sing-box/config.json"), "sing-box config path")
-	fs.StringVar(&cfg.DataDir, "data-dir", getEnv("BOXD_DATA_DIR", "/var/lib/boxd"), "data directory")
+	fs.StringVar(&cfg.ConfigPath, "config", getEnv("BOXD_CONFIG", defaultConfigPath()), "sing-box config path")
+	fs.StringVar(&cfg.DataDir, "data-dir", getEnv("BOXD_DATA_DIR", defaultDataDir()), "data directory")
 	fs.StringVar(&cfg.Username, "username", getEnv("BOXD_USERNAME", "admin"), "login username")
 	fs.StringVar(&cfg.Password, "password", getEnv("BOXD_PASSWORD", ""), "login password")
 	fs.IntVar(&cfg.RefreshInterval, "refresh-interval", getEnvInt("BOXD_REFRESH_INTERVAL", 60), "subscription refresh interval (minutes)")
@@ -107,6 +109,30 @@ func getEnvInt(key string, fallback int) int {
 
 func getEnvList(key string) []string {
 	return parseCORSOrigins(os.Getenv(key))
+}
+
+// defaultConfigPath 返回 sing-box 配置默认路径（平台感知）。
+func defaultConfigPath() string {
+	if runtime.GOOS == "windows" {
+		return filepath.Join(programDataDir(), "sing-box", "config.json")
+	}
+	return "/etc/sing-box/config.json"
+}
+
+// defaultDataDir 返回 boxd 数据目录默认路径（平台感知）。
+func defaultDataDir() string {
+	if runtime.GOOS == "windows" {
+		return filepath.Join(programDataDir(), "boxd")
+	}
+	return "/var/lib/boxd"
+}
+
+// programDataDir 返回 Windows 的 %ProgramData%（Unix 上返回空，调用方不使用）。
+func programDataDir() string {
+	if dir := os.Getenv("ProgramData"); dir != "" {
+		return dir
+	}
+	return `C:\ProgramData`
 }
 
 // resolveListen 解析最终监听地址。

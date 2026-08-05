@@ -94,8 +94,8 @@ systemctl start boxd.service
 | --- | --- | --- | --- |
 | `BOXD_LISTEN` | `--listen` | `[::]:9091` | 监听地址（优先于 `BOXD_PORT`） |
 | `BOXD_PORT` | - | `9091` | 仅端口时使用 |
-| `BOXD_CONFIG` | `--config` | `/etc/sing-box/config.json` | 内核配置路径 |
-| `BOXD_DATA_DIR` | `--data-dir` | `/var/lib/boxd` | 数据目录（库、备份、规则集缓存等） |
+| `BOXD_CONFIG` | `--config` | `/etc/sing-box/config.json`（Linux）；`%ProgramData%\sing-box\config.json`（Windows） | 内核配置路径 |
+| `BOXD_DATA_DIR` | `--data-dir` | `/var/lib/boxd`（Linux）；`%ProgramData%\boxd`（Windows） | 数据目录（库、备份、规则集缓存等） |
 | `BOXD_USERNAME` | `--username` | `admin` | 登录用户名 |
 | `BOXD_PASSWORD` | `--password` | `admin123` | 仅首次初始化密码；库中已有哈希后不覆盖 |
 | `BOXD_LOG_LEVEL` | `--log-level` | `info` | 应用日志级别 |

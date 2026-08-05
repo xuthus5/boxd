@@ -3,6 +3,8 @@ package config
 import (
 	"bytes"
 	"flag"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -184,5 +186,45 @@ func TestResolveListen(t *testing.T) {
 	t.Setenv("BOXD_LISTEN", "127.0.0.1:80")
 	if v := resolveListen(); v != "127.0.0.1:80" {
 		t.Errorf("expected 127.0.0.1:80, got %s", v)
+	}
+}
+
+func TestDefaultConfigPathPlatformAware(t *testing.T) {
+	path := defaultConfigPath()
+	if runtime.GOOS == "windows" {
+		if !strings.Contains(path, "sing-box") || !strings.Contains(path, ".json") {
+			t.Errorf("unexpected windows config path: %s", path)
+		}
+		if filepath.IsAbs(path) == false {
+			t.Errorf("expected absolute config path on windows, got %s", path)
+		}
+	} else {
+		if path != "/etc/sing-box/config.json" {
+			t.Errorf("expected /etc/sing-box/config.json, got %s", path)
+		}
+	}
+}
+
+func TestDefaultDataDirPlatformAware(t *testing.T) {
+	dir := defaultDataDir()
+	if runtime.GOOS == "windows" {
+		if !strings.Contains(strings.ToLower(dir), "boxd") {
+			t.Errorf("unexpected windows data dir: %s", dir)
+		}
+	} else {
+		if dir != "/var/lib/boxd" {
+			t.Errorf("expected /var/lib/boxd, got %s", dir)
+		}
+	}
+}
+
+func TestProgramDataDir(t *testing.T) {
+	t.Setenv("ProgramData", `D:\Custom\ProgramData`)
+	if d := programDataDir(); d != `D:\Custom\ProgramData` {
+		t.Errorf("expected env value, got %s", d)
+	}
+	t.Setenv("ProgramData", "")
+	if d := programDataDir(); d != `C:\ProgramData` {
+		t.Errorf("expected fallback, got %s", d)
 	}
 }
