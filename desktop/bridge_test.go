@@ -421,3 +421,85 @@ func TestBridgeRuleSetsStatus(t *testing.T) {
 		t.Fatal("expected an error or ok status")
 	}
 }
+
+func TestBridgeConfigDiagnostics(t *testing.T) {
+	rt := newTestRuntimeWithService(t)
+	svc := newBoxdBridgeService(rt)
+	resp, err := svc.Call(BridgeRequest{Path: "/api/config/diagnostics", Method: "GET"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.Status != "ok" {
+		t.Fatalf("status = %q, error = %v", resp.Status, resp.Error)
+	}
+	if resp.Data == nil {
+		t.Fatal("expected diagnostics data")
+	}
+}
+
+func TestBridgeConfigApplyHistory(t *testing.T) {
+	rt := newTestRuntimeWithService(t)
+	svc := newBoxdBridgeService(rt)
+	resp, err := svc.Call(BridgeRequest{Path: "/api/config/apply-history", Method: "GET"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.Status != "ok" {
+		t.Fatalf("status = %q", resp.Status)
+	}
+}
+
+func TestBridgeApplyHistorySnapshotNotFound(t *testing.T) {
+	rt := newTestRuntimeWithService(t)
+	svc := newBoxdBridgeService(rt)
+	// 不存在的快照返回业务错误而非 unknown path。
+	resp, _ := svc.Call(BridgeRequest{Path: "/api/config/apply-history/missing-id/snapshot", Method: "GET"})
+	if strings.Contains(resp.Error, "unknown path") {
+		t.Fatalf("snapshot route not wired: %s", resp.Error)
+	}
+}
+
+func TestBridgeApplyHistoryRestoreNotFound(t *testing.T) {
+	rt := newTestRuntimeWithService(t)
+	svc := newBoxdBridgeService(rt)
+	resp, _ := svc.Call(BridgeRequest{Path: "/api/config/apply-history/missing-id/restore", Method: "POST"})
+	if strings.Contains(resp.Error, "unknown path") {
+		t.Fatalf("restore route not wired: %s", resp.Error)
+	}
+}
+
+func TestBridgeRouteRuleMetadata(t *testing.T) {
+	rt := newTestRuntimeWithService(t)
+	svc := newBoxdBridgeService(rt)
+	resp, _ := svc.Call(BridgeRequest{Path: "/api/config/route/rule-metadata", Method: "GET"})
+	if strings.Contains(resp.Error, "unknown path") {
+		t.Fatalf("rule-metadata GET not wired: %s", resp.Error)
+	}
+}
+
+func TestBridgeNodesList(t *testing.T) {
+	rt := newTestRuntimeWithService(t)
+	svc := newBoxdBridgeService(rt)
+	resp, _ := svc.Call(BridgeRequest{Path: "/api/nodes/", Method: "GET"})
+	if strings.Contains(resp.Error, "unknown path") {
+		t.Fatalf("nodes list not wired: %s", resp.Error)
+	}
+}
+
+func TestBridgeSettingsBackup(t *testing.T) {
+	rt := newTestRuntimeWithService(t)
+	svc := newBoxdBridgeService(rt)
+	resp, _ := svc.Call(BridgeRequest{Path: "/api/settings/backup", Method: "GET"})
+	if strings.Contains(resp.Error, "unknown path") {
+		t.Fatalf("backup not wired: %s", resp.Error)
+	}
+}
+
+func TestBridgeSubscriptionsList(t *testing.T) {
+	rt := newTestRuntimeWithService(t)
+	svc := newBoxdBridgeService(rt)
+	resp, _ := svc.Call(BridgeRequest{Path: "/api/subscriptions/", Method: "GET"})
+	if strings.Contains(resp.Error, "unknown path") {
+		t.Fatalf("subscriptions list not wired: %s", resp.Error)
+	}
+}

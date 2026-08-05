@@ -83,6 +83,24 @@ func (s *BoxdBridgeService) dispatch(ctx context.Context, req BridgeRequest) (Br
 				return errResult(err)
 			}
 			return okResult(s.rt.svc.RuleSets().Update(ctx, req))
+		case "/api/auth/login":
+			return okResult(loginBridge(s.rt, req.Body))
+		case "/api/auth/logout":
+			return errResult(s.rt.svc.Auth().Logout(ctx))
+		case "/api/import/link":
+			return okResult(importLinkBridge(s.rt, req.Body))
+		case "/api/import/save":
+			return okResult(importSaveBridge(s.rt, req.Body))
+		case "/api/nodes/test":
+			return okResult(testRunBridge(s.rt, req.Body))
+		case "/api/nodes/test-batch":
+			return okResult(testBatchBridge(s.rt, req.Body))
+		case "/api/runtime/dns/probe":
+			return okResult(probeDNSBridge(s.rt, req.Body))
+		case "/api/runtime/dns/probe-batch":
+			return okResult(probeDNSBatchBridge(s.rt, req.Body))
+		case "/api/subscriptions/refresh-all":
+			return okResult(s.rt.svc.Subscriptions().RefreshAll(ctx))
 		}
 	}
 
@@ -117,6 +135,12 @@ func (s *BoxdBridgeService) dispatch(ctx context.Context, req BridgeRequest) (Br
 			}
 			saved, err := s.rt.svc.RuleSets().AutoUpdate()
 			return okResult(saved, err)
+		case "/api/config/route/rule-metadata":
+			metadata, err := bridgeBody[[]model.RouteRuleMetadata](req.Body)
+			if err != nil {
+				return errResult(err)
+			}
+			return okResult(s.rt.svc.Config().UpdateRouteRuleMetadata(metadata))
 		}
 	}
 
@@ -160,6 +184,20 @@ func (s *BoxdBridgeService) dispatch(ctx context.Context, req BridgeRequest) (Br
 		return okResult(s.rt.svc.RuleSets().Status(ctx))
 	case "/api/config/rule-sets/auto-update":
 		return okResult(s.rt.svc.RuleSets().AutoUpdate())
+	case "/api/config/apply-history":
+		return okResult(s.rt.svc.Config().ApplyHistory())
+	case "/api/config/diagnostics":
+		return BridgeResponse{Data: s.rt.svc.Config().Diagnostics(), Status: "ok"}, nil
+	case "/api/config/route/rule-metadata":
+		return okResult(s.rt.svc.Config().GetRouteRuleMetadata())
+	case "/api/nodes/":
+		return okResult(listNodesBridge(s.rt))
+	case "/api/nodes/test-results":
+		return okResult(s.rt.svc.Test().ListResults(ctx))
+	case "/api/settings/backup":
+		return okResult(s.rt.svc.Backup().CreateBackupArchive(ctx, ""))
+	case "/api/subscriptions/":
+		return okResult(s.rt.svc.Subscriptions().List(ctx))
 	case "/api/desktop/runtime":
 		return BridgeResponse{Data: NewNativeCapabilities(s.rt).Runtime(ctx), Status: "ok"}, nil
 	case "/api/desktop/autostart":
@@ -173,8 +211,31 @@ func (s *BoxdBridgeService) dispatch(ctx context.Context, req BridgeRequest) (Br
 	case "/healthz", "/health":
 		return okResult(s.rt.svc.Health().Liveness(ctx))
 	default:
-		return BridgeResponse{}, ErrorfBridge(404, "not_found", "unknown path %q", path)
+		return s.dispatchPathParam(ctx, path, method, req.Body)
 	}
+}
+
+// dispatchPathParam 处理带路径参数的路由（apply-history 快照/恢复）。
+func (s *BoxdBridgeService) dispatchPathParam(ctx context.Context, path, method string, body json.RawMessage) (BridgeResponse, error) {
+	if method == "POST" {
+		const prefix = "/api/config/apply-history/"
+		if strings.HasPrefix(path, prefix) && strings.HasSuffix(path, "/restore") {
+			id := strings.TrimSuffix(strings.TrimPrefix(path, prefix), "/restore")
+			return okResult(s.rt.svc.Config().RestoreConfigSnapshot(ctx, id))
+		}
+	}
+	if method == "GET" {
+		const prefix = "/api/config/apply-history/"
+		if strings.HasPrefix(path, prefix) && strings.HasSuffix(path, "/snapshot") {
+			id := strings.TrimSuffix(strings.TrimPrefix(path, prefix), "/snapshot")
+			body, err := s.rt.svc.Config().ConfigSnapshot(id)
+			if err != nil {
+				return errResult(err)
+			}
+			return BridgeResponse{Data: string(body), Status: "ok"}, nil
+		}
+	}
+	return BridgeResponse{}, ErrorfBridge(404, "not_found", "unknown path %q", path)
 }
 
 // syncNodesConfig 同步托管出站配置并重启内核。
