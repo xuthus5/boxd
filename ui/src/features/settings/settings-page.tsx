@@ -7,9 +7,9 @@ import { ProbeURLField } from "@/components/probe-url-field"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldTitle } from "@/components/ui/field"
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { usePreferences } from "@/features/preferences/preferences-provider"
 import { BackupExportCard } from "@/features/settings/backup-export-card"
 import { SupportBundleCard } from "@/features/settings/support-bundle-card"
@@ -37,46 +37,83 @@ function AppearanceCard() {
         <FieldGroup className="gap-2 sm:gap-3">
           <Field orientation="responsive" className="gap-2 sm:justify-between">
             <FieldTitle id="theme-label" className="shrink-0">{t("settings.theme")}</FieldTitle>
-            <ToggleGroup
-              aria-labelledby="theme-label"
-              className="w-full max-w-full flex-wrap justify-start sm:w-auto sm:justify-end"
-              value={[preferences.theme]}
-              onValueChange={(value) => { if (value[0]) preferences.setTheme(value[0] as Theme) }}
-            >
-              <ToggleGroupItem value="light">{t("settings.light")}</ToggleGroupItem>
-              <ToggleGroupItem value="dark">{t("settings.dark")}</ToggleGroupItem>
-              <ToggleGroupItem value="system">{t("settings.system")}</ToggleGroupItem>
-            </ToggleGroup>
+            <FieldContent className="w-full sm:w-auto sm:min-w-40">
+              <Select
+                items={[
+                  { value: "light", label: t("settings.light") },
+                  { value: "dark", label: t("settings.dark") },
+                  { value: "system", label: t("settings.system") },
+                ]}
+                value={preferences.theme}
+                onValueChange={(value) => preferences.setTheme(String(value) as Theme)}
+              >
+                <SelectTrigger aria-label={t("settings.theme")} className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="light">{t("settings.light")}</SelectItem>
+                    <SelectItem value="dark">{t("settings.dark")}</SelectItem>
+                    <SelectItem value="system">{t("settings.system")}</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </FieldContent>
           </Field>
           <Field orientation="responsive" className="gap-2 sm:justify-between">
             <FieldTitle id="language-label" className="shrink-0">{t("settings.language")}</FieldTitle>
-            <ToggleGroup
-              aria-labelledby="language-label"
-              className="w-full max-w-full flex-wrap justify-start sm:w-auto sm:justify-end"
-              value={[preferences.language]}
-              onValueChange={(value) => { if (value[0]) preferences.setLanguage(value[0] as Language) }}
-            >
-              <ToggleGroupItem value="zh">中文</ToggleGroupItem>
-              <ToggleGroupItem value="en">English</ToggleGroupItem>
-            </ToggleGroup>
+            <FieldContent className="w-full sm:w-auto sm:min-w-40">
+              <Select
+                items={[
+                  { value: "zh", label: "中文" },
+                  { value: "en", label: "English" },
+                ]}
+                value={preferences.language}
+                onValueChange={(value) => preferences.setLanguage(String(value) as Language)}
+              >
+                <SelectTrigger aria-label={t("settings.language")} className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="zh">中文</SelectItem>
+                    <SelectItem value="en">English</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </FieldContent>
           </Field>
           <Field orientation="responsive" className="gap-2 sm:justify-between">
             <FieldContent className="min-w-0 gap-1">
               <FieldTitle id="minimum-log-level-label" className="shrink-0">{t("settings.minimumLogLevel")}</FieldTitle>
               <FieldDescription>{t("settings.minimumLogLevelDescription")}</FieldDescription>
             </FieldContent>
-            <ToggleGroup
-              aria-labelledby="minimum-log-level-label"
-              className="w-full max-w-full flex-wrap justify-start sm:w-auto sm:max-w-[22rem] sm:justify-end"
-              value={[preferences.minimumLogLevel]}
-              onValueChange={(value) => { if (value[0]) preferences.setMinimumLogLevel(value[0] as LogThreshold) }}
-            >
-              <ToggleGroupItem value="all">{t("observability.allLevels")}</ToggleGroupItem>
-              <ToggleGroupItem value="debug">Debug</ToggleGroupItem>
-              <ToggleGroupItem value="info">Info</ToggleGroupItem>
-              <ToggleGroupItem value="warn">Warn</ToggleGroupItem>
-              <ToggleGroupItem value="error">Error</ToggleGroupItem>
-            </ToggleGroup>
+            <FieldContent className="w-full sm:w-auto sm:min-w-40">
+              <Select
+                items={[
+                  { value: "all", label: t("observability.allLevels") },
+                  { value: "debug", label: "Debug" },
+                  { value: "info", label: "Info" },
+                  { value: "warn", label: "Warn" },
+                  { value: "error", label: "Error" },
+                ]}
+                value={preferences.minimumLogLevel}
+                onValueChange={(value) => preferences.setMinimumLogLevel(String(value) as LogThreshold)}
+              >
+                <SelectTrigger aria-label={t("settings.minimumLogLevel")} className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="all">{t("observability.allLevels")}</SelectItem>
+                    <SelectItem value="debug">Debug</SelectItem>
+                    <SelectItem value="info">Info</SelectItem>
+                    <SelectItem value="warn">Warn</SelectItem>
+                    <SelectItem value="error">Error</SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </FieldContent>
           </Field>
         </FieldGroup>
       </CardContent>

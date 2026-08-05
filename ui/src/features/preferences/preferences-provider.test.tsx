@@ -87,7 +87,8 @@ describe("PreferencesProvider densified save errors", () => {
     const user = userEvent.setup()
     renderApp(<App />, "/settings")
     await screen.findByRole("heading", { name: "应用设置" })
-    await user.click(screen.getByText("深色"))
+    await user.click(screen.getByRole("combobox", { name: "主题" }))
+    await user.click(await screen.findByRole("option", { name: "深色" }))
     await waitFor(() => expect(toast.error).toHaveBeenCalled())
     const [message, options] = vi.mocked(toast.error).mock.calls.at(-1)!
     expect(String(message)).toMatch(/failed to save preferences|internal/i)
