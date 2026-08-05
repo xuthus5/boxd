@@ -85,7 +85,7 @@ jobs:
         run: ./scripts/check-desktop.sh
       - name: Package desktop app (${{ matrix.arch }})
         env:
-          GOPROXY: https://goproxy.io,direct
+          GOPROXY: https://proxy.golang.org,https://goproxy.io,direct
           GOARCH: ${{ matrix.goarch }}
           APPIMAGE_EXTRACT_AND_RUN: "1"
           NO_STRIP: "1"
@@ -137,7 +137,7 @@ jobs:
       - name: Package headless ${{ matrix.os }} amd64/arm64
         shell: bash
         env:
-          GOPROXY: https://goproxy.io,direct
+          GOPROXY: https://proxy.golang.org,https://goproxy.io,direct
         run: ./scripts/package-cross.sh "${GITHUB_REF_NAME}" release ${{ matrix.os }} amd64 arm64
       - name: Publish headless ${{ matrix.os }} binaries
         uses: softprops/action-gh-release@v2
@@ -184,7 +184,7 @@ jobs:
       - name: Package desktop app (${{ matrix.os }} ${{ matrix.arch }})
         shell: bash
         env:
-          GOPROXY: https://goproxy.io,direct
+          GOPROXY: https://proxy.golang.org,https://goproxy.io,direct
         run: |
           set -euo pipefail
           if [ "${{ matrix.os }}" = "windows" ]; then

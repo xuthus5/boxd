@@ -45,15 +45,19 @@ if [[ ! -d "$root_dir/ui/node_modules" ]]; then
   (cd "$root_dir/ui" && npm ci)
 fi
 cd ui && npm run build
-find dist -type d -exec chmod 0700 {} +
-find dist -type f -exec chmod 0600 {} +
+if [[ "$target_os" != "windows" ]]; then
+  find dist -type d -exec chmod 0700 {} +
+  find dist -type f -exec chmod 0600 {} +
+fi
 cd "$root_dir"
 
-install -d -m 0700 cmd/boxd/ui
-rm -rf cmd/boxd/ui/dist
+rm -rf cmd/boxd/ui
+mkdir -p cmd/boxd/ui
 cp -r ui/dist cmd/boxd/ui/dist
-find cmd/boxd/ui -type d -exec chmod 0700 {} +
-find cmd/boxd/ui -type f -exec chmod 0600 {} +
+if [[ "$target_os" != "windows" ]]; then
+  find cmd/boxd/ui -type d -exec chmod 0700 {} +
+  find cmd/boxd/ui -type f -exec chmod 0600 {} +
+fi
 
 go mod download
 
@@ -79,15 +83,15 @@ package_arch() {
     -ldflags "-X github.com/xuthus5/boxd/internal/core.Version=${version} -X github.com/sagernet/sing-box/constant.Version=${KERNEL_VERSION}" \
     -o "$binary" ./cmd/boxd/
   chmod 0700 "$binary"
-  install -m 0600 LICENSE "$stage_dir/LICENSE-APACHE-2.0"
-  install -m 0600 THIRD_PARTY_NOTICES.md "$stage_dir/THIRD_PARTY_NOTICES.md"
-  install -m 0600 README.md "$stage_dir/README.md"
-  install -m 0600 README.zh-CN.md "$stage_dir/README.zh-CN.md"
-  install -m 0600 docs/operations.md "$stage_dir/OPERATIONS.md"
+  stage_file LICENSE "$stage_dir/LICENSE-APACHE-2.0"
+  stage_file THIRD_PARTY_NOTICES.md "$stage_dir/THIRD_PARTY_NOTICES.md"
+  stage_file README.md "$stage_dir/README.md"
+  stage_file README.zh-CN.md "$stage_dir/README.zh-CN.md"
+  stage_file docs/operations.md "$stage_dir/OPERATIONS.md"
   if [[ -f deploy/boxd.env.example ]]; then
-    install -m 0600 deploy/boxd.env.example "$stage_dir/boxd.env.example"
+    stage_file deploy/boxd.env.example "$stage_dir/boxd.env.example"
   fi
-  install -m 0600 "$sing_box_license" "$stage_dir/LICENSE-GPL-3.0"
+  stage_file "$sing_box_license" "$stage_dir/LICENSE-GPL-3.0"
 
   printf '%s\n' \
     'Corresponding source for this binary is available from the boxd Git tag:' \
@@ -104,6 +108,14 @@ package_arch() {
   sha256sum_impl "$output_dir/$archive_name" >"$output_dir/$archive_name.sha256"
   chmod 0600 "$output_dir/$archive_name.sha256"
   echo "Packed $output_dir/$archive_name"
+}
+
+# stage_file 复制文件到归档暂存目录（0600）。
+# Windows git-bash 的 install -m 对已存在目标可能报权限错，改用 cp + 容错 chmod。
+stage_file() {
+  local src="$1" dst="$2"
+  cp "$src" "$dst"
+  chmod 0600 "$dst" 2>/dev/null || true
 }
 
 # sha256sum_impl 计算 sha256（macOS 无 sha256sum，用 shasum -a 256）。

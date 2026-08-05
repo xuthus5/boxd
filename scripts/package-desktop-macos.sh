@@ -12,7 +12,7 @@ root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 version="${1:-$(git -C "$root_dir" describe --tags --always --dirty 2>/dev/null || echo dev)}"
 arch="${2:-arm64}"
 export PATH="$PATH:/usr/local/go/bin:$HOME/go/bin:$(go env GOPATH 2>/dev/null)/bin"
-export GOPROXY="${GOPROXY:-https://goproxy.io,direct}"
+export GOPROXY="${GOPROXY:-https://proxy.golang.org,https://goproxy.io,direct}"
 export GOOS=darwin
 export CGO_ENABLED=1
 export GOARCH="$arch"
@@ -26,8 +26,8 @@ fi
 (cd "$root_dir/ui" && npm run build)
 
 echo "==> Preparing desktop/ui/dist"
-install -d -m 0700 "$root_dir/desktop/ui"
-rm -rf "$root_dir/desktop/ui/dist"
+rm -rf "$root_dir/desktop/ui"
+mkdir -p "$root_dir/desktop/ui"
 cp -r "$root_dir/ui/dist" "$root_dir/desktop/ui/dist"
 find "$root_dir/desktop/ui" -type d -exec chmod 0700 {} +
 find "$root_dir/desktop/ui" -type f -exec chmod 0600 {} +
@@ -36,7 +36,7 @@ echo "==> Generating Wails bindings"
 wails3 generate bindings -d "$root_dir/ui/src/lib/api/bindings" >/dev/null
 
 echo "==> Building macOS desktop binary (${arch})"
-install -d -m 0700 bin
+mkdir -p bin
 go build \
   -tags "desktop embed_ui with_gvisor with_quic with_dhcp with_wireguard with_utls with_acme with_clash_api" \
   -ldflags "-X github.com/xuthus5/boxd/internal/core.Version=$version" \

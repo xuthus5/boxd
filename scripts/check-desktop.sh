@@ -9,7 +9,7 @@ coverage_file=$(mktemp)
 trap 'rm -f "$coverage_file"' EXIT
 
 export PATH="$PATH:/usr/local/go/bin:$HOME/go/bin"
-export GOPROXY="${GOPROXY:-https://goproxy.io,direct}"
+export GOPROXY="${GOPROXY:-https://proxy.golang.org,https://goproxy.io,direct}"
 
 cd "$root_dir/desktop"
 

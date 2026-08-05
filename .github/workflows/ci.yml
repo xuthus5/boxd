@@ -93,7 +93,7 @@ jobs:
       - name: Build desktop binary
         working-directory: desktop
         run: |
-          export GOPROXY=https://goproxy.io,direct
+          export GOPROXY=https://proxy.golang.org,https://goproxy.io,direct
           npm ci --prefix ../ui
           npm run build --prefix ../ui
           mkdir -p ui/dist
