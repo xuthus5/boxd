@@ -193,6 +193,7 @@ jobs:
             ./scripts/package-desktop-macos.sh "${GITHUB_REF_NAME}" "${{ matrix.arch }}"
           fi
       - name: Publish desktop ${{ matrix.os }} artifacts
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

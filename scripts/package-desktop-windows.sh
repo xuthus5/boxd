@@ -44,7 +44,20 @@ go build \
 
 echo "==> Packaging zip"
 zip_name="boxd-desktop-${version}-windows-${arch}.zip"
-(cd bin && zip -q -9 "$root_dir/$zip_name" boxd-desktop.exe)
+make_zip() {
+  local src="$1" dest="$2"
+  if command -v zip >/dev/null 2>&1; then
+    (cd "$src" && zip -q -9 "$dest" boxd-desktop.exe)
+  elif command -v 7z >/dev/null 2>&1; then
+    (cd "$src" && 7z a -tzip "$dest" boxd-desktop.exe >/dev/null)
+  elif [ -f "/c/Program Files/7-Zip/7z.exe" ]; then
+    (cd "$src" && "/c/Program Files/7-Zip/7z.exe" a -tzip "$dest" boxd-desktop.exe >/dev/null)
+  else
+    echo "zip: no implementation found (need zip or 7z)" >&2
+    return 1
+  fi
+}
+make_zip bin "$root_dir/$zip_name"
 chmod 0600 "$root_dir/$zip_name"
 echo "==> Output: $root_dir/$zip_name"
 ls -lh "$root_dir/$zip_name" bin/boxd-desktop.exe

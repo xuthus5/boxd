@@ -175,6 +175,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
       - name: Update rolling nightly GitHub Release (${{ matrix.os }})
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -349,6 +350,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
       - name: Update rolling nightly GitHub Release (desktop ${{ matrix.os }} ${{ matrix.arch }})
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

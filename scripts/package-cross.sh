@@ -101,9 +101,21 @@ package_arch() {
 
   tar -C "$stage_dir" -czf "$output_dir/$archive_name" .
   chmod 0600 "$output_dir/$archive_name"
-  sha256sum "$output_dir/$archive_name" >"$output_dir/$archive_name.sha256"
+  sha256sum_impl "$output_dir/$archive_name" >"$output_dir/$archive_name.sha256"
   chmod 0600 "$output_dir/$archive_name.sha256"
   echo "Packed $output_dir/$archive_name"
+}
+
+# sha256sum_impl 计算 sha256（macOS 无 sha256sum，用 shasum -a 256）。
+sha256sum_impl() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$@"
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$@"
+  else
+    echo "sha256sum: no implementation found" >&2
+    exit 1
+  fi
 }
 
 for arch in "${arches[@]}"; do
