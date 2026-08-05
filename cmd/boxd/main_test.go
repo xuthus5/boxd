@@ -521,3 +521,40 @@ func TestParseAndExecuteFatal(t *testing.T) {
 		t.Fatalf("fatal exit code = %d", code)
 	}
 }
+
+func TestRunGeneratesDefaultConfig(t *testing.T) {
+	previousServer := makeHTTPServer
+	previousSignal := makeSignalChannel
+	t.Cleanup(func() {
+		makeHTTPServer = previousServer
+		makeSignalChannel = previousSignal
+	})
+	fake := &fakeServer{listenErr: http.ErrServerClosed}
+	makeHTTPServer = func(addr string, handler http.Handler) server {
+		return fake
+	}
+	makeSignalChannel = func() chan os.Signal {
+		quit := make(chan os.Signal, 1)
+		quit <- syscall.SIGTERM
+		return quit
+	}
+
+	configPath := filepath.Join(t.TempDir(), "nested", "sing-box.json")
+	err := run(&config.Config{
+		Listen:     "127.0.0.1:0",
+		ConfigPath: configPath,
+		DataDir:    t.TempDir(),
+		Username:   "admin",
+		Password:   "pass",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("default config not generated: %v", err)
+	}
+	if len(data) == 0 {
+		t.Fatal("generated config is empty")
+	}
+}

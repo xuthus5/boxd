@@ -97,6 +97,15 @@ func run(cfg *config.Config) error {
 		return nil
 	}
 
+	// 默认配置文件不存在时自动生成最小可用配置，保证内核可启动。
+	created, err := core.EnsureConfigFile(cfg.ConfigPath)
+	if err != nil {
+		return fmt.Errorf("ensure default config: %w", err)
+	}
+	if created {
+		slog.Info("default config generated", "path", cfg.ConfigPath)
+	}
+
 	runtime := newHandler(cfg, db, settingsManager)
 
 	logLevel := slog.LevelInfo

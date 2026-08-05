@@ -48,6 +48,8 @@ BOXD_PASSWORD='your-strong-password' \
 
 Open `http://127.0.0.1:9091`. Default username is `admin`. On the default password, the UI forces a password change.
 
+If the kernel config file does not exist at startup, boxd auto-generates a minimal usable config (mixed inbound on `:1080`, direct/block outbounds) so the kernel can start. Use the dashboard **Quick setup** checklist to add subscriptions, outbounds, route rules, etc.
+
 ### Dev mode (split frontend/backend)
 
 ```bash
