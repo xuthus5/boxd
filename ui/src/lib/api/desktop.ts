@@ -25,10 +25,21 @@ export async function callBridge(path: string, method = "GET", body?: unknown): 
   const mod = await import("@/lib/api/bindings/github.com/xuthus5/boxd/desktop/boxdbridgeservice")
   const req: { path: string; method: string; body?: unknown } = { path, method }
   if (body !== undefined) {
-    req.body = body
+    // Wails 的 json.RawMessage 字段期望对象而非 JSON 字符串；
+    // 前端 transport 传入的是 JSON.stringify 后的字符串，这里转回对象。
+    req.body = typeof body === "string" ? parseJsonBody(body) : body
   }
   const resp = await mod.Call(req)
   return resp as DesktopBridgeResponse
+}
+
+/** parseJsonBody 把 JSON 字符串解析为对象；解析失败时原样返回，交由 Go 端报错。 */
+function parseJsonBody(body: string): unknown {
+  try {
+    return JSON.parse(body)
+  } catch {
+    return body
+  }
 }
 
 /** desktopGet 桌面模式下的通用请求入口（仅支持 GET 类只读操作）。 */

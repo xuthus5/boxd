@@ -45,6 +45,28 @@ describe("callBridge", () => {
     expect(bridge.Call).toHaveBeenCalledWith({ path: "/api/service/status", method: "GET" })
     expect(resp).toEqual({ data: { running: true }, status: "ok" })
   })
+
+  it("parses string body into an object for the wails bridge", async () => {
+    const bridge = await import("@/lib/api/bindings/github.com/xuthus5/boxd/desktop/boxdbridgeservice")
+    vi.mocked(bridge.Call).mockResolvedValue({ data: {}, status: "ok" })
+    await callBridge("/api/config/", "PUT", '{"log":{"level":"info"}}')
+    expect(bridge.Call).toHaveBeenCalledWith({
+      path: "/api/config/",
+      method: "PUT",
+      body: { log: { level: "info" } },
+    })
+  })
+
+  it("passes object body through unchanged", async () => {
+    const bridge = await import("@/lib/api/bindings/github.com/xuthus5/boxd/desktop/boxdbridgeservice")
+    vi.mocked(bridge.Call).mockResolvedValue({ data: {}, status: "ok" })
+    await callBridge("/api/settings/kernel-autostart", "PUT", { enabled: true })
+    expect(bridge.Call).toHaveBeenCalledWith({
+      path: "/api/settings/kernel-autostart",
+      method: "PUT",
+      body: { enabled: true },
+    })
+  })
 })
 
 describe("desktopGet", () => {
