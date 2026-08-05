@@ -8,6 +8,9 @@ root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 version="${1:-$(git -C "$root_dir" describe --tags --always --dirty 2>/dev/null || echo dev)}"
 export PATH="$PATH:/usr/local/go/bin:$HOME/go/bin"
 export GOPROXY="${GOPROXY:-https://goproxy.io,direct}"
+# Wails3 Linux 桌面依赖 GTK4/WebKitGTK（cgo），必须开启 CGO。
+export CGO_ENABLED=1
+export GOOS=linux
 
 echo "==> Building frontend"
 (cd "$root_dir/ui" && npm run build)

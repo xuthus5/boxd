@@ -18,4 +18,4 @@ find "$embed_dir" -type d -exec chmod 0700 {} +
 find "$embed_dir" -type f -exec chmod 0600 {} +
 
 cd "$root_dir"
-go test -tags embed_ui ./cmd/boxd -run TestEmbeddedUIAssetIntegrity -count=1
+CGO_ENABLED=0 go test -tags embed_ui ./cmd/boxd -run TestEmbeddedUIAssetIntegrity -count=1

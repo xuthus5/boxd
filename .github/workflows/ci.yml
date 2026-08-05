@@ -99,7 +99,7 @@ jobs:
           mkdir -p ui/dist
           cp -r ../ui/dist/* ui/dist/
           wails3 generate bindings -d ../ui/src/lib/api/bindings
-          go build -tags "desktop embed_ui with_gvisor with_quic with_dhcp with_wireguard with_utls with_acme with_clash_api" -o /tmp/boxd-desktop ./
+          CGO_ENABLED=1 go build -tags "desktop embed_ui with_gvisor with_quic with_dhcp with_wireguard with_utls with_acme with_clash_api" -o /tmp/boxd-desktop ./
       - name: Verify desktop binary
         run: |
           test -x /tmp/boxd-desktop

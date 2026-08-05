@@ -17,7 +17,7 @@ dev:
 	@echo "Starting boxd..."
 	@cd ui && npm run dev &
 	@sleep 2
-	@go run ./cmd/boxd/
+	@CGO_ENABLED=0 go run ./cmd/boxd/
 
 build:
 	@echo "Building frontend..."
@@ -32,7 +32,7 @@ build:
 	@find cmd/boxd/ui -type f -exec chmod 0600 {} +
 	@echo "Building binary..."
 	@install -d -m 0700 bin
-	@go build -tags "$(BUILD_TAGS)" -ldflags "-X github.com/xuthus5/boxd/internal/core.Version=$(VERSION) -X github.com/sagernet/sing-box/constant.Version=$(KERNEL_VERSION)" -o bin/boxd ./cmd/boxd/
+	@CGO_ENABLED=0 go build -tags "$(BUILD_TAGS)" -ldflags "-X github.com/xuthus5/boxd/internal/core.Version=$(VERSION) -X github.com/sagernet/sing-box/constant.Version=$(KERNEL_VERSION)" -o bin/boxd ./cmd/boxd/
 	@chmod 0700 bin/boxd
 	@echo "Cleaning up embed copy..."
 	@rm -rf cmd/boxd/ui
