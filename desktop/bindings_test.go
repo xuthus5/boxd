@@ -38,11 +38,19 @@ func TestBoxdConfigServiceNotReady(t *testing.T) {
 	}
 }
 
-func TestBoxdConfigServiceGetMissing(t *testing.T) {
+func TestBoxdConfigServiceGetGeneratesDefault(t *testing.T) {
 	rt := newTestRuntimeWithService(t)
 	svc := newBoxdConfigService(rt)
-	if _, err := svc.Get(); err == nil {
-		t.Fatal("expected error for missing config")
+	got, err := svc.Get()
+	if err != nil {
+		t.Fatalf("expected generated default config: %v", err)
+	}
+	body, ok := got.(map[string]any)
+	if !ok {
+		t.Fatalf("config type = %T", got)
+	}
+	if body["route"] == nil {
+		t.Fatalf("generated config missing route: %+v", body)
 	}
 }
 

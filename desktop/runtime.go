@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 
@@ -60,6 +61,12 @@ func initRuntime(cfg desktopConfig) (*desktopRuntime, error) {
 	}
 	if err := os.MkdirAll(filepath.Dir(cfg.ConfigPath), 0700); err != nil {
 		return nil, fmt.Errorf("create config dir: %w", err)
+	}
+	// 配置文件缺失时自动生成最小可用配置，保证内核可启动。
+	if created, err := core.EnsureConfigFile(cfg.ConfigPath); err != nil {
+		return nil, fmt.Errorf("ensure config file: %w", err)
+	} else if created {
+		log.Printf("generated default config at %s", cfg.ConfigPath)
 	}
 
 	dbPath := filepath.Join(cfg.DataDir, "boxd.db")

@@ -94,6 +94,41 @@ func TestInitRuntimeEmbedded(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, "data", "boxd.db")); err != nil {
 		t.Fatalf("db not created: %v", err)
 	}
+	if _, err := os.Stat(cfg.ConfigPath); err != nil {
+		t.Fatalf("default config not created: %v", err)
+	}
+}
+
+func TestInitRuntimeEmbeddedPreservesExistingConfig(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "config", "config.json")
+	if err := os.MkdirAll(filepath.Dir(configPath), 0700); err != nil {
+		t.Fatal(err)
+	}
+	body := []byte(`{"log":{"level":"debug"}}`)
+	if err := os.WriteFile(configPath, body, 0600); err != nil {
+		t.Fatal(err)
+	}
+	cfg := desktopConfig{
+		Mode:            "embedded",
+		DataDir:         filepath.Join(dir, "data"),
+		ConfigPath:      configPath,
+		Username:        "admin",
+		Password:        "",
+		RefreshInterval: 60,
+	}
+	rt, err := initRuntime(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = rt.close() }()
+	after, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read config after init: %v", err)
+	}
+	if string(after) != string(body) {
+		t.Fatalf("existing config was modified: got %q", string(after))
+	}
 }
 
 func TestInitRuntimeRemoteMode(t *testing.T) {

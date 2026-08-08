@@ -32,7 +32,7 @@ func TestBridgeServiceStatus(t *testing.T) {
 func TestBridgeServiceStartStop(t *testing.T) {
 	rt := newTestRuntimeWithService(t)
 	svc := newBoxdBridgeService(rt)
-	// config 缺失时 start 报错
+	// 测试构建标签下内核不可用，start 报错（配置本身存在）
 	resp, err := svc.Call(BridgeRequest{Path: "/api/service/start", Method: "POST"})
 	if err == nil {
 		t.Fatalf("expected start error, got %+v", resp)
@@ -42,12 +42,19 @@ func TestBridgeServiceStartStop(t *testing.T) {
 	}
 }
 
-func TestBridgeConfigGet(t *testing.T) {
+func TestBridgeConfigGetReturnsGeneratedDefault(t *testing.T) {
 	rt := newTestRuntimeWithService(t)
 	svc := newBoxdBridgeService(rt)
 	resp, err := svc.Call(BridgeRequest{Path: "/api/config/"})
-	if err == nil {
-		t.Fatalf("expected error for missing config, got %+v", resp)
+	if err != nil {
+		t.Fatalf("expected generated default config: %v", err)
+	}
+	data, ok := resp.Data.(map[string]any)
+	if !ok {
+		t.Fatalf("data type = %T", resp.Data)
+	}
+	if data["route"] == nil {
+		t.Fatalf("generated config missing route: %+v", data)
 	}
 }
 
