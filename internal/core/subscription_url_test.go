@@ -182,3 +182,70 @@ func TestPublicHTTPClientUsesSafeFallbackTransport(t *testing.T) {
 		t.Fatalf("timeout = %v, want %v", client.Timeout, subscriptionHTTPTimeout)
 	}
 }
+
+func TestProxyAddressAllowed(t *testing.T) {
+	t.Setenv("https_proxy", "http://127.0.0.1:7890")
+	t.Setenv("no_proxy", "")
+	if !proxyAddressAllowed("127.0.0.1:7890") {
+		t.Fatal("proxy port should be allowed")
+	}
+	if proxyAddressAllowed("1.2.3.4:443") {
+		t.Fatal("non-proxy address should be blocked")
+	}
+	if proxyAddressAllowed("127.0.0.1:7891") {
+		t.Fatal("non-proxy port should be blocked")
+	}
+}
+
+func TestProxyAddressAllowedIPv6AndSchemePort(t *testing.T) {
+	t.Setenv("HTTP_PROXY", "http://[::1]:8080")
+	if !proxyAddressAllowed("[::1]:8080") {
+		t.Fatal("ipv6 proxy should be allowed")
+	}
+	t.Setenv("HTTPS_PROXY", "http://proxy.example.com")
+	if !proxyAddressAllowed("proxy.example.com:80") {
+		t.Fatal("scheme-default port proxy should be allowed")
+	}
+}
+
+func TestProxyAddressAllowedIgnoredWithoutEnv(t *testing.T) {
+	for _, key := range []string{"https_proxy", "http_proxy", "all_proxy", "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"} {
+		t.Setenv(key, "")
+	}
+	if proxyAddressAllowed("127.0.0.1:7890") {
+		t.Fatal("proxy address must be rejected when no proxy env is set")
+	}
+}
+
+func TestPublicHTTPTransportHonorsProxyFromEnvironment(t *testing.T) {
+	transport, ok := newPublicHTTPTransport().(*http.Transport)
+	if !ok {
+		t.Fatalf("transport type = %T", newPublicHTTPTransport())
+	}
+	t.Setenv("https_proxy", "http://127.0.0.1:7890")
+	req, err := http.NewRequest(http.MethodGet, "https://example.com/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proxyURL, proxyErr := transport.Proxy(req)
+	if proxyErr != nil {
+		t.Fatal(proxyErr)
+	}
+	if proxyURL == nil || proxyURL.Host != "127.0.0.1:7890" {
+		t.Fatalf("proxy = %v, want 127.0.0.1:7890", proxyURL)
+	}
+	if transport.DialContext == nil {
+		t.Fatal("DialContext must be set")
+	}
+}
+
+func TestPublicDialControlAllowsProxyAndBlocksPrivate(t *testing.T) {
+	t.Setenv("https_proxy", "http://127.0.0.1:7890")
+	ctx := context.Background()
+	if err := publicDialControl(ctx, "tcp", "127.0.0.1:7890", nil); err != nil {
+		t.Fatalf("proxy endpoint should dial: %v", err)
+	}
+	if err := publicDialControl(ctx, "tcp", "192.168.1.10:80", nil); err == nil {
+		t.Fatal("private target must be rejected")
+	}
+}

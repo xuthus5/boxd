@@ -7,8 +7,8 @@ import (
 )
 
 const (
-	ruleSetHTTPTimeout          = 45 * time.Second
-	ruleSetInstallerHTTPTimeout = 20 * time.Second
+	ruleSetHTTPTimeout          = 60 * time.Second
+	ruleSetInstallerHTTPTimeout = 60 * time.Second
 	maxRuleSetBodyBytes         = 16 << 20
 	maxRuleSetEtagBytes         = 8 << 10
 )

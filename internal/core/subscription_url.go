@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/netip"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"syscall"
@@ -133,13 +134,50 @@ func newPublicHTTPClient(timeout time.Duration) *http.Client {
 }
 
 func newPublicHTTPTransport() http.RoundTripper {
-	dialer := &net.Dialer{ControlContext: subscriptionDialControl}
 	return &http.Transport{
-		DialContext:         dialer.DialContext,
+		// 默认 Transport 依赖 ProxyFromEnvironment；自定义 Transport 必须显式继承，
+		// 否则设置了 HTTP(S)_PROXY 的系统代理不会生效。
+		Proxy:               http.ProxyFromEnvironment,
+		DialContext:         (&net.Dialer{ControlContext: publicDialControl}).DialContext,
 		MaxIdleConns:        10,
 		MaxIdleConnsPerHost: 5,
 		IdleConnTimeout:     90 * time.Second,
 	}
+}
+
+// publicDialControl 放行环境代理地址（否则 127.0.0.1:7890 之类的代理会被
+// subscriptionDialControl 当作私网地址拒绝），其余目标仍执行公网校验。
+func publicDialControl(ctx context.Context, network, address string, rawConn syscall.RawConn) error {
+	if proxyAddressAllowed(address) {
+		return nil
+	}
+	return subscriptionDialControl(ctx, network, address, rawConn)
+}
+
+// proxyAddressAllowed 判断地址是否匹配任一环境变量代理的 host:port。
+func proxyAddressAllowed(address string) bool {
+	for _, key := range []string{"https_proxy", "http_proxy", "all_proxy", "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"} {
+		raw := os.Getenv(key)
+		if raw == "" {
+			continue
+		}
+		proxyURL, err := url.Parse(raw)
+		if err != nil || proxyURL.Hostname() == "" {
+			continue
+		}
+		port := proxyURL.Port()
+		if port == "" {
+			if proxyURL.Scheme == "https" {
+				port = "443"
+			} else {
+				port = "80"
+			}
+		}
+		if address == net.JoinHostPort(strings.Trim(proxyURL.Hostname(), "[]"), port) {
+			return true
+		}
+	}
+	return false
 }
 
 func newSubscriptionHTTPClientWithTransport(transport http.RoundTripper) *http.Client {
