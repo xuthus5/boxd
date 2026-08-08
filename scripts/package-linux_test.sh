@@ -18,9 +18,9 @@ test -x "$bin_dir/boxd_${version}_linux_amd64.AppImage"
 test -f "$bin_dir/boxd_${version}_linux_amd64.deb"
 test -f "$bin_dir/boxd_${version}_linux_amd64.rpm"
 
-# AppImage 透传参数可运行。
+# AppImage 透传参数可运行（版本号去除 v 前缀后与二进制一致）。
 appimage_version=$(APPIMAGE_EXTRACT_AND_RUN=1 "$bin_dir/boxd_${version}_linux_amd64.AppImage" --version 2>/dev/null) || true
-echo "$appimage_version" | grep -q "$version"
+echo "$appimage_version" | grep -q "${version#v}"
 
 # rpm 内容包含关键文件。
 rpm_list=$(rpm -qlp "$bin_dir/boxd_${version}_linux_amd64.rpm" 2>/dev/null) || true

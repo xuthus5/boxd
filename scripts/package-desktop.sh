@@ -10,11 +10,18 @@ set -euo pipefail
 root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 version="${1:-$(git -C "$root_dir" describe --tags --always --dirty 2>/dev/null || echo dev)}"
 arch="${2:-amd64}"
+source "$root_dir/scripts/lib-version.sh"
+pkg_version=$(resolve_package_version "$version")
 export PATH="$PATH:/usr/local/go/bin:$HOME/go/bin"
 export GOPROXY="${GOPROXY:-https://proxy.golang.org,https://goproxy.io,direct}"
 export GOOS=linux
 export CGO_ENABLED=1
 export GOARCH="$arch"
+nfpm_cfg="build/linux/nfpm/nfpm-${arch}.yaml"
+cleanup() {
+  rm -f "$root_dir/desktop/$nfpm_cfg"
+}
+trap cleanup EXIT
 
 cd "$root_dir/desktop"
 
@@ -35,7 +42,7 @@ echo "==> Building desktop binary (${arch})"
 install -d -m 0700 bin
 go build \
   -tags "desktop embed_ui with_gvisor with_quic with_dhcp with_wireguard with_utls with_acme with_clash_api" \
-  -ldflags "-X github.com/xuthus5/boxd/internal/core.Version=$version" \
+  -ldflags "-X github.com/xuthus5/boxd/internal/core.Version=$pkg_version" \
   -o bin/boxd-desktop ./
 
 echo "==> Preparing build assets"
@@ -57,9 +64,17 @@ wails3 generate .desktop \
   -outputfile build/linux/boxd-desktop.desktop
 
 echo "==> Packaging deb/rpm (${arch})"
+# 生成版本与架构化 nfpm 配置；contents src 改写为绝对路径（相对路径按配置文件目录解析）。
+sed -e "s/version: \"0.1.0\"/version: \"${pkg_version}\"/" \
+  build/linux/nfpm/nfpm.yaml >"$nfpm_cfg"
+sed -i \
+  -e "s|src: \"./bin/boxd-desktop\"|src: \"$root_dir/desktop/bin/boxd-desktop\"|" \
+  -e "s|src: \"./build/appicon.png\"|src: \"$root_dir/desktop/build/appicon.png\"|" \
+  -e "s|src: \"./build/linux/boxd-desktop.desktop\"|src: \"$root_dir/desktop/build/linux/boxd-desktop.desktop\"|" \
+  "$nfpm_cfg"
 # nfpm 配置中的 ${GOARCH} 由 wails3 tool package 按环境展开。
-wails3 tool package -name boxd-desktop -format deb -config build/linux/nfpm/nfpm.yaml -out bin
-wails3 tool package -name boxd-desktop -format rpm -config build/linux/nfpm/nfpm.yaml -out bin
+wails3 tool package -name boxd-desktop -format deb -config "$nfpm_cfg" -out bin
+wails3 tool package -name boxd-desktop -format rpm -config "$nfpm_cfg" -out bin
 
 echo "==> Packaging AppImage (${arch})"
 cp bin/boxd-desktop build/linux/appimage/boxd-desktop

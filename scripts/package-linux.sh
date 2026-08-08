@@ -19,6 +19,8 @@ else
 fi
 
 root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+source "$root_dir/scripts/lib-version.sh"
+pkg_version=$(resolve_package_version "$version")
 KERNEL_VERSION="${KERNEL_VERSION:-1.13.14}"
 BUILD_TAGS="${BUILD_TAGS:-embed_ui with_gvisor with_quic with_dhcp with_wireguard with_utls with_acme with_clash_api}"
 export PATH="$PATH:/usr/local/go/bin:$HOME/go/bin"
@@ -54,7 +56,7 @@ package_arch() {
   echo "Building linux/${arch} binary..."
   GOOS=linux GOARCH="$arch" CGO_ENABLED=0 go build \
     -tags "$BUILD_TAGS" \
-    -ldflags "-X github.com/xuthus5/boxd/internal/core.Version=${version} -X github.com/sagernet/sing-box/constant.Version=${KERNEL_VERSION}" \
+    -ldflags "-X github.com/xuthus5/boxd/internal/core.Version=${pkg_version} -X github.com/sagernet/sing-box/constant.Version=${KERNEL_VERSION}" \
     -o "$binary" ./cmd/boxd/
   chmod 0700 "$binary"
 
@@ -65,7 +67,7 @@ package_arch() {
 
   # 生成架构化 nfpm 配置（替换 ${GOARCH} 与 ${VERSION}）。
   local nfpm_cfg="$out/$arch/nfpm.yaml"
-  sed -e "s/\${GOARCH}/$arch/g" -e "s/version: \"0.0.0\"/version: \"${version#v}\"/" \
+  sed -e "s/\${GOARCH}/$arch/g" -e "s/version: \"0.0.0\"/version: \"${pkg_version}\"/" \
     "$root_dir/build/linux/nfpm/nfpm.yaml" >"$nfpm_cfg"
   # nfpm contents 的 src 路径相对配置文件，需指向构建产物。
   sed -i -e "s|src: \"./bin/boxd\"|src: \"$out/$arch/boxd\"|" "$nfpm_cfg"
