@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -545,5 +546,142 @@ func TestBridgeSubscriptionsPathRoutes(t *testing.T) {
 		if strings.Contains(resp.Error, "unknown path") {
 			t.Fatalf("route %s %s not wired: %s", req.Method, req.Path, resp.Error)
 		}
+	}
+}
+
+func TestBridgeNodesPathRoutes(t *testing.T) {
+	rt := newTestRuntimeWithService(t)
+	svc := newBoxdBridgeService(rt)
+	tests := []BridgeRequest{
+		{Path: "/api/nodes/missing", Method: "GET"},
+		{Path: "/api/nodes/missing", Method: "DELETE"},
+		{Path: "/api/nodes/missing", Method: "PUT", Body: []byte(`{"tag":"x","type":"ss"}`)},
+	}
+	for _, req := range tests {
+		resp, _ := svc.Call(req)
+		if strings.Contains(resp.Error, "unknown path") {
+			t.Fatalf("route %s %s not wired: %s", req.Method, req.Path, resp.Error)
+		}
+	}
+}
+
+func TestBridgeNodeGetNotFound(t *testing.T) {
+	rt := newTestRuntimeWithService(t)
+	svc := newBoxdBridgeService(rt)
+	resp, _ := svc.Call(BridgeRequest{Path: "/api/nodes/does-not-exist", Method: "GET"})
+	if !strings.Contains(resp.Error, "not found") {
+		t.Fatalf("expected not found error, got %q", resp.Error)
+	}
+}
+
+func TestBridgeNodeUpdateUnknownTag(t *testing.T) {
+	rt := newTestRuntimeWithService(t)
+	svc := newBoxdBridgeService(rt)
+	resp, _ := svc.Call(BridgeRequest{
+		Path:   "/api/nodes/does-not-exist",
+		Method: "PUT",
+		Body:   []byte(`{"tag":"x","type":"ss"}`),
+	})
+	if strings.Contains(resp.Error, "unknown path") {
+		t.Fatalf("update route not wired: %s", resp.Error)
+	}
+	if resp.Error == "" {
+		t.Fatalf("expected error for unknown tag, got ok")
+	}
+}
+
+func TestBridgeNodesTestRoutes(t *testing.T) {
+	rt := newTestRuntimeWithService(t)
+	svc := newBoxdBridgeService(rt)
+	tests := []BridgeRequest{
+		// 内核未启动时返回服务不可用错误，而非 unknown path。
+		{Path: "/api/nodes/a-node/delay?timeout=1000", Method: "GET"},
+		{Path: "/api/nodes/selectors/Proxy/select", Method: "POST", Body: []byte(`{"tag":"x"}`)},
+		{Path: "/api/nodes/groups/Proxy/urltest", Method: "POST"},
+	}
+	for _, req := range tests {
+		resp, _ := svc.Call(req)
+		if strings.Contains(resp.Error, "unknown path") {
+			t.Fatalf("route %s %s not wired: %s", req.Method, req.Path, resp.Error)
+		}
+	}
+}
+
+func TestBridgeNodeDelayOwnedRoute(t *testing.T) {
+	rt := newTestRuntimeWithService(t)
+	svc := newBoxdBridgeService(rt)
+	resp, _ := svc.Call(BridgeRequest{Path: "/api/nodes/x/delay?timeout=999999", Method: "GET"})
+	if strings.Contains(resp.Error, "unknown path") {
+		t.Fatalf("delay route not wired: %s", resp.Error)
+	}
+}
+
+func TestDelayTimeout(t *testing.T) {
+	tests := []struct {
+		raw  string
+		want int64
+	}{
+		{raw: "", want: 0},
+		{raw: "5000", want: 5000},
+		{raw: "0", want: 0},
+		{raw: "999999", want: 0},
+		{raw: "abc", want: 0},
+	}
+	for _, tc := range tests {
+		if got := delayTimeout(url.Values{"timeout": []string{tc.raw}}); got != tc.want {
+			t.Fatalf("delayTimeout(%q) = %d, want %d", tc.raw, got, tc.want)
+		}
+	}
+}
+
+func TestBridgeNodesTestHistory(t *testing.T) {
+	rt := newTestRuntimeWithService(t)
+	svc := newBoxdBridgeService(rt)
+	resp, err := svc.Call(BridgeRequest{Path: "/api/nodes/test-history?tag=node-1", Method: "GET"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.Status != "ok" {
+		t.Fatalf("status = %q: %s", resp.Status, resp.Error)
+	}
+	history, ok := resp.Data.(map[string]any)
+	if !ok {
+		t.Fatalf("test-history data type = %T", resp.Data)
+	}
+	if history["tag"] != "node-1" {
+		t.Fatalf("tag = %v", history["tag"])
+	}
+}
+
+func TestBridgeStatsCloseConnections(t *testing.T) {
+	rt := newTestRuntimeWithService(t)
+	svc := newBoxdBridgeService(rt)
+	tests := []BridgeRequest{
+		{Path: "/api/stats/connections?outbound=proxy", Method: "DELETE"},
+		{Path: "/api/stats/connections/123", Method: "DELETE"},
+	}
+	for _, req := range tests {
+		resp, _ := svc.Call(req)
+		if strings.Contains(resp.Error, "unknown path") {
+			t.Fatalf("route %s %s not wired: %s", req.Method, req.Path, resp.Error)
+		}
+	}
+}
+
+func TestBridgeInvalidQueryString(t *testing.T) {
+	rt := newTestRuntimeWithService(t)
+	svc := newBoxdBridgeService(rt)
+	resp, _ := svc.Call(BridgeRequest{Path: "/api/nodes/test-history?tag=%zz", Method: "GET"})
+	if !strings.Contains(resp.Error, "invalid query string") {
+		t.Fatalf("expected invalid query string error, got %q", resp.Error)
+	}
+}
+
+func TestBridgeInvalidConnectionIDs(t *testing.T) {
+	rt := newTestRuntimeWithService(t)
+	svc := newBoxdBridgeService(rt)
+	resp, _ := svc.Call(BridgeRequest{Path: "/api/stats/connections?ids=1,a,3", Method: "DELETE"})
+	if !strings.Contains(resp.Error, "invalid ids") {
+		t.Fatalf("expected invalid ids error, got %q", resp.Error)
 	}
 }

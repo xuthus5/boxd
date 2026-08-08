@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/xuthus5/boxd/internal/core"
@@ -46,6 +48,13 @@ func (s *BoxdBridgeService) dispatch(ctx context.Context, req BridgeRequest) (Br
 	method := strings.ToUpper(strings.TrimSpace(req.Method))
 	if method == "" {
 		method = "GET"
+	}
+
+	// 剥离查询串：带参数路由（test-history、delay、stats 过滤）从 query 取值。
+	path, rawQuery, _ := strings.Cut(path, "?")
+	params, err := url.ParseQuery(rawQuery)
+	if err != nil {
+		return errResult(ErrorfBridge(400, "invalid_request", "invalid query string"))
 	}
 
 	// 写操作：service 控制
@@ -181,6 +190,12 @@ func (s *BoxdBridgeService) dispatch(ctx context.Context, req BridgeRequest) (Br
 	case "/api/stats/traffic/history":
 		return okResult(s.rt.svc.Stats().Traffic(ctx))
 	case "/api/stats/connections":
+		if method == "DELETE" {
+			resp, err, handled := s.dispatchStatsClosePath(ctx, path, params)
+			if handled {
+				return resp, err
+			}
+		}
 		return okResult(s.rt.svc.Stats().Connections(ctx))
 	case "/api/nodes/groups":
 		return okResult(s.rt.svc.Runtime().OutboundGroups(ctx))
@@ -200,6 +215,8 @@ func (s *BoxdBridgeService) dispatch(ctx context.Context, req BridgeRequest) (Br
 		return okResult(listNodesBridge(s.rt))
 	case "/api/nodes/test-results":
 		return okResult(s.rt.svc.Test().ListResults(ctx))
+	case "/api/nodes/test-history":
+		return okResult(s.rt.svc.Test().ListHistory(ctx, params.Get("tag")))
 	case "/api/settings/backup":
 		return okResult(s.rt.svc.Backup().CreateBackupArchive(ctx, ""))
 	case "/api/subscriptions/":
@@ -217,53 +234,204 @@ func (s *BoxdBridgeService) dispatch(ctx context.Context, req BridgeRequest) (Br
 	case "/healthz", "/health":
 		return okResult(s.rt.svc.Health().Liveness(ctx))
 	default:
-		return s.dispatchPathParam(ctx, path, method, req.Body)
+		return s.dispatchPathParam(ctx, path, params, method, req.Body)
 	}
 }
 
-// dispatchPathParam 处理带路径参数的路由（apply-history 快照/恢复）。
-func (s *BoxdBridgeService) dispatchPathParam(ctx context.Context, path, method string, body json.RawMessage) (BridgeResponse, error) {
-	if method == "POST" {
-		const prefix = "/api/config/apply-history/"
-		if strings.HasPrefix(path, prefix) && strings.HasSuffix(path, "/restore") {
-			id := strings.TrimSuffix(strings.TrimPrefix(path, prefix), "/restore")
-			return okResult(s.rt.svc.Config().RestoreConfigSnapshot(ctx, id))
-		}
+// dispatchPathParam 处理带路径参数或查询参数的路由。
+func (s *BoxdBridgeService) dispatchPathParam(ctx context.Context, path string, params url.Values, method string, body json.RawMessage) (BridgeResponse, error) {
+	if resp, err, handled := s.dispatchApplyHistoryPath(ctx, path, method); handled {
+		return resp, err
 	}
-	if method == "GET" {
-		const prefix = "/api/config/apply-history/"
-		if strings.HasPrefix(path, prefix) && strings.HasSuffix(path, "/snapshot") {
-			id := strings.TrimSuffix(strings.TrimPrefix(path, prefix), "/snapshot")
-			body, err := s.rt.svc.Config().ConfigSnapshot(id)
-			if err != nil {
-				return errResult(err)
-			}
-			return BridgeResponse{Data: string(body), Status: "ok"}, nil
-		}
+	if resp, err, handled := s.dispatchSubscriptionPath(ctx, path, method, body); handled {
+		return resp, err
 	}
-
-	// 订阅路径参数路由：GET/PUT/DELETE /api/subscriptions/{id}、POST /{id}/refresh。
-	const subPrefix = "/api/subscriptions/"
-	if strings.HasPrefix(path, subPrefix) && path != "/api/subscriptions/" {
-		rest := strings.TrimPrefix(path, subPrefix)
-		switch method {
-		case "GET":
-			return okResult(s.rt.svc.Subscriptions().Get(ctx, strings.TrimSuffix(rest, "/")))
-		case "PUT":
-			input, err := bridgeBody[service.SubscriptionInput](body)
-			if err != nil {
-				return errResult(err)
-			}
-			return errResult(s.rt.svc.Subscriptions().Update(ctx, strings.TrimSuffix(rest, "/"), input))
-		case "DELETE":
-			return errResult(s.rt.svc.Subscriptions().Delete(ctx, strings.TrimSuffix(rest, "/")))
-		case "POST":
-			if strings.HasSuffix(rest, "/refresh") {
-				return errResult(s.rt.svc.Subscriptions().Refresh(ctx, strings.TrimSuffix(rest, "/refresh")))
-			}
-		}
+	if resp, err, handled := s.dispatchNodePath(ctx, path, params, method, body); handled {
+		return resp, err
+	}
+	if resp, err, handled := s.dispatchStatsClosePath(ctx, path, params); handled {
+		return resp, err
 	}
 	return BridgeResponse{}, ErrorfBridge(404, "not_found", "unknown path %q", path)
+}
+
+// dispatchApplyHistoryPath 处理 apply-history 快照/恢复路由。
+func (s *BoxdBridgeService) dispatchApplyHistoryPath(ctx context.Context, path, method string) (BridgeResponse, error, bool) {
+	const prefix = "/api/config/apply-history/"
+	if !strings.HasPrefix(path, prefix) {
+		return BridgeResponse{}, nil, false
+	}
+	id := strings.TrimPrefix(path, prefix)
+	switch {
+	case method == "POST" && strings.HasSuffix(id, "/restore"):
+		resp, err := okResult(s.rt.svc.Config().RestoreConfigSnapshot(ctx, strings.TrimSuffix(id, "/restore")))
+		return resp, err, true
+	case method == "GET" && strings.HasSuffix(id, "/snapshot"):
+		body, err := s.rt.svc.Config().ConfigSnapshot(strings.TrimSuffix(id, "/snapshot"))
+		if err != nil {
+			resp, rerr := errResult(err)
+			return resp, rerr, true
+		}
+		return BridgeResponse{Data: string(body), Status: "ok"}, nil, true
+	}
+	return BridgeResponse{}, nil, false
+}
+
+// dispatchSubscriptionPath 处理订阅参数路由：GET/PUT/DELETE /api/subscriptions/{id}、POST /{id}/refresh。
+func (s *BoxdBridgeService) dispatchSubscriptionPath(ctx context.Context, path, method string, body json.RawMessage) (BridgeResponse, error, bool) {
+	const prefix = "/api/subscriptions/"
+	if !strings.HasPrefix(path, prefix) {
+		return BridgeResponse{}, nil, false
+	}
+	rest := strings.TrimSuffix(strings.TrimPrefix(path, prefix), "/")
+	switch method {
+	case "GET":
+		resp, err := okResult(s.rt.svc.Subscriptions().Get(ctx, rest))
+		return resp, err, true
+	case "PUT":
+		input, err := bridgeBody[service.SubscriptionInput](body)
+		if err != nil {
+			resp, rerr := errResult(err)
+			return resp, rerr, true
+		}
+		resp, rerr := errResult(s.rt.svc.Subscriptions().Update(ctx, rest, input))
+		return resp, rerr, true
+	case "DELETE":
+		resp, err := errResult(s.rt.svc.Subscriptions().Delete(ctx, rest))
+		return resp, err, true
+	case "POST":
+		if strings.HasSuffix(rest, "/refresh") {
+			resp, err := errResult(s.rt.svc.Subscriptions().Refresh(ctx, strings.TrimSuffix(rest, "/refresh")))
+			return resp, err, true
+		}
+	}
+	return BridgeResponse{}, nil, false
+}
+
+// dispatchNodePath 处理节点参数路由：GET/PUT/DELETE /api/nodes/{tag}、GET /{tag}/delay。
+func (s *BoxdBridgeService) dispatchNodePath(ctx context.Context, path string, params url.Values, method string, body json.RawMessage) (BridgeResponse, error, bool) {
+	const prefix = "/api/nodes/"
+	if !strings.HasPrefix(path, prefix) {
+		return BridgeResponse{}, nil, false
+	}
+	rest := strings.TrimSuffix(strings.TrimPrefix(path, prefix), "/")
+	if method == "POST" {
+		return s.dispatchNodeActionPath(ctx, rest, body)
+	}
+	if tag, ok := strings.CutSuffix(rest, "/delay"); ok && method == "GET" {
+		resp, err := okResult(s.rt.svc.Runtime().OutboundDelay(ctx, unescapePathSegment(tag), params.Get("url"), delayTimeout(params)))
+		return resp, err, true
+	}
+	if strings.Contains(rest, "/") {
+		return BridgeResponse{}, nil, false
+	}
+	tag := unescapePathSegment(rest)
+	switch method {
+	case "GET":
+		node := s.rt.svc.Deps.NodeManager.Get(tag)
+		if node == nil {
+			resp, err := errResult(ErrorfBridge(404, "not_found", "node %q not found", tag))
+			return resp, err, true
+		}
+		resp, err := okResult(node, nil)
+		return resp, err, true
+	case "PUT":
+		input, err := bridgeBody[service.NodeInput](body)
+		if err != nil {
+			resp, rerr := errResult(err)
+			return resp, rerr, true
+		}
+		updated := model.Outbound{
+			Tag:    input.Tag,
+			Type:   input.Type,
+			Server: input.Server,
+			Port:   input.Port,
+			Raw:    input.Config,
+		}
+		resp, rerr := errResult(s.rt.svc.Deps.NodeManager.Update(tag, updated))
+		return resp, rerr, true
+	case "DELETE":
+		resp, err := errResult(s.rt.svc.Deps.NodeManager.Delete(tag))
+		return resp, err, true
+	}
+	return BridgeResponse{}, nil, false
+}
+
+// dispatchNodeActionPath 处理节点动作路径（POST）：/selectors/{group}/select、/groups/{group}/urltest。
+func (s *BoxdBridgeService) dispatchNodeActionPath(ctx context.Context, rest string, body json.RawMessage) (BridgeResponse, error, bool) {
+	if group, ok := strings.CutSuffix(rest, "/select"); ok && strings.HasPrefix(group, "selectors/") {
+		group = unescapePathSegment(strings.TrimPrefix(group, "selectors/"))
+		input, err := bridgeBody[struct {
+			Tag string `json:"tag"`
+		}](body)
+		if err != nil {
+			resp, rerr := errResult(err)
+			return resp, rerr, true
+		}
+		selected, err := s.rt.svc.Runtime().SelectOutbound(ctx, group, input.Tag)
+		if err != nil {
+			resp, rerr := errResult(err)
+			return resp, rerr, true
+		}
+		resp, rerr := okResult(map[string]string{"selected": selected}, nil)
+		return resp, rerr, true
+	}
+	if group, ok := strings.CutSuffix(rest, "/urltest"); ok && strings.HasPrefix(group, "groups/") {
+		group = unescapePathSegment(strings.TrimPrefix(group, "groups/"))
+		resp, err := okResult(s.rt.svc.Runtime().URLTestDelays(ctx, group))
+		return resp, err, true
+	}
+	return BridgeResponse{}, nil, false
+}
+
+// dispatchStatsClosePath 处理统计的关闭连接路由：DELETE /api/stats/connections、DELETE /{id}。
+func (s *BoxdBridgeService) dispatchStatsClosePath(ctx context.Context, path string, params url.Values) (BridgeResponse, error, bool) {
+	const prefix = "/api/stats/connections"
+	if !strings.HasPrefix(path, prefix) {
+		return BridgeResponse{}, nil, false
+	}
+	if strings.TrimPrefix(path, prefix) == "" {
+		ids, err := service.ParseConnectionIDs(params.Get("ids"))
+		if err != nil {
+			resp, rerr := errResult(ErrorfBridge(400, "invalid_request", "invalid ids"))
+			return resp, rerr, true
+		}
+		filters := service.ConnectionCloseFilters{
+			Outbound: params.Get("outbound"),
+			Rule:     params.Get("rule"),
+			Process:  params.Get("process"),
+			IDs:      ids,
+		}
+		resp, rerr := okResult(s.rt.svc.Stats().CloseConnections(ctx, filters))
+		return resp, rerr, true
+	}
+	id, err := strconv.ParseInt(strings.TrimPrefix(path, prefix+"/"), 10, 64)
+	if err != nil || id <= 0 {
+		return BridgeResponse{}, nil, false
+	}
+	resp, rerr := okResult(s.rt.svc.Stats().CloseConnection(ctx, id))
+	return resp, rerr, true
+}
+
+// delayTimeout 解析 /api/nodes/{tag}/delay 的 timeout 参数，缺失或非法时使用默认值。
+func delayTimeout(params url.Values) int64 {
+	raw := params.Get("timeout")
+	if raw == "" {
+		return 0
+	}
+	parsed, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || parsed <= 0 || parsed > 60000 {
+		return 0
+	}
+	return parsed
+}
+
+// unescapePathSegment 解码 URL 路径段，失败时原样返回。
+func unescapePathSegment(value string) string {
+	if decoded, err := url.PathUnescape(value); err == nil {
+		return decoded
+	}
+	return value
 }
 
 // syncNodesConfig 同步托管出站配置并重启内核。
