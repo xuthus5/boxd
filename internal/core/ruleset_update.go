@@ -191,22 +191,34 @@ func (u *RuleSetUpdater) updateLocal(ctx context.Context, entry map[string]any, 
 	if !ok {
 		return failRuleSetResult(result, "custom local rule-set files are not auto-updated", nil)
 	}
-	ruleFile, err := u.installer.fetchAndConvert(ctx, src)
-	if err != nil {
-		return failRuleSetResult(result, err.Error(), err)
-	}
 	path, _ := entry["path"].(string)
 	if path == "" {
 		path = filepath.Join(u.installer.ruleSetDir, src.FileName)
 	}
-	data, err := json.MarshalIndent(ruleFile, "", "  ")
-	if err != nil {
-		return failRuleSetResult(result, err.Error(), err)
-	}
-	if err := atomicWriteFile0600(path, data); err != nil {
-		return failRuleSetResult(result, err.Error(), err)
-	}
 	now := time.Now()
+	switch src.Format {
+	case "binary":
+		// 内置二进制规则集（.srs）由 boxd 竞速下载后覆盖本地缓存文件，内核引用不变。
+		content, err := u.installer.raceDownloadContent(ctx, src.Tag, src.URL)
+		if err != nil {
+			return failRuleSetResult(result, err.Error(), err)
+		}
+		if err := atomicWriteFile0600(path, content); err != nil {
+			return failRuleSetResult(result, err.Error(), err)
+		}
+	default:
+		ruleFile, err := u.installer.fetchAndConvert(ctx, src)
+		if err != nil {
+			return failRuleSetResult(result, err.Error(), err)
+		}
+		data, err := json.MarshalIndent(ruleFile, "", "  ")
+		if err != nil {
+			return failRuleSetResult(result, err.Error(), err)
+		}
+		if err := atomicWriteFile0600(path, data); err != nil {
+			return failRuleSetResult(result, err.Error(), err)
+		}
+	}
 	result.OK = true
 	result.UpdatedAt = &now
 	return result
@@ -309,7 +321,8 @@ func (u *RuleSetUpdater) statusOf(entry map[string]any, cache *bbolt.DB) model.R
 			}
 		}
 	case "remote":
-		item.Builtin = containsString(BuiltinRemoteRuleSetTags(), tag)
+		// 内置规则集已全部本地化（boxd 预先下载缓存），此处仅剩用户自定义 remote。
+		item.Builtin = false
 		item.Updatable = item.URL != ""
 		if item.URL != "" {
 			if err := ValidatePublicHTTPURL(item.URL); err != nil {
@@ -400,15 +413,6 @@ func selectRuleSets(entries []map[string]any, req RuleSetUpdateRequest) []map[st
 		out = append(out, entry)
 	}
 	return out
-}
-
-func containsString(values []string, target string) bool {
-	for _, value := range values {
-		if value == target {
-			return true
-		}
-	}
-	return false
 }
 
 type savedRuleSetBinary struct {

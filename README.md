@@ -77,7 +77,7 @@ go run ./cmd/boxd/
 
 ### Built-in routing helpers
 
-The route page can install common rules (sniff, hijack DNS, bypass LAN/ICMP, block QUIC/ads, CN domain/IP split, etc.). Rule-sets include Loyalsoldier text sets (local convert, falling back to jsDelivr CDN when GitHub raw is unreachable) and SagerNet binary sets (remote cache); manual downloads require public HTTP(S) URLs and are capped at 16 MiB.
+The route page can install common rules (sniff, hijack DNS, bypass LAN/ICMP, block QUIC/ads, CN domain/IP split, etc.). Rule-sets include Loyalsoldier text sets (local convert, multi-source racing against jsDelivr CDN) and SagerNet binary sets (pre-downloaded to local files, so the kernel never downloads rule-sets at startup); manual downloads require public HTTP(S) URLs and are capped at 16 MiB.
 
 ### Backup and restore
 

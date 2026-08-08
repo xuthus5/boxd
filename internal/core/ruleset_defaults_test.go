@@ -4,19 +4,20 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 )
 
 func TestNewLoyalsoldierRuleSetInstaller(t *testing.T) {
 	installer := NewLoyalsoldierRuleSetInstaller(t.TempDir())
-	if installer.client == nil || len(installer.sources) != 3 {
+	if installer.client == nil || len(installer.sources) != 7 {
 		t.Fatalf("installer = %#v", installer)
 	}
 }
@@ -51,8 +52,8 @@ func TestLoyalsoldierRuleSetInstallerInstall(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Install() error = %v", err)
 	}
-	// 3 个本地规则集 + 4 个远程规则集
-	if len(entries) != 7 {
+	// 手工 installer 只含 3 个文本源，无内置二进制源
+	if len(entries) != 3 {
 		t.Fatalf("entries len = %d, want 7", len(entries))
 	}
 
@@ -77,37 +78,106 @@ func TestLoyalsoldierRuleSetInstallerInstall(t *testing.T) {
 	}
 }
 
-func TestRemoteRuleSetDefaultsContent(t *testing.T) {
-	// 验证远程规则集条目结构完整，可被路由规则引用。
-	wantTags := map[string]bool{
-		"geosite-cn":               true,
-		"geoip-cn":                 true,
-		"geosite-google-play":      true,
-		"geosite-category-ads-all": true,
+func TestBuiltinBinaryRuleSetSources(t *testing.T) {
+	sources := builtinRuleSetSources()
+	if len(sources) != 7 {
+		t.Fatalf("builtin sources = %d, want 7", len(sources))
 	}
-	if len(remoteRuleSetDefaults) != len(wantTags) {
-		t.Fatalf("remoteRuleSetDefaults len = %d, want %d", len(remoteRuleSetDefaults), len(wantTags))
+	binaryTags := map[string]string{
+		"geosite-cn":               "geosite-cn.srs",
+		"geoip-cn":                 "geoip-cn.srs",
+		"geosite-google-play":      "geosite-google-play.srs",
+		"geosite-category-ads-all": "geosite-category-ads-all.srs",
 	}
-	for _, entry := range remoteRuleSetDefaults {
-		tag, _ := entry["tag"].(string)
-		if !wantTags[tag] {
-			t.Errorf("unexpected remote rule-set tag %q", tag)
+	found := 0
+	for _, src := range sources {
+		if src.Format != "binary" {
+			continue
 		}
-		if entry["type"] != "remote" {
-			t.Errorf("%s type = %v, want remote", tag, entry["type"])
+		found++
+		if wantFile := binaryTags[src.Tag]; wantFile == "" || src.FileName != wantFile {
+			t.Errorf("%s file = %q, want %q", src.Tag, src.FileName, wantFile)
 		}
-		if entry["format"] != "binary" {
-			t.Errorf("%s format = %v, want binary", tag, entry["format"])
+		if !strings.HasPrefix(src.URL, "https://raw.githubusercontent.com/SagerNet/") {
+			t.Errorf("%s URL = %q, want SagerNet raw URL", src.Tag, src.URL)
 		}
-		if url, _ := entry["url"].(string); url == "" {
-			t.Errorf("%s missing url", tag)
+	}
+	if found != len(binaryTags) {
+		t.Fatalf("binary sources = %d, want %d", found, len(binaryTags))
+	}
+	textTags := map[string]bool{"loyalsoldier-direct": true, "loyalsoldier-proxy": true, "loyalsoldier-reject": true}
+	for _, tag := range BuiltinLocalRuleSetTags() {
+		if !textTags[tag] && binaryTags[tag] == "" {
+			t.Errorf("unexpected builtin tag %q", tag)
 		}
-		if entry["download_detour"] != "direct" {
-			t.Errorf("%s download_detour = %v, want direct", tag, entry["download_detour"])
+	}
+	if len(BuiltinLocalRuleSetTags()) != 7 {
+		t.Fatalf("BuiltinLocalRuleSetTags = %d, want 7", len(BuiltinLocalRuleSetTags()))
+	}
+}
+
+func TestLoyalsoldierRuleSetInstallerInstallsBinarySources(t *testing.T) {
+	var mu sync.Mutex
+	calls := map[string]int{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		calls[r.URL.Path]++
+		mu.Unlock()
+		switch filepath.Base(r.URL.Path) {
+		case "direct-list.txt":
+			_, _ = w.Write([]byte("# comment\nexample.cn\n"))
+		case "geo.srs":
+			_, _ = w.Write([]byte("srs-bytes"))
+		default:
+			http.NotFound(w, r)
 		}
-		if entry["update_interval"] != "1d" {
-			t.Errorf("%s update_interval = %v, want 1d", tag, entry["update_interval"])
-		}
+	}))
+	defer server.Close()
+
+	dir := t.TempDir()
+	installer := &LoyalsoldierRuleSetInstaller{
+		ruleSetDir: filepath.Join(dir, "rule-sets"),
+		client:     rulesetTestClient(server),
+		sources: []RuleSetSource{
+			{Tag: "loyalsoldier-direct", FileName: "loyalsoldier-direct.json", URL: rulesetTestURL(server, "/direct-list.txt")},
+			{Tag: "geo", FileName: "geo.srs", URL: rulesetTestURL(server, "/geo.srs"), Format: "binary"},
+		},
+	}
+	entries, err := installer.Install(context.Background())
+	if err != nil {
+		t.Fatalf("Install() error = %v", err)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("entries = %d, want 2", len(entries))
+	}
+	if entries[0]["format"] != "source" || entries[1]["format"] != "binary" || entries[1]["type"] != "local" {
+		t.Fatalf("entries = %#v", entries)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, "rule-sets", "geo.srs"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(raw) != "srs-bytes" {
+		t.Fatalf("srs content = %q", string(raw))
+	}
+	if calls["/geo.srs"] != 1 {
+		t.Fatalf("expected single binary download, calls = %#v", calls)
+	}
+}
+
+func TestRaceDownloadContentEmptyBodyRejected(t *testing.T) {
+	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode:    http.StatusOK,
+			Header:        make(http.Header),
+			Body:          io.NopCloser(strings.NewReader("")),
+			ContentLength: -1,
+			Request:       req,
+		}, nil
+	})}
+	installer := &LoyalsoldierRuleSetInstaller{client: client, ruleSetDir: t.TempDir()}
+	if _, err := installer.raceDownloadContent(context.Background(), "t", "https://raw.githubusercontent.com/a/b/c.txt"); err == nil {
+		t.Fatal("empty body must be rejected")
 	}
 }
 
@@ -183,9 +253,20 @@ func TestRuleSetSourceURLsOrder(t *testing.T) {
 }
 
 func TestFetchAndConvertUsesPrimaryWhenHealthy(t *testing.T) {
+	var mu sync.Mutex
+	var calls []string
 	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		mu.Lock()
+		calls = append(calls, req.URL.String())
+		mu.Unlock()
 		if req.URL.Host != "raw.githubusercontent.com" {
-			return nil, fmt.Errorf("unexpected host %s", req.URL.Host)
+			return &http.Response{
+				StatusCode:    http.StatusServiceUnavailable,
+				Header:        make(http.Header),
+				Body:          io.NopCloser(strings.NewReader("")),
+				ContentLength: -1,
+				Request:       req,
+			}, nil
 		}
 		return &http.Response{
 			StatusCode:    http.StatusOK,
@@ -203,25 +284,44 @@ func TestFetchAndConvertUsesPrimaryWhenHealthy(t *testing.T) {
 	if len(rule.Rules) != 1 || len(rule.Rules[0].DomainSuffix) != 1 || rule.Rules[0].DomainSuffix[0] != "example.cn" {
 		t.Fatalf("rule = %#v", rule.Rules)
 	}
+	if len(calls) != 3 {
+		t.Fatalf("all three sources race, calls = %#v", calls)
+	}
+	for _, u := range calls {
+		if !strings.HasPrefix(u, "https://raw.githubusercontent.com/") &&
+			!strings.HasPrefix(u, "https://cdn.jsdelivr.net/") &&
+			!strings.HasPrefix(u, "https://fastly.jsdelivr.net/") {
+			t.Fatalf("unexpected call %q", u)
+		}
+	}
 }
 
 func TestFetchAndConvertFallsBackToMirror(t *testing.T) {
-	var calls []string
+	var mu sync.Mutex
+	counts := map[string]int{}
 	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		calls = append(calls, req.URL.String())
-		if req.URL.Host != "cdn.jsdelivr.net" {
-			return &http.Response{
-				StatusCode:    http.StatusServiceUnavailable,
-				Header:        make(http.Header),
-				Body:          io.NopCloser(strings.NewReader("")),
-				ContentLength: -1,
-				Request:       req,
-			}, nil
+		var status int
+		switch req.URL.Host {
+		case "raw.githubusercontent.com":
+			status = http.StatusServiceUnavailable
+		case "cdn.jsdelivr.net":
+			status = http.StatusOK
+		case "fastly.jsdelivr.net":
+			status = http.StatusServiceUnavailable
+		default:
+			status = http.StatusNotFound
+		}
+		mu.Lock()
+		counts[req.URL.Host]++
+		mu.Unlock()
+		body := ""
+		if status == http.StatusOK {
+			body = "full:exact.example\n"
 		}
 		return &http.Response{
-			StatusCode:    http.StatusOK,
+			StatusCode:    status,
 			Header:        make(http.Header),
-			Body:          io.NopCloser(strings.NewReader("full:exact.example\n")),
+			Body:          io.NopCloser(strings.NewReader(body)),
 			ContentLength: -1,
 			Request:       req,
 		}, nil
@@ -231,21 +331,54 @@ func TestFetchAndConvertFallsBackToMirror(t *testing.T) {
 	if err != nil {
 		t.Fatalf("fetchAndConvert() error = %v", err)
 	}
-	if len(calls) != 2 {
-		t.Fatalf("calls = %d, want 2 (primary then mirror), urls = %#v", len(calls), calls)
-	}
-	if !strings.HasPrefix(calls[1], "https://cdn.jsdelivr.net/") {
-		t.Fatalf("second call = %q, want jsdelivr mirror", calls[1])
+	if counts["raw.githubusercontent.com"] != 1 || counts["cdn.jsdelivr.net"] != 1 || counts["fastly.jsdelivr.net"] != 1 {
+		t.Fatalf("unexpected request counts: %#v", counts)
 	}
 	if len(rule.Rules[0].Domain) != 1 || rule.Rules[0].Domain[0] != "exact.example" {
 		t.Fatalf("rule = %#v", rule.Rules)
 	}
 }
 
+func TestFetchAndConvertRacePrefersFastestSource(t *testing.T) {
+	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		delay := 200 * time.Millisecond
+		if req.URL.Host == "cdn.jsdelivr.net" {
+			delay = 10 * time.Millisecond
+		}
+		select {
+		case <-req.Context().Done():
+			return nil, req.Context().Err()
+		case <-time.After(delay):
+		}
+		return &http.Response{
+			StatusCode:    http.StatusOK,
+			Header:        make(http.Header),
+			Body:          io.NopCloser(strings.NewReader("fast.example.cn\n")),
+			ContentLength: -1,
+			Request:       req,
+		}, nil
+	})}
+	installer := &LoyalsoldierRuleSetInstaller{client: client, ruleSetDir: t.TempDir()}
+	start := time.Now()
+	rule, err := installer.fetchAndConvert(context.Background(), RuleSetSource{Tag: "t", URL: "https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/direct-list.txt"})
+	if err != nil {
+		t.Fatalf("fetchAndConvert() error = %v", err)
+	}
+	if elapsed := time.Since(start); elapsed >= 150*time.Millisecond {
+		t.Fatalf("race should finish at the speed of the fastest source, took %v", elapsed)
+	}
+	if len(rule.Rules[0].DomainSuffix) != 1 || rule.Rules[0].DomainSuffix[0] != "fast.example.cn" {
+		t.Fatalf("rule = %#v", rule.Rules)
+	}
+}
+
 func TestFetchAndConvertAllSourcesFail(t *testing.T) {
+	var mu sync.Mutex
 	var calls []string
 	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		mu.Lock()
 		calls = append(calls, req.URL.String())
+		mu.Unlock()
 		return &http.Response{
 			StatusCode:    http.StatusServiceUnavailable,
 			Header:        make(http.Header),

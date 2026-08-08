@@ -223,7 +223,7 @@ func TestRuleSetAutoUpdaterTickSkipsFreshArtifacts(t *testing.T) {
 	if updateCalls != 0 {
 		t.Fatalf("update calls = %d, want 0", updateCalls)
 	}
-	if output := logs.String(); !strings.Contains(output, "ruleset auto update finished updated=0 failed=0 skipped=3") {
+	if output := logs.String(); !strings.Contains(output, "ruleset auto update finished updated=0 failed=0 skipped=7") {
 		t.Fatalf("fresh skip log missing from %q", output)
 	}
 }

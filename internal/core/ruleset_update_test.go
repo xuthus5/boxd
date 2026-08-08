@@ -171,7 +171,7 @@ func TestSavedRuleSetBinaryRoundTrip(t *testing.T) {
 
 func TestBuiltinLocalRuleSetTags(t *testing.T) {
 	tags := BuiltinLocalRuleSetTags()
-	if len(tags) != 3 {
+	if len(tags) != 7 {
 		t.Fatalf("tags = %#v", tags)
 	}
 }
@@ -807,20 +807,20 @@ func TestStatusRemoteWithoutIntervalUsesDefault(t *testing.T) {
 	configPath := filepath.Join(dir, "cfg.json")
 	// remote without update_interval, with cache content
 	body, _ := json.Marshal(map[string]any{"route": map[string]any{"rule_set": []any{
-		map[string]any{"tag": "geoip-cn", "type": "remote", "format": "binary", "url": "https://example.com/x.srs"},
+		map[string]any{"tag": "custom-remote", "type": "remote", "format": "binary", "url": "https://example.com/x.srs"},
 	}}})
 	if err := os.WriteFile(configPath, body, 0600); err != nil {
 		t.Fatal(err)
 	}
 	updater := NewRuleSetUpdater(configPath, dir, NewLoyalsoldierRuleSetInstaller(dir), nil, nil)
-	if err := updater.saveRemoteCache("geoip-cn", []byte("abc"), "e", time.Unix(40, 0)); err != nil {
+	if err := updater.saveRemoteCache("custom-remote", []byte("abc"), "e", time.Unix(40, 0)); err != nil {
 		t.Fatal(err)
 	}
 	status, err := updater.Status(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(status) != 1 || status[0].UpdateInterval != DefaultRemoteRuleSetInterval() || !status[0].Builtin {
+	if len(status) != 1 || status[0].UpdateInterval != DefaultRemoteRuleSetInterval() || status[0].Builtin {
 		t.Fatalf("status = %#v", status)
 	}
 	if status[0].LastEtag != "e" || status[0].FileSize != 3 {

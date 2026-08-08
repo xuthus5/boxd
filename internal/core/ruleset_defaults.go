@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 
 	C "github.com/sagernet/sing-box/constant"
 )
@@ -24,6 +25,9 @@ type RuleSetSource struct {
 	Tag      string
 	FileName string
 	URL      string
+	// Format 源码格式："" 或 "source" 表示文本列表（下载后转换为 JSON），
+	// "binary" 表示 sing-box 二进制规则集（.srs），下载后原样落盘。
+	Format string
 }
 
 type LoyalsoldierRuleSetInstaller struct {
@@ -36,22 +40,53 @@ func NewLoyalsoldierRuleSetInstaller(dataDir string) *LoyalsoldierRuleSetInstall
 	return &LoyalsoldierRuleSetInstaller{
 		ruleSetDir: filepath.Join(dataDir, "rule-sets"),
 		client:     newPublicHTTPClient(ruleSetInstallerHTTPTimeout),
-		sources: []RuleSetSource{
-			{
-				Tag:      "loyalsoldier-direct",
-				FileName: "loyalsoldier-direct.json",
-				URL:      "https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/direct-list.txt",
-			},
-			{
-				Tag:      "loyalsoldier-proxy",
-				FileName: "loyalsoldier-proxy.json",
-				URL:      "https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/proxy-list.txt",
-			},
-			{
-				Tag:      "loyalsoldier-reject",
-				FileName: "loyalsoldier-reject.json",
-				URL:      "https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/reject-list.txt",
-			},
+		sources:    builtinRuleSetSources(),
+	}
+}
+
+// builtinRuleSetSources 返回全部内置规则集来源：Loyalsoldier 文本列表
+// （本地转换提供直连/代理/广告分流）与 SagerNet 官方二进制规则集
+// （会下载后以本地文件引用，避免内核直接访问 raw.githubusercontent.com）。
+func builtinRuleSetSources() []RuleSetSource {
+	return []RuleSetSource{
+		{
+			Tag:      "loyalsoldier-direct",
+			FileName: "loyalsoldier-direct.json",
+			URL:      "https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/direct-list.txt",
+		},
+		{
+			Tag:      "loyalsoldier-proxy",
+			FileName: "loyalsoldier-proxy.json",
+			URL:      "https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/proxy-list.txt",
+		},
+		{
+			Tag:      "loyalsoldier-reject",
+			FileName: "loyalsoldier-reject.json",
+			URL:      "https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/reject-list.txt",
+		},
+		{
+			Tag:      "geosite-cn",
+			FileName: "geosite-cn.srs",
+			URL:      "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-cn.srs",
+			Format:   "binary",
+		},
+		{
+			Tag:      "geoip-cn",
+			FileName: "geoip-cn.srs",
+			URL:      "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.srs",
+			Format:   "binary",
+		},
+		{
+			Tag:      "geosite-google-play",
+			FileName: "geosite-google-play.srs",
+			URL:      "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-google-play.srs",
+			Format:   "binary",
+		},
+		{
+			Tag:      "geosite-category-ads-all",
+			FileName: "geosite-category-ads-all.srs",
+			URL:      "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-ads-all.srs",
+			Format:   "binary",
 		},
 	}
 }
@@ -73,80 +108,66 @@ func (i *LoyalsoldierRuleSetInstaller) Install(ctx context.Context) ([]map[strin
 		return nil, fmt.Errorf("create rule-set dir: %w", err)
 	}
 
-	entries := make([]map[string]any, 0, len(i.sources)+len(remoteRuleSetDefaults))
+	entries := make([]map[string]any, 0, len(i.sources))
 	for _, src := range i.sources {
-		ruleFile, err := i.fetchAndConvert(ctx, src)
-		if err != nil {
-			return nil, err
-		}
-
 		path := filepath.Join(i.ruleSetDir, src.FileName)
-		data, err := json.MarshalIndent(ruleFile, "", "  ")
-		if err != nil {
-			return nil, fmt.Errorf("marshal %s: %w", src.Tag, err)
-		}
-		if err := atomicWriteFile0600(path, data); err != nil {
-			return nil, fmt.Errorf("write %s: %w", src.Tag, err)
-		}
+		switch src.Format {
+		case "binary":
+			// 二进制规则集由 boxd 竞速下载后以本地文件引用，内核加载不再依赖网络。
+			content, err := i.raceDownloadContent(ctx, src.Tag, src.URL)
+			if err != nil {
+				return nil, err
+			}
+			if err := atomicWriteFile0600(path, content); err != nil {
+				return nil, fmt.Errorf("write %s: %w", src.Tag, err)
+			}
+			entries = append(entries, map[string]any{
+				"tag":    src.Tag,
+				"type":   "local",
+				"format": "binary",
+				"path":   path,
+			})
+		default:
+			ruleFile, err := i.fetchAndConvert(ctx, src)
+			if err != nil {
+				return nil, err
+			}
 
-		entries = append(entries, map[string]any{
-			"tag":    src.Tag,
-			"type":   "local",
-			"format": "source",
-			"path":   path,
-		})
+			data, err := json.MarshalIndent(ruleFile, "", "  ")
+			if err != nil {
+				return nil, fmt.Errorf("marshal %s: %w", src.Tag, err)
+			}
+			if err := atomicWriteFile0600(path, data); err != nil {
+				return nil, fmt.Errorf("write %s: %w", src.Tag, err)
+			}
+
+			entries = append(entries, map[string]any{
+				"tag":    src.Tag,
+				"type":   "local",
+				"format": "source",
+				"path":   path,
+			})
+		}
 	}
-	entries = append(entries, remoteRuleSetDefaults...)
 
 	return entries, nil
 }
 
-// remoteRuleSetDefaults 是以 remote 方式引用的 SagerNet 官方二进制规则集（.srs），
-// 由内核自动下载并缓存，无需本地转换。这些规则集覆盖中国域名、中国 IP、广告、
-// Google Play 等常见匹配场景。
-var remoteRuleSetDefaults = []map[string]any{
-	{
-		"tag":             "geosite-cn",
-		"type":            "remote",
-		"format":          "binary",
-		"url":             "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-cn.srs",
-		"download_detour": "direct",
-		"update_interval": "1d",
-	},
-	{
-		"tag":             "geoip-cn",
-		"type":            "remote",
-		"format":          "binary",
-		"url":             "https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set/geoip-cn.srs",
-		"download_detour": "direct",
-		"update_interval": "1d",
-	},
-	{
-		"tag":             "geosite-google-play",
-		"type":            "remote",
-		"format":          "binary",
-		"url":             "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-google-play.srs",
-		"download_detour": "direct",
-		"update_interval": "1d",
-	},
-	{
-		"tag":             "geosite-category-ads-all",
-		"type":            "remote",
-		"format":          "binary",
-		"url":             "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-category-ads-all.srs",
-		"download_detour": "direct",
-		"update_interval": "1d",
-	},
+// BuiltinRuleSetTags 返回全部内置规则集 tag：Loyalsoldier 文本规则集与
+// SagerNet 二进制规则集（均以本地文件形式由 boxd 管理）。
+func BuiltinRuleSetTags() []string {
+	sources := builtinRuleSetSources()
+	tags := make([]string, 0, len(sources))
+	for _, src := range sources {
+		tags = append(tags, src.Tag)
+	}
+	return tags
 }
 
 func DefaultRemoteRuleSetInterval() string { return "1d" }
 
 func BuiltinLocalRuleSetTags() []string {
-	return []string{"loyalsoldier-direct", "loyalsoldier-proxy", "loyalsoldier-reject"}
-}
-
-func BuiltinRemoteRuleSetTags() []string {
-	return []string{"geosite-cn", "geoip-cn", "geosite-google-play", "geosite-category-ads-all"}
+	return BuiltinRuleSetTags()
 }
 
 func (i *LoyalsoldierRuleSetInstaller) RuleSetDir() string { return i.ruleSetDir }
@@ -200,16 +221,52 @@ func atomicWriteFile0600(path string, data []byte) error {
 }
 
 func (i *LoyalsoldierRuleSetInstaller) fetchAndConvert(ctx context.Context, src RuleSetSource) (sourceRuleSetFile, error) {
-	primary := src.URL
-	var lastErr error
-	for _, candidate := range ruleSetSourceURLs(primary) {
-		ruleFile, err := i.downloadAndConvertURL(ctx, src.Tag, candidate)
-		if err == nil {
-			return ruleFile, nil
-		}
-		lastErr = err
+	content, err := i.raceDownloadContent(ctx, src.Tag, src.URL)
+	if err != nil {
+		return sourceRuleSetFile{}, err
 	}
-	return sourceRuleSetFile{}, lastErr
+	return convertRuleSetContent(src.Tag, content)
+}
+
+// raceDownloadContent 竞速下载：同时向主地址与 jsDelivr 镜像发起请求，取最先成功的内容。
+// 串行退避在源全部不通时最长要等待 sum(每源超时)；并行耗时只取决于最快的源。
+// 下载完成后立即取消其余源并等待它们退出，避免其写入与调用方并发。
+func (i *LoyalsoldierRuleSetInstaller) raceDownloadContent(ctx context.Context, tag, primary string) ([]byte, error) {
+	candidates := ruleSetSourceURLs(primary)
+	if len(candidates) == 1 {
+		return i.downloadContent(ctx, tag, candidates[0])
+	}
+	raceCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	results := make(chan downloadRaceResult, len(candidates))
+	var wg sync.WaitGroup
+	wg.Add(len(candidates))
+	for _, candidate := range candidates {
+		go func(candidate string) {
+			defer wg.Done()
+			content, err := i.downloadContent(raceCtx, tag, candidate)
+			results <- downloadRaceResult{content: content, err: err}
+		}(candidate)
+	}
+	var lastErr error
+	for range candidates {
+		result := <-results
+		if result.err == nil {
+			cancel()
+			wg.Wait()
+			return result.content, nil
+		}
+		if lastErr == nil {
+			lastErr = result.err
+		}
+	}
+	wg.Wait()
+	return nil, lastErr
+}
+
+type downloadRaceResult struct {
+	content []byte
+	err     error
 }
 
 // ruleSetSourceURLs 返回该源的下载地址序列：主地址优先，其次为 jsDelivr
@@ -237,13 +294,13 @@ func jsdelivrMirrorURLs(rawURL string) []string {
 	return []string{cdnURL, "https://fastly.jsdelivr.net/" + strings.TrimPrefix(cdnURL, "https://cdn.jsdelivr.net/")}
 }
 
-func (i *LoyalsoldierRuleSetInstaller) downloadAndConvertURL(ctx context.Context, tag, sourceURL string) (sourceRuleSetFile, error) {
+func (i *LoyalsoldierRuleSetInstaller) downloadContent(ctx context.Context, tag, sourceURL string) ([]byte, error) {
 	if err := ValidatePublicHTTPURL(sourceURL); err != nil {
-		return sourceRuleSetFile{}, fmt.Errorf("download %s: %w", tag, err)
+		return nil, fmt.Errorf("download %s: %w", tag, err)
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, sourceURL, nil)
 	if err != nil {
-		return sourceRuleSetFile{}, fmt.Errorf("build request %s: %w", tag, err)
+		return nil, fmt.Errorf("build request %s: %w", tag, err)
 	}
 	client := i.client
 	if client == nil {
@@ -251,23 +308,26 @@ func (i *LoyalsoldierRuleSetInstaller) downloadAndConvertURL(ctx context.Context
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return sourceRuleSetFile{}, fmt.Errorf("download %s: %w", tag, err)
+		return nil, fmt.Errorf("download %s: %w", tag, err)
 	}
 	if resp == nil || resp.Body == nil {
-		return sourceRuleSetFile{}, fmt.Errorf("download %s: response body is nil", tag)
+		return nil, fmt.Errorf("download %s: response body is nil", tag)
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
-		return sourceRuleSetFile{}, fmt.Errorf("download %s: unexpected status %d", tag, resp.StatusCode)
+		return nil, fmt.Errorf("download %s: unexpected status %d", tag, resp.StatusCode)
 	}
 	if resp.ContentLength > maxRuleSetBodyBytes {
-		return sourceRuleSetFile{}, fmt.Errorf("download %s: %w", tag, ErrRuleSetContentTooLarge)
+		return nil, fmt.Errorf("download %s: %w", tag, ErrRuleSetContentTooLarge)
 	}
 	content, err := readRuleSetBody(resp.Body)
 	if err != nil {
-		return sourceRuleSetFile{}, fmt.Errorf("read %s: %w", tag, err)
+		return nil, fmt.Errorf("read %s: %w", tag, err)
 	}
-	return convertRuleSetContent(tag, content)
+	if len(content) == 0 {
+		return nil, fmt.Errorf("download %s: empty rule-set body", tag)
+	}
+	return content, nil
 }
 
 func convertRuleSetContent(tag string, content []byte) (sourceRuleSetFile, error) {
