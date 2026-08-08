@@ -109,6 +109,12 @@ func (s *BoxdBridgeService) dispatch(ctx context.Context, req BridgeRequest) (Br
 		switch path {
 		case "/api/config/", "/api/config/raw":
 			return okResult(s.rt.svc.Config().ApplyConfig(ctx, req.Body, "desktop"))
+		case "/api/subscriptions/":
+			input, err := bridgeBody[service.SubscriptionInput](req.Body)
+			if err != nil {
+				return errResult(err)
+			}
+			return okResult(s.rt.svc.Subscriptions().Create(ctx, input))
 		case "/api/config/validate":
 			return errResult(s.rt.svc.Config().ValidateConfig(ctx, req.Body, "validate"))
 		case "/api/settings/password":
@@ -233,6 +239,28 @@ func (s *BoxdBridgeService) dispatchPathParam(ctx context.Context, path, method 
 				return errResult(err)
 			}
 			return BridgeResponse{Data: string(body), Status: "ok"}, nil
+		}
+	}
+
+	// 订阅路径参数路由：GET/PUT/DELETE /api/subscriptions/{id}、POST /{id}/refresh。
+	const subPrefix = "/api/subscriptions/"
+	if strings.HasPrefix(path, subPrefix) && path != "/api/subscriptions/" {
+		rest := strings.TrimPrefix(path, subPrefix)
+		switch method {
+		case "GET":
+			return okResult(s.rt.svc.Subscriptions().Get(ctx, strings.TrimSuffix(rest, "/")))
+		case "PUT":
+			input, err := bridgeBody[service.SubscriptionInput](body)
+			if err != nil {
+				return errResult(err)
+			}
+			return errResult(s.rt.svc.Subscriptions().Update(ctx, strings.TrimSuffix(rest, "/"), input))
+		case "DELETE":
+			return errResult(s.rt.svc.Subscriptions().Delete(ctx, strings.TrimSuffix(rest, "/")))
+		case "POST":
+			if strings.HasSuffix(rest, "/refresh") {
+				return errResult(s.rt.svc.Subscriptions().Refresh(ctx, strings.TrimSuffix(rest, "/refresh")))
+			}
 		}
 	}
 	return BridgeResponse{}, ErrorfBridge(404, "not_found", "unknown path %q", path)

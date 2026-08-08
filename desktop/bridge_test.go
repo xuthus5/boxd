@@ -510,3 +510,40 @@ func TestBridgeSubscriptionsList(t *testing.T) {
 		t.Fatalf("subscriptions list not wired: %s", resp.Error)
 	}
 }
+
+func TestBridgeSubscriptionsCreate(t *testing.T) {
+	rt := newTestRuntimeWithService(t)
+	svc := newBoxdBridgeService(rt)
+	body := []byte(`{"name":"sub-a","url":"https://example.com/sub","interval_min":60}`)
+	resp, err := svc.Call(BridgeRequest{Path: "/api/subscriptions/", Method: "POST", Body: body})
+	if err != nil {
+		t.Fatalf("create error: %v", err)
+	}
+	if strings.Contains(resp.Error, "unknown path") {
+		t.Fatalf("subscriptions create not wired: %s", resp.Error)
+	}
+	sub, ok := resp.Data.(*model.Subscription)
+	if !ok {
+		t.Fatalf("create data type = %T", resp.Data)
+	}
+	if sub.ID == "" {
+		t.Fatalf("create returned no id: %+v", resp.Data)
+	}
+}
+
+func TestBridgeSubscriptionsPathRoutes(t *testing.T) {
+	rt := newTestRuntimeWithService(t)
+	svc := newBoxdBridgeService(rt)
+	tests := []BridgeRequest{
+		{Path: "/api/subscriptions/missing/refresh", Method: "POST"},
+		{Path: "/api/subscriptions/missing", Method: "GET"},
+		{Path: "/api/subscriptions/missing", Method: "DELETE"},
+		{Path: "/api/subscriptions/missing", Method: "PUT", Body: []byte(`{"name":"x","interval_min":60}`)},
+	}
+	for _, req := range tests {
+		resp, _ := svc.Call(req)
+		if strings.Contains(resp.Error, "unknown path") {
+			t.Fatalf("route %s %s not wired: %s", req.Method, req.Path, resp.Error)
+		}
+	}
+}
