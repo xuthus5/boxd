@@ -97,13 +97,23 @@ func managedURLTestTags(previous []string, subscriptions []model.Subscription) m
 }
 
 func preserveExistingOutbounds(existing []any, managedGroups map[string]bool) []any {
-	outbounds := []any{map[string]any{"type": "direct", "tag": "direct"}}
+	outbounds := make([]any, 0, len(existing)+1)
+	hasDirect := false
 	for _, outbound := range existing {
 		entry, _ := outbound.(map[string]any)
 		if shouldReplaceExistingOutbound(entry, managedGroups) {
 			continue
 		}
+		if tag, _ := entry["tag"].(string); tag == "direct" {
+			hasDirect = true
+		}
 		outbounds = append(outbounds, outbound)
+	}
+	if !hasDirect {
+		// 配置中没有 direct 时兜底注入，避免同步后出站列表为空。
+		// 已有 direct 时原样保留（含 routing_mark 等属性），
+		// 否则 sing-box 1.13 会拒绝空 direct 作为 DNS detour。
+		outbounds = append([]any{map[string]any{"type": "direct", "tag": "direct"}}, outbounds...)
 	}
 	return outbounds
 }
@@ -114,7 +124,7 @@ func shouldReplaceExistingOutbound(entry map[string]any, managedGroups map[strin
 	}
 	typeName, _ := entry["type"].(string)
 	tag, _ := entry["tag"].(string)
-	if managedNodeTypes[typeName] || typeName == "dns" || (typeName == "direct" && tag == "direct") {
+	if managedNodeTypes[typeName] || typeName == "dns" {
 		return true
 	}
 	if (typeName == "urltest" || typeName == "selector") && managedGroups[tag] {

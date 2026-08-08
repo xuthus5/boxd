@@ -36,6 +36,53 @@ func TestSyncOutboundsToConfigMissingFile(t *testing.T) {
 	}
 }
 
+func TestSyncPreservesDirectAttributes(t *testing.T) {
+	db := newTestDB(t)
+	configPath := filepath.Join(t.TempDir(), "config.json")
+	previous := []byte(`{"outbounds":[{"type":"direct","tag":"direct","routing_mark":128}]}`)
+	if err := os.WriteFile(configPath, previous, 0600); err != nil {
+		t.Fatal(err)
+	}
+	nodeMgr := core.NewNodeManager(db)
+	subMgr := core.NewSubscriptionManager(db, t.TempDir())
+	if err := SyncOutboundsToConfig(nodeMgr, subMgr, configPath); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 同步不能把 direct 变成空配置：空 direct 会被 sing-box 1.13
+	// 拒绝作为 DNS detour（detour to an empty direct outbound）。
+	if !containsSubstring(string(data), "routing_mark") {
+		t.Fatalf("direct attributes lost during sync: %s", data)
+	}
+}
+
+func TestPreserveExistingOutboundsDirectFallback(t *testing.T) {
+	got := preserveExistingOutbounds([]any{
+		map[string]any{"type": "direct", "tag": "direct", "routing_mark": 128},
+		map[string]any{"type": "socks", "tag": "s1"},
+	}, nil)
+	if len(got) != 2 {
+		t.Fatalf("len = %d, want 2", len(got))
+	}
+	direct, _ := got[0].(map[string]any)
+	if direct["routing_mark"] == nil {
+		t.Fatalf("direct routing_mark lost: %v", got)
+	}
+	got = preserveExistingOutbounds([]any{
+		map[string]any{"type": "socks", "tag": "s1"},
+	}, nil)
+	if len(got) != 2 {
+		t.Fatalf("len = %d, want 2", len(got))
+	}
+	direct, _ = got[0].(map[string]any)
+	if direct["type"] != "direct" || direct["tag"] != "direct" {
+		t.Fatalf("fallback direct mismatch: %v", got[0])
+	}
+}
+
 func TestSyncOutboundsToConfigInvalidJSON(t *testing.T) {
 	db := newTestDB(t)
 	configPath := filepath.Join(t.TempDir(), "config.json")
