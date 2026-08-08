@@ -76,7 +76,7 @@ go run ./cmd/boxd/
 
 ### 预置路由能力
 
-路由页可一键安装常见规则（嗅探、劫持 DNS、绕过局域网/ICMP、屏蔽 QUIC/广告、中国域名/IP 分流等）。规则集默认包含 Loyalsoldier 文本规则集（本地转换）与 SagerNet 二进制规则集（远程缓存）；手动下载仅允许公网 HTTP(S) 地址，且限制为 16 MiB。
+路由页可一键安装常见规则（嗅探、劫持 DNS、绕过局域网/ICMP、屏蔽 QUIC/广告、中国域名/IP 分流等）。规则集默认包含 Loyalsoldier 文本规则集（本地转换，GitHub raw 不可达时自动退避至 jsDelivr CDN）与 SagerNet 二进制规则集（远程缓存）；手动下载仅允许公网 HTTP(S) 地址，且限制为 16 MiB。
 
 ### 备份与恢复
 
