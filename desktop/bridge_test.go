@@ -6,6 +6,9 @@ import (
 	"strings"
 	"testing"
 
+	"go.etcd.io/bbolt"
+
+	"github.com/xuthus5/boxd/internal/core"
 	"github.com/xuthus5/boxd/internal/model"
 )
 
@@ -683,5 +686,53 @@ func TestBridgeInvalidConnectionIDs(t *testing.T) {
 	resp, _ := svc.Call(BridgeRequest{Path: "/api/stats/connections?ids=1,a,3", Method: "DELETE"})
 	if !strings.Contains(resp.Error, "invalid ids") {
 		t.Fatalf("expected invalid ids error, got %q", resp.Error)
+	}
+}
+
+func TestBridgeNodesListIncludesSubscriptions(t *testing.T) {
+	rt := newTestRuntimeWithService(t)
+	svc := newBoxdBridgeService(rt)
+	subMgr := rt.svc.Deps.SubManager
+	sub, err := subMgr.Create(core.SubscriptionParams{Name: "sub-a", URL: "https://example.com/sub"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sub.Outbounds = []model.Outbound{
+		{Tag: "sub-node-1", Type: "vmess", Server: "1.1.1.1", Port: 443},
+	}
+	body, err := json.Marshal(sub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := subMgr.DB().Update(func(tx *bbolt.Tx) error {
+		return tx.Bucket([]byte("subscriptions")).Put([]byte(sub.ID), body)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	resp, err := svc.Call(BridgeRequest{Path: "/api/nodes/", Method: "GET"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(resp.Data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var entries []struct {
+		Tag        string `json:"tag"`
+		Source     string `json:"source"`
+		SourceName string `json:"source_name"`
+	}
+	if err := json.Unmarshal(raw, &entries); err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, entry := range entries {
+		if entry.Tag == "sub-node-1" && entry.Source == "subscription" && entry.SourceName == "sub-a" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("subscription nodes missing from list: %s", raw)
 	}
 }

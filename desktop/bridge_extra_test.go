@@ -70,9 +70,13 @@ func TestListNodesBridge(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// NodeManager.List 返回 []model.Outbound（空切片也合法）。
-	if _, ok := resp.([]model.Outbound); !ok {
-		t.Fatalf("resp type = %T", resp)
+	// 聚合列表：手动导入节点 + 订阅节点，JSON 序列化后是数组。
+	body, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(strings.TrimSpace(string(body)), "[") {
+		t.Fatalf("resp is not a JSON array: %s", body)
 	}
 }
 

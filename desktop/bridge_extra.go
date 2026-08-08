@@ -81,10 +81,35 @@ func probeDNSBatchBridge(rt *desktopRuntime, body json.RawMessage) (any, error) 
 	return rt.svc.DNSProbe().ProbeBatch(context.Background(), req.Items, req.Concurrency)
 }
 
-// listNodesBridge 返回节点列表。
+// listNodesBridge 返回节点列表（手动导入节点 + 全部订阅节点），
+// 与 HTTP GET /api/nodes/ 的聚合语义保持一致。
 func listNodesBridge(rt *desktopRuntime) (any, error) {
 	if rt == nil || rt.svc == nil || rt.svc.Deps.NodeManager == nil {
 		return nil, errNotReady()
 	}
-	return rt.svc.Deps.NodeManager.List(), nil
+	type nodeEntry struct {
+		Tag        string `json:"tag"`
+		Type       string `json:"type"`
+		Server     string `json:"server,omitempty"`
+		Port       int    `json:"port,omitempty"`
+		Source     string `json:"source"`
+		SourceName string `json:"source_name,omitempty"`
+	}
+	nodes := make([]nodeEntry, 0)
+	for _, n := range rt.svc.Deps.NodeManager.List() {
+		nodes = append(nodes, nodeEntry{Tag: n.Tag, Type: n.Type, Server: n.Server, Port: n.Port, Source: "import"})
+	}
+	subscriptions, err := rt.svc.Subscriptions().List(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	for _, sub := range subscriptions {
+		for _, outbound := range sub.Outbounds {
+			nodes = append(nodes, nodeEntry{
+				Tag: outbound.Tag, Type: outbound.Type, Server: outbound.Server, Port: outbound.Port,
+				Source: "subscription", SourceName: sub.Name,
+			})
+		}
+	}
+	return nodes, nil
 }
