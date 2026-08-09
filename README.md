@@ -187,6 +187,8 @@ Or pass flags:
 ICMP latency tests open raw sockets, which need the `CAP_NET_RAW` capability.
 
 - **systemd install**: `boxd.service` already sets `AmbientCapabilities=CAP_NET_RAW`; start via `systemctl start boxd.service` and nothing more is needed. If you hand-roll your own unit, add `AmbientCapabilities=CAP_NET_RAW` and `CapabilityBoundingSet=... CAP_NET_RAW`.
+- **Desktop package (rpm/deb, non-root run)**: the package `%postinstall` grants `cap_net_raw+ep` automatically.
+- **Desktop manual install / AppImage**: run `sudo ./scripts/grant-desktop-icmp.sh` (resolves the desktop user GID automatically), or `sudo ./scripts/grant-desktop-icmp.sh $USER setcap`.
 - **Direct binary run without systemd**: launch as root, or grant the capability to the service user. Without it, ICMP tests fail with `icmp raw socket requires CAP_NET_RAW` (TCP/HTTP tests are unaffected).
 
 ## Docker

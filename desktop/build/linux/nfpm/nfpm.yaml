@@ -23,6 +23,9 @@ depends:
   - libgtk-4-1
   - libwebkitgtk-6.0-4
 
+scripts:
+  postinstall: ./build/linux/nfpm/scripts/postinstall.sh
+
 overrides:
   rpm:
     depends:

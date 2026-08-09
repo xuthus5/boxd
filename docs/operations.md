@@ -28,6 +28,8 @@ ICMP 测速使用原始套接字，需要 `CAP_NET_RAW`。缺失时测速报
 | 部署形态 | 处理方式 |
 | --- | --- |
 | systemd（deb/rpm） | `boxd.service` 已内置 `AmbientCapabilities=CAP_NET_RAW`，无需额外操作 |
+| 桌面应用（rpm/deb，非 root 运行） | 安装包 `%post` 已自动 `setcap cap_net_raw+ep` 授予二进制能力，无需额外操作；升级包时同样自动生效 |
+| 桌面应用（手动安装 / AppImage） | 运行 `sudo ./scripts/grant-desktop-icmp.sh`（自动解析桌面用户 GID，写入 `ping_group_range`），或 `sudo ./scripts/grant-desktop-icmp.sh $USER setcap` |
 | 直接运行二进制 | 以 root 运行，或为服务用户授予 `CAP_NET_RAW`（如 `AmbientCapabilities`） |
 | 容器 | `docker run --cap-add NET_RAW ...`（容器内进程以 root 运行，能力生效） |
 

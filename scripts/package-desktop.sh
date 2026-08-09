@@ -71,6 +71,7 @@ sed -i \
   -e "s|src: \"./bin/boxd-desktop\"|src: \"$root_dir/desktop/bin/boxd-desktop\"|" \
   -e "s|src: \"./build/appicon.png\"|src: \"$root_dir/desktop/build/appicon.png\"|" \
   -e "s|src: \"./build/linux/boxd-desktop.desktop\"|src: \"$root_dir/desktop/build/linux/boxd-desktop.desktop\"|" \
+  -e "s|postinstall: ./build/linux/nfpm/scripts/postinstall.sh|postinstall: $root_dir/desktop/build/linux/nfpm/scripts/postinstall.sh|" \
   "$nfpm_cfg"
 # nfpm 配置中的 ${GOARCH} 由 wails3 tool package 按环境展开。
 wails3 tool package -name boxd-desktop -format deb -config "$nfpm_cfg" -out bin
