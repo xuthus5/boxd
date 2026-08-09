@@ -7,7 +7,6 @@ import (
 	"time"
 
 	jwt "github.com/golang-jwt/jwt/v5"
-
 	"github.com/xuthus5/boxd/internal/model"
 	"github.com/xuthus5/boxd/internal/service"
 )

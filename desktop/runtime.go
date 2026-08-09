@@ -7,10 +7,9 @@ import (
 	"path/filepath"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
-	"go.etcd.io/bbolt"
-
 	"github.com/xuthus5/boxd/internal/core"
 	"github.com/xuthus5/boxd/internal/service"
+	"go.etcd.io/bbolt"
 )
 
 // desktopConfig 桌面应用运行配置。

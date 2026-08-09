@@ -7,10 +7,9 @@ import (
 	"testing"
 
 	sbLog "github.com/sagernet/sing-box/log"
-	"go.etcd.io/bbolt"
-
 	"github.com/xuthus5/boxd/internal/core"
 	"github.com/xuthus5/boxd/internal/model"
+	"go.etcd.io/bbolt"
 )
 
 func TestBridgeServiceNotReady(t *testing.T) {
