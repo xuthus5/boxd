@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -189,6 +190,53 @@ func TestTestHandlerHTTPTestWithDialer(t *testing.T) {
 		t.Fatalf("invalid HTTP target = %#v", result)
 	}
 }
+
+func TestTestHandlerHTTPTestFallsBackToDefaultWhenSettingsEmpty(t *testing.T) {
+	dialer := &recordingDialer{}
+	handler := NewTestHandler(func() string { return "" }, nil, dialer)
+	result := handler.httpTest(t.Context(), TestRequest{Tag: "proxy", Server: "134.185.119.110", Port: 38166})
+	if result.Success || result.ErrorCode == ProbeErrorInvalidInput {
+		t.Fatalf("http result = %#v, want non-invalid dial through default URL", result)
+	}
+	defaultHostPort, err := urlHostPort(defaultTestURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dialer.dialed() != defaultHostPort {
+		t.Fatalf("dialed %q, want default URL host %q", dialer.dialed(), defaultHostPort)
+	}
+}
+
+func urlHostPort(rawURL string) (string, error) {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return "", err
+	}
+	port := parsed.Port()
+	if port == "" {
+		if parsed.Scheme == "https" {
+			port = "443"
+		} else {
+			port = "80"
+		}
+	}
+	return parsed.Hostname() + ":" + port, nil
+}
+
+type recordingDialer struct {
+	dialAddr string
+}
+
+func (d *recordingDialer) DialOutbound(_ context.Context, _, _, addr string) (net.Conn, error) {
+	d.dialAddr = addr
+	return nil, errors.New("dial failed")
+}
+
+func (d *recordingDialer) OutboundDelay(context.Context, string, string, time.Duration) (uint16, error) {
+	return 0, errors.New("delay failed")
+}
+
+func (d *recordingDialer) dialed() string { return d.dialAddr }
 
 func TestTestHandlerICMPPing(t *testing.T) {
 	previous := service.ICMPEcho

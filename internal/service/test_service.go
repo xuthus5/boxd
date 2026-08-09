@@ -143,7 +143,7 @@ func (s *TestService) tcpPing(ctx context.Context, req TestRequest) model.TestRe
 }
 
 func (s *TestService) httpTest(ctx context.Context, req TestRequest) model.TestResult {
-	target := req.Server
+	target := ""
 	if s.settingsURL != nil {
 		if url := s.settingsURL(); url != "" {
 			target = url

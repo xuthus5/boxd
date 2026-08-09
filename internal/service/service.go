@@ -88,7 +88,17 @@ func (s *ServiceSet) DNSProbe() *DNSProbe { return s.dnsProbe }
 
 // Test 返回节点测速用例服务。
 func (s *ServiceSet) Test() *TestService {
-	return NewTestService(s.Deps.TestURL, s.Deps.NodeManager, testDialer{s.Deps.Instance})
+	settingsURL := s.Deps.TestURL
+	if settingsURL == nil && s.Deps.Settings != nil {
+		settingsURL = func() string {
+			url := s.Deps.Settings.Get("url_test")
+			if url == "" {
+				url = defaultTestURL
+			}
+			return url
+		}
+	}
+	return NewTestService(settingsURL, s.Deps.NodeManager, testDialer{s.Deps.Instance})
 }
 
 // Settings 返回应用设置用例服务。

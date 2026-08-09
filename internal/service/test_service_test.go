@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -36,13 +37,20 @@ func (f *fakeDialer) OutboundDelay(context.Context, string, string, time.Duratio
 
 type fakeNetConn struct{}
 
-func (fakeNetConn) Read([]byte) (int, error)         { return 0, errors.New("eof") }
-func (fakeNetConn) Write([]byte) (int, error)        { return 0, errors.New("eof") }
-func (fakeNetConn) Close() error                     { return nil }
-func (fakeNetConn) LocalAddr() net.Addr              { return &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 1} }
-func (fakeNetConn) RemoteAddr() net.Addr             { return &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 2} }
-func (fakeNetConn) SetDeadline(time.Time) error      { return nil }
-func (fakeNetConn) SetReadDeadline(time.Time) error  { return nil }
+func (fakeNetConn) Read([]byte) (int, error) { return 0, errors.New("eof") }
+
+func (fakeNetConn) Write([]byte) (int, error) { return 0, errors.New("eof") }
+
+func (fakeNetConn) Close() error { return nil }
+
+func (fakeNetConn) LocalAddr() net.Addr { return &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 1} }
+
+func (fakeNetConn) RemoteAddr() net.Addr { return &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 2} }
+
+func (fakeNetConn) SetDeadline(time.Time) error { return nil }
+
+func (fakeNetConn) SetReadDeadline(time.Time) error { return nil }
+
 func (fakeNetConn) SetWriteDeadline(time.Time) error { return nil }
 
 func TestTestServiceRun(t *testing.T) {
@@ -147,6 +155,56 @@ func TestTestServiceRunHTTPInvalidURL(t *testing.T) {
 		t.Fatal("expected failure for invalid url")
 	}
 }
+
+func TestTestServiceRunHTTPFallsBackToDefaultURL(t *testing.T) {
+	nodeMgr, _ := newTestManagers(t)
+	dialer := &recordingDialer{}
+	svc := NewTestService(func() string { return "" }, nodeMgr, dialer)
+	_, err := svc.Run(context.Background(), TestRequest{
+		Tag: "n", TestType: "http", Server: "134.185.119.110", Port: 38166,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defaultHostPort, err := urlHostPort(defaultTestURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dialer.dialed() != defaultHostPort {
+		t.Fatalf("dialed %q, want default URL host %q", dialer.dialed(), defaultHostPort)
+	}
+}
+
+func urlHostPort(rawURL string) (string, error) {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return "", err
+	}
+	port := parsed.Port()
+	if port == "" {
+		if parsed.Scheme == "https" {
+			port = "443"
+		} else {
+			port = "80"
+		}
+	}
+	return parsed.Hostname() + ":" + port, nil
+}
+
+type recordingDialer struct {
+	addr string
+}
+
+func (d *recordingDialer) DialOutbound(_ context.Context, _, _, addr string) (net.Conn, error) {
+	d.addr = addr
+	return nil, errors.New("stop")
+}
+
+func (d *recordingDialer) OutboundDelay(context.Context, string, string, time.Duration) (uint16, error) {
+	return 0, errors.New("stop")
+}
+
+func (d *recordingDialer) dialed() string { return d.addr }
 
 func TestTestServiceRunICMP(t *testing.T) {
 	original := ICMPEcho

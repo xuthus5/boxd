@@ -69,6 +69,28 @@ func TestServiceSetAccessors(t *testing.T) {
 	}
 }
 
+func TestServiceSetTestSettingsURLFallback(t *testing.T) {
+	svc := newTestService(t)
+	ts := svc.Test()
+	if ts.settingsURL == nil {
+		t.Fatal("Test() settingsURL function not set from settings manager")
+	}
+	if got := ts.settingsURL(); got != defaultTestURL {
+		t.Fatalf("settingsURL() = %q, want default %q", got, defaultTestURL)
+	}
+}
+
+func TestServiceSetTestSettingsURLConfigured(t *testing.T) {
+	svc := newTestService(t)
+	if err := svc.Deps.Settings.Set("url_test", "https://example.test/probe"); err != nil {
+		t.Fatal(err)
+	}
+	ts := svc.Test()
+	if got := ts.settingsURL(); got != "https://example.test/probe" {
+		t.Fatalf("settingsURL() = %q, want configured URL", got)
+	}
+}
+
 func TestConfigGetConfigMissing(t *testing.T) {
 	svc := newTestService(t)
 	_, err := svc.Config().GetConfig(context.Background())
