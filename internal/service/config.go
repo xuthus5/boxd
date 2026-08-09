@@ -90,9 +90,9 @@ func (c *Config) GetConfig(ctx context.Context) (any, error) {
 
 // ApplyResult 描述一次配置写入/重启的结果。
 type ApplyResult struct {
-	Status     string
-	APIError   *model.APIError
-	RolledBack bool
+	Status     string          `json:"status"`
+	APIError   *model.APIError `json:"api_error,omitempty"`
+	RolledBack bool            `json:"rolled_back"`
 }
 
 // writeConfigFile 原子写入配置文件并重启内核，失败时回滚。

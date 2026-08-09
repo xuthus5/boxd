@@ -68,13 +68,24 @@ function responseError<T>(response: Response, payload: unknown, envelope?: APIEn
   return new ApiError(body?.message ?? response.statusText, response.status, body?.code)
 }
 
-export async function apiRequestEnvelope<T>(path: string, init: RequestInit = {}) {
+export async function apiRequestEnvelope<T>(path: string, init: RequestInit = {}): Promise<APIEnvelope<T>> {
   if (isDesktop()) {
     try {
       const method = (init.method ?? "GET").toUpperCase()
       const body = init.body === undefined ? undefined
         : typeof init.body === "string" ? init.body : init.body
       const data = await desktopRequest(path, method, body)
+      // bridge 返回 ApplyResult 时回滚语义放在 data 内（status/rolled_back），
+      // 这里还原为与 web 端一致的 envelope，避免回滚被误判为保存成功。
+      if (data && typeof data === "object" && (data as { rolled_back?: boolean }).rolled_back) {
+        const result = data as { status?: string; api_error?: { code?: string; message?: string } }
+        return {
+          status: result.status === "rolled_back" ? "rolled_back" : "ok",
+          data: null as unknown as T,
+          error: result.api_error ? { code: result.api_error.code ?? "", message: result.api_error.message ?? "" } : null,
+          meta: { rolled_back: true },
+        }
+      }
       return { status: "ok" as const, data: data as T, error: null, meta: null }
     } catch (error) {
       if (error instanceof ApiError) {

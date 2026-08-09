@@ -76,4 +76,31 @@ describe("apiRequestEnvelope unwrap", () => {
     const result = await apiRequestEnvelope<{ value: number }>("/api/stats/traffic/history")
     expect(result.data).toEqual({ value: 2 })
   })
+
+  it("surfaces rolled_back envelope from bridge apply results", async () => {
+    vi.mocked(isDesktop).mockReturnValue(true)
+    vi.mocked(desktopRequest).mockResolvedValue({
+      status: "rolled_back",
+      rolled_back: true,
+      api_error: {
+        code: "config_restart_failed",
+        message: "restart failed after config save: bind: address already in use",
+      },
+    })
+    const result = await apiRequestEnvelope<never>("/api/config/", { method: "PUT", body: "{}" })
+    expect(result.status).toBe("rolled_back")
+    expect(result.error).toEqual({
+      code: "config_restart_failed",
+      message: "restart failed after config save: bind: address already in use",
+    })
+    expect(result.meta).toEqual({ rolled_back: true })
+  })
+
+  it("does not treat plain bridge data as rollback", async () => {
+    vi.mocked(isDesktop).mockReturnValue(true)
+    vi.mocked(desktopRequest).mockResolvedValue({ status: "ok", value: 7 })
+    const result = await apiRequestEnvelope<{ status: string; value: number }>("/api/config/")
+    expect(result.status).toBe("ok")
+    expect(result.data).toEqual({ status: "ok", value: 7 })
+  })
 })

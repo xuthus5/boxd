@@ -19,26 +19,26 @@ export class ApplyResult {
      * @param {Partial<ApplyResult>} [$$source = {}] - The source object to create the ApplyResult.
      */
     constructor($$source = {}) {
-        if (!("Status" in $$source)) {
+        if (!("status" in $$source)) {
             /**
              * @member
              * @type {string}
              */
-            this["Status"] = "";
+            this["status"] = "";
         }
-        if (!("APIError" in $$source)) {
+        if (/** @type {any} */(false)) {
             /**
              * @member
-             * @type {model$0.APIError | null}
+             * @type {model$0.APIError | null | undefined}
              */
-            this["APIError"] = null;
+            this["api_error"] = undefined;
         }
-        if (!("RolledBack" in $$source)) {
+        if (!("rolled_back" in $$source)) {
             /**
              * @member
              * @type {boolean}
              */
-            this["RolledBack"] = false;
+            this["rolled_back"] = false;
         }
 
         Object.assign(this, $$source);
@@ -52,8 +52,8 @@ export class ApplyResult {
     static createFrom($$source = {}) {
         const $$createField1_0 = $$createType1;
         let $$parsedSource = typeof $$source === 'string' ? JSON.parse($$source) : $$source;
-        if ("APIError" in $$parsedSource) {
-            $$parsedSource["APIError"] = $$createField1_0($$parsedSource["APIError"]);
+        if ("api_error" in $$parsedSource) {
+            $$parsedSource["api_error"] = $$createField1_0($$parsedSource["api_error"]);
         }
         return new ApplyResult(/** @type {Partial<ApplyResult>} */($$parsedSource));
     }
