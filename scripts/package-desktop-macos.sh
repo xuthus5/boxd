@@ -71,16 +71,16 @@ cat >"$app_dir/Contents/Info.plist" <<'PLIST'
   <string>11.0</string>
   <key>NSHighResolutionCapable</key>
   <true/>
+  <key>CFBundleIconFile</key>
+  <string>boxd-desktop</string>
 </dict>
 </plist>
 PLIST
 sed -i.bak "s/__VERSION__/${version}/g" "$app_dir/Contents/Info.plist"
 rm -f "$app_dir/Contents/Info.plist.bak"
-# 应用图标（若有）。
-if [[ -f build/appicon.png ]]; then
-  mkdir -p "$app_dir/Contents/Resources"
-  install -m 0644 build/appicon.png "$app_dir/Contents/Resources/appicon.png"
-fi
+# 应用图标：与 web 版 logo 一致的 icns。
+mkdir -p "$app_dir/Contents/Resources"
+install -m 0644 build/boxd-desktop.icns "$app_dir/Contents/Resources/boxd-desktop.icns"
 
 echo "==> Packaging zip"
 zip_name="boxd-desktop-${version}-macos-${arch}.zip"

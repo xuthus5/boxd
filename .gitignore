@@ -8,7 +8,7 @@ cmd/boxd/ui/
 desktop/bin/
 desktop/ui/
 desktop/desktop
-desktop/build/linux/appimage/build/
+desktop/build/linux/appimage/
 build/linux/bin/
 *.test
 *.db

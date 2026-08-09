@@ -48,12 +48,7 @@ go build \
 
 echo "==> Preparing build assets"
 mkdir -p build build/linux/appimage build/linux/nfpm
-# 应用图标：从项目生成或使用占位。
-if [ ! -f build/appicon.png ]; then
-  echo "==> No appicon.png found; generating placeholder"
-  (command -v convert >/dev/null 2>&1 && convert -size 256x256 xc:#2563eb -fill white -gravity center -pointsize 96 -annotate 0 "B" build/appicon.png) \
-    || python3 -c "import zlib,struct; w=256;h=256;raw=b''.join(b'\x00'+b'\x00\x00\xff\x00'*w for _ in range(h)); comp=zlib.compress(raw); data=b'\x89PNG\r\n\x1a\n'+struct.pack('>II',13,0x49484452)+struct.pack('>IIII',w,h,8,2)+comp+struct.pack('>II',0,0x49444154)+b'IEND\xaeB\x60\x82'; open('build/appicon.png','wb').write(data)"
-fi
+# 应用图标：沿用 web 版 logo（favicon.svg）生成的统一图标，位于 build/appicon.png。
 
 echo "==> Generating .desktop entry"
 wails3 generate .desktop \

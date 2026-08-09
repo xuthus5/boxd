@@ -34,8 +34,13 @@ cp -r "$root_dir/ui/dist" "$root_dir/desktop/ui/dist"
 echo "==> Generating Wails bindings"
 wails3 generate bindings -d "$root_dir/ui/src/lib/api/bindings" >/dev/null
 
+echo "==> Generating Windows resource (.syso) for icon"
+syso_file="boxd-desktop_windows_${arch}.syso"
+wails3 generate syso -arch "$arch" -icon "build/boxd-desktop.ico" -manifest "build/boxd-desktop.manifest" -out "$syso_file"
+
 echo "==> Building Windows desktop binary (${arch})"
 mkdir -p bin
+trap 'rm -f "$syso_file"' EXIT
 go build \
   -tags "desktop embed_ui with_gvisor with_quic with_dhcp with_wireguard with_utls with_acme with_clash_api" \
   -ldflags "-X github.com/xuthus5/boxd/internal/core.Version=$version -X github.com/sagernet/sing-box/constant.Version=$kernel_version" \
