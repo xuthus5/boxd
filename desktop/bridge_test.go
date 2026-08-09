@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	sbLog "github.com/sagernet/sing-box/log"
 	"go.etcd.io/bbolt"
 
 	"github.com/xuthus5/boxd/internal/core"
@@ -115,6 +116,63 @@ func TestBridgeUnknownPath(t *testing.T) {
 	_, err := svc.Call(BridgeRequest{Path: "/api/unknown"})
 	if err == nil {
 		t.Fatal("expected not found error")
+	}
+}
+
+func TestBridgeLogHistory(t *testing.T) {
+	rt := newTestRuntimeWithService(t)
+	svc := newBoxdBridgeService(rt)
+
+	rt.svc.Deps.KernelLogWriter.WriteMessage(sbLog.LevelInfo, "kernel booted")
+	rt.svc.Deps.AppLogWriter.WriteAppEntry("warn", "app warning")
+
+	resp, err := svc.Call(BridgeRequest{Path: "/api/stats/logs"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkLogEntries(t, resp, "kernel booted")
+
+	resp, err = svc.Call(BridgeRequest{Path: "/api/stats/app-logs"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkLogEntries(t, resp, "app warning")
+}
+
+func TestBridgeTrafficSnapshot(t *testing.T) {
+	rt := newTestRuntimeWithService(t)
+	svc := newBoxdBridgeService(rt)
+
+	resp, err := svc.Call(BridgeRequest{Path: "/api/stats/traffic"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, ok := resp.Data.(map[string]any)
+	if !ok {
+		t.Fatalf("data type = %T", resp.Data)
+	}
+	for _, key := range []string{"upload_bytes", "download_bytes", "timestamp"} {
+		if _, ok := data[key]; !ok {
+			t.Fatalf("traffic snapshot missing %q: %+v", key, data)
+		}
+	}
+}
+
+func checkLogEntries(t *testing.T, resp BridgeResponse, want string) {
+	t.Helper()
+	data, ok := resp.Data.(map[string]any)
+	if !ok {
+		t.Fatalf("data type = %T", resp.Data)
+	}
+	entries, ok := data["entries"].([]core.LogEntry)
+	if !ok {
+		t.Fatalf("entries type = %T", data["entries"])
+	}
+	if len(entries) == 0 {
+		t.Fatal("expected non-empty log history")
+	}
+	if entries[len(entries)-1].Message != want {
+		t.Fatalf("last message = %q, want %q", entries[len(entries)-1].Message, want)
 	}
 }
 

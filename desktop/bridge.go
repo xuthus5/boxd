@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/xuthus5/boxd/internal/core"
 	"github.com/xuthus5/boxd/internal/model"
@@ -189,6 +190,20 @@ func (s *BoxdBridgeService) dispatch(ctx context.Context, req BridgeRequest) (Br
 		return okResult(s.rt.svc.Runtime().OutboundGroups(ctx))
 	case "/api/stats/traffic/history":
 		return okResult(s.rt.svc.Stats().Traffic(ctx))
+	case "/api/stats/traffic":
+		up, down := int64(0), int64(0)
+		if s.rt.instance != nil && s.rt.instance.TrafficTracker() != nil {
+			up, down = s.rt.instance.TrafficTracker().Total()
+		}
+		return okResult(map[string]any{
+			"upload_bytes":   up,
+			"download_bytes": down,
+			"timestamp":      time.Now().Format(time.RFC3339),
+		}, nil)
+	case "/api/stats/logs":
+		return okResult(map[string]any{"entries": s.rt.svc.Deps.KernelLogWriter.Recent()}, nil)
+	case "/api/stats/app-logs":
+		return okResult(map[string]any{"entries": s.rt.svc.Deps.AppLogWriter.Recent()}, nil)
 	case "/api/stats/connections":
 		if method == "DELETE" {
 			resp, err, handled := s.dispatchStatsClosePath(ctx, path, params)

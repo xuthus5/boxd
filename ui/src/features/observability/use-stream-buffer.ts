@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 
-import { isDesktop, subscribeDesktopStream } from "@/lib/api/desktop"
+import { desktopGet, isDesktop, subscribeDesktopStream } from "@/lib/api/desktop"
 import { openSSE, type SSEStatus } from "@/lib/api/sse"
 
 export type StreamConnectionStatus = SSEStatus
@@ -38,16 +38,29 @@ export function useStreamBuffer<T>(path: string, token: string, limit = 500) {
     if (isDesktop()) {
       let disposed = false
       let cleanup: (() => void) | undefined
-      void subscribeDesktopStream<T>(path, {
-        onEvent: append,
-        onStatus,
-      }).then((stop) => {
+      const start = async () => {
+        // 桌面模式下事件流早于页面挂载，先通过 bridge 拉取历史快照再订阅。
+        try {
+          const snapshot = (await desktopGet(path)) as { entries?: T[] } | null | undefined
+          const entries = snapshot?.entries
+          if (!disposed && Array.isArray(entries) && entries.length > 0) {
+            setItems(entries as T[])
+          }
+        } catch {
+          // 历史拉取失败不阻断事件订阅。
+        }
+        if (disposed) return
+        const stop = await subscribeDesktopStream<T>(path, {
+          onEvent: append,
+          onStatus,
+        })
         if (disposed) {
           stop()
           return
         }
         cleanup = stop
-      })
+      }
+      void start()
       return () => {
         disposed = true
         cleanup?.()

@@ -7,9 +7,10 @@ import { sessionStore } from "@/lib/session"
 vi.mock("@/lib/api/desktop", () => ({
   isDesktop: vi.fn(),
   subscribeDesktopStream: vi.fn(),
+  desktopGet: vi.fn(),
 }))
 
-import { isDesktop, subscribeDesktopStream } from "@/lib/api/desktop"
+import { desktopGet, isDesktop, subscribeDesktopStream } from "@/lib/api/desktop"
 
 afterEach(() => {
   sessionStore.clear()
@@ -19,6 +20,42 @@ afterEach(() => {
 describe("useStreamBuffer desktop mode", () => {
   it("uses event subscription instead of SSE in desktop mode", async () => {
     vi.mocked(isDesktop).mockReturnValue(true)
+    vi.mocked(desktopGet).mockResolvedValue({ entries: [] })
+    vi.mocked(subscribeDesktopStream).mockResolvedValue(() => {})
+    const { result } = renderHook(() => useStreamBuffer<{ level: string }>("/api/stats/logs", "token", 10))
+    await waitFor(() => {
+      expect(subscribeDesktopStream).toHaveBeenCalledWith(
+        "/api/stats/logs",
+        expect.objectContaining({ onEvent: expect.any(Function) }),
+      )
+    })
+    expect(result.current.items).toEqual([])
+  })
+
+  it("seeds items from history snapshot before subscribing", async () => {
+    let onEvent: ((event: { level: string }) => void) | undefined
+    vi.mocked(isDesktop).mockReturnValue(true)
+    vi.mocked(desktopGet).mockResolvedValue({ entries: [{ level: "info", message: "old" }] })
+    vi.mocked(subscribeDesktopStream).mockImplementation(async (_path, options) => {
+      onEvent = options.onEvent
+      return () => {}
+    })
+    const { result } = renderHook(() => useStreamBuffer<{ level: string }>("/api/stats/logs", "token", 10))
+    await waitFor(() => expect(result.current.items).toEqual([{ level: "info", message: "old" }]))
+    expect(desktopGet).toHaveBeenCalledWith("/api/stats/logs")
+    await waitFor(() => expect(onEvent).toBeDefined())
+    act(() => {
+      onEvent?.({ level: "info", message: "new" })
+    })
+    expect(result.current.items).toEqual([
+      { level: "info", message: "old" },
+      { level: "info", message: "new" },
+    ])
+  })
+
+  it("subscribes even when history fetch fails", async () => {
+    vi.mocked(isDesktop).mockReturnValue(true)
+    vi.mocked(desktopGet).mockRejectedValue(new Error("bridge down"))
     vi.mocked(subscribeDesktopStream).mockResolvedValue(() => {})
     const { result } = renderHook(() => useStreamBuffer<{ level: string }>("/api/stats/logs", "token", 10))
     await waitFor(() => {
@@ -33,6 +70,7 @@ describe("useStreamBuffer desktop mode", () => {
   it("appends received events", async () => {
     let onEvent: ((event: { level: string }) => void) | undefined
     vi.mocked(isDesktop).mockReturnValue(true)
+    vi.mocked(desktopGet).mockResolvedValue({ entries: [] })
     vi.mocked(subscribeDesktopStream).mockImplementation(async (_path, options) => {
       onEvent = options.onEvent
       return () => {}
@@ -47,6 +85,7 @@ describe("useStreamBuffer desktop mode", () => {
 
   it("does not re-subscribe while paused", async () => {
     vi.mocked(isDesktop).mockReturnValue(true)
+    vi.mocked(desktopGet).mockResolvedValue({ entries: [] })
     vi.mocked(subscribeDesktopStream).mockResolvedValue(() => {})
     const { result } = renderHook(() => useStreamBuffer<{ level: string }>("/api/stats/logs", "token", 10))
     await waitFor(() => expect(subscribeDesktopStream).toHaveBeenCalledTimes(1))
@@ -62,6 +101,7 @@ describe("useStreamBuffer desktop mode", () => {
   it("updates status when event subscription opens", async () => {
     let onStatus: ((status: string) => void) | undefined
     vi.mocked(isDesktop).mockReturnValue(true)
+    vi.mocked(desktopGet).mockResolvedValue({ entries: [] })
     vi.mocked(subscribeDesktopStream).mockImplementation(async (_path, options) => {
       onStatus = options.onStatus
       return () => {}

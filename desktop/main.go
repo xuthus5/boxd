@@ -2,10 +2,14 @@ package main
 
 import (
 	"log"
+	"log/slog"
+	"os"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 	"github.com/wailsapp/wails/v3/pkg/services/notifications"
+
+	"github.com/xuthus5/boxd/internal/core"
 )
 
 // globalApp 保存应用实例，供单实例二次启动回调引用。
@@ -16,6 +20,10 @@ func main() {
 	rt, err := initRuntime(cfg)
 	if err != nil {
 		log.Fatalf("runtime init failed: %v", err)
+	}
+	// boxd 自身日志同时写入 AppLogWriter，供应用日志页展示。
+	if rt.svc != nil {
+		slog.SetDefault(slog.New(core.NewAppLogHandler(os.Stderr, rt.svc.Deps.AppLogWriter, slog.LevelInfo)))
 	}
 	defer func() {
 		if err := rt.close(); err != nil {
