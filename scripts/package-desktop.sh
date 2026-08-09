@@ -10,6 +10,7 @@ set -euo pipefail
 root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 version="${1:-$(git -C "$root_dir" describe --tags --always --dirty 2>/dev/null || echo dev)}"
 arch="${2:-amd64}"
+kernel_version="${KERNEL_VERSION:-1.13.14}"
 source "$root_dir/scripts/lib-version.sh"
 pkg_version=$(resolve_package_version "$version")
 export PATH="$PATH:/usr/local/go/bin:$HOME/go/bin"
@@ -42,7 +43,7 @@ echo "==> Building desktop binary (${arch})"
 install -d -m 0700 bin
 go build \
   -tags "desktop embed_ui with_gvisor with_quic with_dhcp with_wireguard with_utls with_acme with_clash_api" \
-  -ldflags "-X github.com/xuthus5/boxd/internal/core.Version=$pkg_version" \
+  -ldflags "-X github.com/xuthus5/boxd/internal/core.Version=$pkg_version -X github.com/sagernet/sing-box/constant.Version=$kernel_version" \
   -o bin/boxd-desktop ./
 
 echo "==> Preparing build assets"

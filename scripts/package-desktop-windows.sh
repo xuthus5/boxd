@@ -11,6 +11,7 @@ set -euo pipefail
 root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 version="${1:-$(git -C "$root_dir" describe --tags --always --dirty 2>/dev/null || echo dev)}"
 arch="${2:-amd64}"
+kernel_version="${KERNEL_VERSION:-1.13.14}"
 export PATH="$PATH:/usr/local/go/bin:$HOME/go/bin:/c/Go/bin:$(go env GOPATH 2>/dev/null)/bin"
 export GOPROXY="${GOPROXY:-https://proxy.golang.org,https://goproxy.io,direct}"
 export GOOS=windows
@@ -37,7 +38,7 @@ echo "==> Building Windows desktop binary (${arch})"
 mkdir -p bin
 go build \
   -tags "desktop embed_ui with_gvisor with_quic with_dhcp with_wireguard with_utls with_acme with_clash_api" \
-  -ldflags "-X github.com/xuthus5/boxd/internal/core.Version=$version" \
+  -ldflags "-X github.com/xuthus5/boxd/internal/core.Version=$version -X github.com/sagernet/sing-box/constant.Version=$kernel_version" \
   -o bin/boxd-desktop.exe ./
 
 echo "==> Packaging zip"
