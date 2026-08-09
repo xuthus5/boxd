@@ -14,6 +14,7 @@ func setupTray(app *application.App, rt *desktopRuntime) {
 	tray := app.SystemTray.New()
 	tray.SetLabel("boxd")
 	tray.SetTooltip("boxd — sing-box control plane")
+	tray.SetIcon(trayIcon)
 
 	menu := application.NewMenu()
 	menu.Add("Show").OnClick(func(_ *application.Context) {
