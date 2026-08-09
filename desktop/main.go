@@ -8,7 +8,6 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 	"github.com/wailsapp/wails/v3/pkg/services/notifications"
-
 	"github.com/xuthus5/boxd/internal/core"
 )
 
@@ -34,6 +33,7 @@ func main() {
 	app := application.New(application.Options{
 		Name:        "boxd",
 		Description: "sing-box control plane desktop app",
+		Icon:        trayIcon,
 		Services:    registerServices(rt),
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(assets),

@@ -36,8 +36,8 @@ echo "==> Generating Windows .ico and macOS .icns"
   -windowsfilename boxd-desktop.ico \
   -macfilename boxd-desktop.icns)
 
-echo "==> Generating tray icon (64x64)"
-$IMG "$src" -resize 64x64 "$root_dir/desktop/tray-icon.png"
+echo "==> Generating tray/app icon (256x256)"
+$IMG "$src" -resize 256x256 "$root_dir/desktop/tray-icon.png"
 
 echo "==> Generated:"
 ls -lh "$out/appicon.png" "$out/boxd-desktop.ico" "$out/boxd-desktop.icns" "$root_dir/desktop/tray-icon.png"
