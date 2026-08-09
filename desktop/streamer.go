@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+
 	"github.com/xuthus5/boxd/internal/core"
 )
 

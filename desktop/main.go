@@ -8,6 +8,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
 	"github.com/wailsapp/wails/v3/pkg/services/notifications"
+
 	"github.com/xuthus5/boxd/internal/core"
 )
 

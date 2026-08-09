@@ -62,7 +62,7 @@ jobs:
           retry timeout 10m sudo apt-get install -y --no-install-recommends -o Acquire::Retries=5 \
             build-essential pkg-config libgtk-4-dev libwebkitgtk-6.0-dev libwebkitgtk-6.0-4 \
             rpm file libfuse2 fuse3 desktop-file-utils wget
-          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117
+          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.2
           go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.8.0
           go install golang.org/x/vuln/cmd/govulncheck@latest
       - name: Prepare AppImage runtime
@@ -180,7 +180,7 @@ jobs:
           cache: npm
           cache-dependency-path: ui/package-lock.json
       - name: Install wails3
-        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.2
       - name: Package desktop app (${{ matrix.os }} ${{ matrix.arch }})
         shell: bash
         env:
@@ -233,7 +233,7 @@ jobs:
           npm ci --prefix ui
           go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.8.0
           go install golang.org/x/vuln/cmd/govulncheck@latest
-          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-alpha2.117
+          go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.2
       - name: Run release quality gates
         run: |
           make check-go
