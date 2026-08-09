@@ -206,13 +206,20 @@ export function ProxySelectorCard() {
         <CardDescription>{t("dashboard.proxySelectorDescription")}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-2 sm:gap-3">
-        <MemberSelect
-          group={state.group}
-          members={state.members}
-          delays={state.delays}
-          onSelect={state.select}
-          selecting={state.selecting}
-        />
+        {state.group.type === "selector" ? (
+          <MemberSelect
+            group={state.group}
+            members={state.members}
+            delays={state.delays}
+            onSelect={state.select}
+            selecting={state.selecting}
+          />
+        ) : (
+          <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm">
+            <span className="text-muted-foreground">{t("dashboard.proxySelectorCurrent")}</span>
+            <span className="min-w-0 truncate font-medium" title={state.group.now}>{state.group.now}</span>
+          </div>
+        )}
         <Button
           variant="outline"
           size="sm"

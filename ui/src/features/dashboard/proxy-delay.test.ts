@@ -39,11 +39,25 @@ describe("proxy-delay helpers", () => {
     ])?.tag).toBe("proxy")
   })
 
+  it("picks urltest group when no selector exists", () => {
+    expect(pickPrimaryGroup([
+      { tag: "empty", type: "selector", now: "", all: [] },
+      { tag: "auto", type: "urltest", now: "a", all: ["a"] },
+    ])?.tag).toBe("auto")
+    expect(pickPrimaryGroup([
+      { tag: "auto", type: "urltest", now: "a", all: ["a"] },
+      { tag: "proxy", type: "urltest", now: "b", all: ["b"] },
+    ])?.tag).toBe("proxy")
+    expect(pickPrimaryGroup([
+      { tag: "auto", type: "urltest", now: "a", all: [] },
+    ])).toBeNull()
+  })
+
   it("handles selector fallbacks and delay sort ties", () => {
     expect(pickPrimaryGroup([
       { tag: "empty", type: "selector", now: "", all: [] },
       { tag: "urltest", type: "urltest", now: "a", all: ["a"] },
-    ])).toBeNull()
+    ])?.tag).toBe("urltest")
     expect(pickPrimaryGroup([
       { tag: "fallback", type: "selector", now: "a", all: ["a"] },
       { tag: "select", type: "selector", now: "b", all: ["b"] },

@@ -103,6 +103,21 @@ describe("ProxySelectorCard", () => {
     expect(await screen.findByText("内核未运行或没有可用的 selector 分组。")).toBeInTheDocument()
   })
 
+  it("shows read-only current node for urltest groups", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      groups: [{ tag: "auto", type: "urltest", now: "node-x", all: ["node-x", "node-y"] }],
+    }))))
+    wrap(<ProxySelectorCard />)
+    expect(await screen.findByText("当前出口")).toBeInTheDocument()
+    expect(screen.getByText("当前节点")).toBeInTheDocument()
+    expect(screen.getByText("node-x")).toBeInTheDocument()
+    expect(screen.queryByRole("combobox", { name: "当前出口" })).not.toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "查看连接: node-x" })).toHaveAttribute(
+      "href",
+      "/observability/connections?outbound=node-x",
+    )
+  })
+
   it("shows densified query failure diagnostics", async () => {
     vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
       status: "error", data: null, error: { code: "unavailable", message: "kernel not running" }, meta: null,

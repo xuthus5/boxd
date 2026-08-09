@@ -39,12 +39,19 @@ export function isDelayFailure(value: DelayValue | undefined): value is DelayFai
 
 export function pickPrimaryGroup(groups: OutboundGroup[]) {
   const selectors = groups.filter((group) => group.type === "selector" && group.all.length > 0)
-  if (!selectors.length) return null
+  if (selectors.length) return pickPreferred(selectors)
+  // 没有 selector 时退化为展示 urltest 分组的当前节点。
+  const urlTests = groups.filter((group) => group.type === "urltest" && group.all.length > 0)
+  return pickPreferred(urlTests)
+}
+
+function pickPreferred(groups: OutboundGroup[]): OutboundGroup | null {
+  if (!groups.length) return null
   for (const tag of preferredTags) {
-    const found = selectors.find((group) => group.tag === tag)
+    const found = groups.find((group) => group.tag === tag)
     if (found) return found
   }
-  return selectors[0]
+  return groups[0]
 }
 
 export function formatDelayValue(value: DelayValue | undefined, failedLabel: string) {
