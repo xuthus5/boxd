@@ -108,8 +108,8 @@ func TestDefaultDNSInstallerInstall(t *testing.T) {
 	}
 	servers = result.DNS["servers"].([]any)
 	remote = servers[2].(map[string]any)
-	if remote["detour"] != "direct" {
-		t.Fatalf("dns-remote.detour fallback = %#v", remote["detour"])
+	if _, exists := remote["detour"]; exists {
+		t.Fatalf("dns-remote.detour fallback = %#v, want omitted for empty direct", remote["detour"])
 	}
 }
 
@@ -160,18 +160,32 @@ func TestDefaultDNSInstallerUsesOnlyExistingDetours(t *testing.T) {
 	tests := []dnsDetourTestCase{
 		{name: "without outbounds", outbounds: []any{}},
 		{
-			name:         "proxy without direct",
+			name:         "empty direct tagged proxy",
 			outbounds:    []any{map[string]any{"type": "direct", "tag": "proxy"}},
+			remoteDetour: "",
+		},
+		{
+			name: "direct and proxy selector",
+			outbounds: []any{
+				map[string]any{"type": "direct", "tag": "direct"},
+				map[string]any{"type": "selector", "tag": "proxy", "outbounds": []any{"direct"}},
+			},
 			remoteDetour: "proxy",
 		},
 		{
-			name: "direct and proxy",
+			name: "routing-marked direct and proxy selector",
 			outbounds: []any{
-				map[string]any{"type": "direct", "tag": "direct"},
-				map[string]any{"type": "direct", "tag": "proxy"},
+				map[string]any{"type": "direct", "tag": "direct", "routing_mark": 128},
+				map[string]any{"type": "selector", "tag": "proxy", "outbounds": []any{"direct"}},
 			},
 			directDetour: "direct",
 			remoteDetour: "proxy",
+		},
+		{
+			name:         "routing-marked direct fallback",
+			outbounds:    []any{map[string]any{"type": "direct", "tag": "direct", "routing_mark": 128}},
+			directDetour: "direct",
+			remoteDetour: "direct",
 		},
 	}
 
@@ -230,5 +244,26 @@ func assertDNSRule(t *testing.T, value any, ruleSet, action, server string) {
 	actualServer, _ := rule["server"].(string)
 	if rule["action"] != action || actualServer != server {
 		t.Fatalf("rule = %#v, want action %q and server %q", rule, action, server)
+	}
+}
+
+func TestIsEmptyDirectOutbound(t *testing.T) {
+	tests := []struct {
+		name string
+		ob   map[string]any
+		want bool
+	}{
+		{"plain direct", map[string]any{"type": "direct", "tag": "direct"}, true},
+		{"routing mark", map[string]any{"type": "direct", "tag": "direct", "routing_mark": 128}, false},
+		{"bind interface", map[string]any{"type": "direct", "tag": "direct", "bind_interface": "eth0"}, false},
+		{"selector", map[string]any{"type": "selector", "tag": "proxy", "outbounds": []any{"direct"}}, false},
+		{"nil", nil, false},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := isEmptyDirectOutbound(test.ob); got != test.want {
+				t.Fatalf("isEmptyDirectOutbound() = %v, want %v", got, test.want)
+			}
+		})
 	}
 }

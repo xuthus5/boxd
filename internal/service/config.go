@@ -176,12 +176,13 @@ func (c *Config) ValidateConfig(ctx context.Context, body []byte, source string)
 }
 
 // InstallResult 描述默认安装操作的结果。
+// 与 ApplyResult 保持相同的 JSON 字段命名，便于桌面 bridge 与前端识别回滚语义。
 type InstallResult struct {
-	Status         string
-	Installed      any
-	APIError       *model.APIError
-	InstalledCount int
-	RolledBack     bool
+	Status         string          `json:"status"`
+	Installed      any             `json:"installed"`
+	APIError       *model.APIError `json:"api_error,omitempty"`
+	InstalledCount int             `json:"installed_count"`
+	RolledBack     bool            `json:"rolled_back"`
 }
 
 func (c *Config) applyInstalledConfig(ctx context.Context, cfg map[string]any, source string, installed any) (InstallResult, error) {

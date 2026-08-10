@@ -42,23 +42,53 @@ func (i *DefaultDNSInstaller) Install(cfg map[string]any) (*DNSDefaultsResult, e
 }
 
 func selectDNSDetours(cfg map[string]any) dnsDefaultDetours {
-	outboundTags := existingOutboundTags(cfg)
+	outbounds := existingOutbounds(cfg)
 	detours := dnsDefaultDetours{}
-	if outboundTags["direct"] {
+	if ob := outbounds["direct"]; ob != nil && !isEmptyDirectOutbound(ob) {
 		detours.direct = "direct"
 	}
-	if outboundTags["proxy"] {
+	if ob := outbounds["proxy"]; ob != nil && !isEmptyDirectOutbound(ob) {
 		detours.remote = "proxy"
 		return detours
 	}
 	route, _ := cfg["route"].(map[string]any)
 	final, _ := route["final"].(string)
-	if final != "" && outboundTags[final] {
+	if ob := outbounds[final]; final != "" && ob != nil && !isEmptyDirectOutbound(ob) {
 		detours.remote = final
 		return detours
 	}
 	detours.remote = detours.direct
 	return detours
+}
+
+// existingOutbounds 返回按 tag 索引的既有出站配置。
+func existingOutbounds(cfg map[string]any) map[string]map[string]any {
+	result := make(map[string]map[string]any)
+	outbounds, _ := cfg["outbounds"].([]any)
+	for _, item := range outbounds {
+		if m, ok := item.(map[string]any); ok {
+			if tag, _ := m["tag"].(string); tag != "" {
+				result[tag] = m
+			}
+		}
+	}
+	return result
+}
+
+// isEmptyDirectOutbound 判断出站是否为无任何拨号选项的空 direct。
+// sing-box 内核会拒绝 DNS detour 指向空 direct，等价于默认 direct 拨号，因此应省略 detour。
+func isEmptyDirectOutbound(ob map[string]any) bool {
+	if ob["type"] != "direct" {
+		return false
+	}
+	for key := range ob {
+		switch key {
+		case "tag", "type":
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func defaultDNSServers(detours dnsDefaultDetours) []any {

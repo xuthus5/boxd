@@ -2,12 +2,14 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/xuthus5/boxd/internal/core"
+	"github.com/xuthus5/boxd/internal/model"
 )
 
 func TestInstallDefaultRuleSets(t *testing.T) {
@@ -263,6 +265,36 @@ func TestInstallResultCount(t *testing.T) {
 	}
 	if got := installedCount(nil); got != 0 {
 		t.Fatalf("installed = %d", got)
+	}
+}
+
+func TestInstallResultJSONShape(t *testing.T) {
+	result := InstallResult{
+		Status:         "rolled_back",
+		Installed:      map[string]any{"rules": []any{}},
+		APIError:       &model.APIError{Code: "config_restart_failed", Message: "boom"},
+		InstalledCount: 1,
+		RolledBack:     true,
+	}
+	body, err := json.Marshal(result)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal(body, &parsed); err != nil {
+		t.Fatal(err)
+	}
+	if parsed["status"] != "rolled_back" {
+		t.Fatalf("status = %#v", parsed["status"])
+	}
+	if parsed["rolled_back"] != true {
+		t.Fatalf("rolled_back = %#v", parsed["rolled_back"])
+	}
+	if parsed["installed_count"] != float64(1) {
+		t.Fatalf("installed_count = %#v", parsed["installed_count"])
+	}
+	if _, exists := parsed["APIError"]; exists {
+		t.Fatalf("capitalized APIError key should not exist: %#v", parsed)
 	}
 }
 
