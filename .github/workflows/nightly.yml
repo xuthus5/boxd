@@ -73,30 +73,17 @@ jobs:
             build/linux/bin/boxd_nightly_linux_arm64.AppImage
           if-no-files-found: error
           retention-days: 14
-      - name: Update rolling nightly GitHub Release
+      - name: Recreate nightly GitHub Release with notes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          notes="Rolling nightly build from \`main\`.
-
-          - Commit: \`${{ github.sha }}\`
-          - Built at: \`${{ github.event.head_commit.timestamp }}\`
-          - Architectures: \`linux/amd64\`, \`linux/arm64\`
-
-          This release always points at the latest successful \`main\` build.
-          Asset names stay fixed as:
-          - \`boxd_nightly_linux_amd64.tar.gz\`
-          - \`boxd_nightly_linux_arm64.tar.gz\`"
-          if gh release view nightly >/dev/null 2>&1; then
-            gh release edit nightly --title Nightly --prerelease --notes "$notes"
-          else
-            gh release create nightly \
-              --title Nightly \
-              --prerelease \
-              --notes "$notes" \
-              --target "${{ github.sha }}"
-          fi
+          ./scripts/update-nightly-release.sh "${{ github.repository }}" "${{ github.sha }}" "${{ github.sha }}"
+      - name: Upload nightly Linux assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
           gh release upload nightly \
             release/boxd_nightly_linux_amd64.tar.gz \
             release/boxd_nightly_linux_amd64.tar.gz.sha256 \
@@ -109,28 +96,6 @@ jobs:
             build/linux/bin/boxd_nightly_linux_arm64.rpm \
             build/linux/bin/boxd_nightly_linux_arm64.AppImage \
             --clobber
-          git tag -f nightly "${{ github.sha }}"
-          git push -f origin refs/tags/nightly
-      - name: Prune stale nightly assets
-        if: ${{ !cancelled() && !failure() }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          # 等待 release 资产列表最终一致。
-          sleep 5
-          # 从 release 主端点读取资产（稳定返回数组），过滤旧命名附件并删除。
-          # 失败不阻断主流程（best-effort）。
-          asset_ids=$(gh api "repos/${{ github.repository }}/releases/tags/nightly" \
-            --jq '.assets[] | select(.name | test("^boxd_nightly-")) | .id' 2>/dev/null || true)
-          if [ -n "$asset_ids" ]; then
-            for asset_id in $asset_ids; do
-              echo "Deleting stale asset $asset_id"
-              gh api -X DELETE "repos/${{ github.repository }}/releases/assets/$asset_id" || true
-            done
-          else
-            echo "No stale assets to prune"
-          fi
 
   package-cross:
     runs-on: ${{ matrix.runner }}
@@ -189,6 +154,7 @@ jobs:
 
   desktop:
     runs-on: ${{ matrix.runner }}
+    needs: package
     permissions:
       contents: write
     strategy:
