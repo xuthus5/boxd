@@ -229,6 +229,13 @@ export const api = {
     clashMode: () => apiRequest<ClashModeStatus>("/api/runtime/clash-mode"),
     setClashMode: (mode: string) => apiRequest<ClashModeStatus>("/api/runtime/clash-mode", json("PUT", { mode })),
   },
+  desktop: {
+    autostart: () => apiRequest<{ enabled: boolean }>("/api/desktop/autostart"),
+    setAutostart: (enabled: boolean) => apiRequest<{ enabled: boolean }>(
+      "/api/desktop/autostart",
+      json("PUT", { enabled }),
+    ),
+  },
 } satisfies Record<string, unknown>
 
 export type ConnectionsSnapshot = ConnectionEvent

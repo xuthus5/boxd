@@ -21,6 +21,7 @@ import { isTestURLReady } from "@/features/settings/settings-dirty"
 import { reportSettingsRequestError } from "@/features/settings/settings-request-error-actions"
 import { resolveInitialSpeedTestURL } from "@/lib/speed-test-urls"
 import { isHTTPURL } from "@/lib/urltest"
+import { isDesktop } from "@/lib/api/desktop"
 import type { Language, LogThreshold, Theme } from "@/lib/storage"
 import { PageLoadErrorAlert } from "@/features/common/page-load-error-alert"
 
@@ -121,11 +122,12 @@ function AppearanceCard() {
   )
 }
 
-function RuntimeSettingsCard({ url, enabled }: { url: string; enabled: boolean }) {
+export function RuntimeSettingsCard({ url, enabled, appAutostart }: { url: string; enabled: boolean; appAutostart: boolean }) {
   const { t } = useTranslation()
   const [savedURL, setSavedURL] = useState(url)
   const [testURL, setTestURL] = useState(() => resolveInitialSpeedTestURL(url))
   const [autostart, setAutostart] = useState(enabled)
+  const [desktopAutostart, setDesktopAutostart] = useState(appAutostart)
   const urlReady = isTestURLReady(testURL, savedURL)
   const urlInvalid = Boolean(testURL.trim()) && !isHTTPURL(testURL.trim())
   const saveURL = useMutation({
@@ -147,6 +149,17 @@ function RuntimeSettingsCard({ url, enabled }: { url: string; enabled: boolean }
       reportSettingsRequestError(error, t, {
         scope: "autostart",
         fallback: t("settings.autostartFailed"),
+      })
+    })
+  }
+  const saveDesktopAutostart = (checked: boolean) => {
+    const previous = desktopAutostart
+    setDesktopAutostart(checked)
+    api.desktop.setAutostart(checked).then(() => toast.success(t("settings.appAutostartSaved"))).catch((error: Error) => {
+      setDesktopAutostart(previous)
+      reportSettingsRequestError(error, t, {
+        scope: "app-autostart",
+        fallback: t("settings.appAutostartFailed"),
       })
     })
   }
@@ -175,6 +188,15 @@ function RuntimeSettingsCard({ url, enabled }: { url: string; enabled: boolean }
             <FieldLabel htmlFor="autostart">{t("settings.autostart")}</FieldLabel>
             <Switch id="autostart" checked={autostart} onCheckedChange={saveAutostart} />
           </Field>
+          {isDesktop() ? (
+            <Field orientation="horizontal">
+              <div className="min-w-0">
+                <FieldLabel htmlFor="app-autostart">{t("settings.appAutostart")}</FieldLabel>
+                <FieldDescription>{t("settings.appAutostartDescription")}</FieldDescription>
+              </div>
+              <Switch id="app-autostart" checked={desktopAutostart} onCheckedChange={saveDesktopAutostart} />
+            </Field>
+          ) : null}
         </FieldGroup>
       </CardContent>
     </Card>
@@ -184,15 +206,16 @@ function RuntimeSettingsCard({ url, enabled }: { url: string; enabled: boolean }
 export function SettingsPage() {
   const { t } = useTranslation()
   const preferences = usePreferences()
-  const [password, jwt, testURL, autostart, urlTestDefaults, ruleSetAuto] = useQueries({ queries: [
+  const [password, jwt, testURL, autostart, urlTestDefaults, ruleSetAuto, appAutostart] = useQueries({ queries: [
     { queryKey: ["settings", "password"], queryFn: api.settings.password },
     { queryKey: ["settings", "jwt"], queryFn: api.settings.jwt },
     { queryKey: ["settings", "url"], queryFn: api.settings.testURL },
     { queryKey: ["settings", "autostart"], queryFn: api.settings.autostart },
     { queryKey: ["settings", "urltest-defaults"], queryFn: api.settings.urlTestDefaults },
     { queryKey: ["settings", "ruleset-auto-update"], queryFn: api.config.ruleSetsAutoUpdate },
+    { queryKey: ["desktop", "autostart"], queryFn: api.desktop.autostart, enabled: isDesktop() },
   ] })
-  const queries = [password, jwt, testURL, autostart, urlTestDefaults, ruleSetAuto]
+  const queries = [password, jwt, testURL, autostart, urlTestDefaults, ruleSetAuto, appAutostart]
   if (queries.some((query) => query.isLoading)) return <Skeleton className="h-64 w-full" />
   const error = queries.find((query) => query.error)?.error
   if (error) {
@@ -208,5 +231,5 @@ export function SettingsPage() {
       />
     )
   }
-  return <div className="flex flex-col gap-3 sm:gap-4"><h1 className="text-2xl font-semibold">{t("settings.title")}</h1><div className="grid gap-3 sm:gap-4 lg:grid-cols-2"><AppearanceCard /><AccountSecurityCard defaultPassword={password.data!.defaultPassword} jwt={jwt.data!} /><RuntimeSettingsCard url={testURL.data!.url} enabled={autostart.data!.enabled} /><URLTestDefaultsCard defaults={urlTestDefaults.data!} /><RuleSetAutoUpdateCard defaults={ruleSetAuto.data!} /><SupportBundleCard preferences={{ theme: preferences.theme, language: preferences.language, minimumLogLevel: preferences.minimumLogLevel }} /><BackupExportCard /></div></div>
+  return <div className="flex flex-col gap-3 sm:gap-4"><h1 className="text-2xl font-semibold">{t("settings.title")}</h1><div className="grid gap-3 sm:gap-4 lg:grid-cols-2"><AppearanceCard /><AccountSecurityCard defaultPassword={password.data!.defaultPassword} jwt={jwt.data!} /><RuntimeSettingsCard url={testURL.data!.url} enabled={autostart.data!.enabled} appAutostart={appAutostart.data?.enabled ?? false} /><URLTestDefaultsCard defaults={urlTestDefaults.data!} /><RuleSetAutoUpdateCard defaults={ruleSetAuto.data!} /><SupportBundleCard preferences={{ theme: preferences.theme, language: preferences.language, minimumLogLevel: preferences.minimumLogLevel }} /><BackupExportCard /></div></div>
 }

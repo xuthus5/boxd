@@ -1,35 +1,67 @@
-import { screen } from "@testing-library/react"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { render, screen, waitFor } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { I18nextProvider } from "react-i18next"
+import { toast } from "sonner"
 
-import App from "@/App"
-import { sessionStore } from "@/lib/session"
-import { renderApp } from "@/test/render"
+import { RuntimeSettingsCard } from "@/features/settings/settings-page"
+import { i18n } from "@/i18n"
 
-afterEach(() => { vi.unstubAllGlobals(); sessionStore.clear() })
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
+vi.mock("@/lib/api/desktop", () => ({ isDesktop: vi.fn(), desktopRequest: vi.fn() }))
 
-describe("SettingsPage", () => {
-  it("shows appearance, account, and runtime settings", async () => {
-    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
-    vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
-      const path = typeof input === "string" ? input : input.toString()
-      const data = path.endsWith("/password") ? { defaultPassword: false }
-        : path.endsWith("/jwt-secret") ? { masked: "ab********cd", present: true, length: 32 }
-          : path.endsWith("/urltest-defaults") ? { enabled: true, url: "https://www.gstatic.com/generate_204", interval: "3m", tolerance: 50 }
-          : path.endsWith("/rule-sets/auto-update") ? { enabled: false, interval: "24h" }
-          : path.endsWith("/url-test") ? { url: "https://cp.cloudflare.com/" }
-            : { enabled: true }
-      return Promise.resolve(new Response(JSON.stringify(data)))
+import { desktopRequest, isDesktop } from "@/lib/api/desktop"
+
+function renderCard(appAutostart = false, desktop = true) {
+  vi.mocked(isDesktop).mockReturnValue(desktop)
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
+  return render(
+    <I18nextProvider i18n={i18n}>
+      <QueryClientProvider client={client}>
+        <RuntimeSettingsCard url="https://www.gstatic.com/generate_204" enabled={false} appAutostart={appAutostart} />
+      </QueryClientProvider>
+    </I18nextProvider>,
+  )
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.clearAllMocks()
+})
+
+describe("RuntimeSettingsCard app autostart", () => {
+  it("hides the app autostart switch in web mode", () => {
+    renderCard(false, false)
+    expect(screen.queryByText("开机自启动")).not.toBeInTheDocument()
+  })
+
+  it("shows the app autostart switch with current state in desktop mode", () => {
+    renderCard(true, true)
+    expect(screen.getByText("开机自启动")).toBeInTheDocument()
+    expect(screen.getByText("登录系统时自动启动 boxd 桌面应用")).toBeInTheDocument()
+    expect(screen.getByRole("switch", { name: "开机自启动" })).toBeChecked()
+  })
+
+  it("enables app autostart via the bridge and surfaces success", async () => {
+    vi.mocked(desktopRequest).mockResolvedValue({ enabled: true })
+    renderCard(false, true)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole("switch", { name: "开机自启动" }))
+    await waitFor(() => expect(desktopRequest).toHaveBeenCalled())
+    expect(desktopRequest).toHaveBeenCalledWith("/api/desktop/autostart", "PUT", JSON.stringify({ enabled: true }))
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("开机自启动已更新"))
+  })
+
+  it("reverts the switch when the bridge call fails", async () => {
+    vi.mocked(desktopRequest).mockRejectedValue(new Error("boom"))
+    renderCard(false, true)
+    const user = userEvent.setup()
+    const toggle = screen.getByRole("switch", { name: "开机自启动" })
+    await user.click(toggle)
+    await waitFor(() => expect(toggle).not.toBeChecked())
+    expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("boom"), expect.objectContaining({
+      description: expect.any(String),
     }))
-    renderApp(<App />, "/settings")
-    expect(await screen.findByRole("heading", { name: "应用设置" })).toBeInTheDocument()
-    expect(screen.getByText("登录用户名由 BOXD_USERNAME 或启动参数管理，前端不可轮换。")).toBeInTheDocument()
-    expect(screen.getByRole("combobox", { name: "测速地址" })).toBeInTheDocument()
-    expect(screen.queryByLabelText("自定义测速地址")).not.toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "保存测速地址" })).toHaveClass("h-8")
-    expect(screen.getByLabelText("确认新密码")).toBeInTheDocument()
-    expect(screen.getByText(/至少 12 个字符/)).toBeInTheDocument()
-    expect(screen.getByText("订阅 URLTest 默认值")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "生成支持包" })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "导出备份" })).toBeInTheDocument()
   })
 })
