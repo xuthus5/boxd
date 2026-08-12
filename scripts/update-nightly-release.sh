@@ -130,7 +130,8 @@ if [ "${NOTES_ONLY:-0}" = "1" ]; then
   exit 0
 fi
 
-# 重建 release：先删除旧 release 与关联 tag，再以最新提交重新创建。
+# 重建 release：先删除旧 release 与关联 tag，再以最新提交创建 draft release。
+# draft 状态保证所有 job 完成资产上传前用户看不到半成品；由 finalize job 统一发布。
 if gh release view nightly --repo "$repo" >/dev/null 2>&1; then
   gh release delete nightly --repo "$repo" --yes --cleanup-tag
 fi
@@ -140,6 +141,7 @@ gh release create nightly \
   --repo "$repo" \
   --title "Nightly" \
   --prerelease \
+  --draft \
   --notes-file "$notes_file" \
   --target "$target"
-echo "==> Nightly release recreated"
+echo "==> Nightly release recreated (draft; published by finalize job after asset upload)"

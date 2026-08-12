@@ -321,12 +321,36 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          assets=(desktop/bin/boxd-desktop* boxd-desktop-*.zip)
-          # DMG 可选（macOS 生成失败不阻断），存在才上传。
-          for f in boxd-desktop-*.dmg; do
-            [ -e "$f" ] && assets+=("$f")
-          done
+          if [ "${{ matrix.os }}" = "windows" ]; then
+            assets=(desktop/bin/boxd-desktop.exe boxd-desktop-*.zip)
+          else
+            # macOS：仅发布 zip 与可选 dmg，避免上传无意义的裸二进制。
+            assets=(boxd-desktop-*.zip)
+            for f in boxd-desktop-*.dmg; do
+              [ -e "$f" ] && assets+=("$f")
+            done
+          fi
           gh release upload nightly "${assets[@]}" --clobber
+
+  finalize:
+    runs-on: ubuntu-latest
+    needs: [package, package-cross, desktop, desktop-cross]
+    permissions:
+      contents: write
+    steps:
+      - name: Publish nightly release after all assets uploaded
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # draft 状态避免用户看到半成品资产；全部上传完成后统一发布。
+          if gh release view nightly --draft --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release edit nightly --repo "${{ github.repository }}" --draft=false
+            echo "nightly release published"
+          else
+            echo "nightly release not found in draft state; nothing to publish" >&2
+            gh release view nightly --repo "${{ github.repository }}" --json id --jq .id || exit 1
+          fi
 
   docker:
     runs-on: ubuntu-latest
