@@ -10,7 +10,7 @@ set -euo pipefail
 root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 version="${1:-$(git -C "$root_dir" describe --tags --always --dirty 2>/dev/null || echo dev)}"
 arch="${2:-amd64}"
-kernel_version="${KERNEL_VERSION:-1.13.14}"
+kernel_version="${KERNEL_VERSION:-1.13.18}"
 source "$root_dir/scripts/lib-version.sh"
 pkg_version=$(resolve_package_version "$version")
 export PATH="$PATH:/usr/local/go/bin:$HOME/go/bin"

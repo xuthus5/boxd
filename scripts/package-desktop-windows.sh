@@ -11,7 +11,7 @@ set -euo pipefail
 root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 version="${1:-$(git -C "$root_dir" describe --tags --always --dirty 2>/dev/null || echo dev)}"
 arch="${2:-amd64}"
-kernel_version="${KERNEL_VERSION:-1.13.14}"
+kernel_version="${KERNEL_VERSION:-1.13.18}"
 export PATH="$PATH:/usr/local/go/bin:$HOME/go/bin:/c/Go/bin:$(go env GOPATH 2>/dev/null)/bin"
 export GOPROXY="${GOPROXY:-https://proxy.golang.org,https://goproxy.io,direct}"
 export GOOS=windows

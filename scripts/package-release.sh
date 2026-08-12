@@ -16,7 +16,7 @@ else
 fi
 
 root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-KERNEL_VERSION="${KERNEL_VERSION:-1.13.14}"
+KERNEL_VERSION="${KERNEL_VERSION:-1.13.18}"
 BUILD_TAGS="${BUILD_TAGS:-embed_ui with_gvisor with_quic with_dhcp with_wireguard with_utls with_acme with_clash_api}"
 stage_root=$(mktemp -d)
 cleanup() {

@@ -1,7 +1,7 @@
 .PHONY: dev build build-desktop clean check-go check-ui check-embedded-ui
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
-KERNEL_VERSION ?= 1.13.14
+KERNEL_VERSION ?= 1.13.18
 BUILD_TAGS := embed_ui with_gvisor with_quic with_dhcp with_wireguard with_utls with_acme with_clash_api
 
 check-go:
