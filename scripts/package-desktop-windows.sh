@@ -41,8 +41,14 @@ wails3 generate syso -arch "$arch" -icon "build/boxd-desktop.ico" -manifest "bui
 echo "==> Building Windows desktop binary (${arch})"
 mkdir -p bin
 trap 'rm -f "$syso_file"' EXIT
+# 正式发布构建（非 nightly）启用 Wails production tag，禁用 WebView 开发者工具；
+# nightly 保留开发工具便于排查。
+build_tags="desktop embed_ui with_gvisor with_quic with_dhcp with_wireguard with_utls with_acme with_clash_api"
+if [[ "$version" != "nightly" ]]; then
+  build_tags="$build_tags production"
+fi
 go build \
-  -tags "desktop embed_ui with_gvisor with_quic with_dhcp with_wireguard with_utls with_acme with_clash_api" \
+  -tags "$build_tags" \
   -ldflags "-X github.com/xuthus5/boxd/internal/core.Version=$version -X github.com/sagernet/sing-box/constant.Version=$kernel_version" \
   -o bin/boxd-desktop.exe ./
 

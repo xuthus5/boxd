@@ -343,6 +343,8 @@ Package the desktop app into a binary, deb/rpm/AppImage plus a `.desktop` entry
 
 The desktop app runs the sing-box core in-process (embedded mode, data in `~/.local/share/boxd`), or connects to a remote boxd service (`BOXD_DESKTOP_MODE=remote`). It exposes a system tray, native windows, file dialogs, autostart, and URL scheme deep links; the React frontend auto-detects the desktop runtime and uses Wails bindings and events instead of HTTP/SSE.
 
+Formal release builds disable WebView developer tools (Wails `production` tag); nightly builds keep them enabled for debugging.
+
 Pushing a `v*` tag runs the GitHub Release workflow (full gates, archive, SBOM).
 
 ### Live smoke
