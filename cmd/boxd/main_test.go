@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -383,6 +384,61 @@ func TestNewHTTPServer(t *testing.T) {
 	}
 }
 
+func TestHTTPServerShutdownCancelsRequestContexts(t *testing.T) {
+	started := make(chan struct{})
+	handlerDone := make(chan struct{})
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(started)
+		<-r.Context().Done()
+		close(handlerDone)
+	})
+	httpServer, ok := newHTTPServer("127.0.0.1:0", handler).(*http.Server)
+	if !ok {
+		t.Fatalf("server type = %T", httpServer)
+	}
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = listener.Close() }()
+	go func() { _ = httpServer.Serve(listener) }()
+	t.Cleanup(func() { _ = httpServer.Close() })
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	clientErr := make(chan error, 1)
+	go func() {
+		resp, err := client.Get("http://" + listener.Addr().String() + "/")
+		if err != nil {
+			clientErr <- err
+			return
+		}
+		_ = resp.Body.Close()
+		clientErr <- nil
+	}()
+
+	select {
+	case <-started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("handler did not start")
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		t.Fatalf("shutdown error = %v", err)
+	}
+	select {
+	case <-handlerDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("request context was not cancelled on shutdown")
+	}
+	select {
+	case <-clientErr:
+	case <-time.After(2 * time.Second):
+		t.Fatal("client request did not return")
+	}
+}
+
 func TestSignalChannel(t *testing.T) {
 	ch := signalChannel()
 	if ch == nil {
@@ -428,7 +484,7 @@ func TestServeUntilSignalReturnsListenError(t *testing.T) {
 	}
 }
 
-func TestServeUntilSignalReturnsShutdownError(t *testing.T) {
+func TestServeUntilSignalSwallowsShutdownError(t *testing.T) {
 	quit := make(chan os.Signal, 1)
 	quit <- syscall.SIGTERM
 
@@ -437,8 +493,14 @@ func TestServeUntilSignalReturnsShutdownError(t *testing.T) {
 		shutdownErr: errors.New("shutdown failed"),
 	}
 	err := serveUntilSignal(server, &config.Config{Listen: "127.0.0.1:0"}, quit)
-	if err == nil || !strings.Contains(err.Error(), "shutdown failed") {
-		t.Fatalf("error = %v", err)
+	if err != nil {
+		t.Fatalf("shutdown error should not be fatal: %v", err)
+	}
+	if !server.shutdownCalled {
+		t.Fatal("shutdown should be called")
+	}
+	if !server.closeCalled {
+		t.Fatal("close should be called when graceful shutdown fails")
 	}
 }
 
@@ -446,6 +508,7 @@ type fakeServer struct {
 	listenErr      error
 	shutdownErr    error
 	shutdownCalled bool
+	closeCalled    bool
 }
 
 func (s *fakeServer) ListenAndServe() error {
@@ -459,6 +522,11 @@ func (s *fakeServer) ListenAndServeTLS(certFile, keyFile string) error {
 func (s *fakeServer) Shutdown(ctx context.Context) error {
 	s.shutdownCalled = true
 	return s.shutdownErr
+}
+
+func (s *fakeServer) Close() error {
+	s.closeCalled = true
+	return nil
 }
 
 func TestValidateRegularFileRejectsDirectory(t *testing.T) {

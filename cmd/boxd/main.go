@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -191,18 +192,28 @@ type server interface {
 	ListenAndServe() error
 	ListenAndServeTLS(certFile, keyFile string) error
 	Shutdown(ctx context.Context) error
+	Close() error
 }
 
+// gracefulShutdownTimeout 优雅关停等待活跃连接结束的时长。
+const gracefulShutdownTimeout = 5 * time.Second
+
 func newHTTPServer(addr string, handler http.Handler) server {
-	return &http.Server{
+	// BaseContext 让请求上下文随服务器关停而被取消，提前结束 SSE 等长连接，
+	// 避免 Shutdown 因等待这些连接而超时返回 DeadlineExceeded。
+	baseCtx, cancel := context.WithCancel(context.Background())
+	srv := &http.Server{
 		Addr:              addr,
 		Handler:           handler,
+		BaseContext:       func(net.Listener) context.Context { return baseCtx },
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      0,
 		IdleTimeout:       120 * time.Second,
 		MaxHeaderBytes:    1 << 20,
 	}
+	srv.RegisterOnShutdown(cancel)
+	return srv
 }
 
 var makeHTTPServer = newHTTPServer
@@ -239,8 +250,14 @@ func serveUntilSignal(server server, cfg *config.Config, quit <-chan os.Signal) 
 	}
 
 	slog.Info("shutting down...")
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
 	defer cancel()
-
-	return server.Shutdown(ctx)
+	if err := server.Shutdown(ctx); err != nil {
+		// SSE 等长连接可能无法在期限内结束；强制关闭剩余连接以保证进程干净退出。
+		if closeErr := server.Close(); closeErr != nil {
+			slog.Warn("force close after graceful shutdown failed", "err", closeErr)
+		}
+		slog.Warn("graceful shutdown timed out; closed remaining connections", "err", err)
+	}
+	return nil
 }
