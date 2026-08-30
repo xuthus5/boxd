@@ -112,7 +112,20 @@ func initRuntime(cfg desktopConfig) (*desktopRuntime, error) {
 		svc:      service.New(deps),
 		instance: instance,
 	}
+	autostartKernel(settings.Get("kernel_autostart") == "true", instance.Start)
 	return rt, nil
+}
+
+// autostartKernel 按设置在应用启动时自动拉起内核，行为与 cmd/boxd 服务端一致。
+func autostartKernel(enabled bool, start func() error) {
+	if !enabled {
+		return
+	}
+	if err := start(); err != nil {
+		log.Printf("kernel autostart failed: %v", err)
+	} else {
+		log.Printf("kernel autostarted")
+	}
 }
 
 // close 关闭桌面运行时依赖。
