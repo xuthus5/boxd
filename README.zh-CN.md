@@ -185,6 +185,7 @@ ICMP 测速会打开原始套接字，需要 `CAP_NET_RAW` 能力。
 
 - **systemd 安装**：`boxd.service` 已内置 `AmbientCapabilities=CAP_NET_RAW`，直接 `systemctl start boxd.service` 即可。若自建 unit，需自行加入 `AmbientCapabilities=CAP_NET_RAW` 与 `CapabilityBoundingSet=... CAP_NET_RAW`。
 - **桌面 rpm/deb（非 root 运行）**：安装时自动 `setcap cap_net_raw+ep`，无需额外操作。
+- **桌面本地构建安装**：使用 `make install-desktop`，构建后安装到 `/usr/local/bin/boxd-desktop` 并自动补授 `cap_net_raw`（`install`/`cp` 覆盖会丢失 file capability，缺失会导致 `routing_mark` 出站无法工作）。
 - **桌面手动安装 / AppImage**：运行 `sudo ./scripts/grant-desktop-icmp.sh`（自动解析桌面用户 GID），或 `sudo ./scripts/grant-desktop-icmp.sh $USER setcap`。
 - **不使用 systemd 直接运行**：以 root 运行，或为服务用户授予该能力。否则 ICMP 测速会报 `icmp raw socket requires CAP_NET_RAW`（TCP/HTTP 测速不受影响）。
 
@@ -279,6 +280,7 @@ Nightly 二进制发布在滚动 GitHub Release 标签 `nightly` 下，同时作
 
 ```bash
 make build              # 前端构建 + 嵌入 + 产出 bin/boxd
+make install-desktop    # 构建桌面应用并安装到 /usr/local/bin，自动授予 cap_net_raw
 make dev                # 简易联调
 make clean              # 清理 bin 与 dist
 make check-go           # Go 测试、race、覆盖率 ≥90%、lint、govulncheck

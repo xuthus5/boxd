@@ -282,6 +282,7 @@ Nightly binary archives are published under the rolling GitHub Release tag `nigh
 
 ```bash
 make build              # UI build + embed + bin/boxd
+make install-desktop    # build desktop, install to /usr/local/bin, grant cap_net_raw
 make dev                # quick split run
 make clean              # remove bin and dist
 make check-go           # tests, race, coverage ≥90%, lint, govulncheck
@@ -330,6 +331,10 @@ Build the desktop binary (requires GTK4 + WebKitGTK 6.0):
 ```bash
 make build-desktop
 # produces desktop/bin/boxd-desktop
+
+# install locally; re-grants cap_net_raw after replacing the binary
+# (install/cp drop file capabilities, which breaks routing_mark outbounds)
+make install-desktop
 ```
 
 Package the desktop app into a binary, deb/rpm/AppImage plus a `.desktop` entry

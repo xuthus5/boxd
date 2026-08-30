@@ -1,4 +1,4 @@
-.PHONY: dev build build-desktop clean check-go check-ui check-embedded-ui
+.PHONY: dev build build-desktop install-desktop clean check-go check-ui check-embedded-ui
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 KERNEL_VERSION ?= 1.13.18
@@ -40,6 +40,19 @@ build:
 
 build-desktop:
 	@./scripts/build-desktop.sh $(VERSION)
+
+# 本地构建后直接替换安装：install/cp 会丢失 file capability，
+# 因此安装后必须重新授予 cap_net_raw（与 RPM postinstall 行为一致），
+# 缺失该能力会导致 routing_mark 出站无法工作。
+install-desktop: build-desktop
+	@echo "Installing desktop binary..."
+	@sudo install -m 0755 desktop/bin/boxd-desktop /usr/local/bin/boxd-desktop
+	@if sudo setcap cap_net_raw+ep /usr/local/bin/boxd-desktop; then \
+		echo "Granted cap_net_raw: $$(getcap /usr/local/bin/boxd-desktop)"; \
+	else \
+		echo "warning: setcap failed; run 'sudo ./scripts/grant-desktop-icmp.sh $$USER setcap' manually" >&2; \
+	fi
+	@echo "Installed /usr/local/bin/boxd-desktop"
 
 clean:
 	@rm -rf bin/ ui/dist/ cmd/boxd/ui/ desktop/bin/ desktop/ui/ desktop/desktop
