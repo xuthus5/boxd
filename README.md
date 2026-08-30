@@ -337,6 +337,11 @@ make build-desktop
 make install-desktop
 ```
 
+Desktop UI stability: if the WebKit renderer process dies (e.g. after
+suspend/resume), the app reloads the page automatically and offers a
+tray **Reload UI** fallback; `WEBKIT_DISABLE_DMABUF_RENDERER=1` is set
+by default on Linux to avoid known GPU crash paths.
+
 Package the desktop app into a binary, deb/rpm/AppImage plus a `.desktop` entry
 (arm64 builds run natively on an arm64 host/runner):
 

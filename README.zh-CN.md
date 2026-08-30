@@ -189,6 +189,10 @@ ICMP 测速会打开原始套接字，需要 `CAP_NET_RAW` 能力。
 - **桌面手动安装 / AppImage**：运行 `sudo ./scripts/grant-desktop-icmp.sh`（自动解析桌面用户 GID），或 `sudo ./scripts/grant-desktop-icmp.sh $USER setcap`。
 - **不使用 systemd 直接运行**：以 root 运行，或为服务用户授予该能力。否则 ICMP 测速会报 `icmp raw socket requires CAP_NET_RAW`（TCP/HTTP 测速不受影响）。
 
+### 桌面 UI 稳定性
+
+Linux 上 WebKit 渲染进程崩溃（常见于睡眠唤醒后）会自动重载页面恢复 UI，托盘另有 **Reload UI** 兜底入口；应用默认设置 `WEBKIT_DISABLE_DMABUF_RENDERER=1` 规避已知的 GPU 崩溃路径，可通过同名环境变量覆盖。
+
 ## Docker
 
 公开镜像（CI 推送后）：

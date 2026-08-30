@@ -16,6 +16,8 @@ import (
 var globalApp *application.App
 
 func main() {
+	// WebKitGTK 渲染环境缓解，需在 webview 创建前设置。
+	enableWebKitWorkarounds()
 	cfg := parseDesktopConfig()
 	rt, err := initRuntime(cfg)
 	if err != nil {
@@ -57,6 +59,11 @@ func main() {
 	})
 	globalApp = app
 
+	// 渲染进程终止后的自动恢复重载。
+	webRecovery.setReloadFn(func() {
+		reloadMainWindow(globalApp)
+	})
+
 	// 注入原生能力依赖（AutostartManager）。
 	rt.autostart = app.Autostart
 
@@ -80,14 +87,17 @@ func main() {
 	// 全局快捷键：显示/隐藏窗口。
 	setupGlobalShortcuts(app)
 
-	// 前端 runtime 就绪后启动事件流推送（替代 SSE）。
+	// 前端 runtime 就绪后启动事件流推送（替代 SSE），并挂接渲染进程恢复钩子。
 	var streamer *EventStreamer
-	if rt.svc != nil {
-		window.OnWindowEvent(events.Common.WindowRuntimeReady, func(_ *application.WindowEvent) {
+	window.OnWindowEvent(events.Common.WindowRuntimeReady, func(_ *application.WindowEvent) {
+		hookWebProcessTerminated(func() {
+			reloadMainWindow(globalApp)
+		})
+		if rt.svc != nil {
 			streamer = NewEventStreamer(app, rt)
 			streamer.Start()
-		})
-	}
+		}
+	})
 
 	// URL Scheme 深链（boxd://import?link=...）。
 	NewURLHandler(app, rt).Register()

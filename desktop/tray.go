@@ -48,6 +48,13 @@ func setupTray(app *application.App, rt *desktopRuntime) {
 	_ = restartItem
 
 	menu.AddSeparator()
+
+	// 渲染进程卡死后手动重建 UI 的兜底入口。
+	menu.Add("Reload UI").OnClick(func(_ *application.Context) {
+		reloadMainWindow(app)
+	})
+
+	menu.AddSeparator()
 	menu.Add("Quit").OnClick(func(_ *application.Context) {
 		app.Quit()
 	})
