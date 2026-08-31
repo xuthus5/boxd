@@ -130,8 +130,15 @@ if [ "${NOTES_ONLY:-0}" = "1" ]; then
   exit 0
 fi
 
-# 重建 release：先删除旧 release 与关联 tag，再以最新提交创建 draft release。
+# 重建 release：先清理旧 release（含 tag 为空的孤儿草稿）与关联 tag，
+# 再以最新提交创建 draft release。
 # draft 状态保证所有 job 完成资产上传前用户看不到半成品；由 finalize job 统一发布。
+orphan_ids=$(gh api "repos/${repo}/releases?per_page=100" \
+  --jq '.[] | select(.draft) | select(.tag_name == "nightly" or .tag_name == "") | .id' || true)
+for orphan_id in $orphan_ids; do
+  echo "==> Deleting stale draft release ${orphan_id}"
+  gh api -X DELETE "repos/${repo}/releases/${orphan_id}"
+done
 if gh release view nightly --repo "$repo" >/dev/null 2>&1; then
   gh release delete nightly --repo "$repo" --yes --cleanup-tag
 fi

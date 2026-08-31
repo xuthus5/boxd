@@ -344,13 +344,23 @@ jobs:
         run: |
           set -euo pipefail
           # draft 状态避免用户看到半成品资产；全部上传完成后统一发布。
-          if gh release view nightly --draft --repo "${{ github.repository }}" >/dev/null 2>&1; then
-            gh release edit nightly --repo "${{ github.repository }}" --draft=false
-            echo "nightly release published"
-          else
-            echo "nightly release not found in draft state; nothing to publish" >&2
-            gh release view nightly --repo "${{ github.repository }}" --json id --jq .id || exit 1
+          # 注意：gh release view 没有 --draft 选项，必须用 API 精确检测草稿，
+          # 否则 finalize 会静默跳过发布，release 永远停留在 draft（资产 URL
+          # 停留在 untagged-<hash> 占位路径）。
+          repo="${{ github.repository }}"
+          draft_id=$(gh api "repos/${repo}/releases?per_page=100" \
+            --jq '.[] | select(.draft) | select(.tag_name == "nightly") | .id' | head -n1)
+          if [ -z "$draft_id" ]; then
+            echo "nightly draft release not found; nothing to publish" >&2
+            exit 1
           fi
+          gh api -X PATCH "repos/${repo}/releases/${draft_id}" -F draft=false >/dev/null
+          # 发布后断言，避免再次静默失败。
+          if [ "$(gh release view nightly --repo "${repo}" --json isDraft --jq .isDraft)" != "false" ]; then
+            echo "nightly release is still draft after publish" >&2
+            exit 1
+          fi
+          echo "nightly release published"
 
   docker:
     runs-on: ubuntu-latest
