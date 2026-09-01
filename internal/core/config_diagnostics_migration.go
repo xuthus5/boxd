@@ -46,6 +46,8 @@ func checkLegacyDNSFakeIP(report *model.ConfigDiagnostics, cfg map[string]any) {
 	fakeIP := objectValue(dns["fakeip"])
 	enabled, _ := fakeIP["enabled"].(bool)
 	if enabled {
+		// sing-box 1.12 弃用 legacy fakeip（1.14 起移除并拒绝启动），
+		// 当前锁定 1.13 仍可运行，故保持 warning 级别。
 		addDiagnostic(report, "legacy_dns_fakeip", model.ConfigDiagnosticSeverityWarning, "dns.fakeip", "", "")
 	}
 }

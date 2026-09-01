@@ -68,9 +68,55 @@ check_github_dep() {
   fi
 }
 
-check_github_dep "sing-box" \
+# check_series_dep <name> <module> <modfile> <repo>
+# 系列内严格比较：同一 major.minor 系列内出现更新的 patch 即失败；
+# 上游发布更新的 minor/major 时仅告警——是否跟进破坏性升级由人工决策，
+# 避免 CI 强制引入未经评估的变更（如 sing-box 1.14.0 的启动 data race）。
+check_series_dep() {
+  local name="$1" module="$2" modfile="$3" repo="$4"
+  local pinned
+  pinned=$(pinned_version "$module" "$modfile")
+  pinned=${pinned#v}
+  if [ -z "$pinned" ]; then
+    echo "ERROR: ${name}: not pinned in ${modfile}" >&2
+    failed=1
+    return
+  fi
+  mapfile -t latests < <(curl --fail --silent --show-error --location "${CURL_AUTH[@]}" \
+    "https://api.github.com/repos/${repo}/releases?per_page=100" \
+    | PINNED="$pinned" python3 -c "
+import json, os, sys
+tags = [r['tag_name'].lstrip('v') for r in json.load(sys.stdin)
+        if not r.get('draft') and not r.get('prerelease')]
+def key(t):
+    return tuple(int(p) for p in t.split('.'))
+tags.sort(key=key)
+pinned = os.environ['PINNED']
+series = '.'.join(pinned.split('.')[:2])
+same = [t for t in tags if t.startswith(series + '.')]
+print(tags[-1] if tags else '')
+print(same[-1] if same else '')
+")
+  local latest_all="${latests[0]:-}" latest_series="${latests[1]:-}"
+  if [ -z "$latest_all" ]; then
+    echo "ERROR: ${name}: cannot list releases of ${repo}" >&2
+    failed=1
+    return
+  fi
+  if [ -z "$latest_series" ] || [ "$pinned" != "$latest_series" ]; then
+    echo "FAIL: ${name} pinned ${pinned}, latest patch in series is ${latest_series:-none}" >&2
+    failed=1
+  elif [ "$pinned" != "$latest_all" ]; then
+    echo "WARN: ${name} ${pinned} is latest of series; newer minor ${latest_all} available, review manually" >&2
+    echo "OK: ${name} ${pinned} is up to date (within series)"
+  else
+    echo "OK: ${name} ${pinned} is up to date"
+  fi
+}
+
+check_series_dep "sing-box" \
   "github.com/sagernet/sing-box" "$root_dir/go.mod" \
-  "SagerNet/sing-box" "stable" "v"
+  "SagerNet/sing-box"
 
 check_github_dep "wails/v3" \
   "github.com/wailsapp/wails/v3" "$root_dir/desktop/go.mod" \
