@@ -2,9 +2,11 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-Single-node control plane for [sing-box](https://github.com/SagerNet/sing-box). Manage kernel config, subscriptions, route/DNS policy, and runtime observability from a web panel.
+Control plane for [sing-box](https://github.com/SagerNet/sing-box). Manage kernel config, subscriptions, route/DNS policy, and runtime observability from a web panel.
 
 > PoC stage — APIs and data models may change.
+
+![boxd](./screenshots/boxd.png)
 
 ## Features
 

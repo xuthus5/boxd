@@ -2,9 +2,11 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-sing-box 单节点控制平面（control plane）。提供 Web 面板管理内核配置、订阅节点、路由/DNS 策略与运行观测。
+sing-box 控制平面（control plane）。提供 Web 面板管理内核配置、订阅节点、路由/DNS 策略与运行观测。
 
 > 当前处于 PoC 阶段，接口与数据模型可能随开发调整。
+
+![boxd](./screenshots/boxd.png)
 
 ## 功能
 

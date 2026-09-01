@@ -14,3 +14,4 @@ build/linux/bin/
 *.db
 *.log
 __debug_bin*
+.idea
