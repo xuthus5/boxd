@@ -8,6 +8,24 @@ set -euo pipefail
 # 用法: ./scripts/check-dependency-versions.sh
 # 依赖: curl（访问 GitHub API / npm registry），网络需可达外网。
 
+# 重试辅助函数，应对GitHub API临时不可用
+curl_with_retry() {
+  local retries=3
+  local wait=5
+  local attempt=0
+  while [ $attempt -lt $retries ]; do
+    if curl "$@"; then
+      return 0
+    fi
+    attempt=$((attempt + 1))
+    if [ $attempt -lt $retries ]; then
+      echo "Retry $attempt/$retries after ${wait}s..." >&2
+      sleep $wait
+    fi
+  done
+  return 1
+}
+
 root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 failed=0
 
@@ -22,12 +40,12 @@ fi
 latest_tag() {
   local repo="$1" mode="${2:-stable}"
   if [ "$mode" = "stable" ]; then
-    curl --fail --silent --show-error --location "${CURL_AUTH[@]}" \
+    curl_with_retry --fail --silent --show-error --location "${CURL_AUTH[@]}" \
       "https://api.github.com/repos/${repo}/releases/latest" \
       | python3 -c "import json, sys; print(json.load(sys.stdin).get('tag_name', ''))"
     return
   fi
-  curl --fail --silent --show-error --location "${CURL_AUTH[@]}" \
+  curl_with_retry --fail --silent --show-error --location "${CURL_AUTH[@]}" \
     "https://api.github.com/repos/${repo}/releases?per_page=15" \
     | python3 -c "
 import json, sys
@@ -82,7 +100,7 @@ check_series_dep() {
     failed=1
     return
   fi
-  mapfile -t latests < <(curl --fail --silent --show-error --location "${CURL_AUTH[@]}" \
+  mapfile -t latests < <(curl_with_retry --fail --silent --show-error --location "${CURL_AUTH[@]}" \
     "https://api.github.com/repos/${repo}/releases?per_page=100" \
     | PINNED="$pinned" python3 -c "
 import json, os, sys
