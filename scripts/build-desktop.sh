@@ -2,16 +2,19 @@
 set -euo pipefail
 
 # build-desktop.sh 构建 boxd-desktop 桌面应用。
-# 用法: ./scripts/build-desktop.sh [VERSION] [GOOS]
+# 用法: ./scripts/build-desktop.sh [VERSION] [GOOS] [GOARCH]
 # GOOS 默认为当前系统；可显式传入 windows 或 linux。
+# GOARCH 默认为当前架构；windows 支持 amd64/arm64。
 
 root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 version="${1:-$(git -C "$root_dir" describe --tags --always --dirty 2>/dev/null || echo dev)}"
 kernel_version="${KERNEL_VERSION:-1.13.21}"
 target_os="${2:-$(go env GOOS)}"
+target_arch="${3:-$(go env GOARCH)}"
 export PATH="$PATH:/usr/local/go/bin:$HOME/go/bin"
 export GOPROXY="${GOPROXY:-https://proxy.golang.org,https://goproxy.io,direct}"
 export GOOS="$target_os"
+export GOARCH="$target_arch"
 
 # Linux 桌面依赖 GTK4/WebKitGTK（cgo），必须开启 CGO。
 if [ "$target_os" = "linux" ]; then
@@ -35,17 +38,22 @@ fi
 echo "==> Generating Wails bindings"
 (cd "$root_dir/desktop" && wails3 generate bindings -d "$root_dir/ui/src/lib/api/bindings" >/dev/null)
 
-echo "==> Building desktop binary ($target_os)"
+echo "==> Building desktop binary ($target_os/$target_arch)"
 mkdir -p "$root_dir/desktop/bin"
 
 ldflags="-X github.com/xuthus5/boxd/internal/core.Version=$version -X github.com/sagernet/sing-box/constant.Version=$kernel_version"
 if [ "$target_os" = "windows" ]; then
   ldflags="$ldflags -H=windowsgui"
-  output="bin/boxd-desktop.exe"
+  output="bin/boxd-desktop-${target_arch}.exe"
 
-  # 编译 Windows 资源（图标 + 版本信息），Go 会自动链接 .syso
-  echo "==> Compiling Windows resources"
-  (cd "$root_dir/desktop" && windres -o app_windows.syso app.rc)
+  # 编译 Windows 资源（图标 + 版本信息），仅 amd64 主机支持 windres
+  if [ "$target_arch" = "amd64" ] || [ "$(go env GOARCH)" = "$target_arch" ]; then
+    echo "==> Compiling Windows resources"
+    (cd "$root_dir/desktop" && windres -o app_windows.syso app.rc)
+  else
+    echo "==> Skipping Windows resources (cross-compile for $target_arch)"
+    rm -f "$root_dir/desktop/app_windows.syso"
+  fi
 else
   output="bin/boxd-desktop"
 fi
@@ -72,11 +80,11 @@ if [ "$target_os" = "windows" ]; then
       echo "==> Downloading WebView2 bootstrapper"
       curl -sL -o "$webview2_exe" "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
     fi
-    echo "==> Building NSIS installer"
+    echo "==> Building NSIS installer ($target_arch)"
     (cd "$nsis_dir_src" && makensis \
-      -DARG_WAILS_AMD64_BINARY="..\..\..\bin\boxd-desktop.exe" \
+      -DARG_WAILS_${target_arch^^}_BINARY="..\..\..\bin\boxd-desktop-${target_arch}.exe" \
       project.nsi)
-    echo "==> Built desktop/bin/boxd-desktop-amd64-installer.exe"
+    echo "==> Built desktop/bin/boxd-desktop-${target_arch}-installer.exe"
   else
     echo "==> Skipping NSIS installer (makensis not found)"
   fi

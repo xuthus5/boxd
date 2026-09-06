@@ -42,7 +42,14 @@ build-desktop:
 	@./scripts/build-desktop.sh $(VERSION)
 
 build-desktop-windows:
-	@./scripts/build-desktop.sh $(VERSION) windows
+	@./scripts/build-desktop.sh $(VERSION) windows amd64
+	@./scripts/build-desktop.sh $(VERSION) windows arm64
+	@echo "==> Building dual-arch NSIS installer"
+	@cd desktop/build/windows/nsis && makensis \
+		-DARG_WAILS_AMD64_BINARY="..\..\..\bin\boxd-desktop-amd64.exe" \
+		-DARG_WAILS_ARM64_BINARY="..\..\..\bin\boxd-desktop-arm64.exe" \
+		project.nsi
+	@echo "==> Built desktop/bin/boxd-desktop-amd64_arm64-installer.exe"
 
 # 本地构建后直接替换安装：install/cp 会丢失 file capability，
 # 因此安装后必须重新授予 cap_net_raw（与 RPM postinstall 行为一致），

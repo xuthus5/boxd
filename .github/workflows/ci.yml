@@ -144,3 +144,35 @@ jobs:
             exit 1
           fi
           docker rm -f boxd-ci-smoke >/dev/null
+
+  desktop-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - name: Install NSIS
+        run: winget install NSIS.NSIS --accept-source-agreements --accept-package-agreements
+      - name: Install wails3
+        run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.2
+      - name: Build Windows desktop (amd64 + arm64) and NSIS installer
+        shell: bash
+        run: |
+          export GOPROXY=https://proxy.golang.org,https://goproxy.io,direct
+          make build-desktop-windows
+      - name: Verify artifacts
+        shell: bash
+        run: |
+          ls -la desktop/bin/*.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-windows-installer
+          path: desktop/bin/*-installer.exe
+          if-no-files-found: error
