@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"log/slog"
 	"strings"
 
 	"github.com/xuthus5/boxd/internal/core"
@@ -63,8 +64,10 @@ func (s *SubscriptionService) Create(_ context.Context, input SubscriptionInput)
 	}
 	sub, err := s.manager.Create(input.params())
 	if err != nil {
+		slog.Error("subscription create failed", "name", input.Name, "err", err)
 		return nil, Errorf(500, model.ErrorInternal, "%v", err)
 	}
+	slog.Info("subscription created", "id", sub.ID, "name", input.Name, "interval", input.IntervalMin)
 	return sub, nil
 }
 
@@ -88,32 +91,41 @@ func (s *SubscriptionService) Update(_ context.Context, id string, input Subscri
 		return Errorf(400, model.ErrorInvalidRequest, "%v", err)
 	}
 	if err := s.manager.Update(id, input.params()); err != nil {
+		slog.Error("subscription update failed", "id", id, "err", err)
 		return Errorf(404, model.ErrorSubscriptionNotFound, "%v", err)
 	}
+	slog.Info("subscription updated", "id", id, "name", input.Name)
 	return nil
 }
 
 // Delete 删除订阅。
 func (s *SubscriptionService) Delete(_ context.Context, id string) error {
 	if err := s.manager.Delete(id); err != nil {
+		slog.Error("subscription delete failed", "id", id, "err", err)
 		return Errorf(404, model.ErrorSubscriptionNotFound, "%v", err)
 	}
+	slog.Info("subscription deleted", "id", id)
 	return nil
 }
 
 // Refresh 刷新单个订阅并同步配置。
 func (s *SubscriptionService) Refresh(ctx context.Context, id string) error {
+	slog.Info("subscription refresh started", "id", id)
 	if err := s.manager.RefreshContext(ctx, id); err != nil {
+		slog.Error("subscription refresh failed", "id", id, "err", err)
 		return Errorf(500, model.ErrorSubscriptionRefresh, "%v", err)
 	}
 	if err := s.syncConfig(); err != nil {
+		slog.Error("subscription config sync failed after refresh", "id", id, "err", err)
 		return Errorf(500, model.ErrorSubscriptionSync, "%v", subscriptionSyncErrorMessage(err))
 	}
+	slog.Info("subscription refresh completed", "id", id)
 	return nil
 }
 
 // RefreshAll 刷新全部订阅并同步配置。
 func (s *SubscriptionService) RefreshAll(ctx context.Context) (RefreshAllResult, error) {
+	slog.Info("subscription refresh-all started")
 	failures := s.manager.RefreshAllContext(ctx)
 	if failures == nil {
 		failures = []core.SubscriptionRefreshFailure{}
@@ -122,6 +134,14 @@ func (s *SubscriptionService) RefreshAll(ctx context.Context) (RefreshAllResult,
 	syncMessage := ""
 	if syncErr != nil {
 		syncMessage = subscriptionSyncErrorMessage(syncErr)
+	}
+	if len(failures) > 0 || syncErr != nil {
+		slog.Warn("subscription refresh-all completed with issues",
+			"failed", len(failures),
+			"sync_failed", syncErr != nil,
+		)
+	} else {
+		slog.Info("subscription refresh-all completed")
 	}
 	return RefreshAllResult{
 		Failures:    failures,

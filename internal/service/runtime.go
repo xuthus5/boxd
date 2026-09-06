@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"time"
 
@@ -56,9 +57,12 @@ func (s *RuntimeService) SelectOutbound(_ context.Context, group, tag string) (s
 	if s.instance == nil {
 		return "", Errorf(500, model.ErrorInternal, "service is not available")
 	}
+	slog.Info("outbound switch requested", "group", group, "tag", tag)
 	if err := s.instance.SelectOutbound(group, tag); err != nil {
+		slog.Error("outbound switch failed", "group", group, "tag", tag, "err", err)
 		return "", mapRuntimeError(err)
 	}
+	slog.Info("outbound switched", "group", group, "tag", tag)
 	return tag, nil
 }
 
@@ -84,9 +88,12 @@ func (s *RuntimeService) FlushDNS(_ context.Context) error {
 	if s.instance == nil {
 		return Errorf(500, model.ErrorInternal, "service is not available")
 	}
+	slog.Info("DNS cache flush requested")
 	if err := s.instance.FlushDNS(); err != nil {
+		slog.Error("DNS cache flush failed", "err", err)
 		return mapRuntimeError(err)
 	}
+	slog.Info("DNS cache flushed")
 	return nil
 }
 
@@ -95,9 +102,12 @@ func (s *RuntimeService) FlushFakeIP(_ context.Context) error {
 	if s.instance == nil {
 		return Errorf(500, model.ErrorInternal, "service is not available")
 	}
+	slog.Info("FakeIP flush requested")
 	if err := s.instance.FlushFakeIP(); err != nil {
+		slog.Error("FakeIP flush failed", "err", err)
 		return mapRuntimeError(err)
 	}
+	slog.Info("FakeIP flushed")
 	return nil
 }
 
@@ -149,10 +159,13 @@ func (s *RuntimeService) SetClashMode(_ context.Context, mode string) (core.Clas
 	if s.instance == nil {
 		return core.ClashModeStatus{}, Errorf(500, model.ErrorInternal, "service is not available")
 	}
+	slog.Info("Clash mode switch requested", "mode", mode)
 	status, err := s.instance.SetClashMode(mode)
 	if err != nil {
+		slog.Error("Clash mode switch failed", "mode", mode, "err", err)
 		return core.ClashModeStatus{}, mapRuntimeError(err)
 	}
+	slog.Info("Clash mode switched", "mode", mode)
 	return status, nil
 }
 

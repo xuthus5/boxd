@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -127,6 +128,7 @@ func (u *RuleSetUpdater) Update(ctx context.Context, req RuleSetUpdateRequest) (
 	}
 	entries := ruleSetEntries(cfg)
 	selected := selectRuleSets(entries, req)
+	slog.Info("rule set update started", "total", len(entries), "selected", len(selected))
 	resp := model.RuleSetUpdateResponse{Results: make([]model.RuleSetUpdateResult, 0, len(selected))}
 	needsCacheWrite := false
 	for _, entry := range selected {
@@ -165,6 +167,12 @@ func (u *RuleSetUpdater) Update(ctx context.Context, req RuleSetUpdateRequest) (
 		}
 		resp.Restarted = true
 	}
+	slog.Info("rule set update completed",
+		"updated", resp.UpdatedCount,
+		"skipped", resp.SkippedCount,
+		"failed", resp.FailedCount,
+		"restarted", resp.Restarted,
+	)
 	return resp, nil
 }
 

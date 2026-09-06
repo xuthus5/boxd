@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/xuthus5/boxd/internal/model"
 )
@@ -30,9 +31,12 @@ func (s *ServiceControl) ServiceStart(_ context.Context) error {
 	if s.instance == nil {
 		return Errorf(500, model.ErrorInternal, "service is not available")
 	}
+	slog.Info("kernel start requested")
 	if err := s.instance.Start(); err != nil {
+		slog.Error("kernel start failed", "err", err)
 		return Errorf(500, model.ErrorInternal, "%v", err)
 	}
+	slog.Info("kernel started")
 	return nil
 }
 
@@ -41,9 +45,12 @@ func (s *ServiceControl) ServiceStop(_ context.Context) error {
 	if s.instance == nil {
 		return Errorf(500, model.ErrorInternal, "service is not available")
 	}
+	slog.Info("kernel stop requested")
 	if err := s.instance.Stop(); err != nil {
+		slog.Error("kernel stop failed", "err", err)
 		return Errorf(500, model.ErrorInternal, "%v", err)
 	}
+	slog.Info("kernel stopped")
 	return nil
 }
 
@@ -52,8 +59,11 @@ func (s *ServiceControl) ServiceRestart(_ context.Context) error {
 	if s.instance == nil {
 		return Errorf(500, model.ErrorInternal, "service is not available")
 	}
+	slog.Info("kernel restart requested")
 	if err := s.instance.Restart(); err != nil {
+		slog.Error("kernel restart failed", "err", err)
 		return Errorf(500, model.ErrorInternal, "%v", err)
 	}
+	slog.Info("kernel restarted")
 	return nil
 }

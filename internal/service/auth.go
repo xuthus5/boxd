@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"crypto/subtle"
+	"log/slog"
 	"time"
 
 	jwt "github.com/golang-jwt/jwt/v5"
@@ -51,6 +52,7 @@ func NewAuthService(username, password string, provider SecretProvider) *AuthSer
 func (s *AuthService) Login(_ context.Context, remoteAddr string, creds AuthCredentials) (model.AuthResponse, error) {
 	key := clientIP(remoteAddr)
 	if s.limiter != nil && !s.limiter.allow(key, s.now()) {
+		slog.Warn("login rate limited", "remote", key)
 		return model.AuthResponse{}, Errorf(429, model.ErrorRateLimited, "too many login attempts")
 	}
 
@@ -58,6 +60,7 @@ func (s *AuthService) Login(_ context.Context, remoteAddr string, creds AuthCred
 		if s.limiter != nil {
 			s.limiter.recordFailure(key, s.now())
 		}
+		slog.Warn("login failed", "username", creds.Username, "remote", key)
 		return model.AuthResponse{}, Errorf(401, model.ErrorUnauthorized, "invalid credentials")
 	}
 
@@ -75,9 +78,11 @@ func (s *AuthService) Login(_ context.Context, remoteAddr string, creds AuthCred
 
 	tokenStr, err := token.SignedString([]byte(secret))
 	if err != nil {
+		slog.Error("token generation failed", "err", err)
 		return model.AuthResponse{}, Errorf(500, model.ErrorInternal, "token generation failed")
 	}
 
+	slog.Info("login success", "username", creds.Username, "remote", key)
 	return model.AuthResponse{Token: tokenStr, ExpiresAt: expiresAt}, nil
 }
 

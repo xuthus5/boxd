@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strings"
 
 	"github.com/xuthus5/boxd/internal/core"
@@ -29,14 +30,18 @@ func (s *SettingsService) GetPasswordStatus(_ context.Context) (map[string]bool,
 func (s *SettingsService) ChangePassword(_ context.Context, currentPassword, newPassword string) (map[string]bool, error) {
 	err := s.settings.ChangeAdminPassword(s.username, currentPassword, newPassword)
 	if errors.Is(err, core.ErrCurrentPasswordInvalid) {
+		slog.Warn("password change rejected: current password invalid")
 		return nil, Errorf(401, model.ErrorUnauthorized, "%v", err)
 	}
 	if errors.Is(err, core.ErrWeakPassword) {
+		slog.Warn("password change rejected: weak password")
 		return nil, Errorf(400, model.ErrorInvalidRequest, "%v", err)
 	}
 	if err != nil {
+		slog.Error("password change failed", "err", err)
 		return nil, Errorf(500, model.ErrorInternal, "failed to change password")
 	}
+	slog.Info("admin password changed")
 	return map[string]bool{"changed": true}, nil
 }
 
@@ -128,6 +133,7 @@ func (s *SettingsService) SetKernelAutostart(_ context.Context, enabled bool) (m
 	if err := s.settings.Set("kernel_autostart", val); err != nil {
 		return nil, Errorf(500, model.ErrorInternal, "failed to save")
 	}
+	slog.Info("kernel autostart setting changed", "enabled", enabled)
 	return map[string]bool{"enabled": enabled}, nil
 }
 
@@ -179,8 +185,10 @@ func (s *SettingsService) SetJWTSecret(_ context.Context, secret string) (map[st
 		return nil, Errorf(400, model.ErrorInvalidRequest, "secret must not be empty")
 	}
 	if err := s.settings.SetJWTSecret(secret); err != nil {
+		slog.Error("JWT secret rotation failed", "err", err)
 		return nil, Errorf(400, model.ErrorInvalidRequest, "%v", err)
 	}
+	slog.Info("JWT secret rotated")
 	return map[string]any{
 		"masked": maskJWTSecret(secret),
 		"length": len(secret),

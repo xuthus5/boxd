@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"os"
 	"sync"
 
@@ -97,7 +98,9 @@ type ApplyResult struct {
 
 // writeConfigFile 原子写入配置文件并重启内核，失败时回滚。
 func (c *Config) writeConfigFile(ctx context.Context, body []byte, source string) (ApplyResult, error) {
+	slog.Info("config apply started", "source", source, "size", len(body))
 	if err := ValidateRuntimeConfig(ctx, body); err != nil {
+		slog.Warn("config validation failed", "source", source, "err", err)
 		return ApplyResult{}, err
 	}
 	c.applyMu.Lock()
@@ -109,23 +112,30 @@ func (c *Config) writeConfigFile(ctx context.Context, body []byte, source string
 		return ApplyResult{}, Errorf(500, model.ErrorInternal, "failed to read config")
 	}
 	if err := atomicWriteFile(c.path, body); err != nil {
+		slog.Error("config write failed", "source", source, "err", err)
 		return ApplyResult{}, Errorf(500, model.ErrorInternal, "failed to write config")
 	}
 	if c.instance == nil {
+		slog.Info("config applied (no kernel)", "source", source)
 		c.recordApply(source, model.StatusOK, body, nil)
 		return ApplyResult{Status: model.StatusOK}, nil
 	}
 	restartErr := c.instance.Restart()
 	if restartErr == nil {
+		slog.Info("config applied and kernel restarted", "source", source)
 		c.recordApply(source, model.StatusOK, body, nil)
 		return ApplyResult{Status: model.StatusOK}, nil
 	}
+	slog.Error("kernel restart failed after config write, rolling back", "source", source, "err", restartErr)
 	if err := rollbackConfigFile(c.path, previousBody, previousExists); err != nil {
+		slog.Error("config rollback failed", "source", source, "err", err)
 		return ApplyResult{}, Errorf(500, model.ErrorInternal, "failed to write config")
 	}
 	if err := c.instance.Restart(); err != nil {
+		slog.Error("kernel restart failed after rollback", "source", source, "err", err)
 		return ApplyResult{}, Errorf(500, model.ErrorInternal, "failed to write config")
 	}
+	slog.Info("config rolled back and kernel restarted", "source", source, "restart_err", restartErr)
 	c.recordApply(source, model.StatusRolledBack, body, restartErr)
 	return ApplyResult{
 		Status: model.StatusRolledBack,
@@ -166,11 +176,13 @@ func (c *Config) ValidateConfig(ctx context.Context, body []byte, source string)
 	if err := ValidateRuntimeConfig(ctx, body); err != nil {
 		var invalid *ErrInvalidRuntime
 		if errors.As(err, &invalid) {
+			slog.Warn("config validation failed", "source", source, "err", invalid.Message())
 			c.recordApply(source, "validate_failed", body, errors.New(invalid.Message()))
 			return invalid
 		}
 		return Errorf(500, model.ErrorInternal, "failed to validate config")
 	}
+	slog.Info("config validated ok", "source", source, "size", len(body))
 	c.recordApply(source, "validated", body, nil)
 	return nil
 }
@@ -223,8 +235,10 @@ func (c *Config) InstallDefaultRuleSets(ctx context.Context) (InstallResult, err
 	if c.ruleSetInstaller == nil {
 		return InstallResult{}, Errorf(501, model.ErrorInternal, "default rule-set installer is not configured")
 	}
+	slog.Info("installing default rule sets")
 	entries, err := c.ruleSetInstaller.Install(ctx)
 	if err != nil {
+		slog.Error("rule set install failed", "err", err)
 		return InstallResult{}, Errorf(502, model.ErrorBadGateway, "%v", err)
 	}
 	cfg, apiErr := c.readConfigMap(ctx)
@@ -243,7 +257,12 @@ func (c *Config) InstallDefaultRuleSets(ctx context.Context) (InstallResult, err
 		delete(route, "rule_set")
 	}
 	cfg["route"] = route
-	return c.applyInstalledConfig(ctx, cfg, "rule_sets_defaults", entries)
+	result, err := c.applyInstalledConfig(ctx, cfg, "rule_sets_defaults", entries)
+	if err != nil {
+		return result, err
+	}
+	slog.Info("default rule sets installed", "count", len(entries), "status", result.Status, "rolled_back", result.RolledBack)
+	return result, nil
 }
 
 func (c *Config) readConfigMap(ctx context.Context) (map[string]any, *DomainError) {
@@ -269,12 +288,14 @@ func (c *Config) InstallDefaultOutbounds(ctx context.Context) (InstallResult, er
 	if c.outboundInstaller == nil {
 		return InstallResult{}, Errorf(501, model.ErrorInternal, "default outbound installer is not configured")
 	}
+	slog.Info("installing default outbounds")
 	cfg, apiErr := c.readConfigMap(ctx)
 	if apiErr != nil {
 		return InstallResult{}, apiErr
 	}
 	result, err := c.outboundInstaller.Install(cfg)
 	if err != nil {
+		slog.Error("outbound install failed", "err", err)
 		return InstallResult{}, Errorf(500, model.ErrorInternal, "%v", err)
 	}
 	cfg["outbounds"] = result.Outbounds
@@ -286,7 +307,12 @@ func (c *Config) InstallDefaultOutbounds(ctx context.Context) (InstallResult, er
 		route["final"] = result.Final
 	}
 	cfg["route"] = route
-	return c.applyInstalledConfig(ctx, cfg, "outbounds_defaults", result.Installed)
+	installResult, err := c.applyInstalledConfig(ctx, cfg, "outbounds_defaults", result.Installed)
+	if err != nil {
+		return installResult, err
+	}
+	slog.Info("default outbounds installed", "status", installResult.Status, "rolled_back", installResult.RolledBack)
+	return installResult, nil
 }
 
 // InstallDefaultRouteRules 安装默认路由规则。
@@ -294,12 +320,14 @@ func (c *Config) InstallDefaultRouteRules(ctx context.Context) (InstallResult, e
 	if c.routeInstaller == nil {
 		return InstallResult{}, Errorf(501, model.ErrorInternal, "default route installer is not configured")
 	}
+	slog.Info("installing default route rules")
 	cfg, apiErr := c.readConfigMap(ctx)
 	if apiErr != nil {
 		return InstallResult{}, apiErr
 	}
 	result, err := c.routeInstaller.Install(cfg)
 	if err != nil {
+		slog.Error("route rule install failed", "err", err)
 		return InstallResult{}, Errorf(500, model.ErrorInternal, "%v", err)
 	}
 	route, _ := cfg["route"].(map[string]any)
@@ -317,6 +345,7 @@ func (c *Config) InstallDefaultRouteRules(ctx context.Context) (InstallResult, e
 			return InstallResult{}, Errorf(500, model.ErrorInternal, "failed to save default route rule metadata")
 		}
 	}
+	slog.Info("default route rules installed", "status", installResult.Status, "rolled_back", installResult.RolledBack)
 	return installResult, nil
 }
 
@@ -325,16 +354,23 @@ func (c *Config) InstallDefaultDNS(ctx context.Context) (InstallResult, error) {
 	if c.dnsInstaller == nil {
 		return InstallResult{}, Errorf(501, model.ErrorInternal, "default dns installer is not configured")
 	}
+	slog.Info("installing default DNS")
 	cfg, apiErr := c.readConfigMap(ctx)
 	if apiErr != nil {
 		return InstallResult{}, apiErr
 	}
 	result, err := c.dnsInstaller.Install(cfg)
 	if err != nil {
+		slog.Error("DNS install failed", "err", err)
 		return InstallResult{}, Errorf(500, model.ErrorInternal, "%v", err)
 	}
 	applyDNSDefaults(cfg, result)
-	return c.applyInstalledConfig(ctx, cfg, "dns_defaults", result.Installed)
+	installResult, err := c.applyInstalledConfig(ctx, cfg, "dns_defaults", result.Installed)
+	if err != nil {
+		return installResult, err
+	}
+	slog.Info("default DNS installed", "status", installResult.Status, "rolled_back", installResult.RolledBack)
+	return installResult, nil
 }
 
 // InstallDefaultInbounds 安装默认入站配置。
@@ -342,16 +378,23 @@ func (c *Config) InstallDefaultInbounds(ctx context.Context) (InstallResult, err
 	if c.inboundInstaller == nil {
 		return InstallResult{}, Errorf(501, model.ErrorInternal, "default inbound installer is not configured")
 	}
+	slog.Info("installing default inbounds")
 	cfg, apiErr := c.readConfigMap(ctx)
 	if apiErr != nil {
 		return InstallResult{}, apiErr
 	}
 	result, err := c.inboundInstaller.Install(cfg)
 	if err != nil {
+		slog.Error("inbound install failed", "err", err)
 		return InstallResult{}, Errorf(500, model.ErrorInternal, "%v", err)
 	}
 	cfg["inbounds"] = result.Inbounds
-	return c.applyInstalledConfig(ctx, cfg, "inbounds_defaults", result.Installed)
+	installResult, err := c.applyInstalledConfig(ctx, cfg, "inbounds_defaults", result.Installed)
+	if err != nil {
+		return installResult, err
+	}
+	slog.Info("default inbounds installed", "status", installResult.Status, "rolled_back", installResult.RolledBack)
+	return installResult, nil
 }
 
 // InstallDefaultExperimental 安装默认 experimental 配置。
@@ -359,14 +402,21 @@ func (c *Config) InstallDefaultExperimental(ctx context.Context) (InstallResult,
 	if c.experimentalInstaller == nil {
 		return InstallResult{}, Errorf(501, model.ErrorInternal, "default experimental installer is not configured")
 	}
+	slog.Info("installing default experimental")
 	cfg, apiErr := c.readConfigMap(ctx)
 	if apiErr != nil {
 		return InstallResult{}, apiErr
 	}
 	result, err := c.experimentalInstaller.Install(cfg)
 	if err != nil {
+		slog.Error("experimental install failed", "err", err)
 		return InstallResult{}, Errorf(500, model.ErrorInternal, "%v", err)
 	}
 	cfg["experimental"] = result.Experimental
-	return c.applyInstalledConfig(ctx, cfg, "experimental_defaults", result.Installed)
+	installResult, err := c.applyInstalledConfig(ctx, cfg, "experimental_defaults", result.Installed)
+	if err != nil {
+		return installResult, err
+	}
+	slog.Info("default experimental installed", "status", installResult.Status, "rolled_back", installResult.RolledBack)
+	return installResult, nil
 }

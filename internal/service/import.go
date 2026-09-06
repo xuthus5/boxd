@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/xuthus5/boxd/internal/core"
 	"github.com/xuthus5/boxd/internal/model"
@@ -37,6 +38,7 @@ func (s *ImportService) SaveNode(_ context.Context, input NodeInput) error {
 	if s.nodeManager == nil {
 		return Errorf(500, model.ErrorInternal, "node manager not available")
 	}
+	slog.Info("importing node", "tag", input.Tag, "type", input.Type, "server", input.Server, "port", input.Port)
 	outbound := model.Outbound{
 		Tag:    input.Tag,
 		Type:   input.Type,
@@ -45,11 +47,14 @@ func (s *ImportService) SaveNode(_ context.Context, input NodeInput) error {
 		Raw:    input.Config,
 	}
 	if err := s.nodeManager.Add(outbound); err != nil {
+		slog.Error("node import failed", "tag", input.Tag, "err", err)
 		return Errorf(500, model.ErrorInternal, "failed to save node")
 	}
 	if err := s.syncConfig(); err != nil {
+		slog.Error("node config sync failed after import", "tag", input.Tag, "err", err)
 		return Errorf(500, model.ErrorNodeUpdateFailed, "failed to synchronize node configuration: %v", err)
 	}
+	slog.Info("node imported successfully", "tag", input.Tag)
 	return nil
 }
 
