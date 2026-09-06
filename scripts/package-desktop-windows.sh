@@ -54,7 +54,7 @@ if [[ "$version" != "nightly" ]]; then
 fi
 go build \
   -tags "$build_tags" \
-  -ldflags "-w -s -X github.com/xuthus5/boxd/internal/core.Version=$version -X github.com/sagernet/sing-box/constant.Version=$kernel_version" \
+  -ldflags "-w -s -H windowsgui -X github.com/xuthus5/boxd/internal/core.Version=$version -X github.com/sagernet/sing-box/constant.Version=$kernel_version" \
   -o bin/boxd-desktop.exe ./
 
 echo "==> Generating NSIS installer"
