@@ -45,7 +45,7 @@ build-desktop-windows:
 	@./scripts/build-desktop.sh $(VERSION) windows amd64
 	@./scripts/build-desktop.sh $(VERSION) windows arm64
 	@echo "==> Building dual-arch NSIS installer"
-	@cd desktop/build/windows/nsis && makensis \
+	@cd desktop/build/windows/nsis && (command -v makensis >/dev/null 2>&1 && makensis || "/c/Program Files (x86)/NSIS/makensis.exe") \
 		-DARG_WAILS_AMD64_BINARY="..\..\..\bin\boxd-desktop-amd64.exe" \
 		-DARG_WAILS_ARM64_BINARY="..\..\..\bin\boxd-desktop-arm64.exe" \
 		project.nsi
