@@ -27,6 +27,14 @@ func main() {
 	if rt.svc != nil {
 		slog.SetDefault(slog.New(core.NewAppLogHandler(os.Stderr, rt.svc.Deps.AppLogWriter, slog.LevelInfo)))
 	}
+	// slog 已就绪，启动内核与后台服务（确保日志可被捕获）。
+	if rt.startFn != nil && rt.autostartKernel {
+		if err := rt.startFn(); err != nil {
+			slog.Error("kernel autostart failed", "err", err)
+		} else {
+			slog.Info("kernel autostarted")
+		}
+	}
 	defer func() {
 		if err := rt.close(); err != nil {
 			log.Printf("runtime close failed: %v", err)

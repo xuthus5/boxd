@@ -50,6 +50,8 @@ type desktopRuntime struct {
 	instance        *core.SBInstance
 	autostart       *application.AutostartManager
 	backgroundStop  func() // 停止后台服务
+	startFn         func() error
+	autostartKernel bool
 }
 
 // initRuntime 初始化内嵌模式所需的 DB 与核心依赖。
@@ -110,26 +112,26 @@ func initRuntime(cfg desktopConfig) (*desktopRuntime, error) {
 		RouteMetadata:    core.NewRouteRuleMetadataManager(db),
 	}
 	rt := &desktopRuntime{
-		cfg:      cfg,
-		db:       db,
-		svc:      service.New(deps),
-		instance: instance,
+		cfg:             cfg,
+		db:              db,
+		svc:             service.New(deps),
+		instance:        instance,
+		autostartKernel: settings.Get("kernel_autostart") == "true",
 	}
-	// 启动后台服务（规则集自动更新 + 订阅自动刷新），与 cmd/boxd 服务端行为一致。
+	// 后台服务在 startBackgroundServices 中启动，确保 slog 已接入 AppLogHandler。
 	ruleSetAutoUpdater := core.NewRuleSetAutoUpdater(settings, deps.RuleSetUpdater)
 	subscriptionAutoRefresher := core.NewSubscriptionAutoRefresher(deps.SubManager, nil, cfg.RefreshInterval)
 	rt.backgroundStop = func() {
 		subscriptionAutoRefresher.Stop()
 		ruleSetAutoUpdater.Stop()
 	}
-	if settings.Get("kernel_autostart") == "true" {
+	rt.startFn = func() error {
 		if err := instance.Start(); err != nil {
-			log.Printf("kernel autostart failed: %v", err)
-		} else {
-			log.Printf("kernel autostarted")
-			ruleSetAutoUpdater.Start()
-			subscriptionAutoRefresher.Start()
+			return err
 		}
+		ruleSetAutoUpdater.Start()
+		subscriptionAutoRefresher.Start()
+		return nil
 	}
 	return rt, nil
 }
