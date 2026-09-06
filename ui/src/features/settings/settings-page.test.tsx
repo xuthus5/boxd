@@ -16,13 +16,14 @@ import { desktopRequest, isDesktop } from "@/lib/api/desktop"
 function renderCard(appAutostart = false, desktop = true) {
   vi.mocked(isDesktop).mockReturnValue(desktop)
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
-  return render(
+  const result = render(
     <I18nextProvider i18n={i18n}>
       <QueryClientProvider client={client}>
         <RuntimeSettingsCard url="https://www.gstatic.com/generate_204" enabled={false} appAutostart={appAutostart} />
       </QueryClientProvider>
     </I18nextProvider>,
   )
+  return { ...result, client }
 }
 
 afterEach(() => {
@@ -63,5 +64,16 @@ describe("RuntimeSettingsCard app autostart", () => {
     expect(toast.error).toHaveBeenCalledWith(expect.stringContaining("boom"), expect.objectContaining({
       description: expect.any(String),
     }))
+  })
+
+  it("invalidates desktop autostart query cache on success", async () => {
+    vi.mocked(desktopRequest).mockResolvedValue({ enabled: true })
+    const { client } = renderCard(false, true)
+    const invalidateSpy = vi.spyOn(client, "invalidateQueries")
+    const user = userEvent.setup()
+    await user.click(screen.getByRole("switch", { name: "开机自启动" }))
+    await waitFor(() => expect(desktopRequest).toHaveBeenCalled())
+    await waitFor(() => expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["desktop", "autostart"] }))
+    invalidateSpy.mockRestore()
   })
 })

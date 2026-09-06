@@ -1,4 +1,4 @@
-import { useMutation, useQueries } from "@tanstack/react-query"
+import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -124,6 +124,7 @@ function AppearanceCard() {
 
 export function RuntimeSettingsCard({ url, enabled, appAutostart }: { url: string; enabled: boolean; appAutostart: boolean }) {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
   const [savedURL, setSavedURL] = useState(url)
   const [testURL, setTestURL] = useState(() => resolveInitialSpeedTestURL(url))
   const [autostart, setAutostart] = useState(enabled)
@@ -144,7 +145,10 @@ export function RuntimeSettingsCard({ url, enabled, appAutostart }: { url: strin
   const saveAutostart = (checked: boolean) => {
     const previous = autostart
     setAutostart(checked)
-    api.settings.setAutostart(checked).then(() => toast.success(t("settings.autostartSaved"))).catch((error: Error) => {
+    api.settings.setAutostart(checked).then(() => {
+      void queryClient.invalidateQueries({ queryKey: ["settings", "autostart"] })
+      toast.success(t("settings.autostartSaved"))
+    }).catch((error: Error) => {
       setAutostart(previous)
       reportSettingsRequestError(error, t, {
         scope: "autostart",
@@ -155,7 +159,10 @@ export function RuntimeSettingsCard({ url, enabled, appAutostart }: { url: strin
   const saveDesktopAutostart = (checked: boolean) => {
     const previous = desktopAutostart
     setDesktopAutostart(checked)
-    api.desktop.setAutostart(checked).then(() => toast.success(t("settings.appAutostartSaved"))).catch((error: Error) => {
+    api.desktop.setAutostart(checked).then(() => {
+      void queryClient.invalidateQueries({ queryKey: ["desktop", "autostart"] })
+      toast.success(t("settings.appAutostartSaved"))
+    }).catch((error: Error) => {
       setDesktopAutostart(previous)
       reportSettingsRequestError(error, t, {
         scope: "app-autostart",
