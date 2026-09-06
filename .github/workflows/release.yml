@@ -243,7 +243,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          assets=(desktop/bin/boxd-desktop* desktop/bin/*-installer.exe boxd-desktop-*.zip)
+          assets=(desktop/bin/boxd-desktop* boxd-desktop-*.zip)
           for f in boxd-desktop-*.dmg; do
             [ -e "$f" ] && assets+=("$f")
           done

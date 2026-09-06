@@ -22,4 +22,5 @@ cd "$SCRIPT_DIR"
 "$MAKENSIS" \
   -DARG_WAILS_AMD64_BINARY="..\..\..\bin\boxd-desktop-amd64.exe" \
   -DARG_WAILS_ARM64_BINARY="..\..\..\bin\boxd-desktop-arm64.exe" \
+  -DINFO_PRODUCTVERSION="0.0.0.0" \
   project.nsi

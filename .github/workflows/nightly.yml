@@ -356,7 +356,6 @@ jobs:
           name: boxd-nightly-desktop-${{ matrix.os }}-${{ matrix.arch }}
           path: |
             desktop/bin/boxd-desktop*
-            desktop/bin/*-installer.exe
             boxd-desktop-*.zip
             boxd-desktop-*.dmg
           if-no-files-found: error

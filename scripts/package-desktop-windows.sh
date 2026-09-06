@@ -73,14 +73,34 @@ if [[ -n "$makensis_bin" ]]; then
   wails3 generate webview2bootstrapper -dir "$nsis_dir" >/dev/null 2>&1 || echo "==> WebView2 bootstrapper generation skipped"
   # 根据架构设置 NSIS 变量
   arch_upper=$(echo "$arch" | tr '[:lower:]' '[:upper:]')
+  # NSIS 要求版本号为 X.X.X.X 数字格式，nightly 等非数字版本转为 0.0.0.0
+  nsis_version=$(echo "$version" | sed -E 's/^[^0-9]*/0.0.0./; s/[^0-9.]/-/g')
+  if ! echo "$nsis_version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'; then
+    nsis_version="0.0.0.0"
+  fi
   # 调用 NSIS 生成安装程序
+  installer_name="boxd-desktop-${arch}-installer.exe"
   "$makensis_bin" -DARG_WAILS_${arch_upper}_BINARY="$root_dir/desktop/bin/boxd-desktop.exe" \
     -DINFO_PROJECTNAME="boxd-desktop" \
     -DINFO_COMPANYNAME="boxd developers" \
     -DINFO_PRODUCTNAME="boxd desktop" \
-    -DINFO_PRODUCTVERSION="$version" \
+    -DINFO_PRODUCTVERSION="$nsis_version" \
     -DINFO_COPYRIGHT="$(date +%Y) boxd developers" \
-    "$nsis_dir/project.nsi" || echo "==> NSIS build failed (non-fatal)"
+    "$nsis_dir/project.nsi" && {
+    # 压缩安装程序
+    zip_name="boxd-desktop-${arch}-installer.zip"
+    if command -v zip >/dev/null 2>&1; then
+      (cd "$root_dir/desktop/bin" && zip -q -9 "$root_dir/$zip_name" "$installer_name")
+    elif command -v 7z >/dev/null 2>&1; then
+      (cd "$root_dir/desktop/bin" && 7z a -tzip "$root_dir/$zip_name" "$installer_name" >/dev/null)
+    elif [ -f "/c/Program Files/7-Zip/7z.exe" ]; then
+      (cd "$root_dir/desktop/bin" && "/c/Program Files/7-Zip/7z.exe" a -tzip "$root_dir/$zip_name" "$installer_name" >/dev/null)
+    fi
+    if [[ -f "$root_dir/$zip_name" ]]; then
+      echo "==> Output: $root_dir/$zip_name"
+      ls -lh "$root_dir/$zip_name"
+    fi
+  } || echo "==> NSIS build failed (non-fatal)"
 else
   echo "==> makensis not found, skipping NSIS installer"
 fi
