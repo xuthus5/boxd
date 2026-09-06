@@ -24,17 +24,18 @@ type desktopConfig struct {
 	RefreshInterval int
 }
 
-// defaultDesktopConfig 内嵌模式默认使用用户数据目录。
+// defaultDesktopConfig 内嵌模式默认使用统一数据目录 ~/.boxd/。
 func defaultDesktopConfig() desktopConfig {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		home = "."
 	}
+	boxdDir := filepath.Join(home, ".boxd")
 	return desktopConfig{
 		Mode:            "embedded",
 		RemoteURL:       "http://127.0.0.1:9091",
-		DataDir:         filepath.Join(home, ".local", "share", "boxd"),
-		ConfigPath:      filepath.Join(home, ".config", "boxd", "config.json"),
+		DataDir:         boxdDir,
+		ConfigPath:      filepath.Join(boxdDir, "config.json"),
 		Username:        "admin",
 		Password:        "",
 		RefreshInterval: 60,
@@ -59,8 +60,9 @@ func initRuntime(cfg desktopConfig) (*desktopRuntime, error) {
 	if err := os.MkdirAll(cfg.DataDir, 0700); err != nil {
 		return nil, fmt.Errorf("create data dir: %w", err)
 	}
-	if err := os.MkdirAll(filepath.Dir(cfg.ConfigPath), 0700); err != nil {
-		return nil, fmt.Errorf("create config dir: %w", err)
+	// 将工作目录切换到数据目录，避免 sing-box cache.db 写入安装目录（Program Files 无写权限）。
+	if err := os.Chdir(cfg.DataDir); err != nil {
+		log.Printf("warning: chdir to data dir failed: %v", err)
 	}
 	// 配置文件缺失时自动生成最小可用配置，保证内核可启动。
 	if created, err := core.EnsureConfigFile(cfg.ConfigPath); err != nil {

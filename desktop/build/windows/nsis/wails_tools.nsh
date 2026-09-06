@@ -5,19 +5,19 @@
 !include "FileFunc.nsh"
 
 !ifndef INFO_PROJECTNAME
-    !define INFO_PROJECTNAME "mssh"
+    !define INFO_PROJECTNAME "boxd-desktop"
 !endif
 !ifndef INFO_COMPANYNAME
-    !define INFO_COMPANYNAME "MSSH"
+    !define INFO_COMPANYNAME "boxd developers"
 !endif
 !ifndef INFO_PRODUCTNAME
-    !define INFO_PRODUCTNAME "MSSH"
+    !define INFO_PRODUCTNAME "boxd-desktop"
 !endif
 !ifndef INFO_PRODUCTVERSION
     !define INFO_PRODUCTVERSION "0.1.0"
 !endif
 !ifndef INFO_COPYRIGHT
-    !define INFO_COPYRIGHT "(c) 2026, MSSH"
+    !define INFO_COPYRIGHT "(c) 2026, boxd developers"
 !endif
 !ifndef PRODUCT_EXECUTABLE
     !define PRODUCT_EXECUTABLE "${INFO_PROJECTNAME}.exe"

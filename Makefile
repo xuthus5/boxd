@@ -41,6 +41,9 @@ build:
 build-desktop:
 	@./scripts/build-desktop.sh $(VERSION)
 
+build-desktop-windows:
+	@./scripts/build-desktop.sh $(VERSION) windows
+
 # 本地构建后直接替换安装：install/cp 会丢失 file capability，
 # 因此安装后必须重新授予 cap_net_raw（与 RPM postinstall 行为一致），
 # 缺失该能力会导致 routing_mark 出站无法工作。

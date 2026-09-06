@@ -73,6 +73,8 @@ func TestParseDesktopConfigDataDir(t *testing.T) {
 
 func TestInitRuntimeEmbedded(t *testing.T) {
 	dir := t.TempDir()
+	origDir, _ := os.Getwd()
+	defer os.Chdir(origDir)
 	cfg := desktopConfig{
 		Mode:            "embedded",
 		DataDir:         filepath.Join(dir, "data"),
@@ -102,6 +104,8 @@ func TestInitRuntimeEmbedded(t *testing.T) {
 
 func TestInitRuntimeEmbeddedPreservesExistingConfig(t *testing.T) {
 	dir := t.TempDir()
+	origDir, _ := os.Getwd()
+	defer os.Chdir(origDir)
 	configPath := filepath.Join(dir, "config", "config.json")
 	if err := os.MkdirAll(filepath.Dir(configPath), 0700); err != nil {
 		t.Fatal(err)
