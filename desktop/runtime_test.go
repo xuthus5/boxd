@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -147,39 +146,6 @@ func TestInitRuntimeRemoteMode(t *testing.T) {
 	}
 	if err := rt.close(); err != nil {
 		t.Fatal(err)
-	}
-}
-
-func TestAutostartKernelDisabled(t *testing.T) {
-	called := false
-	autostartKernel(false, func() error {
-		called = true
-		return nil
-	})
-	if called {
-		t.Fatal("start should not be called when disabled")
-	}
-}
-
-func TestAutostartKernelEnabled(t *testing.T) {
-	calls := 0
-	autostartKernel(true, func() error {
-		calls++
-		return nil
-	})
-	if calls != 1 {
-		t.Fatalf("start calls = %d, want 1", calls)
-	}
-}
-
-func TestAutostartKernelEnabledStartError(t *testing.T) {
-	calls := 0
-	autostartKernel(true, func() error {
-		calls++
-		return errors.New("boom")
-	})
-	if calls != 1 {
-		t.Fatalf("start calls = %d, want 1", calls)
 	}
 }
 

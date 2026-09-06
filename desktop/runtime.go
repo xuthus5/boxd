@@ -44,11 +44,12 @@ func defaultDesktopConfig() desktopConfig {
 
 // desktopRuntime 聚合桌面端共享的运行时依赖。
 type desktopRuntime struct {
-	cfg       desktopConfig
-	db        *bbolt.DB
-	svc       *service.ServiceSet
-	instance  *core.SBInstance
-	autostart *application.AutostartManager
+	cfg             desktopConfig
+	db              *bbolt.DB
+	svc             *service.ServiceSet
+	instance        *core.SBInstance
+	autostart       *application.AutostartManager
+	backgroundStop  func() // 停止后台服务
 }
 
 // initRuntime 初始化内嵌模式所需的 DB 与核心依赖。
@@ -114,24 +115,30 @@ func initRuntime(cfg desktopConfig) (*desktopRuntime, error) {
 		svc:      service.New(deps),
 		instance: instance,
 	}
-	autostartKernel(settings.Get("kernel_autostart") == "true", instance.Start)
+	// 启动后台服务（规则集自动更新 + 订阅自动刷新），与 cmd/boxd 服务端行为一致。
+	ruleSetAutoUpdater := core.NewRuleSetAutoUpdater(settings, deps.RuleSetUpdater)
+	subscriptionAutoRefresher := core.NewSubscriptionAutoRefresher(deps.SubManager, nil, cfg.RefreshInterval)
+	rt.backgroundStop = func() {
+		subscriptionAutoRefresher.Stop()
+		ruleSetAutoUpdater.Stop()
+	}
+	if settings.Get("kernel_autostart") == "true" {
+		if err := instance.Start(); err != nil {
+			log.Printf("kernel autostart failed: %v", err)
+		} else {
+			log.Printf("kernel autostarted")
+			ruleSetAutoUpdater.Start()
+			subscriptionAutoRefresher.Start()
+		}
+	}
 	return rt, nil
-}
-
-// autostartKernel 按设置在应用启动时自动拉起内核，行为与 cmd/boxd 服务端一致。
-func autostartKernel(enabled bool, start func() error) {
-	if !enabled {
-		return
-	}
-	if err := start(); err != nil {
-		log.Printf("kernel autostart failed: %v", err)
-	} else {
-		log.Printf("kernel autostarted")
-	}
 }
 
 // close 关闭桌面运行时依赖。
 func (r *desktopRuntime) close() error {
+	if r.backgroundStop != nil {
+		r.backgroundStop()
+	}
 	var err error
 	if r.instance != nil {
 		err = r.instance.Stop()
