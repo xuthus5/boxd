@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"log/slog"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -28,19 +28,19 @@ func setupTray(app *application.App, rt *desktopRuntime) {
 	startItem := menu.Add("Start Kernel")
 	startItem.OnClick(func(_ *application.Context) {
 		if err := startKernel(rt); err != nil {
-			log.Printf("kernel start failed: %v", err)
+			slog.Error("kernel start failed", "err", err)
 		}
 	})
 	stopItem := menu.Add("Stop Kernel")
 	stopItem.OnClick(func(_ *application.Context) {
 		if err := stopKernel(rt); err != nil {
-			log.Printf("kernel stop failed: %v", err)
+			slog.Error("kernel stop failed", "err", err)
 		}
 	})
 	restartItem := menu.Add("Restart Kernel")
 	restartItem.OnClick(func(_ *application.Context) {
 		if err := restartKernel(rt); err != nil {
-			log.Printf("kernel restart failed: %v", err)
+			slog.Error("kernel restart failed", "err", err)
 		}
 	})
 	_ = startItem

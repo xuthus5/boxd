@@ -37,7 +37,7 @@ func main() {
 	}
 	defer func() {
 		if err := rt.close(); err != nil {
-			log.Printf("runtime close failed: %v", err)
+			slog.Error("runtime close failed", "err", err)
 		}
 	}()
 
@@ -61,7 +61,7 @@ func main() {
 		},
 		OnShutdown: func() {
 			if err := stopKernel(rt); err != nil {
-				log.Printf("kernel stop on shutdown failed: %v", err)
+				slog.Error("kernel stop on shutdown failed", "err", err)
 			}
 		},
 	})
@@ -111,7 +111,8 @@ func main() {
 	NewURLHandler(app, rt).Register()
 
 	if err := app.Run(); err != nil {
-		log.Fatalf("app run failed: %v", err)
+		slog.Error("app run failed", "err", err)
+		os.Exit(1)
 	}
 	if streamer != nil {
 		streamer.Stop()

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"log/slog"
 	"os"
 	"sync"
 	"time"
@@ -71,10 +71,10 @@ func (r *webProcessRecovery) onTerminated() bool {
 	r.mu.Unlock()
 
 	if reloadFn == nil {
-		log.Printf("web process terminated but no reload fn configured")
+		slog.Error("web process terminated but no reload fn configured")
 		return false
 	}
-	log.Printf("web process terminated, reloading UI (reloads in window: %d)", len(r.reloadLog))
+	slog.Warn("web process terminated, reloading UI", "reloads_in_window", len(r.reloadLog))
 	reloadFn()
 	return true
 }
@@ -91,7 +91,8 @@ func (r *webProcessRecovery) allowReloadLocked(now time.Time) bool {
 		}
 	}
 	if recent >= r.maxReloads {
-		log.Printf("web process keeps terminating (%d reloads in %v); auto reload suspended", recent, r.rateWindow)
+		slog.Error("web process keeps terminating, auto reload suspended",
+			"recent_reloads", recent, "rate_window", r.rateWindow)
 		return false
 	}
 	return true
@@ -116,6 +117,6 @@ func enableWebKitWorkarounds() {
 		return
 	}
 	if err := os.Setenv(key, "1"); err != nil {
-		log.Printf("set %s failed: %v", key, err)
+		slog.Warn("set env failed", "key", key, "err", err)
 	}
 }

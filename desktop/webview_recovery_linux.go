@@ -53,7 +53,7 @@ static gint connect_web_process_terminated_toplevels(void) {
 import "C"
 
 import (
-	"log"
+	"log/slog"
 	"sync"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -74,7 +74,7 @@ func hookWebProcessTerminated(reloadFn func()) {
 		application.InvokeSync(func() {
 			connected = C.connect_web_process_terminated_toplevels()
 		})
-		log.Printf("web process recovery hooked %d webview(s)", int(connected))
+		slog.Info("web process recovery hooked", "webviews", int(connected))
 	})
 }
 
