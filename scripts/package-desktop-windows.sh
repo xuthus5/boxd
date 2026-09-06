@@ -59,6 +59,13 @@ go build \
 
 echo "==> Generating NSIS installer"
 nsis_dir="$root_dir/desktop/build/windows/nsis"
+binary_path="$root_dir/desktop/bin/boxd-desktop.exe"
+# 检查二进制文件是否存在
+if [[ ! -f "$binary_path" ]]; then
+  echo "==> Binary not found at $binary_path, skipping NSIS installer"
+else
+  echo "==> Binary found: $(ls -lh "$binary_path")"
+fi
 # 查找 makensis
 makensis_bin=""
 if command -v makensis >/dev/null 2>&1; then
@@ -80,7 +87,7 @@ if [[ -n "$makensis_bin" ]]; then
   fi
   # 调用 NSIS 生成安装程序
   installer_name="boxd-desktop-${arch}-installer.exe"
-  "$makensis_bin" -DARG_WAILS_${arch_upper}_BINARY="$root_dir/desktop/bin/boxd-desktop.exe" \
+  "$makensis_bin" -DARG_WAILS_${arch_upper}_BINARY="$binary_path" \
     -DINFO_PROJECTNAME="boxd-desktop" \
     -DINFO_COMPANYNAME="boxd developers" \
     -DINFO_PRODUCTNAME="boxd desktop" \
