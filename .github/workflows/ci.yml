@@ -158,6 +158,8 @@ jobs:
           node-version: 20
           cache: npm
           cache-dependency-path: ui/package-lock.json
+      - name: Install frontend dependencies
+        run: npm ci --prefix ui
       - name: Install NSIS
         run: winget install NSIS.NSIS --accept-source-agreements --accept-package-agreements
       - name: Install wails3
