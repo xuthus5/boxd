@@ -80,9 +80,10 @@ cat >"$notes_file" <<EOF
 
 **桌面应用**
 
-| 架构 | 下载 |
-| --- | --- |
-| amd64 | $(dl boxd-desktop-nightly-windows-amd64.zip) |
+| 架构 | zip | 安装程序 |
+| --- | --- | --- |
+| amd64 | $(dl boxd-desktop-nightly-windows-amd64.zip) | $(dl boxd-desktop-amd64-installer.exe) |
+| arm64 | $(dl boxd-desktop-nightly-windows-arm64.zip) | $(dl boxd-desktop-arm64-installer.exe) |
 
 ### 🍎 macOS
 
