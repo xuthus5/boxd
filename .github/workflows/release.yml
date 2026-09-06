@@ -186,7 +186,9 @@ jobs:
         run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.2
       - name: Install NSIS (Windows only)
         if: matrix.os == 'windows'
-        run: choco install nsis -y
+        run: |
+          choco install nsis -y
+          echo "C:\Program Files (x86)\NSIS" >> $GITHUB_PATH
       - name: Package desktop app (${{ matrix.os }} ${{ matrix.arch }})
         shell: bash
         env:

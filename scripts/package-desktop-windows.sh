@@ -36,11 +36,16 @@ wails3 generate bindings -d "$root_dir/ui/src/lib/api/bindings" >/dev/null
 
 echo "==> Generating Windows resource (.syso) for icon"
 syso_file="boxd-desktop_windows_${arch}.syso"
-wails3 generate syso -arch "$arch" -icon "build/boxd-desktop.ico" -manifest "build/boxd-desktop.manifest" -out "$syso_file"
+wails3 generate syso -arch "$arch" -icon "build/boxd-desktop.ico" -manifest "build/boxd-desktop.manifest" -out "$syso_file" 2>/dev/null || {
+  echo "==> wails3 generate syso failed (non-fatal, continuing without icon)"
+  syso_file=""
+}
 
 echo "==> Building Windows desktop binary (${arch})"
 mkdir -p bin
-trap 'rm -f "$syso_file"' EXIT
+if [[ -n "$syso_file" ]]; then
+  trap 'rm -f "$syso_file"' EXIT
+fi
 # 正式发布构建（非 nightly）启用 Wails production tag，禁用 WebView 开发者工具；
 # nightly 保留开发工具便于排查。
 build_tags="desktop embed_ui with_gvisor with_quic with_dhcp with_wireguard with_utls with_acme with_clash_api"
@@ -54,13 +59,22 @@ go build \
 
 echo "==> Generating NSIS installer"
 nsis_dir="$root_dir/desktop/build/windows/nsis"
+# 查找 makensis
+makensis_bin=""
 if command -v makensis >/dev/null 2>&1; then
+  makensis_bin="makensis"
+elif [[ -f "/c/Program Files (x86)/NSIS/makensis.exe" ]]; then
+  makensis_bin="/c/Program Files (x86)/NSIS/makensis.exe"
+elif [[ -f "/c/Program Files/NSIS/makensis.exe" ]]; then
+  makensis_bin="/c/Program Files/NSIS/makensis.exe"
+fi
+if [[ -n "$makensis_bin" ]]; then
   # 生成 WebView2 引导程序
   wails3 generate webview2bootstrapper -dir "$nsis_dir" >/dev/null 2>&1 || echo "==> WebView2 bootstrapper generation skipped"
   # 根据架构设置 NSIS 变量
   arch_upper=$(echo "$arch" | tr '[:lower:]' '[:upper:]')
   # 调用 NSIS 生成安装程序
-  makensis -DARG_WAILS_${arch_upper}_BINARY="$root_dir/desktop/bin/boxd-desktop.exe" \
+  "$makensis_bin" -DARG_WAILS_${arch_upper}_BINARY="$root_dir/desktop/bin/boxd-desktop.exe" \
     -DINFO_PROJECTNAME="boxd-desktop" \
     -DINFO_COMPANYNAME="boxd developers" \
     -DINFO_PRODUCTNAME="boxd desktop" \
