@@ -132,6 +132,32 @@ boxd itself does **not** auto-load a `.env` file. Configuration comes from:
 2. CLI flags
 3. when run under systemd, `EnvironmentFile=-/etc/boxd/boxd.env` in `boxd.service` (the leading `-` means “optional if missing”)
 
+### Windows NSIS installer
+
+The Windows desktop application is packaged as an NSIS installer (`boxd-desktop-<arch>-installer.exe`). This provides a standard Windows installation experience with:
+
+- Start menu and desktop shortcuts
+- Uninstall entry in "Add or Remove Programs"
+- Automatic WebView2 runtime installation (if missing)
+- Installation directory selection
+
+**Installation:**
+
+1. Download the appropriate installer (`boxd-desktop-amd64-installer.exe` or `boxd-desktop-arm64-installer.exe`)
+2. Run the installer and follow the wizard
+3. The application will be installed to `C:\Program Files\boxd-desktop` by default
+
+**Silent installation:**
+
+```bash
+boxd-desktop-amd64-installer.exe /S /D=C:\path\to\install
+```
+
+**Dependencies:**
+
+- Windows 10 or later
+- WebView2 Runtime (automatically installed if missing)
+
 ### systemd install (recommended)
 
 ```bash
@@ -356,6 +382,48 @@ Package the desktop app into a binary, deb/rpm/AppImage plus a `.desktop` entry
 The desktop app runs the sing-box core in-process (embedded mode, data in `~/.local/share/boxd`), or connects to a remote boxd service (`BOXD_DESKTOP_MODE=remote`). It exposes a system tray, native windows, file dialogs, autostart, and URL scheme deep links; the React frontend auto-detects the desktop runtime and uses Wails bindings and events instead of HTTP/SSE.
 
 Formal release builds disable WebView developer tools (Wails `production` tag); nightly builds keep them enabled for debugging.
+
+### Code signing (Windows)
+
+Windows builds can be code-signed to avoid SmartScreen warnings. The signing process uses a PKCS#12 certificate (`.pfx`) and a timestamp server.
+
+**Prerequisites:**
+
+1. A valid code signing certificate (`.pfx` or `.p12` format)
+2. The certificate password
+3. `signtool.exe` (Windows SDK) or `osslsigncode` (cross-platform)
+
+**Configuration:**
+
+Set the following GitHub Actions secrets:
+
+- `CODESIGN_CERT`: Base64-encoded certificate file (`base64 -w 0 certificate.pfx`)
+- `CODESIGN_PASSWORD`: Certificate password
+- `TIMESTAMP_URL` (optional): Timestamp server URL (default: `http://timestamp.digicert.com`)
+
+**Local signing:**
+
+```bash
+# Set environment variables
+export CODESIGN_CERT=/path/to/certificate.pfx
+export CODESIGN_PASSWORD='your-password'
+export TIMESTAMP_URL='http://timestamp.digicert.com'
+
+# Run Windows packaging script (signing will be attempted)
+./scripts/package-desktop-windows.sh v0.1.0 amd64
+```
+
+**Manual signing:**
+
+```bash
+# Using signtool (Windows SDK)
+signtool sign /f certificate.pfx /p "$PASSWORD" /tr http://timestamp.digicert.com /td sha256 /fd sha256 file.exe
+
+# Using osslsigncode (cross-platform)
+osslsigncode sign -pkcs12 certificate.pfx -pass "$PASSWORD" -tr http://timestamp.digicert.com -in file.exe -out file-signed.exe
+```
+
+The signing step is optional and will be skipped if secrets are not configured.
 
 Pushing a `v*` tag runs the GitHub Release workflow (full gates, archive, SBOM).
 

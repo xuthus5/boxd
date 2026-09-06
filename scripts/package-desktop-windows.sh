@@ -49,8 +49,54 @@ if [[ "$version" != "nightly" ]]; then
 fi
 go build \
   -tags "$build_tags" \
-  -ldflags "-X github.com/xuthus5/boxd/internal/core.Version=$version -X github.com/sagernet/sing-box/constant.Version=$kernel_version" \
+  -ldflags "-w -s -X github.com/xuthus5/boxd/internal/core.Version=$version -X github.com/sagernet/sing-box/constant.Version=$kernel_version" \
   -o bin/boxd-desktop.exe ./
+
+echo "==> Generating NSIS installer"
+nsis_dir="$root_dir/desktop/build/windows/nsis"
+if command -v makensis >/dev/null 2>&1; then
+  # 生成 WebView2 引导程序
+  wails3 generate webview2bootstrapper -dir "$nsis_dir" >/dev/null 2>&1 || echo "==> WebView2 bootstrapper generation skipped"
+  # 根据架构设置 NSIS 变量
+  arch_upper=$(echo "$arch" | tr '[:lower:]' '[:upper:]')
+  # 调用 NSIS 生成安装程序
+  makensis -DARG_WAILS_${arch_upper}_BINARY="$root_dir/desktop/bin/boxd-desktop.exe" \
+    -DINFO_PROJECTNAME="boxd-desktop" \
+    -DINFO_COMPANYNAME="boxd developers" \
+    -DINFO_PRODUCTNAME="boxd desktop" \
+    -DINFO_PRODUCTVERSION="$version" \
+    -DINFO_COPYRIGHT="$(date +%Y) boxd developers" \
+    "$nsis_dir/project.nsi" || echo "==> NSIS build failed (non-fatal)"
+else
+  echo "==> makensis not found, skipping NSIS installer"
+fi
+
+# 代码签名（可选）
+sign_installer() {
+  local file="$1"
+  if [ -z "${CODESIGN_CERT:-}" ] || [ -z "${CODESIGN_PASSWORD:-}" ]; then
+    echo "==> Code signing skipped (CODESIGN_CERT or CODESIGN_PASSWORD not set)"
+    return 0
+  fi
+  if ! command -v signtool >/dev/null 2>&1 && ! command -v osslsigncode >/dev/null 2>&1; then
+    echo "==> Code signing skipped (signtool or osslsigncode not found)"
+    return 0
+  fi
+  echo "==> Signing $file"
+  if command -v signtool >/dev/null 2>&1; then
+    signtool sign /f "$CODESIGN_CERT" /p "$CODESIGN_PASSWORD" /tr "${TIMESTAMP_URL:-http://timestamp.digicert.com}" /td sha256 /fd sha256 "$file"
+  elif command -v osslsigncode >/dev/null 2>&1; then
+    osslsigncode sign -pkcs12 "$CODESIGN_CERT" -pass "$CODESIGN_PASSWORD" -tr "${TIMESTAMP_URL:-http://timestamp.digicert.com}" -in "$file" -out "${file}-signed"
+    mv "${file}-signed" "$file"
+  fi
+}
+# 签名主二进制
+sign_installer "$root_dir/desktop/bin/boxd-desktop.exe"
+# 签名安装程序
+installer_file=$(find "$root_dir/desktop/bin" -name "*-installer.exe" -type f | head -1)
+if [ -n "$installer_file" ]; then
+  sign_installer "$installer_file"
+fi
 
 echo "==> Packaging zip"
 zip_name="boxd-desktop-${version}-windows-${arch}.zip"

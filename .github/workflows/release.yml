@@ -181,6 +181,9 @@ jobs:
           cache-dependency-path: ui/package-lock.json
       - name: Install wails3
         run: go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.2
+      - name: Install NSIS (Windows only)
+        if: matrix.os == 'windows'
+        run: choco install nsis -y
       - name: Package desktop app (${{ matrix.os }} ${{ matrix.arch }})
         shell: bash
         env:
@@ -192,13 +195,50 @@ jobs:
           else
             ./scripts/package-desktop-macos.sh "${GITHUB_REF_NAME}" "${{ matrix.arch }}"
           fi
+      - name: Sign Windows binaries (optional)
+        if: matrix.os == 'windows'
+        shell: bash
+        env:
+          CODESIGN_CERT: ${{ secrets.CODESIGN_CERT }}
+          CODESIGN_PASSWORD: ${{ secrets.CODESIGN_PASSWORD }}
+          TIMESTAMP_URL: ${{ secrets.TIMESTAMP_URL || 'http://timestamp.digicert.com' }}
+        run: |
+          set -euo pipefail
+          if [ -n "$CODESIGN_CERT" ] && [ -n "$CODESIGN_PASSWORD" ]; then
+            echo "Decoding certificate..."
+            echo "$CODESIGN_CERT" | base64 -d > certificate.pfx
+            # 签名主二进制
+            if command -v signtool >/dev/null 2>&1; then
+              signtool sign /f certificate.pfx /p "$CODESIGN_PASSWORD" /tr "$TIMESTAMP_URL" /td sha256 /fd sha256 desktop/bin/boxd-desktop.exe
+            elif command -v osslsigncode >/dev/null 2>&1; then
+              osslsigncode sign -pkcs12 certificate.pfx -pass "$CODESIGN_PASSWORD" -tr "$TIMESTAMP_URL" -in desktop/bin/boxd-desktop.exe -out desktop/bin/boxd-desktop-signed.exe
+              mv desktop/bin/boxd-desktop-signed.exe desktop/bin/boxd-desktop.exe
+            else
+              echo "No signing tool found (signtool or osslsigncode)"
+            fi
+            # 签名安装程序
+            for installer in desktop/bin/*-installer.exe; do
+              if [ -f "$installer" ]; then
+                if command -v signtool >/dev/null 2>&1; then
+                  signtool sign /f certificate.pfx /p "$CODESIGN_PASSWORD" /tr "$TIMESTAMP_URL" /td sha256 /fd sha256 "$installer"
+                elif command -v osslsigncode >/dev/null 2>&1; then
+                  osslsigncode sign -pkcs12 certificate.pfx -pass "$CODESIGN_PASSWORD" -tr "$TIMESTAMP_URL" -in "$installer" -out "${installer}-signed"
+                  mv "${installer}-signed" "$installer"
+                fi
+              fi
+            done
+            rm -f certificate.pfx
+            echo "Signing completed"
+          else
+            echo "Code signing skipped (secrets not set)"
+          fi
       - name: Publish desktop ${{ matrix.os }} artifacts
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          assets=(desktop/bin/boxd-desktop* boxd-desktop-*.zip)
+          assets=(desktop/bin/boxd-desktop* desktop/bin/*-installer.exe boxd-desktop-*.zip)
           for f in boxd-desktop-*.dmg; do
             [ -e "$f" ] && assets+=("$f")
           done
