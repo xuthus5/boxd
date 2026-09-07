@@ -201,7 +201,7 @@ func (f *fakeRestart) Restart() error {
 func TestConfigApplyConfigRollback(t *testing.T) {
 	svc := newTestService(t)
 	writeTestConfig(t, svc.Deps.ConfigPath, map[string]any{"outbounds": []any{}})
-	cfg := newConfig(svc.Deps.ConfigPath, &fakeRestart{errs: []error{errors.New("restart failed"), nil}}, ConfigInstaller{})
+	cfg := newConfig(svc.Deps.ConfigPath, "", &fakeRestart{errs: []error{errors.New("restart failed"), nil}}, ConfigInstaller{})
 	result, err := cfg.ApplyConfig(context.Background(), []byte(`{"log":{"level":"debug"}}`), "update")
 	if err != nil {
 		t.Fatal(err)
@@ -223,12 +223,12 @@ func TestConfigApplyConfigRollback(t *testing.T) {
 
 func TestConfigApplyConfigWriteFailure(t *testing.T) {
 	dir := t.TempDir()
-	cfg := newConfig(filepath.Join(dir, "sub", "config.json"), nil, ConfigInstaller{})
+	cfg := newConfig(filepath.Join(dir, "sub", "config.json"), "", nil, ConfigInstaller{})
 	_, err := cfg.ApplyConfig(context.Background(), []byte(`{"log":{"level":"debug"}}`), "update")
 	if err != nil {
 		t.Fatal(err)
 	}
-	blocked := newConfig(dir, nil, ConfigInstaller{})
+	blocked := newConfig(dir, "", nil, ConfigInstaller{})
 	_, err = blocked.ApplyConfig(context.Background(), []byte(`{"log":{"level":"debug"}}`), "update")
 	if err == nil {
 		t.Fatal("expected error when config path is a directory")

@@ -18,7 +18,7 @@ func TestInstallDefaultRuleSets(t *testing.T) {
 		"outbounds": []any{map[string]any{"type": "direct", "tag": "direct"}},
 	})
 	installer := newFakeRuleSetInstaller()
-	cfg := newConfig(svc.Deps.ConfigPath, nil, ConfigInstaller{
+	cfg := newConfig(svc.Deps.ConfigPath, "", nil, ConfigInstaller{
 		RuleSetInstaller: installer,
 		ApplyHistory:     svc.Deps.ApplyHistory,
 	})
@@ -43,7 +43,7 @@ func TestInstallDefaultRuleSets(t *testing.T) {
 
 func TestInstallDefaultRuleSetsNotConfigured(t *testing.T) {
 	svc := newTestService(t)
-	cfg := newConfig(svc.Deps.ConfigPath, nil, ConfigInstaller{})
+	cfg := newConfig(svc.Deps.ConfigPath, "", nil, ConfigInstaller{})
 	_, err := cfg.InstallDefaultRuleSets(context.Background())
 	if err == nil {
 		t.Fatal("expected error for nil installer")
@@ -53,7 +53,7 @@ func TestInstallDefaultRuleSetsNotConfigured(t *testing.T) {
 func TestInstallDefaultRuleSetsInstallerError(t *testing.T) {
 	svc := newTestService(t)
 	installer := &fakeRuleSetInstaller{err: errors.New("download failed")}
-	cfg := newConfig(svc.Deps.ConfigPath, nil, ConfigInstaller{RuleSetInstaller: installer})
+	cfg := newConfig(svc.Deps.ConfigPath, "", nil, ConfigInstaller{RuleSetInstaller: installer})
 	_, err := cfg.InstallDefaultRuleSets(context.Background())
 	if err == nil {
 		t.Fatal("expected installer error")
@@ -63,7 +63,7 @@ func TestInstallDefaultRuleSetsInstallerError(t *testing.T) {
 func TestInstallDefaultOutbounds(t *testing.T) {
 	svc := newTestService(t)
 	writeTestConfig(t, svc.Deps.ConfigPath, map[string]any{"outbounds": []any{}})
-	cfg := newConfig(svc.Deps.ConfigPath, nil, ConfigInstaller{
+	cfg := newConfig(svc.Deps.ConfigPath, "", nil, ConfigInstaller{
 		OutboundInstaller: core.NewDefaultOutboundsInstaller(),
 		ApplyHistory:      svc.Deps.ApplyHistory,
 	})
@@ -78,7 +78,7 @@ func TestInstallDefaultOutbounds(t *testing.T) {
 
 func TestInstallDefaultOutboundsNotConfigured(t *testing.T) {
 	svc := newTestService(t)
-	cfg := newConfig(svc.Deps.ConfigPath, nil, ConfigInstaller{})
+	cfg := newConfig(svc.Deps.ConfigPath, "", nil, ConfigInstaller{})
 	_, err := cfg.InstallDefaultOutbounds(context.Background())
 	if err == nil {
 		t.Fatal("expected error for nil installer")
@@ -88,7 +88,7 @@ func TestInstallDefaultOutboundsNotConfigured(t *testing.T) {
 func TestInstallDefaultRouteRules(t *testing.T) {
 	svc := newTestService(t)
 	writeTestConfig(t, svc.Deps.ConfigPath, map[string]any{"outbounds": []any{}})
-	cfg := newConfig(svc.Deps.ConfigPath, nil, ConfigInstaller{
+	cfg := newConfig(svc.Deps.ConfigPath, "", nil, ConfigInstaller{
 		RouteInstaller: core.NewDefaultRouteInstaller(),
 		ApplyHistory:   svc.Deps.ApplyHistory,
 	})
@@ -103,7 +103,7 @@ func TestInstallDefaultRouteRules(t *testing.T) {
 
 func TestInstallDefaultRouteRulesNotConfigured(t *testing.T) {
 	svc := newTestService(t)
-	cfg := newConfig(svc.Deps.ConfigPath, nil, ConfigInstaller{})
+	cfg := newConfig(svc.Deps.ConfigPath, "", nil, ConfigInstaller{})
 	_, err := cfg.InstallDefaultRouteRules(context.Background())
 	if err == nil {
 		t.Fatal("expected error for nil installer")
@@ -113,7 +113,7 @@ func TestInstallDefaultRouteRulesNotConfigured(t *testing.T) {
 func TestInstallDefaultDNS(t *testing.T) {
 	svc := newTestService(t)
 	writeTestConfig(t, svc.Deps.ConfigPath, map[string]any{"outbounds": []any{}})
-	cfg := newConfig(svc.Deps.ConfigPath, nil, ConfigInstaller{
+	cfg := newConfig(svc.Deps.ConfigPath, "", nil, ConfigInstaller{
 		DNSInstaller: core.NewDefaultDNSInstaller(),
 		ApplyHistory: svc.Deps.ApplyHistory,
 	})
@@ -128,7 +128,7 @@ func TestInstallDefaultDNS(t *testing.T) {
 
 func TestInstallDefaultDNSNotConfigured(t *testing.T) {
 	svc := newTestService(t)
-	cfg := newConfig(svc.Deps.ConfigPath, nil, ConfigInstaller{})
+	cfg := newConfig(svc.Deps.ConfigPath, "", nil, ConfigInstaller{})
 	_, err := cfg.InstallDefaultDNS(context.Background())
 	if err == nil {
 		t.Fatal("expected error for nil installer")
@@ -138,7 +138,7 @@ func TestInstallDefaultDNSNotConfigured(t *testing.T) {
 func TestInstallDefaultInbounds(t *testing.T) {
 	svc := newTestService(t)
 	writeTestConfig(t, svc.Deps.ConfigPath, map[string]any{"outbounds": []any{}})
-	cfg := newConfig(svc.Deps.ConfigPath, nil, ConfigInstaller{
+	cfg := newConfig(svc.Deps.ConfigPath, "", nil, ConfigInstaller{
 		InboundInstaller: core.NewDefaultInboundsInstaller(),
 		ApplyHistory:     svc.Deps.ApplyHistory,
 	})
@@ -153,7 +153,7 @@ func TestInstallDefaultInbounds(t *testing.T) {
 
 func TestInstallDefaultInboundsNotConfigured(t *testing.T) {
 	svc := newTestService(t)
-	cfg := newConfig(svc.Deps.ConfigPath, nil, ConfigInstaller{})
+	cfg := newConfig(svc.Deps.ConfigPath, "", nil, ConfigInstaller{})
 	_, err := cfg.InstallDefaultInbounds(context.Background())
 	if err == nil {
 		t.Fatal("expected error for nil installer")
@@ -163,7 +163,7 @@ func TestInstallDefaultInboundsNotConfigured(t *testing.T) {
 func TestInstallDefaultExperimental(t *testing.T) {
 	svc := newTestService(t)
 	writeTestConfig(t, svc.Deps.ConfigPath, map[string]any{"outbounds": []any{}})
-	cfg := newConfig(svc.Deps.ConfigPath, nil, ConfigInstaller{
+	cfg := newConfig(svc.Deps.ConfigPath, "", nil, ConfigInstaller{
 		ExperimentalInstaller: core.NewDefaultExperimentalInstaller(),
 		ApplyHistory:          svc.Deps.ApplyHistory,
 	})
@@ -178,7 +178,7 @@ func TestInstallDefaultExperimental(t *testing.T) {
 
 func TestInstallDefaultExperimentalNotConfigured(t *testing.T) {
 	svc := newTestService(t)
-	cfg := newConfig(svc.Deps.ConfigPath, nil, ConfigInstaller{})
+	cfg := newConfig(svc.Deps.ConfigPath, "", nil, ConfigInstaller{})
 	_, err := cfg.InstallDefaultExperimental(context.Background())
 	if err == nil {
 		t.Fatal("expected error for nil installer")
@@ -186,7 +186,7 @@ func TestInstallDefaultExperimentalNotConfigured(t *testing.T) {
 }
 
 func TestConfigDefaultsReadMissingConfig(t *testing.T) {
-	cfg := newConfig(filepath.Join(t.TempDir(), "missing.json"), nil, ConfigInstaller{
+	cfg := newConfig(filepath.Join(t.TempDir(), "missing.json"), "", nil, ConfigInstaller{
 		OutboundInstaller: core.NewDefaultOutboundsInstaller(),
 	})
 	result, err := cfg.InstallDefaultOutbounds(context.Background())
@@ -203,7 +203,7 @@ func TestConfigDefaultsInvalidJSON(t *testing.T) {
 	if err := os.WriteFile(svc.Deps.ConfigPath, []byte("{invalid"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	cfg := newConfig(svc.Deps.ConfigPath, nil, ConfigInstaller{
+	cfg := newConfig(svc.Deps.ConfigPath, "", nil, ConfigInstaller{
 		OutboundInstaller: core.NewDefaultOutboundsInstaller(),
 	})
 	_, err := cfg.InstallDefaultOutbounds(context.Background())
@@ -215,7 +215,7 @@ func TestConfigDefaultsInvalidJSON(t *testing.T) {
 func TestConfigApplyConfigWithInstance(t *testing.T) {
 	svc := newTestService(t)
 	writeTestConfig(t, svc.Deps.ConfigPath, map[string]any{"outbounds": []any{}})
-	cfg := newConfig(svc.Deps.ConfigPath, &fakeRestart{}, ConfigInstaller{
+	cfg := newConfig(svc.Deps.ConfigPath, "", &fakeRestart{}, ConfigInstaller{
 		ApplyHistory: svc.Deps.ApplyHistory,
 	})
 	result, err := cfg.ApplyConfig(context.Background(), []byte(`{"log":{"level":"debug"}}`), "update")
@@ -229,7 +229,7 @@ func TestConfigApplyConfigWithInstance(t *testing.T) {
 
 func TestConfigValidateConfigRuntimeError(t *testing.T) {
 	svc := newTestService(t)
-	cfg := newConfig(svc.Deps.ConfigPath, nil, ConfigInstaller{
+	cfg := newConfig(svc.Deps.ConfigPath, "", nil, ConfigInstaller{
 		ApplyHistory: svc.Deps.ApplyHistory,
 	})
 	err := cfg.ValidateConfig(context.Background(), []byte(outboundDependencyCycleBody), "validate")
@@ -244,7 +244,7 @@ func TestConfigValidateConfigRuntimeError(t *testing.T) {
 
 func TestConfigValidateConfigUnknownError(t *testing.T) {
 	svc := newTestService(t)
-	cfg := newConfig(svc.Deps.ConfigPath, nil, ConfigInstaller{})
+	cfg := newConfig(svc.Deps.ConfigPath, "", nil, ConfigInstaller{})
 	err := cfg.ValidateConfig(context.Background(), []byte(`{"log":{"level":"info"}}`), "validate")
 	if err != nil {
 		t.Fatal(err)

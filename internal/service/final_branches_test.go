@@ -21,7 +21,7 @@ import (
 
 func TestApplyInstalledConfigInvalidRuntime(t *testing.T) {
 	dir := t.TempDir()
-	cfg := newConfig(dir, nil, ConfigInstaller{})
+	cfg := newConfig(dir, "", nil, ConfigInstaller{})
 	_, err := cfg.applyInstalledConfig(context.Background(), map[string]any{
 		"outbounds": []any{
 			map[string]any{"type": "selector", "tag": "a", "outbounds": []any{"b"}},
@@ -38,7 +38,7 @@ func TestApplyInstalledConfigInvalidRuntime(t *testing.T) {
 }
 
 func TestApplyInstalledConfigEncodeError(t *testing.T) {
-	cfg := newConfig(t.TempDir(), nil, ConfigInstaller{})
+	cfg := newConfig(t.TempDir(), "", nil, ConfigInstaller{})
 	_, err := cfg.applyInstalledConfig(context.Background(), map[string]any{
 		"bad": func() {},
 	}, "test", nil)
@@ -48,7 +48,7 @@ func TestApplyInstalledConfigEncodeError(t *testing.T) {
 }
 
 func TestApplyInstalledConfigWriteError(t *testing.T) {
-	cfg := newConfig(t.TempDir(), nil, ConfigInstaller{})
+	cfg := newConfig(t.TempDir(), "", nil, ConfigInstaller{})
 	_, err := cfg.applyInstalledConfig(context.Background(), map[string]any{
 		"outbounds": []any{map[string]any{"type": "direct", "tag": "direct"}},
 	}, "test", nil)
@@ -64,7 +64,7 @@ func TestInstallDefaultRouteRulesWithMetadata(t *testing.T) {
 	if err := writeTestJSONFile(configPath, map[string]any{"outbounds": []any{}}); err != nil {
 		t.Fatal(err)
 	}
-	cfg := newConfig(configPath, nil, ConfigInstaller{
+	cfg := newConfig(configPath, "", nil, ConfigInstaller{
 		RouteInstaller: core.NewDefaultRouteInstaller(),
 		ApplyHistory:   core.NewConfigApplyHistoryManager(db),
 		RouteMetadata:  core.NewRouteRuleMetadataManager(db),

@@ -28,16 +28,13 @@ func TestDefaultOutboundsInstallerInstall(t *testing.T) {
 		ob := item.(map[string]any)
 		byTag[ob["tag"].(string)] = ob
 	}
-	for _, tag := range []string{"direct", "bypass", "block", "proxy", "auto", "whitelist", "blacklist"} {
+	for _, tag := range []string{"direct", "block", "proxy", "auto"} {
 		if _, ok := byTag[tag]; !ok {
 			t.Fatalf("missing default outbound %q", tag)
 		}
 	}
 	if byTag["direct"]["routing_mark"] != 128 {
 		t.Fatalf("direct.routing_mark = %#v", byTag["direct"]["routing_mark"])
-	}
-	if byTag["bypass"]["routing_mark"] != 128 {
-		t.Fatalf("bypass.routing_mark = %#v", byTag["bypass"]["routing_mark"])
 	}
 	if _, ok := byTag["dns-out"]; ok {
 		t.Fatalf("dns-out should not be installed in sing-box 1.13")
@@ -80,10 +77,8 @@ func TestDefaultOutboundsInstallerPreserveExistingProxyDefault(t *testing.T) {
 	if len(proxyMembers) != 2 {
 		t.Fatalf("proxy members should preserve original, got %#v", proxyOb["outbounds"])
 	}
-	for _, tag := range []string{"block", "bypass"} {
-		if _, ok := byTag[tag]; !ok {
-			t.Fatalf("missing builtin %q", tag)
-		}
+	if _, ok := byTag["block"]; !ok {
+		t.Fatal("missing builtin block")
 	}
 }
 
@@ -104,8 +99,5 @@ func TestDefaultOutboundsInstallerNoRoutingMarkOnNonLinux(t *testing.T) {
 	}
 	if _, ok := byTag["direct"]["routing_mark"]; ok {
 		t.Fatal("direct.routing_mark should be absent on non-Linux")
-	}
-	if _, ok := byTag["bypass"]["routing_mark"]; ok {
-		t.Fatal("bypass.routing_mark should be absent on non-Linux")
 	}
 }

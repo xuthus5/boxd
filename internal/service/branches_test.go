@@ -17,7 +17,7 @@ func TestApplyInstalledConfigWithRollback(t *testing.T) {
 	if err := os.WriteFile(configPath, []byte(`{"outbounds":[]}`), 0600); err != nil {
 		t.Fatal(err)
 	}
-	cfg := newConfig(configPath, &fakeRestart{errs: []error{errors.New("boom"), nil}}, ConfigInstaller{
+	cfg := newConfig(configPath, "", &fakeRestart{errs: []error{errors.New("boom"), nil}}, ConfigInstaller{
 		OutboundInstaller: core.NewDefaultOutboundsInstaller(),
 	})
 	result, err := cfg.InstallDefaultOutbounds(context.Background())

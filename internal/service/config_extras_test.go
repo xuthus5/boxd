@@ -8,7 +8,7 @@ import (
 func newTestConfigWithMetadata(t *testing.T) *Config {
 	t.Helper()
 	svc := newTestService(t)
-	return newConfig(svc.Deps.ConfigPath, nil, ConfigInstaller{
+	return newConfig(svc.Deps.ConfigPath, "", nil, ConfigInstaller{
 		ApplyHistory:  svc.Deps.ApplyHistory,
 		RouteMetadata: svc.Deps.RouteMetadata,
 	})
@@ -106,7 +106,7 @@ func TestConfigUpdateRouteRuleMetadata(t *testing.T) {
 func TestConfigDiagnosticsMissingFile(t *testing.T) {
 	dir := t.TempDir()
 	svc := newTestService(t)
-	cfg := newConfig(filepath.Join(dir, "missing.json"), nil, ConfigInstaller{
+	cfg := newConfig(filepath.Join(dir, "missing.json"), "", nil, ConfigInstaller{
 		ApplyHistory: svc.Deps.ApplyHistory,
 	})
 	// 缺失文件时应优雅处理（不 panic）。
@@ -115,7 +115,7 @@ func TestConfigDiagnosticsMissingFile(t *testing.T) {
 
 func TestConfigRouteMetadataNotConfigured(t *testing.T) {
 	dir := t.TempDir()
-	cfg := newConfig(filepath.Join(dir, "config.json"), nil, ConfigInstaller{})
+	cfg := newConfig(filepath.Join(dir, "config.json"), "", nil, ConfigInstaller{})
 	if _, err := cfg.GetRouteRuleMetadata(); err == nil {
 		t.Fatal("expected error when route metadata is not configured")
 	}

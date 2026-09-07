@@ -313,7 +313,7 @@ func TestConfigHandlerInstallDefaultOutbounds(t *testing.T) {
 		ob := item.(map[string]any)
 		byTag[ob["tag"].(string)] = ob
 	}
-	for _, tag := range []string{"direct", "block", "proxy", "auto", "whitelist", "blacklist"} {
+	for _, tag := range []string{"direct", "block", "proxy", "auto"} {
 		if _, ok := byTag[tag]; !ok {
 			t.Fatalf("missing default outbound %q", tag)
 		}
@@ -385,7 +385,7 @@ func TestConfigHandlerInstallDefaultDNS(t *testing.T) {
 
 	cfg := decodeConfigFile(t, configPath)
 	dns := cfg["dns"].(map[string]any)
-	if dns["final"] != "dns-remote" {
+	if dns["final"] != "dns-direct" {
 		t.Fatalf("dns.final = %#v", dns["final"])
 	}
 	servers := dns["servers"].([]any)

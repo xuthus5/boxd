@@ -29,9 +29,6 @@ func (i *DefaultRouteInstaller) Install(cfg map[string]any) (*RouteDefaultsResul
 	ruleSets := existingRuleSetTags(cfg)
 	outbounds := existingOutboundTags(cfg)
 	directTag := "direct"
-	if outbounds["bypass"] {
-		directTag = "bypass"
-	}
 
 	defaults := make([]map[string]any, 0, 12)
 	// 1. 嗅探：协议探测后再按后续规则分流。

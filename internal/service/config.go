@@ -20,6 +20,7 @@ type restartable interface {
 // Config 封装 sing-box 配置的读取、应用、回滚与默认安装等用例逻辑。
 type Config struct {
 	path                  string
+	dataDir               string
 	instance              restartable
 	ruleSetInstaller      core.RuleSetDefaultsInstaller
 	outboundInstaller     core.OutboundDefaultsInstaller
@@ -35,11 +36,13 @@ type Config struct {
 // newConfig 构造配置用例服务。
 func newConfig(
 	path string,
+	dataDir string,
 	instance restartable,
 	installers ConfigInstaller,
 ) *Config {
 	return &Config{
 		path:                  path,
+		dataDir:               dataDir,
 		instance:              instance,
 		ruleSetInstaller:      installers.RuleSetInstaller,
 		outboundInstaller:     installers.OutboundInstaller,
@@ -407,7 +410,7 @@ func (c *Config) InstallDefaultExperimental(ctx context.Context) (InstallResult,
 	if apiErr != nil {
 		return InstallResult{}, apiErr
 	}
-	result, err := c.experimentalInstaller.Install(cfg)
+	result, err := c.experimentalInstaller.Install(cfg, c.dataDir)
 	if err != nil {
 		slog.Error("experimental install failed", "err", err)
 		return InstallResult{}, Errorf(500, model.ErrorInternal, "%v", err)

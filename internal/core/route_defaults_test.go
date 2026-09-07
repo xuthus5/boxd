@@ -7,7 +7,6 @@ func TestDefaultRouteInstallerInstall(t *testing.T) {
 	cfg := map[string]any{
 		"outbounds": []any{
 			map[string]any{"tag": "direct", "type": "direct"},
-			map[string]any{"tag": "bypass", "type": "direct"},
 			map[string]any{"tag": "block", "type": "block"},
 			map[string]any{"tag": "proxy", "type": "selector"},
 		},
@@ -39,8 +38,8 @@ func TestDefaultRouteInstallerInstall(t *testing.T) {
 	if act, _ := rules[1].(map[string]any)["action"].(string); act != "hijack-dns" {
 		t.Fatalf("second rule = %#v, want hijack-dns", rules[1])
 	}
-	if got := ruleSignature(rules[7].(map[string]any)); got != "rule_set:geoip-cn->bypass" {
-		t.Fatalf("China IP rule = %q, want geoip-cn bypass", got)
+	if got := ruleSignature(rules[7].(map[string]any)); got != "rule_set:geoip-cn->direct" {
+		t.Fatalf("China IP rule = %q, want geoip-cn direct", got)
 	}
 }
 

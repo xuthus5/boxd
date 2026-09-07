@@ -54,7 +54,7 @@ func New(deps Deps) *ServiceSet {
 		RouteMetadata:         deps.RouteMetadata,
 	}
 	svc := &ServiceSet{Deps: deps}
-	svc.config = newConfig(deps.ConfigPath, restartAdapter{deps.Instance}, installers)
+	svc.config = newConfig(deps.ConfigPath, deps.DataDir, restartAdapter{deps.Instance}, installers)
 	svc.network = &Network{}
 	svc.kernel = &Kernel{version: deps.Version}
 	svc.service = &ServiceControl{instance: deps.Instance}

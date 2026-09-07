@@ -18,7 +18,7 @@ func TestInstallDefaultDNSFirstInstallSkipsEmptyDirectDetour(t *testing.T) {
 	}
 
 	svc := newTestService(t)
-	cfg := newConfig(path, nil, ConfigInstaller{
+	cfg := newConfig(path, "", nil, ConfigInstaller{
 		DNSInstaller: core.NewDefaultDNSInstaller(),
 		ApplyHistory: svc.Deps.ApplyHistory,
 	})

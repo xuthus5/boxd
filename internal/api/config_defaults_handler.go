@@ -261,7 +261,7 @@ func (h *ConfigHandler) InstallDefaultExperimental(w http.ResponseWriter, r *htt
 		cfg = map[string]any{}
 	}
 
-	result, err := h.experimentalInstaller.Install(cfg)
+	result, err := h.experimentalInstaller.Install(cfg, "")
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return

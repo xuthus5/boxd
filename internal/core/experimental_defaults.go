@@ -1,8 +1,10 @@
 package core
 
+import "path/filepath"
+
 // ExperimentalDefaultsInstaller 安装常用 experimental 段默认值。
 type ExperimentalDefaultsInstaller interface {
-	Install(cfg map[string]any) (*ExperimentalDefaultsResult, error)
+	Install(cfg map[string]any, dataDir string) (*ExperimentalDefaultsResult, error)
 }
 
 // ExperimentalDefaultsResult 返回合并后的 experimental 与本次写入的子集。
@@ -19,17 +21,29 @@ func NewDefaultExperimentalInstaller() *DefaultExperimentalInstaller {
 	return &DefaultExperimentalInstaller{}
 }
 
-// Install 补齐 experimental.clash_api（本机控制器 + Rule 默认模式），不覆盖已有字段。
-func (i *DefaultExperimentalInstaller) Install(cfg map[string]any) (*ExperimentalDefaultsResult, error) {
+// Install 补齐 experimental.clash_api（本机控制器 + Rule 默认模式）和 experimental.cache_file（启用时自动填充路径），不覆盖已有字段。
+func (i *DefaultExperimentalInstaller) Install(cfg map[string]any, dataDir string) (*ExperimentalDefaultsResult, error) {
 	experimental := copyMap(asMap(cfg["experimental"]))
-	clashAPI := copyMap(asMap(experimental["clash_api"]))
 	installed := map[string]any{}
-	ensureString(clashAPI, installed, "external_controller", "127.0.0.1:9090")
-	ensureString(clashAPI, installed, "default_mode", "rule")
+
+	clashAPI := copyMap(asMap(experimental["clash_api"]))
+	clashInstalled := map[string]any{}
+	ensureString(clashAPI, clashInstalled, "external_controller", "127.0.0.1:9090")
+	ensureString(clashAPI, clashInstalled, "default_mode", "rule")
 	experimental["clash_api"] = clashAPI
-	if len(installed) > 0 {
-		installed = map[string]any{"clash_api": installed}
+	if len(clashInstalled) > 0 {
+		installed["clash_api"] = clashInstalled
 	}
+
+	cacheFile := copyMap(asMap(experimental["cache_file"]))
+	if enabled, _ := cacheFile["enabled"].(bool); enabled {
+		if path, _ := cacheFile["path"].(string); path == "" && dataDir != "" {
+			cacheFile["path"] = filepath.Join(dataDir, "cache.db")
+			installed["cache_file"] = map[string]any{"path": cacheFile["path"]}
+		}
+	}
+	experimental["cache_file"] = cacheFile
+
 	return &ExperimentalDefaultsResult{
 		Experimental: experimental,
 		Installed:    installed,

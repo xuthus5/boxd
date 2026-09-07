@@ -59,16 +59,12 @@ func (i *DefaultOutboundsInstaller) Install(cfg map[string]any) (*OutboundDefaul
 		order = append(order, tag)
 	}
 	ensureBuiltin("direct", "direct")
-	ensureBuiltin("bypass", "direct")
 	ensureBuiltin("block", "block")
 	delete(outboundsByTag, "dns-out")
 	// routing_mark（SO_MARK 策略路由标记）仅 Linux 支持，其他平台会致内核启动失败。
 	if supportRoutingMark {
 		if direct, ok := outboundsByTag["direct"]; ok {
 			direct["routing_mark"] = 128
-		}
-		if bypass, ok := outboundsByTag["bypass"]; ok {
-			bypass["routing_mark"] = 128
 		}
 	}
 
@@ -94,8 +90,6 @@ func (i *DefaultOutboundsInstaller) Install(cfg map[string]any) (*OutboundDefaul
 	if len(proxyCandidates) > 0 && (len(proxyCandidates) != 1 || proxyCandidates[0] != "direct") {
 		upsertGroup("auto", "urltest", proxyCandidates)
 	}
-	upsertGroup("whitelist", "selector", []string{"bypass", "proxy"})
-	upsertGroup("blacklist", "selector", []string{"block", "proxy"})
 
 	result := make([]any, 0, len(order))
 	installed := make([]map[string]any, 0, 6)
@@ -111,7 +105,7 @@ func (i *DefaultOutboundsInstaller) Install(cfg map[string]any) (*OutboundDefaul
 		seen[tag] = struct{}{}
 		result = append(result, ob)
 		switch tag {
-		case "direct", "bypass", "block", "proxy", "auto", "whitelist", "blacklist":
+		case "direct", "block", "proxy", "auto":
 			installed = append(installed, cloneMap(ob))
 		}
 	}

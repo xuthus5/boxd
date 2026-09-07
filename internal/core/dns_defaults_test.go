@@ -53,7 +53,7 @@ func TestDefaultDNSInstallerInstall(t *testing.T) {
 	if _, exists := result.DNS["fakeip"]; exists {
 		t.Fatalf("legacy dns.fakeip should be absent: %#v", result.DNS["fakeip"])
 	}
-	if result.DNS["strategy"] != "ipv4_only" {
+	if result.DNS["strategy"] != "prefer_ipv4" {
 		t.Fatalf("dns.strategy = %#v", result.DNS["strategy"])
 	}
 	rules := result.DNS["rules"].([]any)
@@ -70,7 +70,7 @@ func TestDefaultDNSInstallerInstall(t *testing.T) {
 	if blockRule["action"] != "predefined" || blockRule["rcode"] != "NOERROR" {
 		t.Fatalf("dns block rule = %#v", blockRule)
 	}
-	if result.DNS["final"] != "dns-remote" {
+	if result.DNS["final"] != "dns-direct" {
 		t.Fatalf("dns.final = %#v", result.DNS["final"])
 	}
 	if result.DefaultDomainResolver != "dns-direct" {

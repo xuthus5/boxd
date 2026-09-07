@@ -28,9 +28,9 @@ func (i *DefaultDNSInstaller) Install(cfg map[string]any) (*DNSDefaultsResult, e
 	rules := defaultDNSRules(ruleSets)
 	dns := map[string]any{
 		"servers":           servers,
-		"strategy":          "ipv4_only",
+		"strategy":          "prefer_ipv4",
 		"rules":             rules,
-		"final":             "dns-remote",
+		"final":             "dns-direct",
 		"independent_cache": true,
 	}
 
