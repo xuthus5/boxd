@@ -252,7 +252,8 @@ def verify_ipv4_tun(lab):
 
 def run(image):
     command("podman", "image", "exists", image)
-    health = json.loads(command("podman", "image", "inspect", image))[0]["Config"].get("Healthcheck")
+    metadata = json.loads(command("podman", "image", "inspect", image))[0]
+    health = metadata.get("Healthcheck") or metadata["Config"].get("Healthcheck")
     assert health and health.get("Test"), "build the image with --format docker to preserve health checks"
     with tempfile.TemporaryDirectory(prefix="boxd-container-smoke-") as directory:
         lab = Lab(image, directory)
