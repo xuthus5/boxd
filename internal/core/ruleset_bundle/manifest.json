@@ -1,0 +1,18 @@
+{
+  "loyalsoldier-direct": {
+    "sha256": "ae583feaf41b9cbe02576c6a4fb8f533eb9b5291a8120f592bad47be46e73cca",
+    "updated_at": "2026-09-07T23:54:59Z"
+  },
+  "loyalsoldier-proxy": {
+    "sha256": "8a4f40e56e53517a4d2fb92008b347eb8516894078284e11bbcc955c1f821003",
+    "updated_at": "2026-09-07T23:54:59Z"
+  },
+  "loyalsoldier-reject": {
+    "sha256": "f3954f28b913f95dfa188c6bac2277e202410ef7e29790b4a7090d3aff52d7b9",
+    "updated_at": "2026-09-07T23:54:59Z"
+  },
+  "geoip-cn": {
+    "sha256": "a25648c221f8b12b41ce168c739ebc3a7b1d95d08f199aa31628a33f2e61822b",
+    "updated_at": "2026-09-07T07:38:18Z"
+  }
+}

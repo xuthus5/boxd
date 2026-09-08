@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -72,8 +73,7 @@ func TestParseDesktopConfigDataDir(t *testing.T) {
 
 func TestInitRuntimeEmbedded(t *testing.T) {
 	dir := t.TempDir()
-	origDir, _ := os.Getwd()
-	defer os.Chdir(origDir)
+	t.Chdir(dir)
 	cfg := desktopConfig{
 		Mode:            "embedded",
 		DataDir:         filepath.Join(dir, "data"),
@@ -99,12 +99,12 @@ func TestInitRuntimeEmbedded(t *testing.T) {
 	if _, err := os.Stat(cfg.ConfigPath); err != nil {
 		t.Fatalf("default config not created: %v", err)
 	}
+	assertInitialDesktopPolicy(t, cfg)
 }
 
 func TestInitRuntimeEmbeddedPreservesExistingConfig(t *testing.T) {
 	dir := t.TempDir()
-	origDir, _ := os.Getwd()
-	defer os.Chdir(origDir)
+	t.Chdir(dir)
 	configPath := filepath.Join(dir, "config", "config.json")
 	if err := os.MkdirAll(filepath.Dir(configPath), 0700); err != nil {
 		t.Fatal(err)
@@ -132,6 +132,54 @@ func TestInitRuntimeEmbeddedPreservesExistingConfig(t *testing.T) {
 	}
 	if string(after) != string(body) {
 		t.Fatalf("existing config was modified: got %q", string(after))
+	}
+}
+
+func assertInitialDesktopPolicy(t *testing.T, cfg desktopConfig) {
+	t.Helper()
+	body, err := os.ReadFile(cfg.ConfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var generated map[string]any
+	if err := json.Unmarshal(body, &generated); err != nil {
+		t.Fatal(err)
+	}
+	dns, _ := generated["dns"].(map[string]any)
+	route, _ := generated["route"].(map[string]any)
+	if dns["final"] != "dns-remote" || route["final"] != "proxy" {
+		t.Fatalf("initial DNS/routing policy is incomplete: %#v", generated)
+	}
+	experimental, _ := generated["experimental"].(map[string]any)
+	cache, _ := experimental["cache_file"].(map[string]any)
+	if cache["path"] != filepath.Join(cfg.DataDir, "cache.db") {
+		t.Fatalf("initial cache must use the configured data directory: %#v", cache)
+	}
+	assertInitialDesktopRuleSets(t, route)
+}
+
+func assertInitialDesktopRuleSets(t *testing.T, route map[string]any) {
+	t.Helper()
+	rules, _ := route["rule_set"].([]any)
+	want := map[string]bool{
+		"loyalsoldier-direct": true, "loyalsoldier-proxy": true,
+		"loyalsoldier-reject": true, "geoip-cn": true,
+	}
+	for _, item := range rules {
+		entry, _ := item.(map[string]any)
+		tag, _ := entry["tag"].(string)
+		if !want[tag] || entry["type"] != "local" {
+			t.Fatalf("unexpected initial rule set: %#v", entry)
+		}
+		delete(want, tag)
+		path, _ := entry["path"].(string)
+		info, err := os.Stat(path)
+		if err != nil || !info.Mode().IsRegular() || info.Size() == 0 {
+			t.Fatalf("initial rule set was not installed: %q, %v", path, err)
+		}
+	}
+	if len(want) != 0 {
+		t.Fatalf("initial rule sets are missing: %#v", want)
 	}
 }
 

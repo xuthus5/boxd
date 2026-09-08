@@ -69,18 +69,3 @@ func TestEnsureConfigFileRejectsDirectory(t *testing.T) {
 		t.Fatal("expected error when path is a directory")
 	}
 }
-
-func TestMinimalConfigTemplate(t *testing.T) {
-	cfg := minimalConfigTemplate()
-	if _, err := json.Marshal(cfg); err != nil {
-		t.Fatal(err)
-	}
-	if cfg["log"] == nil {
-		t.Fatal("expected log section")
-	}
-	inbounds, _ := cfg["inbounds"].([]any)
-	outbounds, _ := cfg["outbounds"].([]any)
-	if len(inbounds) == 0 || len(outbounds) == 0 {
-		t.Fatal("expected inbounds and outbounds entries")
-	}
-}

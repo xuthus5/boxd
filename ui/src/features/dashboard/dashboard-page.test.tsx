@@ -29,7 +29,7 @@ function responseFor(path: string) {
   if (path === "/api/config/" || path === "/api/config") {
     return {
       inbounds: [{ tag: "mixed-in", type: "mixed", listen: "::", listen_port: 1080 }],
-      outbounds: [{ tag: "proxy", type: "selector", outbounds: ["direct"] }],
+      outbounds: [{ tag: "proxy", type: "selector", outbounds: ["node"] }, { tag: "node", type: "vless" }],
       route: { rules: [{ outbound: "proxy" }] },
       experimental: { clash_api: { external_controller: "127.0.0.1:9090" } },
     }

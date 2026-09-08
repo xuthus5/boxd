@@ -313,7 +313,7 @@ func TestConfigHandlerInstallDefaultOutbounds(t *testing.T) {
 		ob := item.(map[string]any)
 		byTag[ob["tag"].(string)] = ob
 	}
-	for _, tag := range []string{"direct", "block", "proxy", "auto"} {
+	for _, tag := range []string{"direct", "block", "proxy"} {
 		if _, ok := byTag[tag]; !ok {
 			t.Fatalf("missing default outbound %q", tag)
 		}
@@ -329,7 +329,7 @@ func TestConfigHandlerInstallDefaultRouteRules(t *testing.T) {
 		"outbounds": []any{
 			map[string]any{"tag": "direct", "type": "direct"},
 			map[string]any{"tag": "block", "type": "block"},
-			map[string]any{"tag": "proxy", "type": "selector", "outbounds": []any{"direct"}},
+			map[string]any{"tag": "proxy", "type": "selector", "outbounds": []any{"block"}},
 		},
 		"route": map[string]any{
 			"rule_set": []any{
@@ -350,11 +350,11 @@ func TestConfigHandlerInstallDefaultRouteRules(t *testing.T) {
 
 	cfg := decodeConfigFile(t, configPath)
 	rules := cfg["route"].(map[string]any)["rules"].([]any)
-	if len(rules) != 8 {
-		t.Fatalf("rules len = %d, want 8", len(rules))
+	if len(rules) != 12 {
+		t.Fatalf("rules len = %d, want 12", len(rules))
 	}
 	first := rules[0].(map[string]any)
-	if first["action"] != "sniff" {
+	if first["action"] != "hijack-dns" || first["port"] != float64(53) {
 		t.Fatalf("first route rule = %#v", first)
 	}
 }
@@ -364,7 +364,8 @@ func TestConfigHandlerInstallDefaultDNS(t *testing.T) {
 	writeConfigFile(t, configPath, map[string]any{
 		"outbounds": []any{
 			map[string]any{"tag": "direct", "type": "direct"},
-			map[string]any{"tag": "proxy", "type": "selector", "outbounds": []any{"direct"}},
+			map[string]any{"tag": "block", "type": "block"},
+			map[string]any{"tag": "proxy", "type": "selector", "outbounds": []any{"block"}},
 		},
 		"route": map[string]any{
 			"rule_set": []any{
@@ -385,12 +386,12 @@ func TestConfigHandlerInstallDefaultDNS(t *testing.T) {
 
 	cfg := decodeConfigFile(t, configPath)
 	dns := cfg["dns"].(map[string]any)
-	if dns["final"] != "dns-direct" {
+	if dns["final"] != "dns-remote" {
 		t.Fatalf("dns.final = %#v", dns["final"])
 	}
 	servers := dns["servers"].([]any)
-	if len(servers) != 4 {
-		t.Fatalf("servers len = %d, want 4", len(servers))
+	if len(servers) != 2 {
+		t.Fatalf("servers len = %d, want 2", len(servers))
 	}
 	route := cfg["route"].(map[string]any)
 	if route["default_domain_resolver"] != "dns-direct" {

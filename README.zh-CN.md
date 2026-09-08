@@ -49,7 +49,7 @@ BOXD_PASSWORD='your-strong-password' \
 
 浏览器打开 `http://127.0.0.1:9091`，默认用户名 `admin`。首次使用默认密码时会强制进入设置页完成密码轮换。
 
-启动时若内核配置文件不存在，boxd 会自动生成一份最小可用配置（`mixed` 入站监听 `:1080`、`direct`/`block` 出站），保证内核可启动。之后可借助仪表盘「快速上手」清单添加订阅、出口、路由规则等。
+首次启动会从随程序提供的规则快照自动生成完整默认配置：本机 mixed 代理（`127.0.0.1:1080`）、出站、加密 DNS、路由与内部 Clash 模式控制。Linux 具备 `CAP_NET_ADMIN` 且能访问 `/dev/net/tun` 时还会配置 TUN。先添加节点或订阅，再启动内核；无节点时，需要代理的流量保持阻断。已有配置文件保持不变。详见[默认策略](docs/boxd/default-configuration.md)。
 
 ### 开发模式（前后端分离）
 
@@ -62,23 +62,23 @@ export BOXD_PASSWORD='dev-password'
 export BOXD_DATA_DIR="$PWD/data"
 export BOXD_CONFIG="$PWD/data/config.json"
 export BOXD_CORS_ALLOWED_ORIGINS='http://127.0.0.1:5173,http://localhost:5173'
-go run ./cmd/boxd/
+go run -tags with_clash_api ./cmd/boxd/
 ```
 
-也可使用 `make dev`（会后台启动前端并运行后端，适合快速试跑）。
+也可使用 `GOFLAGS='-tags=with_clash_api' make dev`，后台启动前端并运行后端。
 
 ## 使用说明
 
 1. 登录面板，轮换管理员密码。
 2. **订阅 / 节点**：添加公网 HTTP(S) 订阅 URL，或导入 VMess、VLESS、Trojan、Shadowsocks/SIP002、SSR、Hysteria/Hysteria2、TUIC、AnyTLS、ShadowTLS 链接。本机/私网源和不安全重定向会被拦截。订阅会按各自间隔后台刷新，全局间隔作为旧数据回退。按需配置 URLTest（可继承全局默认）。订阅下载限制为 16 MiB，刷新或配置同步失败会展示可操作错误码。
-3. **入站 / 出站**：可一键安装 mixed（1080）与 TUN 模板，或自建入站；出站可绑定订阅组 selector / urltest，或直连/阻断等。
-4. **路由 / DNS / 证书 / Services / 内核日志 / NTP / Experimental**：用表单维护规则、信任库、内核辅助服务、日志输出和时间同步；可一键安装默认规则与 Clash API。
+3. **入站 / 出站**：检查自动生成的监听与代理组；可在具备权限时添加 TUN 或自定义监听。导入的节点和订阅组会自动接入代理选择器。
+4. **路由 / DNS / 证书 / Services / 内核日志 / NTP / Experimental**：按需调整预装策略及可选的信任库、服务、日志和时间同步；默认配置省略未使用的可选模块。
 5. **仪表盘**：先确认面板就绪状态，再启动内核；切换全局出口与 Clash 模式；观察流量与日志。
 6. **设置**：主题、语言、最低日志级别（写入数据库）、系统测速地址、内核自启、脱敏诊断支持包与备份导出等。
 
 ### 预置路由能力
 
-路由页可一键安装常见规则（嗅探、劫持 DNS、绕过局域网/ICMP、屏蔽 QUIC/广告、中国域名/IP 分流等）。规则集默认包含 Loyalsoldier 文本规则集（本地转换，raw 与 jsDelivr CDN 多源竞速下载）与 SagerNet 二进制规则集（boxd 预下载到本地文件，内核启动不再联网下载）；手动下载仅允许公网 HTTP(S) 地址，且限制为 16 MiB。
+默认策略劫持 DNS、优先拒绝广告、绕过局域网/ICMP，并按中国域名/IP 分流，保留正常 QUIC。预装四组本地规则：Loyalsoldier 直连/代理/广告列表，以及 MIT 授权的 china-operator-ip IPv4/IPv6 列表。初次安装无需下载；更新仅访问公网 HTTP(S) 源，限制为 16 MiB。旧配置中的 SagerNet 规则集标签仍支持更新。见[快照来源与许可证](internal/core/ruleset_bundle/README.md)。
 
 ### 备份与恢复
 

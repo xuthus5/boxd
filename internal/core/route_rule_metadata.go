@@ -193,8 +193,17 @@ func defaultRouteRuleName(rule map[string]any) string {
 	if action == "sniff" {
 		return "协议嗅探"
 	}
-	if protocol, _ := rule["protocol"].(string); protocol == "dns" && action == "hijack-dns" {
+	if action == "hijack-dns" {
 		return "DNS 请求劫持"
+	}
+	if action == "resolve" {
+		return "域名解析后分流"
+	}
+	switch strings.ToLower(stringValue(rule["clash_mode"])) {
+	case "direct":
+		return "直连模式"
+	case "global":
+		return "全局代理模式"
 	}
 	if private, _ := rule["ip_is_private"].(bool); private {
 		return "私有地址直连"

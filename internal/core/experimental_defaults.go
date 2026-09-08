@@ -1,6 +1,9 @@
 package core
 
-import "path/filepath"
+import (
+	"errors"
+	"path/filepath"
+)
 
 // ExperimentalDefaultsInstaller 安装常用 experimental 段默认值。
 type ExperimentalDefaultsInstaller interface {
@@ -13,7 +16,7 @@ type ExperimentalDefaultsResult struct {
 	Installed    map[string]any
 }
 
-// DefaultExperimentalInstaller 确保 clash_api 可用的最小配置。
+// DefaultExperimentalInstaller 启用内部 Clash 模式控制与选择状态缓存。
 type DefaultExperimentalInstaller struct{}
 
 // NewDefaultExperimentalInstaller 创建默认 experimental 安装器。
@@ -21,14 +24,14 @@ func NewDefaultExperimentalInstaller() *DefaultExperimentalInstaller {
 	return &DefaultExperimentalInstaller{}
 }
 
-// Install 补齐 experimental.clash_api（本机控制器 + Rule 默认模式）和 experimental.cache_file（启用时自动填充路径），不覆盖已有字段。
+// Install 补齐内部 Clash Rule 模式与缓存路径，不额外开放监听端口。
+// 明确设置的控制器、缓存路径和禁用状态保持不变。
 func (i *DefaultExperimentalInstaller) Install(cfg map[string]any, dataDir string) (*ExperimentalDefaultsResult, error) {
 	experimental := copyMap(asMap(cfg["experimental"]))
 	installed := map[string]any{}
 
 	clashAPI := copyMap(asMap(experimental["clash_api"]))
 	clashInstalled := map[string]any{}
-	ensureString(clashAPI, clashInstalled, "external_controller", "127.0.0.1:9090")
 	ensureString(clashAPI, clashInstalled, "default_mode", "rule")
 	experimental["clash_api"] = clashAPI
 	if len(clashInstalled) > 0 {
@@ -36,13 +39,28 @@ func (i *DefaultExperimentalInstaller) Install(cfg map[string]any, dataDir strin
 	}
 
 	cacheFile := copyMap(asMap(experimental["cache_file"]))
+	cacheInstalled := map[string]any{}
+	if _, exists := cacheFile["enabled"]; !exists && dataDir != "" {
+		cacheFile["enabled"] = true
+		cacheInstalled["enabled"] = true
+	}
 	if enabled, _ := cacheFile["enabled"].(bool); enabled {
-		if path, _ := cacheFile["path"].(string); path == "" && dataDir != "" {
+		if path, _ := cacheFile["path"].(string); path == "" {
+			if dataDir == "" {
+				return nil, errors.New("data directory is required for the default cache path")
+			}
 			cacheFile["path"] = filepath.Join(dataDir, "cache.db")
-			installed["cache_file"] = map[string]any{"path": cacheFile["path"]}
+			cacheInstalled["path"] = cacheFile["path"]
 		}
 	}
-	experimental["cache_file"] = cacheFile
+	if len(cacheFile) > 0 {
+		experimental["cache_file"] = cacheFile
+	} else {
+		delete(experimental, "cache_file")
+	}
+	if len(cacheInstalled) > 0 {
+		installed["cache_file"] = cacheInstalled
+	}
 
 	return &ExperimentalDefaultsResult{
 		Experimental: experimental,

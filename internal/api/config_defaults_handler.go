@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"net/http"
-	"os"
 
 	"github.com/xuthus5/boxd/internal/core"
 	"github.com/xuthus5/boxd/internal/model"
@@ -15,19 +14,9 @@ func (h *ConfigHandler) InstallDefaultOutbounds(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	data, err := os.ReadFile(h.configPath)
-	if err != nil {
-		writeJSONError(w, http.StatusNotFound, "config not found")
+	cfg, ok := h.readDefaultConfig(w)
+	if !ok {
 		return
-	}
-
-	var cfg map[string]any
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "invalid JSON in config")
-		return
-	}
-	if cfg == nil {
-		cfg = map[string]any{}
 	}
 
 	result, err := h.outboundInstaller.Install(cfg)
@@ -68,21 +57,15 @@ func (h *ConfigHandler) InstallDefaultRouteRules(w http.ResponseWriter, r *http.
 		return
 	}
 
-	data, err := os.ReadFile(h.configPath)
-	if err != nil {
-		writeJSONError(w, http.StatusNotFound, "config not found")
+	cfg, ok := h.readDefaultConfig(w)
+	if !ok {
 		return
 	}
 
-	var cfg map[string]any
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "invalid JSON in config")
+	if err := core.EnsureDefaultDNSForRouting(cfg); err != nil {
+		writeJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if cfg == nil {
-		cfg = map[string]any{}
-	}
-
 	result, err := h.routeInstaller.Install(cfg)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, err.Error())
@@ -125,24 +108,14 @@ func (h *ConfigHandler) InstallDefaultDNS(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	data, err := os.ReadFile(h.configPath)
-	if err != nil {
-		writeJSONError(w, http.StatusNotFound, "config not found")
+	cfg, ok := h.readDefaultConfig(w)
+	if !ok {
 		return
 	}
 
-	var cfg map[string]any
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "invalid JSON in config")
-		return
-	}
-	if cfg == nil {
-		cfg = map[string]any{}
-	}
-
-	result, err := h.dnsInstaller.Install(cfg)
+	result, err := core.PrepareDNSDefaults(cfg, h.dnsInstaller, h.outboundInstaller)
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		writeDefaultDNSInstallError(w, err)
 		return
 	}
 	applyDNSDefaults(cfg, result)
@@ -202,19 +175,9 @@ func (h *ConfigHandler) InstallDefaultInbounds(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	data, err := os.ReadFile(h.configPath)
-	if err != nil {
-		writeJSONError(w, http.StatusNotFound, "config not found")
+	cfg, ok := h.readDefaultConfig(w)
+	if !ok {
 		return
-	}
-
-	var cfg map[string]any
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "invalid JSON in config")
-		return
-	}
-	if cfg == nil {
-		cfg = map[string]any{}
 	}
 
 	result, err := h.inboundInstaller.Install(cfg)
@@ -223,6 +186,7 @@ func (h *ConfigHandler) InstallDefaultInbounds(w http.ResponseWriter, r *http.Re
 		return
 	}
 	cfg["inbounds"] = result.Inbounds
+	core.ConfigureDefaultTUNRouting(cfg)
 
 	body, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
@@ -246,22 +210,12 @@ func (h *ConfigHandler) InstallDefaultExperimental(w http.ResponseWriter, r *htt
 		return
 	}
 
-	data, err := os.ReadFile(h.configPath)
-	if err != nil {
-		writeJSONError(w, http.StatusNotFound, "config not found")
+	cfg, ok := h.readDefaultConfig(w)
+	if !ok {
 		return
 	}
 
-	var cfg map[string]any
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		writeJSONError(w, http.StatusInternalServerError, "invalid JSON in config")
-		return
-	}
-	if cfg == nil {
-		cfg = map[string]any{}
-	}
-
-	result, err := h.experimentalInstaller.Install(cfg, "")
+	result, err := h.experimentalInstaller.Install(cfg, h.defaultDataDir())
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return

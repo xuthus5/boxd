@@ -29,7 +29,7 @@ func (i *DefaultInboundsInstaller) Install(cfg map[string]any) (*InboundDefaults
 
 func mixedInboundTemplate() map[string]any {
 	return map[string]any{
-		"type": "mixed", "tag": "mixed-in", "listen": "::", "listen_port": 1080,
+		"type": "mixed", "tag": "mixed-in", "listen": "127.0.0.1", "listen_port": 1080,
 	}
 }
 

@@ -9,7 +9,7 @@ import (
 )
 
 // TestInstallDefaultDNSFirstInstallSkipsEmptyDirectDetour 覆盖首次安装场景：
-// 最小配置中的 direct 出站为空，DNS 服务器不应生成指向空 direct 的 detour，
+// 默认 direct 出站为空，直连 DNS 不应生成指向它的 detour，
 // 否则 sing-box 内核会以 "detour to an empty direct outbound" 拒绝启动导致回滚。
 func TestInstallDefaultDNSFirstInstallSkipsEmptyDirectDetour(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.json")
@@ -56,7 +56,7 @@ func TestInstallDefaultDNSFirstInstallSkipsEmptyDirectDetour(t *testing.T) {
 		if !ok {
 			continue
 		}
-		if detour, _ := server["detour"].(string); detour != "" {
+		if detour, _ := server["detour"].(string); server["tag"] == "dns-direct" && detour != "" {
 			t.Fatalf("unexpected detour %q with empty direct outbound", detour)
 		}
 	}

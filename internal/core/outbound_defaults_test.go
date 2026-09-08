@@ -28,13 +28,13 @@ func TestDefaultOutboundsInstallerInstall(t *testing.T) {
 		ob := item.(map[string]any)
 		byTag[ob["tag"].(string)] = ob
 	}
-	for _, tag := range []string{"direct", "block", "proxy", "auto"} {
+	for _, tag := range []string{"direct", "block", "proxy"} {
 		if _, ok := byTag[tag]; !ok {
 			t.Fatalf("missing default outbound %q", tag)
 		}
 	}
-	if byTag["direct"]["routing_mark"] != 128 {
-		t.Fatalf("direct.routing_mark = %#v", byTag["direct"]["routing_mark"])
+	if _, exists := byTag["direct"]["routing_mark"]; exists {
+		t.Fatalf("unexpected direct.routing_mark = %#v", byTag["direct"]["routing_mark"])
 	}
 	if _, ok := byTag["dns-out"]; ok {
 		t.Fatalf("dns-out should not be installed in sing-box 1.13")

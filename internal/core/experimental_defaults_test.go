@@ -12,14 +12,53 @@ func TestDefaultExperimentalInstallerInstall(t *testing.T) {
 	if !ok {
 		t.Fatalf("clash_api missing: %#v", result.Experimental)
 	}
-	if clash["external_controller"] != "127.0.0.1:9090" {
-		t.Fatalf("controller = %#v", clash["external_controller"])
+	if _, exists := clash["external_controller"]; exists {
+		t.Fatalf("internal mode control does not need a listener: %#v", clash)
 	}
 	if clash["default_mode"] != "rule" {
 		t.Fatalf("mode = %#v", clash["default_mode"])
 	}
 	if len(result.Installed) == 0 {
 		t.Fatal("expected installed subset")
+	}
+	if _, exists := result.Experimental["cache_file"]; exists {
+		t.Fatal("must not emit an empty cache configuration without a data directory")
+	}
+}
+
+func TestDefaultExperimentalInstallerEnablesSelectionCache(t *testing.T) {
+	result, err := NewDefaultExperimentalInstaller().Install(map[string]any{}, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	cache, _ := result.Experimental["cache_file"].(map[string]any)
+	if cache["enabled"] != true || cache["path"] == "" {
+		t.Fatalf("selector choices need a private persistent cache: %#v", cache)
+	}
+	again, err := NewDefaultExperimentalInstaller().Install(map[string]any{"experimental": result.Experimental}, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(again.Installed) != 0 {
+		t.Fatalf("repeated installation should preserve defaults: %#v", again.Installed)
+	}
+}
+
+func TestDefaultExperimentalInstallerRequiresCacheDirectory(t *testing.T) {
+	cfg := map[string]any{"experimental": map[string]any{"cache_file": map[string]any{"enabled": true}}}
+	if _, err := NewDefaultExperimentalInstaller().Install(cfg, ""); err == nil {
+		t.Fatal("an enabled cache must not silently use the working directory")
+	}
+}
+
+func TestDefaultExperimentalInstallerRemovesEmptyCache(t *testing.T) {
+	cfg := map[string]any{"experimental": map[string]any{"cache_file": map[string]any{}}}
+	result, err := NewDefaultExperimentalInstaller().Install(cfg, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := result.Experimental["cache_file"]; exists {
+		t.Fatal("empty cache configuration must be omitted")
 	}
 }
 

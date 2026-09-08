@@ -193,8 +193,8 @@ func TestBuildManagedOutboundPreserveRaw(t *testing.T) {
 	if entry["uuid"] != "xxx" {
 		t.Fatalf("uuid = %v", entry["uuid"])
 	}
-	if entry["routing_mark"] != 128 {
-		t.Fatalf("routing_mark = %v", entry["routing_mark"])
+	if _, exists := entry["routing_mark"]; exists {
+		t.Fatalf("routing_mark must be explicit: %v", entry["routing_mark"])
 	}
 	existing := map[string]any{"tag": "n", "type": "vless"}
 	entry2, err := buildManagedOutbound(existing, outbound)

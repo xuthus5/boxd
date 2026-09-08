@@ -50,7 +50,7 @@ BOXD_PASSWORD='your-strong-password' \
 
 Open `http://127.0.0.1:9091`. Default username is `admin`. On the default password, the UI forces a password change.
 
-If the kernel config file does not exist at startup, boxd auto-generates a minimal usable config (mixed inbound on `:1080`, direct/block outbounds) so the kernel can start. Use the dashboard **Quick setup** checklist to add subscriptions, outbounds, route rules, etc.
+On first start, boxd creates complete defaults from bundled rule sets: a loopback mixed proxy on `127.0.0.1:1080`, outbounds, encrypted DNS, routing, and internal Clash mode control. Linux also gets TUN when `CAP_NET_ADMIN` and `/dev/net/tun` are available. Add nodes or a subscription before starting the kernel: traffic requiring a proxy stays blocked until a node exists. Existing configuration files are preserved. See [default policy](docs/boxd/default-configuration.md).
 
 ### Dev mode (split frontend/backend)
 
@@ -63,23 +63,23 @@ export BOXD_PASSWORD='dev-password'
 export BOXD_DATA_DIR="$PWD/data"
 export BOXD_CONFIG="$PWD/data/config.json"
 export BOXD_CORS_ALLOWED_ORIGINS='http://127.0.0.1:5173,http://localhost:5173'
-go run ./cmd/boxd/
+go run -tags with_clash_api ./cmd/boxd/
 ```
 
-`make dev` starts the UI in the background and runs the backend for a quick smoke run.
+`GOFLAGS='-tags=with_clash_api' make dev` starts the UI in the background and runs the backend for a quick smoke run.
 
 ## Usage
 
 1. Sign in and rotate the admin password.
 2. **Subscriptions / nodes**: add a public HTTP(S) subscription URL or import VMess, VLESS, Trojan, Shadowsocks/SIP002, SSR, Hysteria/Hysteria2, TUIC, AnyTLS, or ShadowTLS links. Local/private sources and unsafe redirect targets are blocked. Subscriptions refresh in the background using each interval (the global interval is the fallback). Configure URLTest (inherit global defaults when needed). Downloads are capped at 16 MiB; refresh and config-sync failures expose actionable error codes.
-3. **Inbounds / outbounds**: install mixed (1080) + TUN templates or create custom inbounds; bind subscription groups as selector/urltest, or use direct/block.
-4. **Route / DNS / Certificates / Services / Kernel logging / NTP / Experimental**: edit policies, trust stores, auxiliary services, kernel log output, and time sync in forms; install common defaults; one-click enable Clash API.
+3. **Inbounds / outbounds**: review the automatically created listeners and proxy group; add TUN with suitable privileges or customize listeners. Imported nodes and subscription groups automatically join the proxy selector.
+4. **Route / DNS / Certificates / Services / Kernel logging / NTP / Experimental**: customize the installed policy and optional trust stores, services, logging, and time sync. Unused optional modules are omitted from the default config.
 5. **Dashboard**: confirm panel readiness, start the kernel; switch global outbound and Clash mode; watch traffic and logs.
 6. **Settings**: theme, language, minimum log level (stored in the database), system probe URLs, kernel autostart, redacted support-bundle export, and backup export.
 
 ### Built-in routing helpers
 
-The route page can install common rules (sniff, hijack DNS, bypass LAN/ICMP, block QUIC/ads, CN domain/IP split, etc.). Rule-sets include Loyalsoldier text sets (local convert, multi-source racing against jsDelivr CDN) and SagerNet binary sets (pre-downloaded to local files, so the kernel never downloads rule-sets at startup); manual downloads require public HTTP(S) URLs and are capped at 16 MiB.
+Defaults hijack DNS, reject ads before allow rules, bypass LAN/ICMP, and split Chinese domains/IPs from proxy traffic. QUIC remains available. Four local rule sets are bundled: Loyalsoldier direct/proxy/reject lists and the MIT-licensed china-operator-ip IPv4/IPv6 list. Initial setup needs no downloads; updates use public HTTP(S) sources with a 16 MiB limit. Older SagerNet rule-set tags remain supported for existing configurations. [Snapshot sources and licenses](internal/core/ruleset_bundle/README.md).
 
 ### Backup and restore
 

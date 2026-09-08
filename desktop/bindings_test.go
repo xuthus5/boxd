@@ -5,25 +5,6 @@ import (
 	"testing"
 )
 
-func newTestRuntimeWithService(t *testing.T) *desktopRuntime {
-	t.Helper()
-	dir := t.TempDir()
-	cfg := desktopConfig{
-		Mode:            "embedded",
-		DataDir:         dir + "/data",
-		ConfigPath:      dir + "/config/config.json",
-		Username:        "admin",
-		Password:        "",
-		RefreshInterval: 60,
-	}
-	rt, err := initRuntime(cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = rt.close() })
-	return rt
-}
-
 func TestBoxdConfigServiceNotReady(t *testing.T) {
 	rt := &desktopRuntime{}
 	svc := newBoxdConfigService(rt)
@@ -38,19 +19,20 @@ func TestBoxdConfigServiceNotReady(t *testing.T) {
 	}
 }
 
-func TestBoxdConfigServiceGetGeneratesDefault(t *testing.T) {
+func TestBoxdConfigServiceGetReadsExistingConfig(t *testing.T) {
 	rt := newTestRuntimeWithService(t)
 	svc := newBoxdConfigService(rt)
 	got, err := svc.Get()
 	if err != nil {
-		t.Fatalf("expected generated default config: %v", err)
+		t.Fatalf("read existing config: %v", err)
 	}
 	body, ok := got.(map[string]any)
 	if !ok {
 		t.Fatalf("config type = %T", got)
 	}
-	if body["route"] == nil {
-		t.Fatalf("generated config missing route: %+v", body)
+	log, _ := body["log"].(map[string]any)
+	if log["level"] != "warn" {
+		t.Fatalf("existing config was not returned: %+v", body)
 	}
 }
 

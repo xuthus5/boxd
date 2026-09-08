@@ -1,63 +1,125 @@
 package core
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/xuthus5/boxd/internal/model"
 )
 
-// minimalConfigTemplate 返回一份最小可用的 sing-box 配置。
-// 仅包含基础日志、本地 mixed 入站与直连/阻止出站，保证内核可启动。
-func minimalConfigTemplate() map[string]any {
-	return map[string]any{
-		"log": map[string]any{
-			"level":     "info",
-			"timestamp": true,
-		},
-		"inbounds": []any{
-			map[string]any{
-				"type": "mixed", "tag": "mixed-in",
-				"listen": "::", "listen_port": 1080,
-			},
-		},
-		"outbounds": []any{
-			map[string]any{"type": "direct", "tag": "direct"},
-			map[string]any{"type": "block", "tag": "block"},
-		},
-		"route": map[string]any{
-			"final": "direct",
-		},
-	}
+// EnsureConfigFile 在配置目录内初始化完整默认配置；已有文件保持不变。
+// 应用入口使用 EnsureDefaultConfig 传入独立的数据目录。
+func EnsureConfigFile(path string) (bool, error) {
+	return EnsureDefaultConfig(context.Background(), path, filepath.Dir(path))
 }
 
-// EnsureConfigFile 确保配置文件存在；不存在时生成最小可用配置并写入。
-// 返回是否本次生成（created=true 表示自动生成了默认配置）。
-// 父目录不存在时自动创建。
-func EnsureConfigFile(path string) (bool, error) {
-	if info, err := os.Stat(path); err == nil {
-		if info.IsDir() {
-			return false, fmt.Errorf("config path is a directory: %s", path)
-		}
+// EnsureDefaultConfig 仅在首次启动时从离线规则快照生成全部必要模块。
+// 返回 true 表示本次创建；取消或失败不会留下半成品配置。
+func EnsureDefaultConfig(ctx context.Context, path, dataDir string) (bool, error) {
+	if exists, err := configFileExists(path); exists || err != nil {
+		return false, err
+	}
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+	absoluteDataDir, err := filepath.Abs(dataDir)
+	if err != nil {
+		return false, fmt.Errorf("resolve data directory: %w", err)
+	}
+	entries, err := NewLoyalsoldierRuleSetInstaller(absoluteDataDir).InstallBundled(ctx)
+	if err != nil {
+		return false, fmt.Errorf("initialize rule sets: %w", err)
+	}
+	cfg, err := defaultConfigTemplate(absoluteDataDir, entries, bootstrapTUNAvailable())
+	if err != nil {
+		return false, err
+	}
+	body, err := encodeInitialConfig(cfg)
+	if err != nil {
+		return false, err
+	}
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+	return writeInitialConfig(path, body)
+}
+
+func configFileExists(path string) (bool, error) {
+	info, err := os.Lstat(path)
+	if errors.Is(err, os.ErrNotExist) {
 		return false, nil
-	} else if !errors.Is(err, os.ErrNotExist) {
+	}
+	if err != nil {
 		return false, fmt.Errorf("stat config file: %w", err)
 	}
-
-	parent := filepath.Dir(path)
-	if err := os.MkdirAll(parent, 0755); err != nil {
-		return false, fmt.Errorf("create config directory: %w", err)
+	if info.Mode()&os.ModeSymlink != 0 {
+		info, err = os.Stat(path)
+		if err != nil {
+			return false, fmt.Errorf("stat config symlink target: %w", err)
+		}
 	}
-
-	body, err := json.MarshalIndent(minimalConfigTemplate(), "", "  ")
-	if err != nil {
-		return false, fmt.Errorf("encode default config: %w", err)
-	}
-	body = append(body, '\n')
-
-	if err := atomicWriteFile0600(path, body); err != nil {
-		return false, fmt.Errorf("write default config: %w", err)
+	if !info.Mode().IsRegular() {
+		return false, fmt.Errorf("config path is not a regular file: %s", path)
 	}
 	return true, nil
+}
+
+func defaultConfigTemplate(dataDir string, entries []map[string]any, enableTUN bool) (map[string]any, error) {
+	ruleSets := make([]any, 0, len(entries))
+	for _, entry := range entries {
+		ruleSets = append(ruleSets, entry)
+	}
+	cfg := map[string]any{
+		"log":      map[string]any{"level": "info", "timestamp": true},
+		"inbounds": initialInbounds(enableTUN),
+		"route":    map[string]any{"rule_set": ruleSets, "final": "proxy"},
+	}
+	outbounds, err := NewDefaultOutboundsInstaller().Install(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("initialize outbounds: %w", err)
+	}
+	cfg["outbounds"] = outbounds.Outbounds
+	if err := installInitialPolicy(cfg); err != nil {
+		return nil, err
+	}
+	experimental, err := NewDefaultExperimentalInstaller().Install(cfg, dataDir)
+	if err != nil {
+		return nil, fmt.Errorf("initialize experimental options: %w", err)
+	}
+	cfg["experimental"] = experimental.Experimental
+	ConfigureDefaultTUNRouting(cfg)
+	return cfg, nil
+}
+
+func installInitialPolicy(cfg map[string]any) error {
+	rules, err := NewDefaultRouteInstaller().Install(cfg)
+	if err != nil {
+		return fmt.Errorf("initialize routing: %w", err)
+	}
+	dns, err := NewDefaultDNSInstaller().Install(cfg)
+	if err != nil {
+		return fmt.Errorf("initialize DNS: %w", err)
+	}
+	cfg["dns"] = dns.DNS
+	route, _ := cfg["route"].(map[string]any)
+	route["rules"] = rules.Rules
+	route["default_domain_resolver"] = dns.DefaultDomainResolver
+	return nil
+}
+
+func encodeInitialConfig(cfg map[string]any) ([]byte, error) {
+	body, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("encode default config: %w", err)
+	}
+	for _, issue := range AnalyzeConfig(body).Issues {
+		if issue.Severity == model.ConfigDiagnosticSeverityError {
+			return nil, fmt.Errorf("validate default config: %s: %s", issue.Path, issue.Code)
+		}
+	}
+	return append(body, '\n'), nil
 }

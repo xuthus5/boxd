@@ -204,28 +204,15 @@ func (u *RuleSetUpdater) updateLocal(ctx context.Context, entry map[string]any, 
 		path = filepath.Join(u.installer.ruleSetDir, src.FileName)
 	}
 	now := time.Now()
-	switch src.Format {
-	case "binary":
-		// 内置二进制规则集（.srs）由 boxd 竞速下载后覆盖本地缓存文件，内核引用不变。
-		content, err := u.installer.raceDownloadContent(ctx, src.Tag, src.URL)
-		if err != nil {
-			return failRuleSetResult(result, err.Error(), err)
-		}
-		if err := atomicWriteFile0600(path, content); err != nil {
-			return failRuleSetResult(result, err.Error(), err)
-		}
-	default:
-		ruleFile, err := u.installer.fetchAndConvert(ctx, src)
-		if err != nil {
-			return failRuleSetResult(result, err.Error(), err)
-		}
-		data, err := json.MarshalIndent(ruleFile, "", "  ")
-		if err != nil {
-			return failRuleSetResult(result, err.Error(), err)
-		}
-		if err := atomicWriteFile0600(path, data); err != nil {
-			return failRuleSetResult(result, err.Error(), err)
-		}
+	data, err := u.installer.downloadRuleSet(ctx, src)
+	if err != nil {
+		return failRuleSetResult(result, err.Error(), err)
+	}
+	if err := ctx.Err(); err != nil {
+		return failRuleSetResult(result, err.Error(), err)
+	}
+	if err := atomicWriteFile0600(path, data); err != nil {
+		return failRuleSetResult(result, err.Error(), err)
 	}
 	result.OK = true
 	result.UpdatedAt = &now

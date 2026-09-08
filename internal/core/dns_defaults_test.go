@@ -2,267 +2,150 @@ package core
 
 import (
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/xuthus5/boxd/internal/model"
 )
 
 func TestDefaultDNSInstallerInstall(t *testing.T) {
-	installer := NewDefaultDNSInstaller()
-	cfg := map[string]any{
-		"outbounds": []any{
-			map[string]any{"tag": "proxy", "type": "selector"},
-			map[string]any{"tag": "direct", "type": "direct"},
-		},
-		"route": map[string]any{
-			"rule_set": []any{
-				map[string]any{"tag": "loyalsoldier-direct"},
-				map[string]any{"tag": "loyalsoldier-proxy"},
-				map[string]any{"tag": "loyalsoldier-reject"},
-			},
-		},
-	}
-
-	result, err := installer.Install(cfg)
-	if err != nil {
-		t.Fatalf("Install() error = %v", err)
-	}
-	servers := result.DNS["servers"].([]any)
-	if len(servers) != 4 {
-		t.Fatalf("servers len = %d, want 4", len(servers))
-	}
-	local := servers[0].(map[string]any)
-	if local["type"] != "local" || local["tag"] != "dns-local" {
-		t.Fatalf("dns-local = %#v", local)
-	}
-	direct := servers[1].(map[string]any)
-	if direct["type"] != "https" || direct["server"] != "223.5.5.5" {
-		t.Fatalf("dns-direct = %#v", direct)
-	}
-	remote := servers[2].(map[string]any)
-	if remote["detour"] != "proxy" {
-		t.Fatalf("dns-remote.detour = %#v", remote["detour"])
-	}
-	if remote["type"] != "https" || remote["server"] != "dns.google" || remote["domain_resolver"] != "dns-direct" {
-		t.Fatalf("dns-remote = %#v", remote)
-	}
-	fakeIP := servers[3].(map[string]any)
-	if fakeIP["type"] != "fakeip" || fakeIP["inet4_range"] != "198.18.0.0/15" {
-		t.Fatalf("dns-fake = %#v", fakeIP)
-	}
-	if _, exists := result.DNS["fakeip"]; exists {
-		t.Fatalf("legacy dns.fakeip should be absent: %#v", result.DNS["fakeip"])
-	}
-	if result.DNS["strategy"] != "prefer_ipv4" {
-		t.Fatalf("dns.strategy = %#v", result.DNS["strategy"])
-	}
-	rules := result.DNS["rules"].([]any)
-	if len(rules) != 4 {
-		t.Fatalf("rules len = %d, want 4", len(rules))
-	}
-	for _, item := range rules {
-		rule := item.(map[string]any)
-		if _, exists := rule["outbound"]; exists {
-			t.Fatalf("legacy outbound dns rule should be absent: %#v", rule)
-		}
-	}
-	blockRule := rules[1].(map[string]any)
-	if blockRule["action"] != "predefined" || blockRule["rcode"] != "NOERROR" {
-		t.Fatalf("dns block rule = %#v", blockRule)
-	}
-	if result.DNS["final"] != "dns-direct" {
-		t.Fatalf("dns.final = %#v", result.DNS["final"])
-	}
-	if result.DefaultDomainResolver != "dns-direct" {
-		t.Fatalf("default domain resolver = %#v", result.DefaultDomainResolver)
-	}
-
-	route := cfg["route"].(map[string]any)
-	route["default_domain_resolver"] = result.DefaultDomainResolver
-	generated := cloneAnyMap(cfg)
-	generated["dns"] = result.DNS
-	body, err := json.Marshal(generated)
-	if err != nil {
-		t.Fatalf("Marshal() error = %v", err)
-	}
-	for _, issue := range AnalyzeConfig(body).Issues {
-		switch issue.Code {
-		case "invalid_singbox_config",
-			"legacy_dns_server",
-			"legacy_dns_fakeip",
-			"outbound_dns_rule_item",
-			"missing_domain_resolver",
-			"legacy_domain_strategy":
-			t.Fatalf("generated defaults diagnostic = %#v", issue)
-		}
-	}
-
-	cfg = map[string]any{
-		"outbounds": []any{
-			map[string]any{"tag": "direct", "type": "direct"},
-		},
-	}
-	result, err = installer.Install(cfg)
-	if err != nil {
-		t.Fatalf("Install() with direct fallback error = %v", err)
-	}
-	servers = result.DNS["servers"].([]any)
-	remote = servers[2].(map[string]any)
-	if _, exists := remote["detour"]; exists {
-		t.Fatalf("dns-remote.detour fallback = %#v, want omitted for empty direct", remote["detour"])
-	}
-}
-
-func TestDefaultDNSInstallerUsesRouteAndGeositeFallbacks(t *testing.T) {
-	installer := NewDefaultDNSInstaller()
-	cfg := map[string]any{
-		"outbounds": []any{
-			map[string]any{"tag": "direct", "type": "direct"},
-			map[string]any{"tag": "secure", "type": "selector", "outbounds": []any{"direct"}},
-		},
-		"route": map[string]any{
-			"final": "secure",
-			"rule_set": []any{
-				map[string]any{"tag": "geosite-cn"},
-				map[string]any{"tag": "geosite-google-play"},
-				map[string]any{"tag": "geosite-category-ads-all"},
-			},
-		},
-	}
-
-	result, err := installer.Install(cfg)
-	if err != nil {
-		t.Fatalf("Install() error = %v", err)
-	}
-	servers := result.DNS["servers"].([]any)
-	remote := servers[2].(map[string]any)
-	if remote["detour"] != "secure" {
-		t.Fatalf("dns-remote.detour = %#v, want secure", remote["detour"])
-	}
-
-	rules := result.DNS["rules"].([]any)
-	if len(rules) != 4 {
-		t.Fatalf("rules len = %d, want 4", len(rules))
-	}
-	assertDNSRule(t, rules[1], "geosite-category-ads-all", "predefined", "")
-	assertDNSRule(t, rules[2], "geosite-cn", "route", "dns-direct")
-	assertDNSRule(t, rules[3], "geosite-google-play", "route", "dns-remote")
-}
-
-type dnsDetourTestCase struct {
-	name         string
-	outbounds    []any
-	directDetour string
-	remoteDetour string
-}
-
-func TestDefaultDNSInstallerUsesOnlyExistingDetours(t *testing.T) {
-	tests := []dnsDetourTestCase{
-		{name: "without outbounds", outbounds: []any{}},
-		{
-			name:         "empty direct tagged proxy",
-			outbounds:    []any{map[string]any{"type": "direct", "tag": "proxy"}},
-			remoteDetour: "",
-		},
-		{
-			name: "direct and proxy selector",
-			outbounds: []any{
-				map[string]any{"type": "direct", "tag": "direct"},
-				map[string]any{"type": "selector", "tag": "proxy", "outbounds": []any{"direct"}},
-			},
-			remoteDetour: "proxy",
-		},
-		{
-			name: "routing-marked direct and proxy selector",
-			outbounds: []any{
-				map[string]any{"type": "direct", "tag": "direct", "routing_mark": 128},
-				map[string]any{"type": "selector", "tag": "proxy", "outbounds": []any{"direct"}},
-			},
-			directDetour: "direct",
-			remoteDetour: "proxy",
-		},
-		{
-			name:         "routing-marked direct fallback",
-			outbounds:    []any{map[string]any{"type": "direct", "tag": "direct", "routing_mark": 128}},
-			directDetour: "direct",
-			remoteDetour: "direct",
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			verifyDefaultDNSDetours(t, test)
-		})
-	}
-}
-
-func verifyDefaultDNSDetours(t *testing.T, test dnsDetourTestCase) {
-	t.Helper()
-	cfg := map[string]any{"outbounds": test.outbounds}
+	cfg := policyDefaultsFixture()
 	result, err := NewDefaultDNSInstaller().Install(cfg)
 	if err != nil {
-		t.Fatalf("Install() error = %v", err)
+		t.Fatal(err)
 	}
-	servers := result.DNS["servers"].([]any)
-	assertDNSDetour(t, servers[0], test.directDetour)
-	assertDNSDetour(t, servers[1], test.directDetour)
-	assertDNSDetour(t, servers[2], test.remoteDetour)
-
-	generated := cloneAnyMap(cfg)
-	generated["dns"] = result.DNS
-	generated["route"] = map[string]any{"default_domain_resolver": result.DefaultDomainResolver}
-	body, err := json.Marshal(generated)
+	if result.DefaultDomainResolver != "dns-direct" || result.DNS["independent_cache"] != true {
+		t.Fatalf("DNS bootstrap/cache defaults = %#v", result)
+	}
+	if result.DNS["strategy"] != "prefer_ipv4" {
+		t.Fatalf("DNS strategy = %v", result.DNS["strategy"])
+	}
+	cfg["dns"] = result.DNS
+	cfg["route"].(map[string]any)["default_domain_resolver"] = result.DefaultDomainResolver
+	body, err := json.Marshal(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, issue := range AnalyzeConfig(body).Issues {
 		if issue.Severity == model.ConfigDiagnosticSeverityError {
-			t.Fatalf("generated defaults diagnostic = %#v", issue)
+			t.Fatalf("invalid default configuration: %#v", issue)
+		}
+	}
+	rules := result.DNS["rules"].([]any)
+	if index := policyRuleIndex(t, rules, predefinedDNSRule("loyalsoldier-reject")); index != 0 {
+		t.Fatalf("advertisement rejection index = %d, want first", index)
+	}
+}
+
+func TestDefaultDNSInstallerUsesRouteAndGeositeFallbacks(t *testing.T) {
+	cfg := map[string]any{
+		"outbounds": []any{
+			map[string]any{"type": "block", "tag": "block"},
+			map[string]any{"type": "selector", "tag": "secure", "outbounds": []string{"block"}},
+		},
+		"route": map[string]any{
+			"final": "secure",
+			"rule_set": []any{
+				policyInlineSet("geosite-cn", "direct.test"),
+				policyInlineSet("geosite-google-play", "proxy.test"),
+				policyInlineSet("geosite-category-ads-all", "ads.test"),
+			},
+		},
+	}
+	result, err := NewDefaultDNSInstaller().Install(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	remote := result.DNS["servers"].([]any)[1].(map[string]any)
+	if remote["detour"] != "secure" {
+		t.Fatalf("remote DNS detour = %v, want secure", remote["detour"])
+	}
+	rules := result.DNS["rules"].([]any)
+	for _, want := range []map[string]any{
+		predefinedDNSRule("geosite-category-ads-all"),
+		routedDNSRule("geosite-google-play", "dns-remote"),
+		routedDNSRule("geosite-cn", "dns-direct"),
+	} {
+		if policyRuleIndex(t, rules, want) < 0 {
+			t.Fatalf("missing fallback rule %#v", want)
 		}
 	}
 }
 
-func assertDNSDetour(t *testing.T, value any, expected string) {
-	t.Helper()
-	server := value.(map[string]any)
-	actual, exists := server["detour"].(string)
-	if expected == "" && exists {
-		t.Fatalf("detour = %q, want omitted", actual)
-	}
-	if expected != "" && actual != expected {
-		t.Fatalf("detour = %q, want %q", actual, expected)
-	}
-}
-
-func assertDNSRule(t *testing.T, value any, ruleSet, action, server string) {
-	t.Helper()
-	rule := value.(map[string]any)
-	ruleSets := rule["rule_set"].([]string)
-	if len(ruleSets) != 1 || ruleSets[0] != ruleSet {
-		t.Fatalf("rule_set = %#v, want %q", ruleSets, ruleSet)
-	}
-	actualServer, _ := rule["server"].(string)
-	if rule["action"] != action || actualServer != server {
-		t.Fatalf("rule = %#v, want action %q and server %q", rule, action, server)
-	}
-}
-
-func TestIsEmptyDirectOutbound(t *testing.T) {
-	tests := []struct {
-		name string
-		ob   map[string]any
-		want bool
+func TestDefaultDNSInstallerUsesOnlyExistingDetours(t *testing.T) {
+	cases := []struct {
+		name   string
+		direct map[string]any
 	}{
-		{"plain direct", map[string]any{"type": "direct", "tag": "direct"}, true},
-		{"routing mark", map[string]any{"type": "direct", "tag": "direct", "routing_mark": 128}, false},
-		{"bind interface", map[string]any{"type": "direct", "tag": "direct", "bind_interface": "eth0"}, false},
-		{"selector", map[string]any{"type": "selector", "tag": "proxy", "outbounds": []any{"direct"}}, false},
-		{"nil", nil, false},
+		{name: "plain direct", direct: map[string]any{"type": "direct", "tag": "direct"}},
+		{name: "zero mark", direct: map[string]any{"type": "direct", "tag": "direct", "routing_mark": 0}},
+		{name: "custom direct", direct: map[string]any{"type": "direct", "tag": "direct", "bind_interface": "lo"}},
 	}
-	for _, test := range tests {
+	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			if got := isEmptyDirectOutbound(test.ob); got != test.want {
-				t.Fatalf("isEmptyDirectOutbound() = %v, want %v", got, test.want)
+			cfg := policyDefaultsFixture()
+			cfg["outbounds"].([]any)[0] = test.direct
+			result, err := NewDefaultDNSInstaller().Install(cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
+			direct := result.DNS["servers"].([]any)[0].(map[string]any)
+			if _, exists := direct["detour"]; exists {
+				t.Fatal("DNS direct transport must use its own underlay dialer")
+			}
+		})
+	}
+}
+
+func TestDefaultDNSInstallerClassifiesUnavailableProxy(t *testing.T) {
+	cases := []struct {
+		name string
+		cfg  map[string]any
+		want error
+	}{
+		{name: "empty config", cfg: nil, want: ErrDNSProxyRequired},
+		{name: "direct final", cfg: map[string]any{
+			"outbounds": []any{map[string]any{"type": "direct", "tag": "direct"}},
+			"route":     map[string]any{"final": "direct"},
+		}, want: ErrDNSProxyRequired},
+		{name: "invalid proxy", cfg: map[string]any{
+			"outbounds": []any{map[string]any{"type": "selector", "tag": "proxy"}},
+		}, want: ErrDNSProxyUnsafe},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := NewDefaultDNSInstaller().Install(test.cfg)
+			if !errors.Is(err, test.want) {
+				t.Fatalf("Install error = %v, want %v", err, test.want)
+			}
+		})
+	}
+}
+
+func TestDefaultDNSInstallerChecksNestedProxyGroups(t *testing.T) {
+	cases := []struct {
+		name      string
+		member    map[string]any
+		wantError bool
+	}{
+		{name: "block placeholder", member: map[string]any{"type": "block", "tag": "node"}},
+		{name: "proxy node", member: map[string]any{"type": "socks", "tag": "node", "server": "192.0.2.1", "server_port": 1080}},
+		{name: "direct leaf", member: map[string]any{"type": "direct", "tag": "node"}, wantError: true},
+		{name: "DNS leaf", member: map[string]any{"type": "dns", "tag": "node"}, wantError: true},
+		{name: "missing type", member: map[string]any{"tag": "node"}, wantError: true},
+		{name: "cycle", member: map[string]any{"type": "selector", "tag": "node", "outbounds": []string{"proxy"}}, wantError: true},
+		{name: "missing reference", member: map[string]any{"type": "urltest", "tag": "node", "outbounds": []string{"missing"}}, wantError: true},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := map[string]any{"outbounds": []any{
+				map[string]any{"type": "selector", "tag": "proxy", "outbounds": []any{"auto"}},
+				map[string]any{"type": "urltest", "tag": "auto", "outbounds": []string{"node"}},
+				test.member,
+			}}
+			_, err := NewDefaultDNSInstaller().Install(cfg)
+			if (err != nil) != test.wantError {
+				t.Fatalf("Install error = %v, want error %v", err, test.wantError)
 			}
 		})
 	}

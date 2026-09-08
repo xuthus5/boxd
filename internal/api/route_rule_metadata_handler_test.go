@@ -119,7 +119,7 @@ func TestInstallDefaultRouteRulesAddsMetadataNames(t *testing.T) {
 		"outbounds": []any{
 			map[string]any{"tag": "direct", "type": "direct"},
 			map[string]any{"tag": "block", "type": "block"},
-			map[string]any{"tag": "proxy", "type": "selector", "outbounds": []any{"direct"}},
+			map[string]any{"tag": "proxy", "type": "selector", "outbounds": []any{"block"}},
 		},
 		"route": map[string]any{"rule_set": []any{
 			map[string]any{"tag": "loyalsoldier-direct", "type": "local", "format": "source", "path": "rules/direct.json"},
@@ -139,7 +139,7 @@ func TestInstallDefaultRouteRulesAddsMetadataNames(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List() error = %v", err)
 	}
-	if len(metadata) != 9 || metadata[0].Name != "协议嗅探" || metadata[8].Name != "代理列表流量走代理" {
+	if len(metadata) != len(rules) || metadata[1].Name != "协议嗅探" || metadata[len(metadata)-1].Name != "中国 IP 直连" {
 		t.Fatalf("metadata = %#v", metadata)
 	}
 }

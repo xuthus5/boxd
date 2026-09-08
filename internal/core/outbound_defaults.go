@@ -17,6 +17,8 @@ type OutboundDefaultsResult struct {
 
 type DefaultOutboundsInstaller struct{}
 
+const defaultOutboundCount = 3
+
 // supportRoutingMark 指示当前平台是否支持出站 routing_mark（SO_MARK 仅 Linux）。
 // 包级变量便于测试注入非 Linux 平台。
 var supportRoutingMark = func() bool { return runtime.GOOS == "linux" }()
@@ -28,93 +30,59 @@ func NewDefaultOutboundsInstaller() *DefaultOutboundsInstaller {
 	return &DefaultOutboundsInstaller{}
 }
 
+// Install 仅补齐缺失出站；已有类型、选项和手动分组保持不变。
 func (i *DefaultOutboundsInstaller) Install(cfg map[string]any) (*OutboundDefaultsResult, error) {
 	existing, _ := cfg["outbounds"].([]any)
-
-	outboundsByTag := make(map[string]map[string]any, len(existing))
-	order := make([]string, 0, len(existing))
-	proxyCandidates := make([]string, 0)
-
+	outbounds := make([]any, 0, len(existing)+defaultOutboundCount)
+	byTag := make(map[string]map[string]any, len(existing))
 	for _, item := range existing {
-		ob, ok := item.(map[string]any)
-		if !ok || ob == nil {
+		entry, ok := item.(map[string]any)
+		if !ok || entry == nil {
+			outbounds = append(outbounds, item)
 			continue
 		}
-		tag, _ := ob["tag"].(string)
-		if tag == "" {
+		outbounds = append(outbounds, cloneMap(entry))
+		tag, _ := entry["tag"].(string)
+		byTag[tag] = entry
+	}
+	installed := make([]map[string]any, 0, defaultOutboundCount)
+	for _, tag := range []string{"direct", "block"} {
+		if byTag[tag] != nil {
 			continue
 		}
-		outboundsByTag[tag] = cloneMap(ob)
-		order = append(order, tag)
-		if isProxyCandidate(ob) {
-			proxyCandidates = append(proxyCandidates, tag)
-		}
+		entry := map[string]any{"type": tag, "tag": tag}
+		outbounds = append(outbounds, entry)
+		installed = append(installed, cloneMap(entry))
 	}
+	if byTag["proxy"] == nil {
+		sync := newOutboundGroupSync(outbounds)
+		members := defaultProxyMembers(existing)
+		if len(members) == 0 {
+			members = []string{sync.blockingTag()}
+		}
+		entry := map[string]any{"type": "selector", "tag": "proxy", "outbounds": members}
+		sync.replace(entry)
+		for _, item := range sync.outbounds[len(outbounds):] {
+			added, _ := item.(map[string]any)
+			installed = append(installed, cloneMap(added))
+		}
+		outbounds = sync.outbounds
+	}
+	return &OutboundDefaultsResult{Outbounds: outbounds, Final: "proxy", Installed: installed}, nil
+}
 
-	ensureBuiltin := func(tag, typ string) {
-		if _, ok := outboundsByTag[tag]; ok {
-			return
-		}
-		outboundsByTag[tag] = map[string]any{"tag": tag, "type": typ}
-		order = append(order, tag)
-	}
-	ensureBuiltin("direct", "direct")
-	ensureBuiltin("block", "block")
-	delete(outboundsByTag, "dns-out")
-	// routing_mark（SO_MARK 策略路由标记）仅 Linux 支持，其他平台会致内核启动失败。
-	if supportRoutingMark {
-		if direct, ok := outboundsByTag["direct"]; ok {
-			direct["routing_mark"] = 128
+func defaultProxyMembers(outbounds []any) []string {
+	members := make([]string, 0, len(outbounds))
+	seen := make(map[string]bool, len(outbounds))
+	for _, item := range outbounds {
+		entry, _ := item.(map[string]any)
+		tag, _ := entry["tag"].(string)
+		if tag != "" && !seen[tag] && isProxyCandidate(entry) {
+			members = append(members, tag)
+			seen[tag] = true
 		}
 	}
-
-	if len(proxyCandidates) == 0 {
-		proxyCandidates = []string{"direct"}
-	}
-
-	upsertGroup := func(tag, typ string, members []string) {
-		group, ok := outboundsByTag[tag]
-		if !ok {
-			group = map[string]any{"tag": tag}
-			order = append(order, tag)
-			group["type"] = typ
-			group["outbounds"] = members
-		} else {
-			// 保留用户既有组的 default/outbounds，仅同步类型，避免破坏 selector 默认项导致回滚。
-			group["type"] = typ
-		}
-		outboundsByTag[tag] = group
-	}
-
-	upsertGroup("proxy", "selector", proxyCandidates)
-	if len(proxyCandidates) > 0 && (len(proxyCandidates) != 1 || proxyCandidates[0] != "direct") {
-		upsertGroup("auto", "urltest", proxyCandidates)
-	}
-
-	result := make([]any, 0, len(order))
-	installed := make([]map[string]any, 0, 6)
-	seen := make(map[string]struct{}, len(order))
-	for _, tag := range order {
-		ob, ok := outboundsByTag[tag]
-		if !ok {
-			continue
-		}
-		if _, duplicated := seen[tag]; duplicated {
-			continue
-		}
-		seen[tag] = struct{}{}
-		result = append(result, ob)
-		switch tag {
-		case "direct", "block", "proxy", "auto":
-			installed = append(installed, cloneMap(ob))
-		}
-	}
-
-	return &OutboundDefaultsResult{
-		Outbounds: result,
-		Final:     "proxy",
-		Installed: installed,
-	}, nil
+	return members
 }
 
 func isProxyCandidate(ob map[string]any) bool {

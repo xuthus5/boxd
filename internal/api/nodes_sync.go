@@ -96,13 +96,23 @@ func managedURLTestTags(previous []string, subscriptions []model.Subscription) m
 }
 
 func preserveExistingOutbounds(existing []any, managedGroups map[string]bool) []any {
-	outbounds := []any{map[string]any{"type": "direct", "tag": "direct"}}
+	outbounds := make([]any, 0, len(existing)+1)
+	hasDirect := false
 	for _, outbound := range existing {
 		entry, _ := outbound.(map[string]any)
 		if shouldReplaceExistingOutbound(entry, managedGroups) {
 			continue
 		}
+		if tag, _ := entry["tag"].(string); tag == "direct" {
+			hasDirect = true
+		}
 		outbounds = append(outbounds, outbound)
+	}
+	if !hasDirect {
+		// 配置中没有 direct 时兜底注入，避免同步后出站列表为空。
+		// 已有 direct 时原样保留（含 routing_mark 等属性），
+		// 否则 sing-box 1.13 会拒绝空 direct 作为 DNS detour。
+		outbounds = append([]any{map[string]any{"type": "direct", "tag": "direct"}}, outbounds...)
 	}
 	return outbounds
 }
@@ -113,15 +123,13 @@ func shouldReplaceExistingOutbound(entry map[string]any, managedGroups map[strin
 	}
 	typeName, _ := entry["type"].(string)
 	tag, _ := entry["tag"].(string)
-	// Rebuild managed protocol nodes and the canonical direct/dns entries from source.
-	// Keep other direct-like outbounds (e.g. bypass) so default selector dependencies remain valid.
-	if managedNodeTypes[typeName] || typeName == "dns" || (typeName == "direct" && tag == "direct") {
+	if managedNodeTypes[typeName] {
 		return true
 	}
 	if (typeName == "urltest" || typeName == "selector") && managedGroups[tag] {
 		return true
 	}
-	return typeName == "selector" && tag == "proxy"
+	return false
 }
 
 func appendManagedOutbounds(
@@ -161,12 +169,7 @@ func buildManagedOutbound(existing map[string]any, outbound model.Outbound) (map
 			entry[key] = value
 		}
 	}
-	// routing_mark（SO_MARK）仅 Linux 支持，其他平台会致内核启动失败。
-	if isProxyLikeOutboundType(outbound.Type) && core.SupportRoutingMark() {
-		if _, ok := entry["routing_mark"]; !ok {
-			entry["routing_mark"] = 128
-		}
-	}
+
 	return entry, nil
 }
 
@@ -195,7 +198,7 @@ func collectProxyTags(outbounds []any, excluded map[string]bool) []string {
 
 func isProxySelectorCandidate(typeName string) bool {
 	switch typeName {
-	case "direct", "block", "dns", "selector", "urltest":
+	case "", "direct", "block", "dns", "selector", "urltest":
 		return false
 	default:
 		return true
@@ -254,22 +257,7 @@ func subscriptionProxyTags(subscription model.Subscription) []string {
 func upsertProxySelector(outbounds []any, groupTags, proxyTags []string) []any {
 	members := append([]string{}, groupTags...)
 	members = append(members, proxyTags...)
-	if len(members) == 0 {
-		return outbounds
-	}
-	defaultTag := members[0]
-	for index, outbound := range outbounds {
-		entry, _ := outbound.(map[string]any)
-		if entry != nil && entry["type"] == "selector" && entry["tag"] == "proxy" {
-			entry["outbounds"] = members
-			entry["default"] = defaultTag
-			outbounds[index] = entry
-			return outbounds
-		}
-	}
-	return append(outbounds, map[string]any{
-		"type": "selector", "tag": "proxy", "outbounds": members, "default": defaultTag,
-	})
+	return core.SyncProxySelector(outbounds, members)
 }
 
 func ensureRouteFinal(config map[string]any) {
@@ -278,7 +266,7 @@ func ensureRouteFinal(config map[string]any) {
 		route = map[string]any{}
 		config["route"] = route
 	}
-	if _, ok := route["final"]; !ok {
+	if _, ok := route["final"]; !ok || route["final"] == "" {
 		route["final"] = "proxy"
 	}
 }

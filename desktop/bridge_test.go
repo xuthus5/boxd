@@ -47,19 +47,20 @@ func TestBridgeServiceStartStop(t *testing.T) {
 	}
 }
 
-func TestBridgeConfigGetReturnsGeneratedDefault(t *testing.T) {
+func TestBridgeConfigGetReadsExistingConfig(t *testing.T) {
 	rt := newTestRuntimeWithService(t)
 	svc := newBoxdBridgeService(rt)
 	resp, err := svc.Call(BridgeRequest{Path: "/api/config/"})
 	if err != nil {
-		t.Fatalf("expected generated default config: %v", err)
+		t.Fatalf("read existing config: %v", err)
 	}
 	data, ok := resp.Data.(map[string]any)
 	if !ok {
 		t.Fatalf("data type = %T", resp.Data)
 	}
-	if data["route"] == nil {
-		t.Fatalf("generated config missing route: %+v", data)
+	log, _ := data["log"].(map[string]any)
+	if log["level"] != "warn" {
+		t.Fatalf("existing config was not returned: %+v", data)
 	}
 }
 

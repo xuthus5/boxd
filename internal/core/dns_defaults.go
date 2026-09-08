@@ -1,5 +1,15 @@
 package core
 
+import (
+	"errors"
+	"fmt"
+)
+
+var (
+	ErrDNSProxyRequired = errors.New("default DNS requires a proxy outbound")
+	ErrDNSProxyUnsafe   = errors.New("default DNS proxy must not contain direct fallback or invalid outbound references")
+)
+
 type DNSDefaultsInstaller interface {
 	Install(cfg map[string]any) (*DNSDefaultsResult, error)
 }
@@ -12,25 +22,21 @@ type DNSDefaultsResult struct {
 
 type DefaultDNSInstaller struct{}
 
-type dnsDefaultDetours struct {
-	direct string
-	remote string
-}
-
 func NewDefaultDNSInstaller() *DefaultDNSInstaller {
 	return &DefaultDNSInstaller{}
 }
 
 func (i *DefaultDNSInstaller) Install(cfg map[string]any) (*DNSDefaultsResult, error) {
-	detours := selectDNSDetours(cfg)
+	proxy, err := selectDNSProxy(cfg)
+	if err != nil {
+		return nil, err
+	}
 	ruleSets := existingRuleSetTags(cfg)
-	servers := defaultDNSServers(detours)
-	rules := defaultDNSRules(ruleSets)
 	dns := map[string]any{
-		"servers":           servers,
+		"servers":           defaultDNSServers(proxy),
 		"strategy":          "prefer_ipv4",
-		"rules":             rules,
-		"final":             "dns-direct",
+		"rules":             defaultDNSRules(ruleSets),
+		"final":             "dns-remote",
 		"independent_cache": true,
 	}
 
@@ -41,24 +47,44 @@ func (i *DefaultDNSInstaller) Install(cfg map[string]any) (*DNSDefaultsResult, e
 	}, nil
 }
 
-func selectDNSDetours(cfg map[string]any) dnsDefaultDetours {
+func selectDNSProxy(cfg map[string]any) (string, error) {
 	outbounds := existingOutbounds(cfg)
-	detours := dnsDefaultDetours{}
-	if ob := outbounds["direct"]; ob != nil && !isEmptyDirectOutbound(ob) {
-		detours.direct = "direct"
+	tag := "proxy"
+	if outbounds[tag] == nil {
+		route, _ := cfg["route"].(map[string]any)
+		tag, _ = route["final"].(string)
+		if outbound := outbounds[tag]; outbound == nil || outbound["type"] == "direct" {
+			return "", ErrDNSProxyRequired
+		}
 	}
-	if ob := outbounds["proxy"]; ob != nil && !isEmptyDirectOutbound(ob) {
-		detours.remote = "proxy"
-		return detours
+	if !dnsProxyIsSafe(outbounds, tag, make(map[string]bool)) {
+		return "", fmt.Errorf("%w: %s", ErrDNSProxyUnsafe, tag)
 	}
-	route, _ := cfg["route"].(map[string]any)
-	final, _ := route["final"].(string)
-	if ob := outbounds[final]; final != "" && ob != nil && !isEmptyDirectOutbound(ob) {
-		detours.remote = final
-		return detours
+	return tag, nil
+}
+
+func dnsProxyIsSafe(outbounds map[string]map[string]any, tag string, visiting map[string]bool) bool {
+	outbound := outbounds[tag]
+	if outbound == nil || visiting[tag] {
+		return false
 	}
-	detours.remote = detours.direct
-	return detours
+	visiting[tag] = true
+	defer delete(visiting, tag)
+	switch stringValue(outbound["type"]) {
+	case "", "direct", "dns":
+		return false
+	case "selector", "urltest":
+		members := asStringSlice(outbound["outbounds"])
+		if len(members) == 0 {
+			return false
+		}
+		for _, member := range members {
+			if !dnsProxyIsSafe(outbounds, member, visiting) {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // existingOutbounds 返回按 tag 索引的既有出站配置。
@@ -75,65 +101,31 @@ func existingOutbounds(cfg map[string]any) map[string]map[string]any {
 	return result
 }
 
-// isEmptyDirectOutbound 判断出站是否为无任何拨号选项的空 direct。
-// sing-box 内核会拒绝 DNS detour 指向空 direct，等价于默认 direct 拨号，因此应省略 detour。
-func isEmptyDirectOutbound(ob map[string]any) bool {
-	if ob["type"] != "direct" {
-		return false
-	}
-	for key := range ob {
-		switch key {
-		case "tag", "type":
-		default:
-			return false
-		}
-	}
-	return true
-}
-
-func defaultDNSServers(detours dnsDefaultDetours) []any {
+func defaultDNSServers(proxy string) []any {
 	return []any{
-		withDNSDetour(map[string]any{"type": "local", "tag": "dns-local"}, detours.direct),
-		withDNSDetour(map[string]any{"type": "https", "server": "223.5.5.5", "tag": "dns-direct"}, detours.direct),
-		withDNSDetour(map[string]any{
-			"type": "https", "server": "dns.google",
-			"domain_resolver": "dns-direct", "tag": "dns-remote",
-		}, detours.remote),
-		map[string]any{"type": "fakeip", "inet4_range": "198.18.0.0/15", "inet6_range": "fc00::/18", "tag": "dns-fake"},
+		map[string]any{"type": "https", "server": "223.5.5.5", "tag": "dns-direct"},
+		map[string]any{
+			"type": "https", "server": "8.8.8.8", "tag": "dns-remote", "detour": proxy,
+			"tls": map[string]any{"server_name": "dns.google"},
+		},
 	}
-}
-
-func withDNSDetour(server map[string]any, detour string) map[string]any {
-	if detour != "" {
-		server["detour"] = detour
-	}
-	return server
 }
 
 func defaultDNSRules(ruleSets map[string]bool) []any {
-	rules := []any{
-		map[string]any{"domain": []string{"dns.google"}, "server": "dns-direct"},
+	rules := make([]any, 0)
+	if tag := preferredRuleSet(ruleSets, "loyalsoldier-reject", "geosite-category-ads-all"); tag != "" {
+		rules = append(rules, predefinedDNSRule(tag))
 	}
-
-	switch {
-	case ruleSets["loyalsoldier-reject"]:
-		rules = append(rules, predefinedDNSRule("loyalsoldier-reject"))
-	case ruleSets["geosite-category-ads-all"]:
-		rules = append(rules, predefinedDNSRule("geosite-category-ads-all"))
+	rules = append(rules,
+		map[string]any{"clash_mode": "Direct", "server": "dns-direct"},
+		map[string]any{"clash_mode": "Global", "server": "dns-remote"},
+	)
+	// 两个列表存在交集，DNS 与路由保持相同的代理优先级。
+	if tag := preferredRuleSet(ruleSets, "loyalsoldier-proxy", "geosite-google-play"); tag != "" {
+		rules = append(rules, routedDNSRule(tag, "dns-remote"))
 	}
-
-	switch {
-	case ruleSets["loyalsoldier-direct"]:
-		rules = append(rules, routedDNSRule("loyalsoldier-direct", "dns-direct"))
-	case ruleSets["geosite-cn"]:
-		rules = append(rules, routedDNSRule("geosite-cn", "dns-direct"))
-	}
-
-	switch {
-	case ruleSets["loyalsoldier-proxy"]:
-		rules = append(rules, routedDNSRule("loyalsoldier-proxy", "dns-remote"))
-	case ruleSets["geosite-google-play"]:
-		rules = append(rules, routedDNSRule("geosite-google-play", "dns-remote"))
+	if tag := preferredRuleSet(ruleSets, "loyalsoldier-direct", "geosite-cn"); tag != "" {
+		rules = append(rules, routedDNSRule(tag, "dns-direct"))
 	}
 	return rules
 }

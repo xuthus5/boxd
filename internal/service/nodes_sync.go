@@ -124,13 +124,13 @@ func shouldReplaceExistingOutbound(entry map[string]any, managedGroups map[strin
 	}
 	typeName, _ := entry["type"].(string)
 	tag, _ := entry["tag"].(string)
-	if managedNodeTypes[typeName] || typeName == "dns" {
+	if managedNodeTypes[typeName] {
 		return true
 	}
 	if (typeName == "urltest" || typeName == "selector") && managedGroups[tag] {
 		return true
 	}
-	return typeName == "selector" && tag == "proxy"
+	return false
 }
 
 func appendManagedOutbounds(
@@ -170,12 +170,7 @@ func buildManagedOutbound(existing map[string]any, outbound model.Outbound) (map
 			entry[key] = value
 		}
 	}
-	// routing_mark（SO_MARK）仅 Linux 支持，其他平台会致内核启动失败。
-	if isProxyLikeOutboundType(outbound.Type) && core.SupportRoutingMark() {
-		if _, ok := entry["routing_mark"]; !ok {
-			entry["routing_mark"] = 128
-		}
-	}
+
 	return entry, nil
 }
 
@@ -204,7 +199,7 @@ func collectProxyTags(outbounds []any, excluded map[string]bool) []string {
 
 func isProxySelectorCandidate(typeName string) bool {
 	switch typeName {
-	case "direct", "block", "dns", "selector", "urltest":
+	case "", "direct", "block", "dns", "selector", "urltest":
 		return false
 	default:
 		return true
@@ -263,22 +258,7 @@ func subscriptionProxyTags(subscription model.Subscription) []string {
 func upsertProxySelector(outbounds []any, groupTags, proxyTags []string) []any {
 	members := append([]string{}, groupTags...)
 	members = append(members, proxyTags...)
-	if len(members) == 0 {
-		return outbounds
-	}
-	defaultTag := members[0]
-	for index, outbound := range outbounds {
-		entry, _ := outbound.(map[string]any)
-		if entry != nil && entry["type"] == "selector" && entry["tag"] == "proxy" {
-			entry["outbounds"] = members
-			entry["default"] = defaultTag
-			outbounds[index] = entry
-			return outbounds
-		}
-	}
-	return append(outbounds, map[string]any{
-		"type": "selector", "tag": "proxy", "outbounds": members, "default": defaultTag,
-	})
+	return core.SyncProxySelector(outbounds, members)
 }
 
 func ensureRouteFinal(config map[string]any) {
@@ -287,7 +267,7 @@ func ensureRouteFinal(config map[string]any) {
 		route = map[string]any{}
 		config["route"] = route
 	}
-	if _, ok := route["final"]; !ok {
+	if _, ok := route["final"]; !ok || route["final"] == "" {
 		route["final"] = "proxy"
 	}
 }

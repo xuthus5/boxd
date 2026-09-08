@@ -28,12 +28,8 @@ export function hasProxyOutbound(config: SingBoxConfig | undefined) {
   return objects(config?.outbounds).some((item) => {
     const type = String(item.type ?? "")
     const tag = String(item.tag ?? "")
-    if (!tag) return false
-    if (type === "selector" || type === "urltest") {
-      const members = Array.isArray(item.outbounds) ? item.outbounds : []
-      return members.length > 0
-    }
-    return !["direct", "block", "dns", "blackhole"].includes(type)
+    if (!tag || !type) return false
+    return !["direct", "block", "dns", "blackhole", "selector", "urltest"].includes(type)
   })
 }
 
@@ -52,9 +48,7 @@ export function hasRouteRules(config: SingBoxConfig | undefined) {
 
 export function hasClashAPI(config: SingBoxConfig | undefined) {
   const experimental = isObject(config?.experimental) ? config.experimental : undefined
-  const clash = isObject(experimental?.clash_api) ? experimental.clash_api : undefined
-  const controller = typeof clash?.external_controller === "string" ? clash.external_controller.trim() : ""
-  return controller.length > 0
+  return isObject(experimental?.clash_api)
 }
 
 export function hasSubscriptions(subscriptions: Subscription[] | undefined) {

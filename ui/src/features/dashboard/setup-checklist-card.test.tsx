@@ -33,7 +33,7 @@ describe("SetupChecklistCard", () => {
       if (path.includes("/api/config")) {
         return Promise.resolve(new Response(JSON.stringify({
           inbounds: [{ type: "mixed", tag: "mixed-in" }],
-          outbounds: [{ type: "selector", tag: "proxy", outbounds: ["hk"] }],
+          outbounds: [{ type: "selector", tag: "proxy", outbounds: ["hk"] }, { type: "vless", tag: "hk" }],
           route: { rules: [{ outbound: "proxy" }] },
           experimental: { clash_api: { external_controller: "127.0.0.1:9090" } },
         })))
@@ -92,7 +92,7 @@ describe("SetupChecklistCard", () => {
       if (path.includes("/api/config")) {
         return Promise.resolve(new Response(JSON.stringify({
           inbounds: [{ type: "mixed", tag: "mixed-in" }],
-          outbounds: [{ type: "selector", tag: "proxy", outbounds: ["hk"] }],
+          outbounds: [{ type: "selector", tag: "proxy", outbounds: ["hk"] }, { type: "vless", tag: "hk" }],
           route: { rules: [{ outbound: "proxy" }] },
           experimental: { clash_api: { external_controller: "127.0.0.1:9090" } },
         })))
@@ -133,7 +133,7 @@ describe("SetupChecklistCard", () => {
       if (path.includes("/api/config")) {
         return Promise.resolve(new Response(JSON.stringify({
           inbounds: [{ type: "mixed", tag: "mixed-in" }],
-          outbounds: [{ type: "selector", tag: "proxy", outbounds: ["hk"] }],
+          outbounds: [{ type: "selector", tag: "proxy", outbounds: ["hk"] }, { type: "vless", tag: "hk" }],
           route: { rules: [{ outbound: "proxy" }] },
           experimental: { clash_api: { external_controller: "127.0.0.1:9090" } },
         })))

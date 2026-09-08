@@ -299,6 +299,8 @@ func TestSubscriptionGroupBuilderEmpty(t *testing.T) {
 func TestUpsertProxySelectorExisting(t *testing.T) {
 	outbounds := []any{
 		map[string]any{"type": "selector", "tag": "proxy", "outbounds": []any{}},
+		map[string]any{"type": "urltest", "tag": "g", "outbounds": []string{"n"}},
+		map[string]any{"type": "vless", "tag": "n"},
 	}
 	result := upsertProxySelector(outbounds, []string{"g"}, []string{"n"})
 	entry, _ := result[0].(map[string]any)
@@ -309,8 +311,13 @@ func TestUpsertProxySelectorExisting(t *testing.T) {
 
 func TestUpsertProxySelectorEmptyMembers(t *testing.T) {
 	result := upsertProxySelector([]any{}, nil, nil)
-	if len(result) != 0 {
+	if len(result) != 2 {
 		t.Fatalf("result = %v", result)
+	}
+	block, _ := result[0].(map[string]any)
+	proxy, _ := result[1].(map[string]any)
+	if block["type"] != "block" || proxy["tag"] != "proxy" {
+		t.Fatalf("expected blocking proxy fallback, got %#v", result)
 	}
 }
 

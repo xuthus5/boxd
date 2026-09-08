@@ -63,13 +63,13 @@ func TestShouldReplaceExistingOutboundBranches(t *testing.T) {
 	}{
 		{name: "nil", entry: nil, want: true},
 		{name: "managed node type", entry: map[string]any{"type": "vless", "tag": "n"}, want: true},
-		{name: "dns", entry: map[string]any{"type": "dns", "tag": "dns"}, want: true},
+		{name: "dns", entry: map[string]any{"type": "dns", "tag": "dns"}, want: false},
 		{name: "direct preserved", entry: map[string]any{"type": "direct", "tag": "direct"}, want: false},
 		{name: "direct other", entry: map[string]any{"type": "direct", "tag": "bypass"}, want: false},
 		{name: "managed group urltest", entry: map[string]any{"type": "urltest", "tag": "g1"}, want: true},
 		{name: "managed group selector", entry: map[string]any{"type": "selector", "tag": "g1"}, want: true},
 		{name: "unmanaged selector", entry: map[string]any{"type": "selector", "tag": "other"}, want: false},
-		{name: "proxy selector", entry: map[string]any{"type": "selector", "tag": "proxy"}, want: true},
+		{name: "proxy selector", entry: map[string]any{"type": "selector", "tag": "proxy"}, want: false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

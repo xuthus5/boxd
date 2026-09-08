@@ -98,8 +98,8 @@ func run(cfg *config.Config) error {
 		return nil
 	}
 
-	// 默认配置文件不存在时自动生成最小可用配置，保证内核可启动。
-	created, err := core.EnsureConfigFile(cfg.ConfigPath)
+	// 首次启动统一初始化默认策略；已有配置不改写。
+	created, err := core.EnsureDefaultConfig(context.Background(), cfg.ConfigPath, cfg.DataDir)
 	if err != nil {
 		return fmt.Errorf("ensure default config: %w", err)
 	}

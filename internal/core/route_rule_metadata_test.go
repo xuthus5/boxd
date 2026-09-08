@@ -122,6 +122,10 @@ func TestDefaultRouteRuleNameVariants(t *testing.T) {
 		rule map[string]any
 		want string
 	}{
+		{name: "DNS port hijack", rule: map[string]any{"port": 53, "action": "hijack-dns"}, want: "DNS 请求劫持"},
+		{name: "resolve", rule: map[string]any{"action": "resolve"}, want: "域名解析后分流"},
+		{name: "direct mode", rule: map[string]any{"clash_mode": "Direct"}, want: "直连模式"},
+		{name: "global mode", rule: map[string]any{"clash_mode": "Global"}, want: "全局代理模式"},
 		{name: "geosite ads", rule: map[string]any{"rule_set": []any{"geosite-category-ads-all"}}, want: "广告流量拦截"},
 		{name: "loyalsoldier direct", rule: map[string]any{"rule_set": []string{"loyalsoldier-direct"}}, want: "中国域名直连"},
 		{name: "empty string rules", rule: map[string]any{"rule_set": []string{}}, want: ""},

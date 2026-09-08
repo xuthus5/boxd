@@ -18,10 +18,32 @@ describe("setup-checklist", () => {
     expect(hasLocalInbound({ inbounds: [{ type: "mixed", tag: "mixed-in" }] } as SingBoxConfig)).toBe(true)
     expect(hasProxyOutbound({ outbounds: [{ type: "direct", tag: "direct" }] } as SingBoxConfig)).toBe(false)
     expect(hasProxyOutbound({
-      outbounds: [{ type: "selector", tag: "proxy", outbounds: ["hk"] }],
+      outbounds: [
+        { type: "selector", tag: "proxy", outbounds: ["hk"] },
+        { type: "vless", tag: "hk" },
+      ],
     } as SingBoxConfig)).toBe(true)
     expect(hasRouteRules({ route: { rules: [{ outbound: "proxy" }] } } as SingBoxConfig)).toBe(true)
     expect(hasClashAPI({ experimental: { clash_api: { external_controller: "127.0.0.1:9090" } } } as SingBoxConfig)).toBe(true)
+  })
+
+  it("recognizes internal Clash control without opening a listener", () => {
+    expect(hasClashAPI({ experimental: { clash_api: { default_mode: "rule" } } } as SingBoxConfig)).toBe(true)
+    expect(hasClashAPI({ experimental: { clash_api: {} } } as SingBoxConfig)).toBe(true)
+    expect(hasClashAPI({ experimental: { clash_api: null } } as SingBoxConfig)).toBe(false)
+    expect(hasClashAPI(emptyConfig)).toBe(false)
+  })
+
+  it("keeps proxy setup pending until a real node is added", () => {
+    expect(hasProxyOutbound({ outbounds: [
+      { type: "direct", tag: "direct" },
+      { type: "block", tag: "block" },
+      { type: "selector", tag: "proxy", outbounds: ["block"] },
+    ] } as SingBoxConfig)).toBe(false)
+    expect(hasProxyOutbound({ outbounds: [
+      { type: "selector", tag: "proxy", outbounds: ["missing"] },
+    ] } as SingBoxConfig)).toBe(false)
+    expect(hasProxyOutbound({ outbounds: [{ tag: "empty" }, { type: "vless" }] } as SingBoxConfig)).toBe(false)
   })
 
   it("builds progress across steps", () => {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -67,8 +68,8 @@ func initRuntime(cfg desktopConfig) (*desktopRuntime, error) {
 	if err := os.Chdir(cfg.DataDir); err != nil {
 		slog.Warn("chdir to data dir failed", "err", err)
 	}
-	// 配置文件缺失时自动生成最小可用配置，保证内核可启动。
-	if created, err := core.EnsureConfigFile(cfg.ConfigPath); err != nil {
+	// 首次启动复用服务端完整默认策略，不覆盖已有配置。
+	if created, err := core.EnsureDefaultConfig(context.Background(), cfg.ConfigPath, cfg.DataDir); err != nil {
 		return nil, fmt.Errorf("ensure config file: %w", err)
 	} else if created {
 		slog.Info("generated default config", "path", cfg.ConfigPath)
