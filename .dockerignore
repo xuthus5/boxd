@@ -9,3 +9,14 @@ docs/
 .env*
 Dockerfile*
 .dockerignore
+**/node_modules/
+**/coverage/
+**/test-results/
+**/playwright-report/
+desktop/bin/
+desktop/ui/
+data/
+**/*.db
+**/*.db-shm
+**/*.db-wal
+**/config-backups/

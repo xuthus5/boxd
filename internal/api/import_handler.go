@@ -73,6 +73,10 @@ func (h *ImportHandler) SaveNode(w http.ResponseWriter, r *http.Request) {
 		Raw:    req.Config,
 	}
 
+	if err := core.ValidateImportedNode(outbound); err != nil {
+		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, err.Error())
+		return
+	}
 	if err := h.nodeManager.Add(outbound); err != nil {
 		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorInternal, "failed to save node")
 		return

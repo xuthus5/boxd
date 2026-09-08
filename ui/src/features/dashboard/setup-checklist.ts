@@ -1,12 +1,11 @@
 import type { JsonValue, ServiceStatus, SingBoxConfig, Subscription } from "@/lib/api/types"
+import type { SetupStatus } from "@/lib/api/setup"
 
 export type SetupStepId =
   | "kernel"
-  | "inbounds"
-  | "outbounds"
-  | "subscriptions"
-  | "route"
-  | "clashApi"
+  | "modules"
+  | "nodes"
+  | "access"
 
 export interface SetupStep {
   id: SetupStepId
@@ -52,21 +51,37 @@ export function hasClashAPI(config: SingBoxConfig | undefined) {
 }
 
 export function hasSubscriptions(subscriptions: Subscription[] | undefined) {
-  return Array.isArray(subscriptions) && subscriptions.length > 0
+  return Array.isArray(subscriptions) && subscriptions.some((item) => !item.error && Array.isArray(item.outbounds) && item.outbounds.length > 0)
+}
+
+function baseModulesReady(setup: SetupStatus | undefined, config: SingBoxConfig | undefined) {
+  if (setup?.config_error) return false
+  if (Array.isArray(setup?.modules)) {
+    return ["outbounds", "dns", "route"].every((id) => setup.modules.some((module) => module.id === id && module.state === "ready"))
+  }
+  const dns = isObject(config?.dns) ? config.dns : undefined
+  return objects(config?.outbounds).length > 0 && objects(dns?.servers).length > 0 && hasRouteRules(config)
+}
+
+function accessConfigured(setup: SetupStatus | undefined, config: SingBoxConfig | undefined) {
+  if (Array.isArray(setup?.modules) && setup.modules.some((module) => module.id === "inbounds" && module.state === "invalid")) return false
+  if (!Array.isArray(setup?.listeners)) return hasLocalInbound(config)
+  return setup.listeners.some((listener) => listener.type === "tun"
+    ? setup.capabilities?.tun_available === true
+    : ["mixed", "http", "socks"].includes(listener.type) && Number(listener.listen_port) > 0)
 }
 
 export function buildSetupSteps(input: {
   status?: ServiceStatus
   config?: SingBoxConfig
   subscriptions?: Subscription[]
+  setup?: SetupStatus
 }): SetupStep[] {
   return [
-    { id: "kernel", done: Boolean(input.status?.running), href: "/dashboard" },
-    { id: "inbounds", done: hasLocalInbound(input.config), href: "/proxy/inbounds" },
-    { id: "outbounds", done: hasProxyOutbound(input.config), href: "/proxy/outbounds" },
-    { id: "subscriptions", done: hasSubscriptions(input.subscriptions), href: "/subscriptions" },
-    { id: "route", done: hasRouteRules(input.config), href: "/policy/route" },
-    { id: "clashApi", done: hasClashAPI(input.config), href: "/advanced/experimental" },
+    { id: "modules", done: baseModulesReady(input.setup, input.config), href: "/advanced/raw" },
+    { id: "nodes", done: input.setup?.proxy_ready ?? (hasProxyOutbound(input.config) || hasSubscriptions(input.subscriptions)), href: "/subscriptions" },
+    { id: "access", done: accessConfigured(input.setup, input.config), href: "/proxy/inbounds" },
+    { id: "kernel", done: Boolean(input.status?.running ?? input.setup?.kernel_running), href: "/dashboard" },
   ]
 }
 

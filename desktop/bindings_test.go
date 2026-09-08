@@ -44,13 +44,15 @@ func TestBoxdConfigServiceValidate(t *testing.T) {
 	}
 }
 
-func TestBoxdConfigServiceUpdateRestartFail(t *testing.T) {
+func TestBoxdConfigServiceUpdatePreservesStoppedKernel(t *testing.T) {
 	rt := newTestRuntimeWithService(t)
 	svc := newBoxdConfigService(rt)
-	// 内核无法启动时 Update 返回错误（无有效配置）
 	_, err := svc.Update([]byte(`{"log":{"level":"info"}}`))
-	if err == nil {
-		t.Fatal("expected error for config that cannot start kernel")
+	if err != nil {
+		t.Fatalf("save valid config while stopped: %v", err)
+	}
+	if rt.instance.Status().Running {
+		t.Fatal("saving config unexpectedly started the stopped kernel")
 	}
 }
 
@@ -62,18 +64,16 @@ func TestBoxdConfigServiceUpdateWritesConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	svc := newBoxdConfigService(rt)
-	// 内核启动受 build tags 限制，Update 返回错误是预期的（无法启动内核时）
 	_, err := svc.Update(validConfig)
 	if err != nil {
-		t.Logf("update returned error (kernel start limited by build tags): %v", err)
+		t.Fatalf("update stopped kernel config: %v", err)
 	}
-	// 但配置写入应先于重启尝试，验证写入发生
 	data, readErr := os.ReadFile(rt.cfg.ConfigPath)
 	if readErr != nil {
 		t.Fatal(readErr)
 	}
-	if len(data) == 0 {
-		t.Fatal("config file is empty")
+	if string(data) != string(validConfig) || rt.instance.Status().Running {
+		t.Fatal("config was not saved while preserving stopped state")
 	}
 }
 

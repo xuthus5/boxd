@@ -17,7 +17,7 @@ describe("dashboard interactions", () => {
     const fetchMock = installMockAPI()
     const user = userEvent.setup()
     renderApp(<App />, "/dashboard")
-    await screen.findByText("运行中", {}, { timeout: dashboardLoadTimeout })
+    await screen.findAllByText("运行中", {}, { timeout: dashboardLoadTimeout })
 
     expect(screen.getByRole("button", { name: "启动" })).toBeDisabled()
     for (const name of ["GC", "清理 DNS", "清理 FakeIP"]) {

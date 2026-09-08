@@ -14,7 +14,6 @@ import {
 } from "@/features/policy/policy-form-model"
 import type { APIEnvelope, JsonValue, RouteRuleMetadata } from "@/lib/api/types"
 import { api } from "@/lib/api/endpoints"
-import { rolledBackMessage } from "@/lib/api/status"
 import { PageLoadErrorAlert } from "@/features/common/page-load-error-alert"
 
 export type { PolicyVisualEditorProps } from "@/features/policy/policy-editor"
@@ -80,12 +79,16 @@ export function PolicyPage({
   const installDefaults = () => {
     clearSaveError()
     install()
-      .then((response) => {
-        if (response.status === "rolled_back") throw new Error(rolledBackMessage(response, t("policy.rolledBack")))
-        return query.refetch()
+      .then(async (response) => {
+        if (response.status === "rolled_back") {
+          reportRollback(response, t("policy.rolledBack"))
+          await query.refetch()
+          return
+        }
+        await query.refetch()
+        await afterInstall?.()
+        toast.success(t("policy.installed"))
       })
-      .then(() => afterInstall?.())
-      .then(() => toast.success(t("policy.installed")))
       .catch((error: Error) => { reportError(error) })
   }
   const initialSection = query.data?.[section] ?? {}

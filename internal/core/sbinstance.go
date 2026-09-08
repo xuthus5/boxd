@@ -119,7 +119,10 @@ func NewSBInstance(configPath string, logWriter *LogWriter) *SBInstance {
 func (s *SBInstance) Start() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.startLocked()
+}
 
+func (s *SBInstance) startLocked() error {
 	if s.running {
 		return nil
 	}
@@ -132,18 +135,7 @@ func (s *SBInstance) Start() error {
 
 	ctx, cancel := context.WithCancel(include.Context(context.Background()))
 
-	var options option.Options
-	if err := options.UnmarshalJSONContext(ctx, configData); err != nil {
-		cancel()
-		s.recordStartErrorLocked(err)
-		return err
-	}
-
-	instance, err := newBox(box.Options{
-		Context:           ctx,
-		Options:           options,
-		PlatformLogWriter: s.LogWriter,
-	})
+	instance, err := s.createBox(ctx, configData)
 	if err != nil {
 		cancel()
 		s.recordStartErrorLocked(err)
@@ -172,10 +164,25 @@ func (s *SBInstance) Start() error {
 	return nil
 }
 
+func (s *SBInstance) createBox(ctx context.Context, configData []byte) (boxInstance, error) {
+	var options option.Options
+	if err := options.UnmarshalJSONContext(ctx, configData); err != nil {
+		return nil, err
+	}
+	return newBox(box.Options{
+		Context:           ctx,
+		Options:           options,
+		PlatformLogWriter: s.LogWriter,
+	})
+}
+
 func (s *SBInstance) Stop() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.stopLocked()
+}
 
+func (s *SBInstance) stopLocked() error {
 	if !s.running || s.box == nil {
 		s.Traffic = nil
 		return nil
@@ -194,10 +201,12 @@ func (s *SBInstance) Stop() error {
 }
 
 func (s *SBInstance) Restart() error {
-	if err := s.Stop(); err != nil {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.stopLocked(); err != nil {
 		return err
 	}
-	return s.Start()
+	return s.startLocked()
 }
 
 // TrafficTracker 返回当前流量追踪器，便于 API 层在不持有具体类型时访问。

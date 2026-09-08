@@ -75,21 +75,9 @@ func run(cfg *config.Config) error {
 	}()
 
 	settingsManager := core.NewSettingsManager(db)
-	defaultPassword, err := settingsManager.EnsureAdminCredential(cfg.Username, cfg.Password)
-	if err != nil {
-		return fmt.Errorf("init administrator credential: %w", err)
+	if err := initializeServerSettings(cfg, settingsManager); err != nil {
+		return err
 	}
-	if defaultPassword {
-		slog.Warn("default administrator password is active; change it in settings")
-	}
-	secret, generated, err := settingsManager.EnsureJWTSecret()
-	if err != nil {
-		return fmt.Errorf("init jwt secret: %w", err)
-	}
-	if generated {
-		slog.Info("jwt secret auto-generated and persisted to database")
-	}
-	_ = secret
 	if cfg.BackupPath != "" {
 		if err := core.CreateBackup(db, cfg.ConfigPath, cfg.BackupPath, core.Version); err != nil {
 			return fmt.Errorf("create backup: %w", err)
@@ -98,17 +86,11 @@ func run(cfg *config.Config) error {
 		return nil
 	}
 
-	// 首次启动统一初始化默认策略；已有配置不改写。
-	created, err := core.EnsureDefaultConfig(context.Background(), cfg.ConfigPath, cfg.DataDir)
-	if err != nil {
-		return fmt.Errorf("ensure default config: %w", err)
-	}
-	if created {
-		slog.Info("default config generated", "path", cfg.ConfigPath)
+	if err := initializeServerConfig(cfg, settingsManager); err != nil {
+		return err
 	}
 
 	runtime := newHandler(cfg, db, settingsManager)
-
 	logLevel := slog.LevelInfo
 	if cfg.LogLevel == "debug" {
 		logLevel = slog.LevelDebug

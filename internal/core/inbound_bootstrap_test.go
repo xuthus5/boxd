@@ -2,29 +2,25 @@ package core
 
 import "testing"
 
-func TestInitialInboundsRespectTUNCapability(t *testing.T) {
+func TestInitialInboundsRequireExplicitTUNSelection(t *testing.T) {
 	for _, tt := range []struct {
-		name  string
-		tun   bool
-		count int
+		name      string
+		tun       bool
+		container bool
+		listen    string
 	}{
-		{name: "local proxy without privilege", count: 1},
-		{name: "TUN with privilege", tun: true, count: 2},
+		{name: "local proxy without privilege", listen: "127.0.0.1"},
+		{name: "privilege does not enable TUN", tun: true, listen: "127.0.0.1"},
+		{name: "container listener", tun: true, container: true, listen: "0.0.0.0"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			inbounds := initialInbounds(tt.tun)
-			if len(inbounds) != tt.count {
-				t.Fatalf("want %d inbounds, got %d", tt.count, len(inbounds))
+			inbounds := initialInbounds(NetworkCapabilities{Container: tt.container, TUNAvailable: tt.tun})
+			if len(inbounds) != 1 {
+				t.Fatalf("want one mixed inbound, got %d", len(inbounds))
 			}
 			mixed := inbounds[0].(map[string]any)
-			if mixed["listen"] != "127.0.0.1" {
-				t.Fatal("first-run proxy must only listen on loopback")
-			}
-			if tt.tun {
-				tun := inbounds[1].(map[string]any)
-				if tun["auto_route"] != true || tun["strict_route"] != true {
-					t.Fatalf("TUN must capture DNS with strict routing: %#v", tun)
-				}
+			if mixed["listen"] != tt.listen {
+				t.Fatalf("want listen %q, got %#v", tt.listen, mixed)
 			}
 		})
 	}
@@ -45,7 +41,11 @@ func TestConfigureDefaultTUNRouting(t *testing.T) {
 		{name: "preserve detection choice", tun: true, route: map[string]any{"auto_detect_interface": false}, detect: false},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := map[string]any{"inbounds": initialInbounds(tt.tun)}
+			inbounds := initialInbounds(NetworkCapabilities{})
+			if tt.tun {
+				inbounds = append(inbounds, tunInboundTemplate())
+			}
+			cfg := map[string]any{"inbounds": inbounds}
 			if tt.route != nil {
 				cfg["route"] = tt.route
 			}

@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -84,11 +83,7 @@ func (h *ConfigHandler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 
 	status, apiErr, err := h.applyConfigBytesWithSource(body, true, "update")
 	if err != nil {
-		if errors.Is(err, ErrInvalidRuntimeConfig) {
-			writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorConfigInvalidRuntime, runtimeConfigErrorMessage(err))
-			return
-		}
-		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorInternal, "failed to write config")
+		writeApplyConfigError(w, err)
 		return
 	}
 	writeJSONStatus(w, http.StatusOK, status, nil, apiErr, map[string]any{
@@ -121,11 +116,7 @@ func (h *ConfigHandler) UpdateRawConfig(w http.ResponseWriter, r *http.Request) 
 
 	status, apiErr, err := h.applyConfigBytesWithSource(body, true, "raw")
 	if err != nil {
-		if errors.Is(err, ErrInvalidRuntimeConfig) {
-			writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorConfigInvalidRuntime, runtimeConfigErrorMessage(err))
-			return
-		}
-		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorInternal, "failed to write config")
+		writeApplyConfigError(w, err)
 		return
 	}
 	writeJSONStatus(w, http.StatusOK, status, nil, apiErr, map[string]any{

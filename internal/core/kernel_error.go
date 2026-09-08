@@ -2,26 +2,52 @@ package core
 
 import (
 	"errors"
+	"net/netip"
 	"os"
 	"strings"
 )
 
 // 内核启动 / 配置应用稳定错误码，供前端展示可操作提示。
 const (
-	KernelErrorConfigInvalid = "config_invalid"
-	KernelErrorConfigMissing = "config_missing"
-	KernelErrorRestartFailed = "restart_failed"
-	KernelErrorStartFailed   = "start_failed"
-	KernelErrorPermission    = "permission"
-	KernelErrorUnknown       = "unknown"
+	KernelErrorConfigInvalid   = "config_invalid"
+	KernelErrorConfigMissing   = "config_missing"
+	KernelErrorRestartFailed   = "restart_failed"
+	KernelErrorStartFailed     = "start_failed"
+	KernelErrorPermission      = "permission"
+	KernelErrorIPv6Unavailable = "ipv6_unavailable"
+	KernelErrorUnknown         = "unknown"
 )
 
 // ClassifyKernelError 将内核/配置应用失败映射为稳定错误码。
 func ClassifyKernelError(msg string, err error) string {
+	if isIPv6AddressSetupError(msg) {
+		return KernelErrorIPv6Unavailable
+	}
+	if err != nil && isIPv6AddressSetupError(err.Error()) {
+		return KernelErrorIPv6Unavailable
+	}
 	if code := classifyKernelErrorValue(err); code != "" {
 		return code
 	}
 	return classifyKernelErrorMessage(msg)
+}
+
+func isIPv6AddressSetupError(msg string) bool {
+	lower := strings.ToLower(msg)
+	if strings.Contains(lower, "set ipv6 address") {
+		return true
+	}
+	for _, detail := range strings.Split(lower, "add address ")[1:] {
+		fields := strings.Fields(detail)
+		if len(fields) == 0 {
+			continue
+		}
+		prefix, err := netip.ParsePrefix(strings.TrimSuffix(fields[0], ":"))
+		if err == nil && prefix.Addr().Is6() {
+			return true
+		}
+	}
+	return false
 }
 
 func classifyKernelErrorValue(err error) string {

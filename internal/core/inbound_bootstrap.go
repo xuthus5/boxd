@@ -1,11 +1,7 @@
 package core
 
-func initialInbounds(enableTUN bool) []any {
-	inbounds := []any{mixedInboundTemplate()}
-	if enableTUN {
-		inbounds = append(inbounds, tunInboundTemplate())
-	}
-	return inbounds
+func initialInbounds(caps NetworkCapabilities) []any {
+	return []any{mixedInboundFor(caps)}
 }
 
 // ConfigureDefaultTUNRouting 为自动路由 TUN 补齐防回环的出口检测。

@@ -1,5 +1,6 @@
 #!/usr/bin/env sh
 set -eu
+umask 077
 
 # docker-entrypoint.sh —— boxd 容器入口。
 # ICMP 测速需要原始 socket（CAP_NET_RAW）：容器默认以 root 运行，

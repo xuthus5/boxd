@@ -6,6 +6,7 @@ export type KernelErrorCode =
   | "restart_failed"
   | "start_failed"
   | "permission"
+  | "ipv6_unavailable"
   | "unknown"
 
 const HINT_KEYS: Record<string, string> = {
@@ -14,6 +15,7 @@ const HINT_KEYS: Record<string, string> = {
   restart_failed: "dashboard.errorHintRestartFailed",
   start_failed: "dashboard.errorHintStartFailed",
   permission: "dashboard.errorHintPermission",
+  ipv6_unavailable: "dashboard.errorHintIPv6Unavailable",
   unknown: "dashboard.errorHintUnknown",
 }
 
@@ -25,6 +27,7 @@ export function kernelErrorHintKey(code?: string): string {
 export function classifyKernelErrorMessage(message?: string): KernelErrorCode {
   const lower = (message ?? "").toLowerCase()
   if (!lower) return "unknown"
+  if (isIPv6AddressSetupError(lower)) return "ipv6_unavailable"
   if (lower.includes("no such file") || lower.includes("not exist") || lower.includes("cannot find")) {
     return "config_missing"
   }
@@ -55,6 +58,27 @@ export function classifyKernelErrorMessage(message?: string): KernelErrorCode {
   return "unknown"
 }
 
+function isIPv6AddressSetupError(message: string): boolean {
+  if (message.includes("set ipv6 address")) return true
+  return message.split("add address ").slice(1).some((detail) => {
+    const prefix = detail.trim().split(/\s+/)[0] ?? ""
+    return isIPv6Prefix(prefix.replace(/:$/, ""))
+  })
+}
+
+function isIPv6Prefix(prefix: string): boolean {
+  const maxPrefixBits = 128
+  const match = /^([0-9a-f:.]+)\/(\d{1,3})$/.exec(prefix)
+  if (!match || !match[1].includes(":")) return false
+  const bits = Number(match[2])
+  if (bits > maxPrefixBits || String(bits) !== match[2]) return false
+  try {
+    return new URL(`http://[${match[1]}]`).hostname.startsWith("[")
+  } catch {
+    return false
+  }
+}
+
 export function resolveKernelErrorCode(item: {
   error?: string
   error_code?: string
@@ -64,7 +88,9 @@ export function resolveKernelErrorCode(item: {
   const code = item.error_code?.trim() || item.last_error_code?.trim()
   const message = item.error?.trim() || item.last_error?.trim()
   if (!message && !code) return undefined
-  return code || classifyKernelErrorMessage(message)
+  const classified = classifyKernelErrorMessage(message)
+  if (classified === "ipv6_unavailable") return classified
+  return code || classified
 }
 
 export function kernelLastErrorClipboardText(status: {

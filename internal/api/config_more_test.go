@@ -10,7 +10,7 @@ import (
 	"github.com/xuthus5/boxd/internal/model"
 )
 
-func TestUpdateConfigWithInstanceRestartFail(t *testing.T) {
+func TestUpdateConfigPreservesStoppedInstance(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.json")
 	writeConfigFile(t, configPath, map[string]any{"outbounds": []any{}})
 	instance := core.NewSBInstance(configPath, core.NewLogWriter(5))
@@ -19,13 +19,15 @@ func TestUpdateConfigWithInstanceRestartFail(t *testing.T) {
 	rr := httptest.NewRecorder()
 	handler.UpdateConfig(rr, jsonRequest(http.MethodPut, "/api/config", `{"outbounds":[]}`))
 
-	// instance.Restart 失败且 rollback 后的 Restart 也失败，返回 500
-	if rr.Code != http.StatusInternalServerError {
-		t.Errorf("status = %d, want %d", rr.Code, http.StatusInternalServerError)
+	if rr.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d", rr.Code, http.StatusOK)
+	}
+	if status := instance.Status(); status.Running || status.LastError != "" {
+		t.Fatalf("saving unexpectedly started the stopped instance: %#v", status)
 	}
 }
 
-func TestUpdateRawConfigWithInstanceRestartFail(t *testing.T) {
+func TestUpdateRawConfigPreservesStoppedInstance(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.json")
 	writeConfigFile(t, configPath, map[string]any{"outbounds": []any{}})
 	instance := core.NewSBInstance(configPath, core.NewLogWriter(5))
@@ -34,9 +36,11 @@ func TestUpdateRawConfigWithInstanceRestartFail(t *testing.T) {
 	rr := httptest.NewRecorder()
 	handler.UpdateRawConfig(rr, jsonRequest(http.MethodPut, "/api/config/raw", `{"outbounds":[]}`))
 
-	// instance.Restart 失败且 rollback 后的 Restart 也失败，返回 500
-	if rr.Code != http.StatusInternalServerError {
-		t.Errorf("status = %d, want %d", rr.Code, http.StatusInternalServerError)
+	if rr.Code != http.StatusOK {
+		t.Errorf("status = %d, want %d", rr.Code, http.StatusOK)
+	}
+	if status := instance.Status(); status.Running || status.LastError != "" {
+		t.Fatalf("saving unexpectedly started the stopped instance: %#v", status)
 	}
 }
 

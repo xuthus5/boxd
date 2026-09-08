@@ -1,9 +1,6 @@
 package main
 
 import (
-	"context"
-	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -60,80 +57,19 @@ func initRuntime(cfg desktopConfig) (*desktopRuntime, error) {
 	if cfg.Mode == "remote" {
 		return &desktopRuntime{cfg: cfg}, nil
 	}
-
-	if err := os.MkdirAll(cfg.DataDir, 0700); err != nil {
-		return nil, fmt.Errorf("create data dir: %w", err)
-	}
-	// 将工作目录切换到数据目录，避免 sing-box cache.db 写入安装目录（Program Files 无写权限）。
-	if err := os.Chdir(cfg.DataDir); err != nil {
-		slog.Warn("chdir to data dir failed", "err", err)
-	}
-	// 首次启动复用服务端完整默认策略，不覆盖已有配置。
-	if created, err := core.EnsureDefaultConfig(context.Background(), cfg.ConfigPath, cfg.DataDir); err != nil {
-		return nil, fmt.Errorf("ensure config file: %w", err)
-	} else if created {
-		slog.Info("generated default config", "path", cfg.ConfigPath)
-	}
-
-	dbPath := filepath.Join(cfg.DataDir, "boxd.db")
-	db, err := bbolt.Open(dbPath, 0600, nil)
+	state, err := initializeDesktopState(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("open database: %w", err)
+		return nil, err
 	}
-
-	settings := core.NewSettingsManager(db)
-	if _, err := settings.EnsureAdminCredential(cfg.Username, cfg.Password); err != nil {
-		_ = db.Close()
-		return nil, fmt.Errorf("init credential: %w", err)
-	}
-	if _, _, err := settings.EnsureJWTSecret(); err != nil {
-		_ = db.Close()
-		return nil, fmt.Errorf("init jwt secret: %w", err)
-	}
-
-	kernelLogWriter := core.NewLogWriter(200)
-	appLogWriter := core.NewLogWriter(200)
-	instance := core.NewSBInstance(cfg.ConfigPath, kernelLogWriter)
-
-	deps := service.Deps{
-		DB:               db,
-		ConfigPath:       cfg.ConfigPath,
-		DataDir:          cfg.DataDir,
-		Username:         cfg.Username,
-		Version:          core.Version,
-		Settings:         settings,
-		Instance:         instance,
-		NodeManager:      core.NewNodeManager(db),
-		SubManager:       core.NewSubscriptionManager(db, cfg.DataDir),
-		RuleSetInstaller: core.NewLoyalsoldierRuleSetInstaller(cfg.DataDir),
-		RuleSetUpdater:   core.NewRuleSetUpdater(cfg.ConfigPath, cfg.DataDir, nil, instance.Stop, instance.Start),
-		KernelLogWriter:  kernelLogWriter,
-		AppLogWriter:     appLogWriter,
-		ApplyHistory:     core.NewConfigApplyHistoryManager(db),
-		RouteMetadata:    core.NewRouteRuleMetadataManager(db),
-	}
+	deps := newDesktopDependencies(cfg, state)
 	rt := &desktopRuntime{
 		cfg:             cfg,
-		db:              db,
+		db:              state.db,
 		svc:             service.New(deps),
-		instance:        instance,
-		autostartKernel: settings.Get("kernel_autostart") == "true",
+		instance:        deps.Instance,
+		autostartKernel: state.autostartKernel,
 	}
-	// 后台服务在 startBackgroundServices 中启动，确保 slog 已接入 AppLogHandler。
-	ruleSetAutoUpdater := core.NewRuleSetAutoUpdater(settings, deps.RuleSetUpdater)
-	subscriptionAutoRefresher := core.NewSubscriptionAutoRefresher(deps.SubManager, nil, cfg.RefreshInterval)
-	rt.backgroundStop = func() {
-		subscriptionAutoRefresher.Stop()
-		ruleSetAutoUpdater.Stop()
-	}
-	rt.startFn = func() error {
-		if err := instance.Start(); err != nil {
-			return err
-		}
-		ruleSetAutoUpdater.Start()
-		subscriptionAutoRefresher.Start()
-		return nil
-	}
+	configureDesktopBackground(rt, rt.instance.Start)
 	return rt, nil
 }
 

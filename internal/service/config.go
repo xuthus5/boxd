@@ -99,55 +99,9 @@ type ApplyResult struct {
 	RolledBack bool            `json:"rolled_back"`
 }
 
-// writeConfigFile 原子写入配置文件并重启内核，失败时回滚。
+// writeConfigFile 保持现有调用方式，重载时保留内核原有运行状态。
 func (c *Config) writeConfigFile(ctx context.Context, body []byte, source string) (ApplyResult, error) {
-	slog.Info("config apply started", "source", source, "size", len(body))
-	if err := ValidateRuntimeConfig(ctx, body); err != nil {
-		slog.Warn("config validation failed", "source", source, "err", err)
-		return ApplyResult{}, err
-	}
-	c.applyMu.Lock()
-	defer c.applyMu.Unlock()
-
-	previousBody, err := os.ReadFile(c.path)
-	previousExists := err == nil
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return ApplyResult{}, Errorf(500, model.ErrorInternal, "failed to read config")
-	}
-	if err := atomicWriteFile(c.path, body); err != nil {
-		slog.Error("config write failed", "source", source, "err", err)
-		return ApplyResult{}, Errorf(500, model.ErrorInternal, "failed to write config")
-	}
-	if c.instance == nil {
-		slog.Info("config applied (no kernel)", "source", source)
-		c.recordApply(source, model.StatusOK, body, nil)
-		return ApplyResult{Status: model.StatusOK}, nil
-	}
-	restartErr := c.instance.Restart()
-	if restartErr == nil {
-		slog.Info("config applied and kernel restarted", "source", source)
-		c.recordApply(source, model.StatusOK, body, nil)
-		return ApplyResult{Status: model.StatusOK}, nil
-	}
-	slog.Error("kernel restart failed after config write, rolling back", "source", source, "err", restartErr)
-	if err := rollbackConfigFile(c.path, previousBody, previousExists); err != nil {
-		slog.Error("config rollback failed", "source", source, "err", err)
-		return ApplyResult{}, Errorf(500, model.ErrorInternal, "failed to write config")
-	}
-	if err := c.instance.Restart(); err != nil {
-		slog.Error("kernel restart failed after rollback", "source", source, "err", err)
-		return ApplyResult{}, Errorf(500, model.ErrorInternal, "failed to write config")
-	}
-	slog.Info("config rolled back and kernel restarted", "source", source, "restart_err", restartErr)
-	c.recordApply(source, model.StatusRolledBack, body, restartErr)
-	return ApplyResult{
-		Status: model.StatusRolledBack,
-		APIError: &model.APIError{
-			Code:    model.ErrorConfigRestartFailed,
-			Message: restartFailureMessage(restartErr),
-		},
-		RolledBack: true,
-	}, nil
+	return c.writePreparedConfig(ctx, body, configWriteOptions{Source: source})
 }
 
 // recordApply 记录一次配置应用事件。

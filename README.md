@@ -50,7 +50,7 @@ BOXD_PASSWORD='your-strong-password' \
 
 Open `http://127.0.0.1:9091`. Default username is `admin`. On the default password, the UI forces a password change.
 
-On first start, boxd creates complete defaults from bundled rule sets: a loopback mixed proxy on `127.0.0.1:1080`, outbounds, encrypted DNS, routing, and internal Clash mode control. Linux also gets TUN when `CAP_NET_ADMIN` and `/dev/net/tun` are available. Add nodes or a subscription before starting the kernel: traffic requiring a proxy stays blocked until a node exists. Existing configuration files are preserved. See [default policy](docs/boxd/default-configuration.md).
+First start creates complete defaults and starts a mixed proxy: `127.0.0.1:1080` on a host, `0.0.0.0:1080` inside a container. Empty configuration files and old minimal defaults are repaired with backups. Add nodes or a subscription to enable proxy traffic; until then proxy traffic stays blocked. The dashboard groups module preview/apply, client access, and start controls. TUN is an explicit, capability-checked choice; saved custom configurations and an explicit autostart setting are preserved. See [default policy](docs/boxd/default-configuration.md).
 
 ### Dev mode (split frontend/backend)
 
@@ -74,7 +74,7 @@ go run -tags with_clash_api ./cmd/boxd/
 2. **Subscriptions / nodes**: add a public HTTP(S) subscription URL or import VMess, VLESS, Trojan, Shadowsocks/SIP002, SSR, Hysteria/Hysteria2, TUIC, AnyTLS, or ShadowTLS links. Local/private sources and unsafe redirect targets are blocked. Subscriptions refresh in the background using each interval (the global interval is the fallback). Configure URLTest (inherit global defaults when needed). Downloads are capped at 16 MiB; refresh and config-sync failures expose actionable error codes.
 3. **Inbounds / outbounds**: review the automatically created listeners and proxy group; add TUN with suitable privileges or customize listeners. Imported nodes and subscription groups automatically join the proxy selector.
 4. **Route / DNS / Certificates / Services / Kernel logging / NTP / Experimental**: customize the installed policy and optional trust stores, services, logging, and time sync. Unused optional modules are omitted from the default config.
-5. **Dashboard**: confirm panel readiness, start the kernel; switch global outbound and Clash mode; watch traffic and logs.
+5. **Dashboard**: complete the four-step setup, preview and apply modules together, then validate/start the kernel when needed. Saving or importing preserves a stopped kernel; an active kernel reloads the new configuration.
 6. **Settings**: theme, language, minimum log level (stored in the database), system probe URLs, kernel autostart, redacted support-bundle export, and backup export.
 
 ### Built-in routing helpers
@@ -219,7 +219,20 @@ ICMP latency tests open raw sockets, which need the `CAP_NET_RAW` capability.
 - **Desktop manual install / AppImage**: run `sudo ./scripts/grant-desktop-icmp.sh` (resolves the desktop user GID automatically), or `sudo ./scripts/grant-desktop-icmp.sh $USER setcap`.
 - **Direct binary run without systemd**: launch as root, or grant the capability to the service user. Without it, ICMP tests fail with `icmp raw socket requires CAP_NET_RAW` (TCP/HTTP tests are unaffected).
 
-## Docker
+## Podman / Docker
+
+### Build and run with Podman
+
+```bash
+podman build --format docker --build-arg VERSION=local -t localhost/boxd:local .
+podman run -d --name boxd --restart unless-stopped --http-proxy=false \
+  -p 127.0.0.1:9091:9091 -p 127.0.0.1:1080:1080 \
+  -e BOXD_PASSWORD='your-strong-password' \
+  -v boxd-data:/var/lib/boxd -v boxd-config:/etc/sing-box \
+  localhost/boxd:local
+```
+
+Open `http://127.0.0.1:9091`. Base modules are initialized and started automatically; explicit HTTP/SOCKS proxy mode needs no TUN privilege. Import nodes or a subscription, then point clients at `127.0.0.1:1080` with remote DNS resolution such as `socks5h`. The Docker image format preserves health checks, which Podman’s default OCI format discards.
 
 Public images (after CI push):
 
@@ -236,13 +249,11 @@ docker pull ghcr.io/xuthus5/boxd:v0.1.0
 
 ```bash
 docker run -d --name boxd --restart unless-stopped \
-  -p 9091:9091 \
+  -p 127.0.0.1:9091:9091 -p 127.0.0.1:1080:1080 \
   -e BOXD_PASSWORD='your-strong-password' \
   -e BOXD_LISTEN='[::]:9091' \
   -v boxd-data:/var/lib/boxd \
   -v boxd-config:/etc/sing-box \
-  --cap-add NET_ADMIN \
-  --cap-add NET_RAW \
   ghcr.io/xuthus5/boxd:latest
 ```
 
@@ -250,21 +261,22 @@ Notes:
 
 - Pass config via `-e BOXD_*` (or `--env-file`); the container process does not read `/etc/boxd/boxd.env` by itself.
 - Persist `/var/lib/boxd` (database, caches) and `/etc/sing-box` (kernel config).
-- `NET_ADMIN` is recommended when using TUN / advanced networking features of sing-box.
+- TUN requires `--cap-add NET_ADMIN --device /dev/net/tun` and explicit selection in module setup; address families follow detected capabilities.
+- TUN in a bridge container only captures that container’s traffic. Host transparent proxying needs a separate host-network and client/gateway routing design.
 - `NET_RAW` is required for ICMP latency tests (raw sockets). The container process runs as root so the capability applies; omit it to disable ICMP tests.
-- Health check hits `http://127.0.0.1:9091/healthz` inside the container.
+- Health checks use `/readyz` for panel/config readiness; kernel state and proxy connectivity are separate checks.
 
 ### Build the image locally
 
 ```bash
 docker build --build-arg VERSION=dev -t boxd:local .
-docker run --rm -p 9091:9091 -e BOXD_PASSWORD='dev-password' boxd:local
+docker run --rm -p 127.0.0.1:9091:9091 -p 127.0.0.1:1080:1080 -e BOXD_PASSWORD='dev-password' boxd:local
 ```
 
 ## Deploy
 
 For binary installs, prefer [Install from release archive](#install-from-release-archive).
-For containers, prefer [Docker](#docker).
+For containers, see [Podman / Docker](#podman--docker).
 
 ### TLS
 

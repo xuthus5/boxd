@@ -59,6 +59,8 @@ func syncOutboundsAndRestart(
 	configPath string,
 	instance restartableInstance,
 ) error {
+	unlock := core.LockConfig(configPath)
+	defer unlock()
 	outboundSyncMutex.Lock()
 	defer outboundSyncMutex.Unlock()
 
@@ -76,7 +78,7 @@ func syncOutboundsAndRestart(
 	if !changed || instance == nil {
 		return nil
 	}
-	restartErr := instance.Restart()
+	restartErr := core.ReloadConfig(instance)
 	if restartErr == nil {
 		return nil
 	}

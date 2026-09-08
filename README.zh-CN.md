@@ -49,7 +49,7 @@ BOXD_PASSWORD='your-strong-password' \
 
 浏览器打开 `http://127.0.0.1:9091`，默认用户名 `admin`。首次使用默认密码时会强制进入设置页完成密码轮换。
 
-首次启动会从随程序提供的规则快照自动生成完整默认配置：本机 mixed 代理（`127.0.0.1:1080`）、出站、加密 DNS、路由与内部 Clash 模式控制。Linux 具备 `CAP_NET_ADMIN` 且能访问 `/dev/net/tun` 时还会配置 TUN。先添加节点或订阅，再启动内核；无节点时，需要代理的流量保持阻断。已有配置文件保持不变。详见[默认策略](docs/boxd/default-configuration.md)。
+首次启动会自动生成完整默认配置并启动 mixed 代理：宿主监听 `127.0.0.1:1080`，容器内监听 `0.0.0.0:1080`。空配置文件及旧最小模板会备份后修复。添加节点或订阅后即可使用代理；无节点时代理流量保持阻断。仪表盘提供模块预览/一次应用、接入指引和启动操作；TUN 需明确选择并检查环境能力。自定义配置及明确设置的内核自启选项保持不变。详见[默认策略](docs/boxd/default-configuration.md)。
 
 ### 开发模式（前后端分离）
 
@@ -73,7 +73,7 @@ go run -tags with_clash_api ./cmd/boxd/
 2. **订阅 / 节点**：添加公网 HTTP(S) 订阅 URL，或导入 VMess、VLESS、Trojan、Shadowsocks/SIP002、SSR、Hysteria/Hysteria2、TUIC、AnyTLS、ShadowTLS 链接。本机/私网源和不安全重定向会被拦截。订阅会按各自间隔后台刷新，全局间隔作为旧数据回退。按需配置 URLTest（可继承全局默认）。订阅下载限制为 16 MiB，刷新或配置同步失败会展示可操作错误码。
 3. **入站 / 出站**：检查自动生成的监听与代理组；可在具备权限时添加 TUN 或自定义监听。导入的节点和订阅组会自动接入代理选择器。
 4. **路由 / DNS / 证书 / Services / 内核日志 / NTP / Experimental**：按需调整预装策略及可选的信任库、服务、日志和时间同步；默认配置省略未使用的可选模块。
-5. **仪表盘**：先确认面板就绪状态，再启动内核；切换全局出口与 Clash 模式；观察流量与日志。
+5. **仪表盘**：按四步引导预览并一次应用模块、完成客户端接入，再按需校验并启动。保存或导入会保持内核原来的停止状态；运行中的内核会重载配置。
 6. **设置**：主题、语言、最低日志级别（写入数据库）、系统测速地址、内核自启、脱敏诊断支持包与备份导出等。
 
 ### 预置路由能力
@@ -199,7 +199,20 @@ ICMP 测速会打开原始套接字，需要 `CAP_NET_RAW` 能力。
 
 Linux 上 WebKit 渲染进程崩溃（常见于睡眠唤醒后）会自动重载页面恢复 UI，托盘另有 **Reload UI** 兜底入口；应用默认设置 `WEBKIT_DISABLE_DMABUF_RENDERER=1` 规避已知的 GPU 崩溃路径，可通过同名环境变量覆盖。
 
-## Docker
+## Podman / Docker
+
+### Podman 本地构建与启动
+
+```bash
+podman build --format docker --build-arg VERSION=local -t localhost/boxd:local .
+podman run -d --name boxd --restart unless-stopped --http-proxy=false \
+  -p 127.0.0.1:9091:9091 -p 127.0.0.1:1080:1080 \
+  -e BOXD_PASSWORD='your-strong-password' \
+  -v boxd-data:/var/lib/boxd -v boxd-config:/etc/sing-box \
+  localhost/boxd:local
+```
+
+打开 `http://127.0.0.1:9091`。基础模块自动配置并启动；显式 HTTP/SOCKS 代理不需要 TUN 权限。导入节点或订阅后，让客户端使用 `127.0.0.1:1080`，SOCKS 应启用远端解析（如 `socks5h`）。`--format docker` 保留镜像健康检查；Podman 默认 OCI 格式会忽略它。
 
 公开镜像（CI 推送后）：
 
@@ -216,13 +229,11 @@ docker pull ghcr.io/xuthus5/boxd:v0.1.0
 
 ```bash
 docker run -d --name boxd --restart unless-stopped \
-  -p 9091:9091 \
+  -p 127.0.0.1:9091:9091 -p 127.0.0.1:1080:1080 \
   -e BOXD_PASSWORD='your-strong-password' \
   -e BOXD_LISTEN='[::]:9091' \
   -v boxd-data:/var/lib/boxd \
   -v boxd-config:/etc/sing-box \
-  --cap-add NET_ADMIN \
-  --cap-add NET_RAW \
   ghcr.io/xuthus5/boxd:latest
 ```
 
@@ -230,21 +241,22 @@ docker run -d --name boxd --restart unless-stopped \
 
 - 通过 `-e BOXD_*` 或 `--env-file` 传入配置；容器内进程不会自行读取 `/etc/boxd/boxd.env`。
 - 请持久化 `/var/lib/boxd`（数据库、缓存）与 `/etc/sing-box`（内核配置）。
-- 使用 TUN 等高级网络能力时建议加 `NET_ADMIN`。
+- TUN 需额外传入 `--cap-add NET_ADMIN --device /dev/net/tun`，并在模块配置中明确选择；IPv6 按环境能力配置。
+- bridge 容器中的 TUN 只接管容器网络，不能视为宿主全局代理。宿主透明代理需要单独规划 host 网络及客户端/网关路由。
 - ICMP 测速需要 `NET_RAW`（原始套接字）。容器内进程以 root 运行，能力生效；不加则禁用 ICMP 测速。
-- 健康检查访问容器内 `http://127.0.0.1:9091/healthz`。
+- 健康检查访问容器内 `/readyz`，表示面板与配置就绪；内核状态和代理连通性分别验证。
 
 ### 本地构建镜像
 
 ```bash
 docker build --build-arg VERSION=dev -t boxd:local .
-docker run --rm -p 9091:9091 -e BOXD_PASSWORD='dev-password' boxd:local
+docker run --rm -p 127.0.0.1:9091:9091 -p 127.0.0.1:1080:1080 -e BOXD_PASSWORD='dev-password' boxd:local
 ```
 
 ## 部署
 
 二进制安装请优先看 [从二进制归档安装](#从二进制归档安装)。
-容器运行请优先看 [Docker](#docker)。
+容器运行请看 [Podman / Docker](#podman--docker)。
 
 ### TLS
 

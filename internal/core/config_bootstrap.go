@@ -11,16 +11,17 @@ import (
 	"github.com/xuthus5/boxd/internal/model"
 )
 
-// EnsureConfigFile 在配置目录内初始化完整默认配置；已有文件保持不变。
+// EnsureConfigFile 初始化默认配置并恢复空配置；自定义配置保持不变。
 // 应用入口使用 EnsureDefaultConfig 传入独立的数据目录。
 func EnsureConfigFile(path string) (bool, error) {
 	return EnsureDefaultConfig(context.Background(), path, filepath.Dir(path))
 }
 
-// EnsureDefaultConfig 仅在首次启动时从离线规则快照生成全部必要模块。
-// 返回 true 表示本次创建；取消或失败不会留下半成品配置。
+// EnsureDefaultConfig 从离线规则快照初始化或恢复必要模块。
+// 返回 true 表示创建或恢复；既有自定义配置不会被覆盖。
 func EnsureDefaultConfig(ctx context.Context, path, dataDir string) (bool, error) {
-	if exists, err := configFileExists(path); exists || err != nil {
+	snapshot, initialize, err := inspectBootstrapConfig(path)
+	if err != nil || !initialize {
 		return false, err
 	}
 	if err := ctx.Err(); err != nil {
@@ -34,7 +35,7 @@ func EnsureDefaultConfig(ctx context.Context, path, dataDir string) (bool, error
 	if err != nil {
 		return false, fmt.Errorf("initialize rule sets: %w", err)
 	}
-	cfg, err := defaultConfigTemplate(absoluteDataDir, entries, bootstrapTUNAvailable())
+	cfg, err := defaultConfigTemplate(absoluteDataDir, entries, DetectNetworkCapabilities())
 	if err != nil {
 		return false, err
 	}
@@ -44,6 +45,9 @@ func EnsureDefaultConfig(ctx context.Context, path, dataDir string) (bool, error
 	}
 	if err := ctx.Err(); err != nil {
 		return false, err
+	}
+	if snapshot != nil {
+		return recoverInitialConfig(path, body, *snapshot)
 	}
 	return writeInitialConfig(path, body)
 }
@@ -68,14 +72,14 @@ func configFileExists(path string) (bool, error) {
 	return true, nil
 }
 
-func defaultConfigTemplate(dataDir string, entries []map[string]any, enableTUN bool) (map[string]any, error) {
+func defaultConfigTemplate(dataDir string, entries []map[string]any, caps NetworkCapabilities) (map[string]any, error) {
 	ruleSets := make([]any, 0, len(entries))
 	for _, entry := range entries {
 		ruleSets = append(ruleSets, entry)
 	}
 	cfg := map[string]any{
 		"log":      map[string]any{"level": "info", "timestamp": true},
-		"inbounds": initialInbounds(enableTUN),
+		"inbounds": initialInbounds(caps),
 		"route":    map[string]any{"rule_set": ruleSets, "final": "proxy"},
 	}
 	outbounds, err := NewDefaultOutboundsInstaller().Install(cfg)

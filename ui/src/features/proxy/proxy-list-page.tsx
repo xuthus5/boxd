@@ -48,6 +48,7 @@ export function ProxyListPage({ configKey, title, addLabel }: {
   const save = useSaveConfigMutation()
   const [editing, setEditing] = useState<Editing | null>(null)
   const [jumpPath, setJumpPath] = useState<string | null>(null)
+  const [installing, setInstalling] = useState(false)
   const [searchParams, setSearchParams] = useSearchParams()
   const filters = useMemo(() => parseProxySearchParams(searchParams), [searchParams])
   const search = filters.query ?? ""
@@ -114,19 +115,26 @@ export function ProxyListPage({ configKey, title, addLabel }: {
     }
   }
   const installDefaults = () => {
+    if (installing) return
+    setInstalling(true)
     const action = configKey === "outbounds" ? api.config.installOutbounds() : api.config.installInbounds()
     const success = configKey === "outbounds" ? t("proxy.defaultsInstalled") : t("proxy.inboundDefaultsInstalled")
     clearSaveError()
-    action.then(() => query.refetch()).then(() => toast.success(success)).catch((error: Error) => {
-      reportError(error)
-    })
+    action.then(async (response) => {
+      await query.refetch()
+      if (response.status === "rolled_back") {
+        reportRollback(response, t("proxy.rolledBack"))
+        return
+      }
+      toast.success(success)
+    }).catch((error: Error) => { reportError(error) }).finally(() => setInstalling(false))
   }
   return (
     <div className="flex flex-col gap-3 sm:gap-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold">{title}</h1>
         <div className="grid grid-cols-2 gap-2 sm:flex">
-          <Button variant="outline" size="sm" className="h-8" onClick={installDefaults}>
+          <Button variant="outline" size="sm" className="h-8" disabled={installing || save.isPending} onClick={installDefaults}>
             <WandSparklesIcon data-icon="inline-start" />
             {configKey === "outbounds" ? t("proxy.installDefaults") : t("proxy.installInboundDefaults")}
           </Button>

@@ -38,7 +38,6 @@ func (s *ImportService) SaveNode(_ context.Context, input NodeInput) error {
 	if s.nodeManager == nil {
 		return Errorf(500, model.ErrorInternal, "node manager not available")
 	}
-	slog.Info("importing node", "tag", input.Tag, "type", input.Type, "server", input.Server, "port", input.Port)
 	outbound := model.Outbound{
 		Tag:    input.Tag,
 		Type:   input.Type,
@@ -46,6 +45,10 @@ func (s *ImportService) SaveNode(_ context.Context, input NodeInput) error {
 		Port:   input.Port,
 		Raw:    input.Config,
 	}
+	if err := core.ValidateImportedNode(outbound); err != nil {
+		return Errorf(400, model.ErrorInvalidRequest, "%v", err)
+	}
+	slog.Info("importing node", "tag", input.Tag, "type", input.Type, "server", input.Server, "port", input.Port)
 	if err := s.nodeManager.Add(outbound); err != nil {
 		slog.Error("node import failed", "tag", input.Tag, "err", err)
 		return Errorf(500, model.ErrorInternal, "failed to save node")

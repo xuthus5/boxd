@@ -28,5 +28,7 @@ grep -q "fake-boxd args: --version" "$sandbox/out1"
 # 2. 目录初始化：非 root 也应创建数据目录。
 test -d "$sandbox/var/lib/boxd"
 test -d "$sandbox/etc/sing-box"
+test "$(stat -c '%a' "$sandbox/var/lib/boxd")" = "700"
+test "$(stat -c '%a' "$sandbox/etc/sing-box")" = "700"
 
 echo "docker-entrypoint.sh OK: init + arg passthrough verified"

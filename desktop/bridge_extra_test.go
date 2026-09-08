@@ -41,9 +41,12 @@ func TestImportLinkBridge(t *testing.T) {
 
 func TestImportSaveBridge(t *testing.T) {
 	rt := newTestRuntimeWithService(t)
-	body := json.RawMessage(`{"tag": "n1", "type": "vless", "server": "example.com", "port": 443}`)
-	if _, err := importSaveBridge(rt, body); err == nil {
-		t.Fatal("expected error for incomplete node config")
+	body := json.RawMessage(`{"tag":"n1","type":"vless","server":"example.com","port":443,"config":{"type":"vless","tag":"n1","server":"example.com","server_port":443,"uuid":"9e461df2-7d76-4b76-903c-763ce877fa3e"}}`)
+	if _, err := importSaveBridge(rt, body); err != nil {
+		t.Fatalf("import valid node while kernel is stopped: %v", err)
+	}
+	if rt.svc.Deps.NodeManager.Get("n1") == nil || rt.instance.Status().Running {
+		t.Fatal("node import must persist the node without starting the kernel")
 	}
 }
 

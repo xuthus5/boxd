@@ -76,7 +76,7 @@ describe("DashboardPage", () => {
 
     renderApp(<App />, "/dashboard")
 
-    expect(await screen.findByText("运行中")).toBeInTheDocument()
+    expect((await screen.findAllByText("运行中")).length).toBeGreaterThan(0)
     expect(await screen.findByText("面板已就绪")).toBeInTheDocument()
     expect(await screen.findByText("运行健康")).toBeInTheDocument()
     expect(screen.getByText("2 条活跃连接")).toBeInTheDocument()
@@ -92,8 +92,8 @@ describe("DashboardPage", () => {
     expect(screen.getByRole("link", { name: "错误日志" })).toHaveClass("h-8")
     expect(await screen.findByText(/下载 20 B\/s/)).toBeInTheDocument()
     expect(screen.getAllByText("ready").length).toBeGreaterThan(0)
-    // Setup checklist hides itself once all steps are complete and no subscription failures exist.
-    expect(screen.queryByText("快速上手")).not.toBeInTheDocument()
+    // Module management remains accessible after startup.
+    expect(await screen.findByText("开始使用 boxd")).toBeInTheDocument()
   })
 
   it("keeps the dashboard usable when panel readiness is degraded", async () => {
@@ -115,7 +115,7 @@ describe("DashboardPage", () => {
 
     expect(await screen.findByText("面板未就绪")).toBeInTheDocument()
     expect(await screen.findByText("service is not ready")).toBeInTheDocument()
-    expect(await screen.findByText("运行中")).toBeInTheDocument()
+    expect((await screen.findAllByText("运行中")).length).toBeGreaterThan(0)
     expect(screen.getByRole("button", { name: "重试" })).toBeInTheDocument()
   })
 

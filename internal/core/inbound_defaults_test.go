@@ -8,10 +8,10 @@ func TestDefaultInboundsInstallerInstall(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Inbounds) != 2 {
+	if len(result.Inbounds) != 1 {
 		t.Fatalf("inbounds = %#v", result.Inbounds)
 	}
-	if len(result.Installed) != 2 {
+	if len(result.Installed) != 1 {
 		t.Fatalf("installed = %#v", result.Installed)
 	}
 	byTag := map[string]map[string]any{}
@@ -22,8 +22,8 @@ func TestDefaultInboundsInstallerInstall(t *testing.T) {
 	if byTag["mixed-in"]["type"] != "mixed" || byTag["mixed-in"]["listen_port"] != 1080 {
 		t.Fatalf("mixed-in = %#v", byTag["mixed-in"])
 	}
-	if byTag["tun-in"]["type"] != "tun" || byTag["tun-in"]["auto_route"] != true {
-		t.Fatalf("tun-in = %#v", byTag["tun-in"])
+	if _, exists := byTag["tun-in"]; exists {
+		t.Fatalf("default installation must not enable TUN: %#v", byTag["tun-in"])
 	}
 }
 
@@ -56,8 +56,8 @@ func TestDefaultInboundsInstallerPreservesExisting(t *testing.T) {
 	if byTag["mixed-in"]["listen_port"] != 2080 {
 		t.Fatalf("preserved mixed port = %#v", byTag["mixed-in"]["listen_port"])
 	}
-	if _, ok := byTag["tun-in"]; !ok {
-		t.Fatal("expected tun-in to be added")
+	if _, ok := byTag["tun-in"]; ok {
+		t.Fatal("TUN must be selected explicitly")
 	}
 	if passthrough != 1 {
 		t.Fatalf("passthrough = %d", passthrough)

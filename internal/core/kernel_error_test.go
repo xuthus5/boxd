@@ -22,6 +22,8 @@ func TestClassifyKernelError(t *testing.T) {
 		{name: "start", msg: "start failed: address already in use", want: KernelErrorStartFailed},
 		{name: "listen", msg: "listen tcp :1080: bind: address already in use", want: KernelErrorStartFailed},
 		{name: "unknown", msg: "something else", want: KernelErrorUnknown},
+		{name: "unknown error value", err: errors.New("something else"), want: KernelErrorUnknown},
+		{name: "missing file message", msg: "open config.json: no such file or directory", want: KernelErrorConfigMissing},
 		{name: "empty", msg: "", want: KernelErrorUnknown},
 		{name: "wrapped missing", err: errors.Join(os.ErrNotExist), want: KernelErrorConfigMissing},
 	}

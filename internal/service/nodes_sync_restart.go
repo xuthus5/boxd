@@ -59,6 +59,8 @@ func syncOutboundsAndRestart(
 	configPath string,
 	instance restartable,
 ) error {
+	unlock := core.LockConfig(configPath)
+	defer unlock()
 	outboundSyncMutex.Lock()
 	defer outboundSyncMutex.Unlock()
 
@@ -68,27 +70,37 @@ func syncOutboundsAndRestart(
 		slog.Error("outbound sync snapshot failed", "err", err)
 		return err
 	}
-	if err := SyncOutboundsToConfig(nodeManager, subManager, configPath); err != nil {
-		slog.Error("outbound sync to config failed", "err", err)
-		return errors.Join(err, snapshot.restore())
-	}
-	changed, err := outboundConfigChanged(snapshot, configPath)
+	changed, err := snapshot.synchronize(nodeManager, subManager)
 	if err != nil {
-		slog.Error("outbound config change check failed", "err", err)
+		slog.Error("outbound sync failed", "err", err)
 		return errors.Join(err, snapshot.restore())
 	}
 	if !changed || instance == nil {
-		slog.Info("outbound sync: no changes detected")
+		slog.Info("outbound sync completed without kernel reload")
 		return nil
 	}
-	slog.Info("outbound sync: config changed, restarting kernel")
-	restartErr := instance.Restart()
+	return snapshot.reload(instance)
+}
+
+func (s outboundSyncSnapshot) synchronize(
+	nodeManager *core.NodeManager,
+	subManager *core.SubscriptionManager,
+) (bool, error) {
+	if err := SyncOutboundsToConfig(nodeManager, subManager, s.configPath); err != nil {
+		return false, err
+	}
+	return outboundConfigChanged(s, s.configPath)
+}
+
+func (s outboundSyncSnapshot) reload(instance restartable) error {
+	slog.Info("outbound sync: config changed, reloading kernel if running")
+	restartErr := core.ReloadConfig(instance)
 	if restartErr == nil {
-		slog.Info("outbound sync completed, kernel restarted")
+		slog.Info("outbound sync completed")
 		return nil
 	}
 	slog.Error("auto-restart after outbound sync failed", "err", restartErr)
-	rollbackErr := snapshot.restore()
+	rollbackErr := s.restore()
 	rollbackRestartErr := instance.Restart()
 	if rollbackErr == nil && rollbackRestartErr == nil {
 		slog.Warn("outbound sync rolled back and kernel restarted")

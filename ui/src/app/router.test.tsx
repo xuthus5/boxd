@@ -56,7 +56,7 @@ describe("application routing", () => {
     installMockAPI()
     const user = userEvent.setup()
     renderApp(<App />, "/dashboard")
-    await screen.findByText("运行中")
+    await screen.findAllByText("运行中")
     await user.click(screen.getByRole("button", { name: "退出登录" }))
     expect(await screen.findByRole("heading", { name: "boxd" })).toBeInTheDocument()
   })

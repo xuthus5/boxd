@@ -57,6 +57,9 @@ func (s *BoxdBridgeService) dispatch(ctx context.Context, req BridgeRequest) (Br
 	if err != nil {
 		return errResult(ErrorfBridge(400, "invalid_request", "invalid query string"))
 	}
+	if response, err, handled := s.dispatchSetup(ctx, BridgeRequest{Path: path, Method: method, Body: req.Body}); handled {
+		return response, err
+	}
 
 	// 写操作：service 控制
 	if method == "POST" {
@@ -449,7 +452,7 @@ func unescapePathSegment(value string) string {
 	return value
 }
 
-// syncNodesConfig 同步托管出站配置并重启内核。
+// syncNodesConfig 同步托管出站配置并重载运行中的内核。
 func syncNodesConfig(rt *desktopRuntime) error {
 	return service.SyncOutboundsAndRestart(
 		rt.svc.Deps.NodeManager,
@@ -457,18 +460,6 @@ func syncNodesConfig(rt *desktopRuntime) error {
 		rt.svc.Deps.ConfigPath,
 		coreRestarter{rt.svc.Deps.Instance},
 	)
-}
-
-// coreRestarter 适配 *core.SBInstance 满足 service 的 Restart 能力。
-type coreRestarter struct {
-	instance *core.SBInstance
-}
-
-func (r coreRestarter) Restart() error {
-	if r.instance == nil {
-		return nil
-	}
-	return r.instance.Restart()
 }
 
 // bridgeBody 解析请求体为指定结构。

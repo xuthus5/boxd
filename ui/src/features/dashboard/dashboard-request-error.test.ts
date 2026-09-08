@@ -9,6 +9,14 @@ import {
 } from "@/features/dashboard/dashboard-request-error"
 
 describe("dashboard request error diagnostics", () => {
+  it("retains IPv6 diagnostics inside a failed rollback response", () => {
+    const message = "add address fdfe:dcba:9876::1/126: permission denied; restart restored config: failed"
+    const error = new ApiError(message, 500, "config_restart_failed")
+    expect(classifyDashboardRequestError(error)).toBe("ipv6_unavailable")
+    expect(dashboardRequestErrorHintKey("ipv6_unavailable")).toBe("dashboard.errorHintIPv6Unavailable")
+    expect(dashboardRequestErrorClipboardText(error)).toContain(`error: ${message}`)
+  })
+
   it("maps codes to hints", () => {
     expect(dashboardRequestErrorHintKey("start_failed")).toBe("dashboard.errorHintStartFailed")
     expect(dashboardRequestErrorHintKey("network")).toBe("dashboard.errorHintRequestNetwork")

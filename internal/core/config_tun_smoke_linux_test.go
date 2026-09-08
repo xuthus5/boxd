@@ -118,6 +118,7 @@ func initializeTUNSmokeConfig(t *testing.T) string {
 	if err := json.Unmarshal(body, &cfg); err != nil {
 		t.Fatal(err)
 	}
+	selectTUNSmokeProfile(t, cfg, path)
 	route := cfg["route"].(map[string]any)
 	if route["auto_detect_interface"] != true || route["final"] != "proxy" {
 		t.Fatalf("invalid initial TUN route: %v", route)

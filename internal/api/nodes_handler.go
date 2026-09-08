@@ -130,7 +130,8 @@ func (h *NodesHandler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *NodesHandler) SyncToConfig(w http.ResponseWriter, r *http.Request) {
-	if err := h.sync(); err != nil {
+	restarted, err := h.syncWithResult()
+	if err != nil {
 		if w != nil {
 			writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorInternal, err.Error())
 		}
@@ -140,7 +141,7 @@ func (h *NodesHandler) SyncToConfig(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"outbounds":     0,
 			"selector_tags": 0,
-			"restarted":     h.instance != nil,
+			"restarted":     restarted,
 		})
 	}
 }
