@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { useConfigQuery } from "@/features/config/config-hooks"
 import { PolicyFormFields } from "@/features/policy/policy-form-fields"
 import {
-  getPolicyPath, policyConfigTags, policyDNSServerTags, setPolicyPath, type JsonObject,
+  getPolicyPath, policyOutboundTags, policyDNSServerTags, setPolicyPath, type JsonObject,
 } from "@/features/policy/policy-form-model"
 import type { PolicyVisualEditorProps } from "@/features/policy/policy-page"
 import {
@@ -60,9 +60,9 @@ export function RouteGlobalCard({
   const config = useConfigQuery()
   const fields = useMemo(() => managedRouteGlobalFields(), [])
   const context = useMemo(() => ({
-    outboundTags: outboundTags(outbounds).length ? outboundTags(outbounds) : policyConfigTags(config.data?.outbounds),
+    outboundTags: policyOutboundTags({ ...config.data, outbounds: outbounds ?? config.data?.outbounds ?? [] }),
     dnsServerTags: policyDNSServerTags(config.data?.dns),
-  }), [config.data?.dns, config.data?.outbounds, outbounds])
+  }), [config.data, outbounds])
   return <Card size="sm">
     <CardHeader className="gap-1.5">
       <CardTitle className="truncate">{t("policy.route.globalTitle")}</CardTitle>
@@ -71,7 +71,7 @@ export function RouteGlobalCard({
     <CardContent>
       <PolicyFormFields
         fields={fields}
-        leading={<FinalOutboundField object={object} outbounds={outbounds ?? config.data?.outbounds} onChange={(next) => onChange(applyRouteGlobalFieldChange(object, next))} />}
+        leading={<FinalOutboundField object={object} outbounds={context.outboundTags.map((tag) => ({ tag }))} onChange={(next) => onChange(applyRouteGlobalFieldChange(object, next))} />}
         object={object}
         namespace="policy.route"
         revision={revision}

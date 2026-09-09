@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest"
 
 import {
-  applyDNSFakeIPFieldChange,
   applyDNSGlobalFieldChange,
   applyDNSRuleFieldChange,
   applyDNSServerFieldChange,
@@ -18,7 +17,6 @@ import {
   dnsServerTypes,
   inferDNSServerType,
   isDNSRuleComplete,
-  legacyFakeIPFields,
   setDNSRules,
   setDNSServers,
   summarizeDNSRule,
@@ -28,92 +26,45 @@ import {
 const paths = (fields: readonly { path: string }[]) => fields.map((field) => field.path)
 
 describe("DNS form metadata", () => {
-  it("models DNS globals and legacy FakeIP fields", () => {
-    expect(paths(dnsGlobalFields)).toEqual([
-      "final", "strategy", "client_subnet", "disable_cache", "disable_expire", "independent_cache",
-      "cache_capacity", "reverse_mapping",
-    ])
-    expect(dnsGlobalFields).toEqual(expect.arrayContaining([
-      expect.objectContaining({ path: "final", kind: "ref", ref: "dns-server" }),
-      expect.objectContaining({ path: "strategy", kind: "select" }),
-      expect.objectContaining({ path: "disable_cache", kind: "boolean" }),
-      expect.objectContaining({ path: "cache_capacity", kind: "number" }),
-      expect.objectContaining({ path: "reverse_mapping", kind: "boolean" }),
-    ]))
-    expect(legacyFakeIPFields).toEqual([
-      expect.objectContaining({ path: "fakeip.enabled", kind: "boolean" }),
-      expect.objectContaining({ path: "fakeip.inet4_range", when: { path: "fakeip.enabled", is: true } }),
-      expect.objectContaining({ path: "fakeip.inet6_range", when: { path: "fakeip.enabled", is: true } }),
-    ])
+  it("only offers current DNS settings and typed servers", () => {
+    expect(paths(dnsGlobalFields)).toEqual(expect.arrayContaining(["timeout", "optimistic", "final", "strategy", "disable_cache"]))
+    expect(paths(dnsGlobalFields)).not.toContain("independent_cache")
+    expect(paths(dnsGlobalFields)).not.toContain("fakeip.enabled")
+    expect(dnsServerTypes).not.toContain("legacy")
+    expect(dnsServerTypes).toContain("mdns")
+    expect(dnsServerTypes).toContain("openvpn")
+    expect(dnsServerTypes).toContain("openconnect")
   })
 
-  it("models all approved server types", () => {
-    expect(dnsServerTypes).toEqual([
-      "legacy", "local", "hosts", "udp", "tcp", "tls", "quic", "https", "h3", "dhcp", "fakeip",
-    ])
-  })
-
-  it("models default DNS rule matches with their JSON kinds", () => {
-    expect(paths(dnsRuleMatchFields)).toEqual([
-      "type", "inbound", "ip_version", "query_type", "network", "auth_user", "protocol",
-      "domain", "domain_suffix", "domain_keyword", "domain_regex", "source_ip_cidr",
-      "source_ip_is_private", "ip_cidr", "ip_is_private", "ip_accept_any", "source_port", "source_port_range",
-      "port", "port_range", "process_name", "process_path", "process_path_regex", "package_name",
-      "user", "user_id", "outbound", "clash_mode", "rule_set", "rule_set_ip_cidr_match_source",
-      "network_type", "network_is_expensive", "network_is_constrained", "interface_address",
-      "network_interface_address", "default_interface_address", "wifi_ssid", "wifi_bssid",
-      "rule_set_ip_cidr_accept_empty", "invert",
-    ])
-    expect(dnsRuleMatchFields).toEqual(expect.arrayContaining([
-      expect.objectContaining({ path: "query_type", kind: "list" }),
-      expect.objectContaining({ path: "source_port", kind: "number-list" }),
-      expect.objectContaining({ path: "user_id", kind: "number-list" }),
-      expect.objectContaining({ path: "network_is_expensive", kind: "boolean" }),
-      expect.objectContaining({ path: "interface_address", kind: "json-object" }),
-      expect.objectContaining({ path: "network_interface_address", kind: "json-object" }),
-      expect.objectContaining({ path: "default_interface_address", kind: "list" }),
-      expect.objectContaining({ path: "ip_accept_any", kind: "boolean" }),
-      expect.objectContaining({ path: "rule_set_ip_cidr_accept_empty", kind: "boolean" }),
-    ]))
-  })
-
-  it("models all DNS actions and action-specific JSON kinds", () => {
-    expect(dnsActions).toEqual(["route", "route-options", "reject", "predefined"])
-    expect(paths(dnsActionFields.route)).toEqual([
-      "server", "strategy", "disable_cache", "rewrite_ttl", "client_subnet",
-    ])
-    expect(paths(dnsActionFields["route-options"])).not.toContain("server")
-    expect(dnsActionFields.reject).toEqual([
-      expect.objectContaining({ path: "method", kind: "select" }),
-      expect.objectContaining({ path: "no_drop", kind: "boolean" }),
-    ])
-    expect(dnsActionFields.predefined).toEqual([
-      expect.objectContaining({ path: "rcode" }),
-      expect.objectContaining({ path: "answer", kind: "list" }),
-      expect.objectContaining({ path: "ns", kind: "list" }),
-      expect.objectContaining({ path: "extra", kind: "list" }),
-    ])
+  it("offers response matching and current DNS actions", () => {
+    expect(paths(dnsRuleMatchFields)).toEqual(expect.arrayContaining(["match_response", "response_rcode", "query_dnssec", "source_hostname"]))
+    expect(paths(dnsRuleMatchFields)).not.toContain("outbound")
+    expect(paths(dnsRuleMatchFields)).not.toContain("rule_set_ip_cidr_accept_empty")
+    expect(dnsActions).toEqual(["route", "evaluate", "respond", "route-options", "reject", "predefined"])
+    expect(paths(dnsActionFields.route)).not.toContain("strategy")
+    expect(paths(dnsActionFields.evaluate)).toEqual(expect.arrayContaining(["tag", "server", "timeout", "speculative", "race"]))
+    expect(paths(dnsActionFields.respond)).toEqual(["race"])
   })
 })
 
 describe("DNS server transitions", () => {
-  it("infers legacy, modern, and unknown server types without migration", () => {
-    expect(inferDNSServerType({ address: "https://dns.google/dns-query" })).toBe("legacy")
+  it("does not infer an omitted server type or migrate old data", () => {
+    expect(inferDNSServerType({ address: "https://dns.google/dns-query" })).toBe("")
     expect(inferDNSServerType({ type: "https", server: "dns.google" })).toBe("https")
     expect(inferDNSServerType({ type: "custom", payload: true })).toBe("custom")
-    expect(inferDNSServerType({})).toBe("legacy")
+    expect(inferDNSServerType({})).toBe("")
   })
 
-  it("keeps same-type legacy and modern objects by identity", () => {
-    const legacy = { address: "local", detour: "direct", custom: "keep" }
+  it("keeps same-type server objects by identity", () => {
+    const local = { type: "local", detour: "direct", custom: "keep" }
     const https = { type: "https", server: "dns.google", custom: "keep" }
-    expect(changeDNSServerType(legacy, "legacy")).toBe(legacy)
+    expect(changeDNSServerType(local, "local")).toBe(local)
     expect(changeDNSServerType(https, "https")).toBe(https)
   })
 
-  it("converts legacy only after an explicit Select change", () => {
+  it("preserves obsolete raw fields for diagnostics when selecting a new type", () => {
     expect(changeDNSServerType({ address: "local", detour: "direct", custom: "keep" }, "udp"))
-      .toEqual({ type: "udp", custom: "keep" })
+      .toEqual({ type: "udp", address: "local", detour: "direct", custom: "keep" })
   })
 
   it("preserves compatible modern and nested TLS fields", () => {
@@ -134,22 +85,20 @@ describe("DNS server transitions", () => {
     }, "https")).toEqual({
       type: "https", server: "dns.google", server_port: 443, path: "/dns-query",
       headers: { X: "1" }, network_type: ["wifi"], routing_mark: 123,
-      tls: { enabled: true, custom: "keep" },
+      tls: { enabled: true, custom: "keep" }, address: "old",
       payload: { keep: true },
     })
   })
 
-  it("retains compatible legacy fields from an unknown source", () => {
-    expect(changeDNSServerType({
-      type: "custom", address: "local", detour: "direct", client_subnet: "192.0.2.0/24",
-      server: "old", payload: "keep",
-    }, "legacy")).toEqual({
-      address: "local", detour: "direct", client_subnet: "192.0.2.0/24", payload: "keep",
-    })
+  it("supports endpoint DNS transitions without retaining an incompatible endpoint", () => {
+    expect(changeDNSServerType({ type: "openvpn", endpoint: "vpn", accept_search_domain: true }, "openconnect"))
+      .toEqual({ type: "openconnect", endpoint: "vpn", accept_search_domain: true })
+    expect(changeDNSServerType({ type: "openvpn", endpoint: "vpn" }, "local"))
+      .toEqual({ type: "local" })
   })
 
   it.each([
-    ["legacy", { address: "local" }], ["local", { prefer_go: true }],
+    ["local", { prefer_go: true }],
     ["hosts", { path: "/etc/hosts" }], ["udp", { server: "1.1.1.1" }],
     ["tcp", { server_port: 53 }], ["tls", { tls: { enabled: true } }],
     ["quic", { tls: { server_name: "dns.example" } }], ["https", { path: "/dns-query" }],
@@ -245,9 +194,9 @@ describe("DNS arrays and summaries", () => {
     expect(withRules.rules).not.toBe(rules)
   })
 
-  it("summarizes legacy and modern servers", () => {
+  it("summarizes typed servers without treating removed formats as usable", () => {
     expect(summarizeDNSServer({ tag: "google", address: "https://dns.google/dns-query" }))
-      .toEqual({ type: "legacy", detail: "https://dns.google/dns-query · tag google" })
+      .toEqual({ type: "", detail: "tag google" })
     expect(summarizeDNSServer({ type: "https", tag: "google", server: "dns.google", server_port: 443 }))
       .toEqual({ type: "https", detail: "dns.google:443 · tag google" })
     expect(summarizeDNSServer({ type: "dhcp", tag: "lan", interface: "eth0" }))
@@ -291,17 +240,15 @@ describe("dns match field kinds", () => {
 })
 
 describe("DNS hierarchical field pruning", () => {
-  it("prunes FakeIP ranges when disabled and drops false enabled flag", () => {
-    const next = applyDNSFakeIPFieldChange({}, {
-      fakeip: { enabled: false, inet4_range: "198.18.0.0/15", inet6_range: "fc00::/18", future: 1 },
-    })
-    expect(next).toEqual({ fakeip: { future: 1 } })
+  it("preserves obsolete FakeIP fields for explicit correction", () => {
+    const object = { fakeip: { enabled: true, inet4_range: "198.18.0.0/15" } }
+    expect(applyDNSGlobalFieldChange({}, object)).toEqual(object)
   })
 
-  it("keeps FakeIP ranges while enabled", () => {
-    expect(applyDNSFakeIPFieldChange({}, {
-      fakeip: { enabled: true, inet4_range: "198.18.0.0/15" },
-    })).toEqual({ fakeip: { enabled: true, inet4_range: "198.18.0.0/15" } })
+  it("keeps optimistic cache booleans and timeout objects", () => {
+    expect(applyDNSGlobalFieldChange({}, { optimistic: true })).toEqual({ optimistic: true })
+    expect(applyDNSGlobalFieldChange({}, { optimistic: { enabled: true, timeout: "1h" } }))
+      .toEqual({ optimistic: { enabled: true, timeout: "1h" } })
   })
 
   it("prunes TLS and domain-resolver children when parents are off", () => {
@@ -380,7 +327,7 @@ describe("DNS rule completeness", () => {
     expect(isDNSRuleComplete({ server: "dns" })).toBe(true)
     expect(isDNSRuleComplete({ action: "route" })).toBe(false)
     expect(isDNSRuleComplete({ action: "reject" })).toBe(true)
-    expect(isDNSRuleComplete({ type: "logical", mode: "or", rules: [{ action: "reject" }], action: "reject" })).toBe(true)
+    expect(isDNSRuleComplete({ type: "logical", mode: "or", rules: [{ domain: ["example.org"] }], action: "reject" })).toBe(true)
     expect(isDNSRuleComplete({ type: "logical", mode: "or", rules: [{ action: "route" }], action: "reject" })).toBe(false)
     expect(isDNSRuleComplete({ type: "logical", mode: "or", rules: [], action: "reject" })).toBe(false)
     expect(isDNSRuleComplete({ type: "logical", rules: [{ action: "reject" }], action: "reject" })).toBe(false)

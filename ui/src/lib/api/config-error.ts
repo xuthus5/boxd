@@ -28,7 +28,7 @@ export function extractConfigPath(message: string): string | undefined {
     const match = text.match(pattern)
     if (!match?.[1]) continue
     const path = normalizePath(match[1])
-    if (path.includes(".") || path.includes("[") || /^(inbounds|outbounds|route|dns|experimental|log|ntp)/i.test(path)) {
+    if (path.includes(".") || path.includes("[") || /^(inbounds|outbounds|route|dns|experimental|log|ntp|endpoints|services|certificate|certificate_providers|network_namespaces|http_clients)/i.test(path)) {
       return path
     }
   }

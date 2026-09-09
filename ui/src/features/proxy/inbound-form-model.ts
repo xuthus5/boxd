@@ -1,3 +1,5 @@
+import { inboundTLS114Fields, udpNATFields } from "@/features/config/kernel114-fields"
+import { hysteria2114Fields, inbound114Protocols, quicProtocolFields } from "@/features/proxy/proxy-protocol114-fields"
 import { getPath, pruneInvisibleFields, type FieldSpec, type JsonObject, setPath, visibleFields } from "@/features/proxy/proxy-form-model"
 
 export { getPath, pruneInvisibleFields, setPath, visibleFields }
@@ -5,7 +7,7 @@ export type { FieldSpec, JsonObject }
 
 export const inboundTypes = [
   "mixed", "socks", "http", "direct", "shadowsocks", "vmess", "vless", "trojan", "naive",
-  "hysteria", "hysteria2", "tuic", "shadowtls", "anytls", "redirect", "tproxy", "tun",
+  "hysteria", "hysteria2", "tuic", "shadowtls", "anytls", "redirect", "tproxy", "tun", "snell", "cloudflared",
 ] as const
 
 export const listenFields: FieldSpec[] = [
@@ -27,6 +29,7 @@ export const listenFields: FieldSpec[] = [
 
 const network = { path: "network", label: "network", kind: "network-multi", section: "protocol" } satisfies FieldSpec
 const protocolMap: Record<string, FieldSpec[]> = {
+  ...inbound114Protocols,
   mixed: [{ path: "users", label: "users", kind: "users", section: "auth" }, { path: "domain_resolver", label: "domainResolver", kind: "ref", ref: "dns-server", section: "protocol" }, { path: "set_system_proxy", label: "setSystemProxy", kind: "boolean", section: "protocol" }],
   socks: [{ path: "users", label: "users", kind: "users", section: "auth" }, { path: "domain_resolver", label: "domainResolver", kind: "ref", ref: "dns-server", section: "protocol" }],
   http: [{ path: "users", label: "users", kind: "users", section: "auth" }, { path: "domain_resolver", label: "domainResolver", kind: "ref", ref: "dns-server", section: "protocol" }, { path: "set_system_proxy", label: "setSystemProxy", kind: "boolean", section: "protocol" }],
@@ -36,12 +39,12 @@ const protocolMap: Record<string, FieldSpec[]> = {
   vless: [{ path: "users", label: "users", kind: "users", section: "auth" }],
   trojan: [{ path: "users", label: "users", kind: "users", section: "auth" }],
   naive: [{ path: "users", label: "users", kind: "users", section: "auth" }, network, { path: "quic_congestion_control", label: "congestionControl" }],
-  hysteria: [{ path: "up", label: "uploadBandwidth" }, { path: "up_mbps", label: "uploadMbps", kind: "number" }, { path: "down", label: "downloadBandwidth" }, { path: "down_mbps", label: "downloadMbps", kind: "number" }, { path: "obfs", label: "obfuscation" }, { path: "users", label: "users", kind: "users", section: "auth" }, { path: "recv_window_conn", label: "receiveWindowConnection", kind: "number" }, { path: "recv_window_client", label: "receiveWindowClient", kind: "number" }, { path: "max_conn_client", label: "maxClientConnections", kind: "number" }, { path: "disable_mtu_discovery", label: "disableMTUDiscovery", kind: "boolean" }],
-  hysteria2: [{ path: "up_mbps", label: "uploadMbps", kind: "number" }, { path: "down_mbps", label: "downloadMbps", kind: "number" }, { path: "obfs.type", label: "obfuscationType", kind: "select", options: ["", "salamander"] }, { path: "obfs.password", label: "obfuscationPassword", when: { path: "obfs.type", is: "salamander" } }, { path: "users", label: "users", kind: "users", section: "auth" }, { path: "ignore_client_bandwidth", label: "ignoreClientBandwidth", kind: "boolean" }, { path: "masquerade", label: "masquerade" }, { path: "brutal_debug", label: "brutalDebug", kind: "boolean" }],
+  hysteria: [{ path: "up", label: "uploadBandwidth" }, { path: "up_mbps", label: "uploadMbps", kind: "number" }, { path: "down", label: "downloadBandwidth" }, { path: "down_mbps", label: "downloadMbps", kind: "number" }, { path: "obfs", label: "obfuscation" }, { path: "users", label: "users", kind: "users", section: "auth" }],
+  hysteria2: [{ path: "up_mbps", label: "uploadMbps", kind: "number" }, { path: "down_mbps", label: "downloadMbps", kind: "number" }, { path: "obfs.type", label: "obfuscationType", kind: "select", options: ["", "salamander", "gecko"] }, { path: "obfs.password", label: "obfuscationPassword", when: { path: "obfs.type", is: ["salamander", "gecko"] } }, { path: "users", label: "users", kind: "users", section: "auth" }, { path: "ignore_client_bandwidth", label: "ignoreClientBandwidth", kind: "boolean" }, { path: "masquerade", label: "masquerade", kind: "json-value" }, { path: "brutal_debug", label: "brutalDebug", kind: "boolean" }],
   tuic: [{ path: "users", label: "users", kind: "users", section: "auth" }, { path: "congestion_control", label: "congestionControl" }, { path: "auth_timeout", label: "authenticationTimeout" }, { path: "zero_rtt_handshake", label: "zeroRTTHandshake", kind: "boolean" }, { path: "heartbeat", label: "heartbeat" }],
   shadowtls: [{ path: "version", label: "version", kind: "number" }, { path: "password", label: "password" }, { path: "users", label: "users", kind: "users", section: "auth" }, { path: "handshake.server", label: "handshakeServer" }, { path: "handshake.server_port", label: "handshakePort", kind: "number" }, { path: "strict_mode", label: "strictMode", kind: "boolean" }, { path: "wildcard_sni", label: "wildcardSNI", kind: "select", options: ["", "off", "authed", "all"] }],
   anytls: [{ path: "users", label: "users", kind: "users", section: "auth" }, { path: "padding_scheme", label: "paddingScheme" }],
-  tproxy: [network], redirect: [], tun: [],
+  tproxy: [network, ...udpNATFields], redirect: [], tun: [],
 }
 
 export const tunFields: FieldSpec[] = [
@@ -58,16 +61,22 @@ export const tunFields: FieldSpec[] = [
   { path: "include_uid", label: "includeUID", kind: "number-list", section: "tunFilter" }, { path: "exclude_uid", label: "excludeUID", kind: "number-list", section: "tunFilter" },
   { path: "include_uid_range", label: "includeUIDRange", kind: "list", section: "tunFilter" }, { path: "exclude_uid_range", label: "excludeUIDRange", kind: "list", section: "tunFilter" },
   { path: "include_android_user", label: "includeAndroidUser", kind: "number-list", section: "tunFilter" }, { path: "include_package", label: "includePackage", kind: "list", section: "tunFilter" }, { path: "exclude_package", label: "excludePackage", kind: "list", section: "tunFilter" },
+  ...udpNATFields,
+  { path: "netns", label: "networkNamespace", section: "tunBasic" },
+  { path: "dns_mode", label: "dnsMode", kind: "select", options: ["disabled", "native", "hijack"], section: "tunBasic" },
+  { path: "dns_address", label: "dnsAddress", kind: "list", section: "tunBasic" },
+  { path: "include_mac_address", label: "includeMACAddress", kind: "list", section: "tunFilter" },
+  { path: "exclude_mac_address", label: "excludeMACAddress", kind: "list", section: "tunFilter" },
   { path: "udp_timeout", label: "udpTimeout", section: "tunBasic" }, { path: "exclude_mptcp", label: "excludeMPTCP", kind: "boolean", section: "tunFilter" },
 ]
 
 const tlsOn = { path: "tls.enabled", is: true } as const
 const clientAuthOn = [tlsOn, { path: "tls.client_authentication", is: ["request", "require-any", "verify-if-given", "require-and-verify"] }] as const
-const acmeOn = [tlsOn, { path: "tls.acme.domain" }] as const
 const echOn = [tlsOn, { path: "tls.ech.enabled", is: true }] as const
 const realityOn = [tlsOn, { path: "tls.reality.enabled", is: true }] as const
 
 export const tlsFields: FieldSpec[] = [
+  ...inboundTLS114Fields,
   { path: "tls.enabled", label: "tlsEnabled", kind: "boolean", section: "tlsBasic" },
   { path: "tls.server_name", label: "serverName", when: tlsOn, section: "tlsBasic" },
   { path: "tls.insecure", label: "insecure", kind: "boolean", when: tlsOn, section: "tlsBasic" },
@@ -86,15 +95,6 @@ export const tlsFields: FieldSpec[] = [
   { path: "tls.client_certificate_public_key_sha256", label: "clientCertificateSHA256", kind: "list", when: [...clientAuthOn], section: "tlsClient" },
   { path: "tls.kernel_tx", label: "kernelTX", kind: "boolean", when: tlsOn, section: "tlsBasic" },
   { path: "tls.kernel_rx", label: "kernelRX", kind: "boolean", when: tlsOn, section: "tlsBasic" },
-  { path: "tls.acme.domain", label: "acmeDomain", kind: "list", when: tlsOn, section: "tlsAcme" },
-  { path: "tls.acme.data_directory", label: "acmeDataDirectory", when: [...acmeOn], section: "tlsAcme" },
-  { path: "tls.acme.default_server_name", label: "acmeDefaultServerName", when: [...acmeOn], section: "tlsAcme" },
-  { path: "tls.acme.email", label: "acmeEmail", when: [...acmeOn], section: "tlsAcme" },
-  { path: "tls.acme.provider", label: "acmeProvider", when: [...acmeOn], section: "tlsAcme" },
-  { path: "tls.acme.disable_http_challenge", label: "disableHTTPChallenge", kind: "boolean", when: [...acmeOn], section: "tlsAcme" },
-  { path: "tls.acme.disable_tls_alpn_challenge", label: "disableTLSALPNChallenge", kind: "boolean", when: [...acmeOn], section: "tlsAcme" },
-  { path: "tls.acme.alternative_http_port", label: "alternativeHTTPPort", kind: "number", when: [...acmeOn], section: "tlsAcme" },
-  { path: "tls.acme.alternative_tls_port", label: "alternativeTLSPort", kind: "number", when: [...acmeOn], section: "tlsAcme" },
   { path: "tls.ech.enabled", label: "echEnabled", kind: "boolean", when: tlsOn, section: "tlsEch" },
   { path: "tls.ech.key", label: "echKey", kind: "list", when: [...echOn], section: "tlsEch" },
   { path: "tls.ech.key_path", label: "echKeyPath", when: [...echOn], section: "tlsEch" },
@@ -127,7 +127,9 @@ export const multiplexFields: FieldSpec[] = [
 export const tlsTypes = new Set(["http", "mixed", "vmess", "vless", "trojan", "naive", "hysteria", "hysteria2", "tuic", "anytls"])
 export const transportTypes = new Set(["vmess", "vless", "trojan"])
 export const multiplexTypes = new Set(["shadowsocks", "vmess", "vless", "trojan"])
-export function protocolFields(type: string) { return protocolMap[type] ?? [] }
+export function protocolFields(type: string): FieldSpec[] {
+  return [...(protocolMap[type] ?? []), ...quicProtocolFields(type), ...(type === "hysteria2" ? hysteria2114Fields : [])]
+}
 export function transportTypeFields(type: string) { return [...transportFields, ...(transportByType[type] ?? [])] }
 
 function removeFields(object: JsonObject, fields: FieldSpec[]) {
@@ -147,6 +149,7 @@ export function changeInboundType(object: JsonObject, type: string) {
   let next = { ...object }
   if (previous === "tun" && type !== "tun") next = removeFields(next, tunFields.filter((field) => field.path !== "udp_timeout"))
   if (previous !== "tun" && type === "tun") next = removeFields(next, listenFields.filter((field) => field.path !== "udp_timeout"))
+  if (type === "cloudflared") next = removeFields(next, listenFields)
   next = removeFields(next, protocolFields(previous).filter((field) => field.path === "users" || !protocolFields(type).some((candidate) => candidate.path === field.path && candidate.kind === field.kind)))
   if (tlsTypes.has(previous) && !tlsTypes.has(type)) next = setPath(next, "tls", undefined)
   if (transportTypes.has(previous) && !transportTypes.has(type)) next = setPath(next, "transport", undefined)

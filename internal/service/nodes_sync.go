@@ -10,7 +10,7 @@ import (
 
 var managedNodeTypes = map[string]bool{
 	"vless": true, "vmess": true, "trojan": true, "shadowsocks": true,
-	"hysteria": true, "hysteria2": true, "tuic": true, "shadowtls": true, "anytls": true,
+	"snell": true, "hysteria": true, "hysteria2": true, "tuic": true, "shadowtls": true, "anytls": true,
 }
 
 // SyncOutboundsToConfig 重建托管出站配置并写回配置文件（不重启）。
@@ -54,8 +54,8 @@ func SyncOutboundsToConfig(
 	proxyTags := collectProxyTags(outbounds, subscriptionMemberTags(subscriptions))
 	builder := subscriptionGroupBuilder{defaults: defaults, existingByTag: existingByTag}
 	outbounds, groupTags := builder.append(outbounds, subscriptions)
-	outbounds = upsertProxySelector(outbounds, groupTags, proxyTags)
 	cfg["outbounds"] = outbounds
+	cfg["outbounds"] = upsertProxySelector(cfg, groupTags, proxyTags)
 	ensureRouteFinal(cfg)
 	commit := syncCommit{path: configPath, previous: previousConfig, groups: settings}
 	return commit.write(cfg, groupTags)
@@ -112,7 +112,7 @@ func preserveExistingOutbounds(existing []any, managedGroups map[string]bool) []
 	if !hasDirect {
 		// 配置中没有 direct 时兜底注入，避免同步后出站列表为空。
 		// 已有 direct 时原样保留（含 routing_mark 等属性），
-		// 否则 sing-box 1.13 会拒绝空 direct 作为 DNS detour。
+		// 否则 sing-box 会拒绝空 direct 作为 DNS detour。
 		outbounds = append([]any{map[string]any{"type": "direct", "tag": "direct"}}, outbounds...)
 	}
 	return outbounds
@@ -255,10 +255,10 @@ func subscriptionProxyTags(subscription model.Subscription) []string {
 	return tags
 }
 
-func upsertProxySelector(outbounds []any, groupTags, proxyTags []string) []any {
+func upsertProxySelector(cfg map[string]any, groupTags, proxyTags []string) []any {
 	members := append([]string{}, groupTags...)
 	members = append(members, proxyTags...)
-	return core.SyncProxySelector(outbounds, members)
+	return core.SyncConfiguredProxySelector(cfg, members)
 }
 
 func ensureRouteFinal(config map[string]any) {

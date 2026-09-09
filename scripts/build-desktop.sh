@@ -8,7 +8,7 @@ set -euo pipefail
 
 root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 version="${1:-$(git -C "$root_dir" describe --tags --always --dirty 2>/dev/null || echo dev)}"
-kernel_version="${KERNEL_VERSION:-1.13.21}"
+kernel_version="${KERNEL_VERSION:-1.14.0}"
 target_os="${2:-$(go env GOOS)}"
 target_arch="${3:-$(go env GOARCH)}"
 export PATH="$PATH:/usr/local/go/bin:$HOME/go/bin"
@@ -59,7 +59,7 @@ else
 fi
 
 (cd "$root_dir/desktop" && go build \
-  -tags "desktop embed_ui with_gvisor with_quic with_dhcp with_wireguard with_utls with_acme with_clash_api" \
+  -tags "desktop embed_ui with_gvisor with_quic with_dhcp with_wireguard with_utls with_acme with_clash_api with_tailscale with_openvpn with_openconnect with_cloudflared with_usbip with_ccm with_ocm with_v2ray_api" \
   -ldflags "$ldflags" \
   -o "$output" ./)
 

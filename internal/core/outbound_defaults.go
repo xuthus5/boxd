@@ -34,7 +34,7 @@ func NewDefaultOutboundsInstaller() *DefaultOutboundsInstaller {
 func (i *DefaultOutboundsInstaller) Install(cfg map[string]any) (*OutboundDefaultsResult, error) {
 	existing, _ := cfg["outbounds"].([]any)
 	outbounds := make([]any, 0, len(existing)+defaultOutboundCount)
-	byTag := make(map[string]map[string]any, len(existing))
+	byTag := existingOutbounds(cfg)
 	for _, item := range existing {
 		entry, ok := item.(map[string]any)
 		if !ok || entry == nil {
@@ -42,8 +42,6 @@ func (i *DefaultOutboundsInstaller) Install(cfg map[string]any) (*OutboundDefaul
 			continue
 		}
 		outbounds = append(outbounds, cloneMap(entry))
-		tag, _ := entry["tag"].(string)
-		byTag[tag] = entry
 	}
 	installed := make([]map[string]any, 0, defaultOutboundCount)
 	for _, tag := range []string{"direct", "block"} {
@@ -56,7 +54,8 @@ func (i *DefaultOutboundsInstaller) Install(cfg map[string]any) (*OutboundDefaul
 	}
 	if byTag["proxy"] == nil {
 		sync := newOutboundGroupSync(outbounds)
-		members := defaultProxyMembers(existing)
+		sync.includeEgresses(byTag)
+		members := defaultProxyMembers(configuredEgresses(cfg))
 		if len(members) == 0 {
 			members = []string{sync.blockingTag()}
 		}
@@ -88,11 +87,20 @@ func defaultProxyMembers(outbounds []any) []string {
 func isProxyCandidate(ob map[string]any) bool {
 	typ, _ := ob["type"].(string)
 	switch typ {
-	case "", "direct", "block", "dns", "selector", "urltest":
+	case "", "direct", "bridge", "block", "dns", "selector", "urltest", "openvpn-server":
 		return false
 	default:
 		return true
 	}
+}
+
+// configuredEgresses 将 VPN 端点与普通出站一起作为可引用的出口。
+func configuredEgresses(cfg map[string]any) []any {
+	outbounds, _ := cfg["outbounds"].([]any)
+	endpoints, _ := cfg["endpoints"].([]any)
+	result := make([]any, 0, len(outbounds)+len(endpoints))
+	result = append(result, outbounds...)
+	return append(result, endpoints...)
 }
 
 func cloneMap(in map[string]any) map[string]any {

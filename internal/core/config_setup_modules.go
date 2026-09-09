@@ -5,6 +5,7 @@ import (
 	"errors"
 	"path/filepath"
 	"slices"
+	"strings"
 )
 
 type setupPlanBuilder struct {
@@ -121,7 +122,8 @@ func InstallSetupAssets(ctx context.Context, plan *SetupPlan, dataDir string) er
 func setupReferencesRuleSet(entries []any, dir string, source RuleSetSource) bool {
 	for _, item := range entries {
 		entry, _ := item.(map[string]any)
-		if entry["tag"] == source.Tag && entry["type"] == "local" && entry["path"] == filepath.Join(dir, source.FileName) {
+		path := strings.ReplaceAll(stringValue(entry["path"]), "{tag}", source.Tag)
+		if slices.Contains(asStringSlice(entry["tag"]), source.Tag) && entry["type"] == "local" && path == filepath.Join(dir, source.FileName) {
 			return true
 		}
 	}

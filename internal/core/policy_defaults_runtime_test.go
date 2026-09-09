@@ -18,6 +18,7 @@ import (
 	"github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing-box/option"
 	"github.com/sagernet/sing-box/protocol/block"
+	tun "github.com/sagernet/sing-tun"
 	M "github.com/sagernet/sing/common/metadata"
 	N "github.com/sagernet/sing/common/network"
 	"github.com/sagernet/sing/service"
@@ -43,18 +44,19 @@ func newPolicyRuntime(t *testing.T, cfg map[string]any) *policyRuntime {
 	}
 	runtime.registerTransports()
 	options := runtime.options(t, cfg)
-	instance, err := box.New(box.Options{Context: runtime.ctx, Options: options})
+	native, err := newRealBox(box.Options{Context: runtime.ctx, Options: options})
 	if err != nil {
 		t.Fatal(err)
 	}
+	instance := native.box
 	runtime.instance = instance
 	instance.Router().AppendTracker(runtime.trace)
 	t.Cleanup(func() {
-		if err := instance.Close(); err != nil {
+		if err := native.Close(); err != nil {
 			t.Errorf("close runtime: %v", err)
 		}
 	})
-	if err := instance.Start(); err != nil {
+	if err := native.Start(); err != nil {
 		t.Fatal(err)
 	}
 	return runtime
@@ -175,6 +177,11 @@ func (s *policyDNSTransport) Exchange(_ context.Context, message *mdns.Msg) (*md
 	return response, nil
 }
 
+func (s *policyDNSTransport) ExchangeAsync(ctx context.Context, message *mdns.Msg, callback func(*mdns.Msg, error)) {
+	response, err := s.Exchange(ctx, message)
+	callback(response, err)
+}
+
 type policyClashMode struct {
 	adapter.ClashServer
 	mode string
@@ -201,4 +208,12 @@ func (s *policyRouteTrace) RoutedPacketConnection(
 ) N.PacketConn {
 	s.outbound = selected.Tag()
 	return conn
+}
+
+func (s *policyRouteTrace) RoutedFlow(
+	_ context.Context, metadata adapter.InboundContext, _ adapter.Rule, selected adapter.Outbound,
+) tun.FlowTracker {
+	s.outbound = selected.Tag()
+	s.metadata = metadata
+	return nil
 }

@@ -1,3 +1,5 @@
+import { outboundTLS114Fields, resolver114Fields } from "@/features/config/kernel114-fields"
+import { endpointDNSFields } from "@/features/policy/dns114-fields"
 import type { PolicyFieldSpec } from "@/features/policy/policy-form-model"
 
 const domainStrategies = ["prefer_ipv4", "prefer_ipv6", "ipv4_only", "ipv6_only"] as const
@@ -7,6 +9,7 @@ const resolverOn = { path: "domain_resolver.server" } as const
 const tlsOn = { path: "tls.enabled", is: true } as const
 
 const domainResolverFields = [
+  ...resolver114Fields,
   { path: "domain_resolver.server", label: "domainResolverServer", kind: "ref", ref: "dns-server", section: "resolver" },
   { path: "domain_resolver.strategy", label: "domainResolverStrategy", kind: "select", options: domainStrategies, section: "resolver", when: resolverOn },
   { path: "domain_resolver.disable_cache", label: "domainResolverDisableCache", kind: "boolean", section: "resolver", when: resolverOn },
@@ -45,6 +48,7 @@ const remoteFields = [
 ] as const satisfies readonly PolicyFieldSpec[]
 
 const tlsFields = [
+  ...outboundTLS114Fields,
   { path: "tls.enabled", label: "tlsEnabled", kind: "boolean", section: "tls" },
   { path: "tls.disable_sni", label: "tlsDisableSNI", kind: "boolean", section: "tls", when: tlsOn },
   { path: "tls.server_name", label: "tlsServerName", section: "tls", when: tlsOn },
@@ -54,16 +58,6 @@ const tlsFields = [
   { path: "tls.certificate_path", label: "tlsCertificatePath", section: "tls", when: tlsOn },
 ] as const satisfies readonly PolicyFieldSpec[]
 
-const legacyFields = [
-  { path: "address", label: "address", section: "basic" },
-  { path: "address_resolver", label: "addressResolver", kind: "ref", ref: "dns-server", section: "basic" },
-  { path: "address_strategy", label: "addressStrategy", kind: "select", options: domainStrategies, section: "basic" },
-  { path: "address_fallback_delay", label: "addressFallbackDelay", section: "basic" },
-  { path: "strategy", label: "strategy", kind: "select", options: domainStrategies, section: "basic" },
-  { path: "detour", label: "detour", kind: "ref", ref: "outbound", section: "basic" },
-  { path: "client_subnet", label: "clientSubnet", section: "basic" },
-] as const satisfies readonly PolicyFieldSpec[]
-
 const httpFields = [
   { path: "path", label: "httpPath", section: "http" },
   { path: "method", label: "method", section: "http" },
@@ -71,8 +65,7 @@ const httpFields = [
 ] as const satisfies readonly PolicyFieldSpec[]
 
 export const dnsServerFields: Record<string, readonly PolicyFieldSpec[]> = {
-  legacy: legacyFields,
-  local: [...dialerFields, { path: "prefer_go", label: "preferGo", kind: "boolean", section: "local" }],
+  local: [...dialerFields, { path: "neighbor_domain", label: "neighborDomain", kind: "list", section: "local" }, { path: "prefer_go", label: "preferGo", kind: "boolean", section: "local" }],
   hosts: [
     { path: "path", label: "path", kind: "list", section: "hosts" },
     { path: "predefined", label: "predefined", kind: "json-object", section: "hosts" },
@@ -88,6 +81,14 @@ export const dnsServerFields: Record<string, readonly PolicyFieldSpec[]> = {
     { path: "prefer_go", label: "preferGo", kind: "boolean", section: "local" },
     { path: "interface", label: "interface", kind: "network-interface", section: "local" },
   ],
+  mdns: [...dialerFields, { path: "interface", label: "interface", kind: "list", section: "local" },
+    { path: "prefer_go", label: "preferGo", kind: "boolean", section: "local" },
+    { path: "neighbor_domain", label: "neighborDomain", kind: "list", section: "local" }],
+  tailscale: endpointDNSFields,
+  openvpn: endpointDNSFields,
+  openconnect: endpointDNSFields,
+  resolved: [{ path: "service", label: "resolvedService", section: "special" },
+    { path: "accept_default_resolvers", label: "acceptDefaultResolvers", kind: "boolean", section: "special" }],
   fakeip: [
     { path: "inet4_range", label: "fakeIPIPv4Range", section: "fakeip" },
     { path: "inet6_range", label: "fakeIPIPv6Range", section: "fakeip" },

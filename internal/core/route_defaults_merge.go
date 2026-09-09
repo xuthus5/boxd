@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -83,7 +84,7 @@ func routeRuleKey(rule any) (string, error) {
 	}
 	// 使用当前内核的完整结构规范化标量/数组与省略的 route action，保留所有匹配条件。
 	var parsed option.Rule
-	if err := json.Unmarshal(body, &parsed); err != nil {
+	if err := parsed.UnmarshalJSONContext(context.Background(), body); err != nil {
 		return "", fmt.Errorf("parse route rule: %w", err)
 	}
 	canonical, err := json.Marshal(parsed)

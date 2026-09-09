@@ -4,7 +4,7 @@ export type JsonObject = Record<string, JsonValue>
 export type PolicySection = "route" | "dns"
 export type PolicyFieldKind =
   | "text" | "textarea" | "number" | "boolean" | "list" | "number-list"
-  | "select" | "json-object" | "json-array" | "ref" | "ref-multi" | "network-multi" | "network-interface"
+  | "select" | "json-object" | "json-array" | "json-value" | "ref" | "ref-multi" | "network-multi" | "network-interface"
 
 export type PolicyFieldRef = "inbound" | "outbound" | "dns-server" | "rule-set" | "network-interface"
 
@@ -144,7 +144,8 @@ export function policyConfigTags(items: unknown, currentTag?: string) {
   const tags = items.flatMap((item) => {
     if (!item || typeof item !== "object" || Array.isArray(item)) return []
     const tag = (item as JsonObject).tag
-    return typeof tag === "string" && tag && tag !== currentTag ? [tag] : []
+    const values = Array.isArray(tag) ? tag : [tag]
+    return values.filter((value): value is string => typeof value === "string" && Boolean(value) && value !== currentTag)
   })
   return [...new Set(tags)]
 }
@@ -152,6 +153,12 @@ export function policyConfigTags(items: unknown, currentTag?: string) {
 export function policyDNSServerTags(dns: unknown) {
   if (!dns || typeof dns !== "object" || Array.isArray(dns)) return [] as string[]
   return policyConfigTags((dns as JsonObject).servers)
+}
+
+export function policyOutboundTags(config: Record<string, JsonValue> | undefined, currentTag?: string) {
+  const outbounds = Array.isArray(config?.outbounds) ? config.outbounds : []
+  const endpoints = Array.isArray(config?.endpoints) ? config.endpoints : []
+  return policyConfigTags([...outbounds, ...endpoints], currentTag)
 }
 
 export function policyRuleSetTags(route: unknown) {

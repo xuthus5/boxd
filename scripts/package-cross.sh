@@ -26,8 +26,8 @@ fi
 
 root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 export PATH="$PATH:/usr/local/go/bin:$HOME/go/bin"
-KERNEL_VERSION="${KERNEL_VERSION:-1.13.21}"
-BUILD_TAGS="${BUILD_TAGS:-embed_ui with_gvisor with_quic with_dhcp with_wireguard with_utls with_acme with_clash_api}"
+KERNEL_VERSION="${KERNEL_VERSION:-1.14.0}"
+BUILD_TAGS="${BUILD_TAGS:-embed_ui with_gvisor with_quic with_dhcp with_wireguard with_utls with_acme with_clash_api with_tailscale with_openvpn with_openconnect with_cloudflared with_usbip with_ccm with_ocm with_v2ray_api}"
 stage_root=$(mktemp -d)
 cleanup() {
   rm -rf "$stage_root"

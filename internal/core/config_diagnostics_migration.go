@@ -18,6 +18,8 @@ func checkSingBoxMigrationWarnings(
 	checkOutboundDNSRuleItems(report, cfg)
 	checkLegacyDomainStrategies(report, cfg)
 	checkMissingDomainResolvers(report, cfg, dnsServers)
+	checkRemovedConfigFields(report, cfg)
+	checkDeprecatedConfigFields(report, cfg)
 }
 
 func checkLegacyDNSServers(report *model.ConfigDiagnostics, cfg map[string]any) {
@@ -33,7 +35,7 @@ func checkLegacyDNSServers(report *model.ConfigDiagnostics, cfg map[string]any) 
 		addDiagnostic(
 			report,
 			"legacy_dns_server",
-			model.ConfigDiagnosticSeverityWarning,
+			model.ConfigDiagnosticSeverityError,
 			path,
 			stringValue(object["tag"]),
 			"",
@@ -43,12 +45,8 @@ func checkLegacyDNSServers(report *model.ConfigDiagnostics, cfg map[string]any) 
 
 func checkLegacyDNSFakeIP(report *model.ConfigDiagnostics, cfg map[string]any) {
 	dns := objectValue(cfg["dns"])
-	fakeIP := objectValue(dns["fakeip"])
-	enabled, _ := fakeIP["enabled"].(bool)
-	if enabled {
-		// sing-box 1.12 弃用 legacy fakeip（1.14 起移除并拒绝启动），
-		// 当前锁定 1.13 仍可运行，故保持 warning 级别。
-		addDiagnostic(report, "legacy_dns_fakeip", model.ConfigDiagnosticSeverityWarning, "dns.fakeip", "", "")
+	if _, exists := dns["fakeip"]; exists {
+		addDiagnostic(report, "legacy_dns_fakeip", model.ConfigDiagnosticSeverityError, "dns.fakeip", "", "")
 	}
 }
 
@@ -148,18 +146,23 @@ func checkMissingDomainResolversInSection(report *model.ConfigDiagnostics, value
 	items, _ := value.([]any)
 	for index, item := range items {
 		object := objectValue(item)
-		server := strings.TrimSpace(stringValue(object["server"]))
+		path := sectionKey + "[" + strconv.Itoa(index) + "]"
+		serverPath := diagnosticDomainRemotePath(diagnosticObject{path: path, object: object})
 		hasResolver := hasDomainResolver(object["domain_resolver"])
 		hasDetour := strings.TrimSpace(stringValue(object["detour"])) != ""
-		if !isDomainName(server) || hasResolver || hasDetour {
+		kind := stringValue(object["type"])
+		if serverPath == "" || hasResolver || hasDetour && !resolvesServerOnDetour(kind) {
 			continue
 		}
-		path := sectionKey + "[" + strconv.Itoa(index) + "].server"
+		severity := model.ConfigDiagnosticSeverityWarning
+		if kind == "openvpn-client" || kind == "openconnect" {
+			severity = model.ConfigDiagnosticSeverityError
+		}
 		addDiagnostic(
 			report,
 			"missing_domain_resolver",
-			model.ConfigDiagnosticSeverityWarning,
-			path,
+			severity,
+			serverPath,
 			stringValue(object["tag"]),
 			"",
 		)

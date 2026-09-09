@@ -4,7 +4,7 @@ export type JsonObject = Record<string, JsonValue>
 export type FieldKind =
   | "text" | "textarea" | "number" | "boolean" | "list" | "number-list"
   | "select" | "boolean-select" | "json-object" | "users" | "listen-address" | "network-interface"
-  | "ref" | "network-multi"
+  | "ref" | "network-multi" | "json-value"
 
 export type FieldRef = "inbound" | "dns-server" | "outbound" | "network-interface-multi"
 

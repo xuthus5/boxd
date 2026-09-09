@@ -10,13 +10,13 @@ RUN npm run build
 FROM golang:1.26.6-alpine AS go-builder
 WORKDIR /app
 ARG VERSION=dev
-ARG KERNEL_VERSION=1.13.21
+ARG KERNEL_VERSION=1.14.0
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=ui-builder /app/ui/dist ./cmd/boxd/ui/dist
 RUN CGO_ENABLED=0 go build \
-    -tags "embed_ui with_gvisor with_quic with_dhcp with_wireguard with_utls with_acme with_clash_api" \
+    -tags "embed_ui with_gvisor with_quic with_dhcp with_wireguard with_utls with_acme with_clash_api with_tailscale with_openvpn with_openconnect with_cloudflared with_usbip with_ccm with_ocm with_v2ray_api" \
     -ldflags "-X github.com/xuthus5/boxd/internal/core.Version=${VERSION} -X github.com/sagernet/sing-box/constant.Version=${KERNEL_VERSION}" \
     -o /bin/boxd ./cmd/boxd/
 

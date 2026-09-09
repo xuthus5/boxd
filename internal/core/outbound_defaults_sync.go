@@ -12,6 +12,38 @@ type outboundGroupSync struct {
 // HTTP 与桌面端复用此逻辑，避免删除最后节点后产生悬空引用或直连回退。
 func SyncProxySelector(outbounds []any, members []string) []any {
 	sync := newOutboundGroupSync(outbounds)
+	return sync.syncProxySelector(members)
+}
+
+// SyncConfiguredProxySelector 保留 VPN 端点引用，并纳入可用客户端端点。
+func SyncConfiguredProxySelector(cfg map[string]any, members []string) []any {
+	outbounds, _ := cfg["outbounds"].([]any)
+	sync := newOutboundGroupSync(outbounds)
+	sync.includeEgresses(existingOutbounds(cfg))
+	endpoints, _ := cfg["endpoints"].([]any)
+	members = slices.Clone(members)
+	for _, item := range endpoints {
+		entry, _ := item.(map[string]any)
+		tag, _ := entry["tag"].(string)
+		if tag == "" {
+			continue
+		}
+		if tag != "proxy" && isProxyCandidate(entry) && !slices.Contains(members, tag) {
+			members = append(members, tag)
+		}
+	}
+	return sync.syncProxySelector(members)
+}
+
+func (s *outboundGroupSync) includeEgresses(entries map[string]map[string]any) {
+	for tag, entry := range entries {
+		if s.byTag[tag] == nil {
+			s.byTag[tag] = entry
+		}
+	}
+}
+
+func (sync *outboundGroupSync) syncProxySelector(members []string) []any {
 	proxy := sync.byTag["proxy"]
 	if proxy != nil && proxy["type"] != "selector" {
 		sync.pruneMissingMembers()

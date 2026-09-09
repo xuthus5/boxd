@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Switch } from "@/components/ui/switch"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { InboundUsersField } from "@/features/proxy/inbound-users-field"
+import { JsonValueField } from "@/features/config/json-value-field"
 import {
   parseFiniteNumber,
   parseFiniteNumberList,
@@ -45,7 +46,8 @@ function parseList(value: string) {
 
 function FieldHelp({ namespace, labelKey }: { namespace: ProxyFormFieldsProps["namespace"]; labelKey: string }) {
   const { t, i18n } = useTranslation()
-  const helpKey = `${namespace}.${labelKey}Help`
+  const localHelpKey = `${namespace}.${labelKey}Help`
+  const helpKey = i18n.exists(localHelpKey) ? localHelpKey : `kernel114.fields.${labelKey}Help`
   if (!i18n.exists(helpKey)) return null
   return <Tooltip>
     <TooltipTrigger
@@ -253,13 +255,14 @@ function RefSelectField({ field, label, namespace, value, context, onChange }: {
 function ProxyField({ field, object, namespace, revision, context, onChange, onFieldValidityChange, transformField }: Omit<ProxyFormFieldsProps, "fields"> & { field: FieldSpec }) {
   const { t } = useTranslation()
   const value = getPath(object, field.path)
-  const label = t(`${namespace}.${field.label}`)
+  const label = t([`${namespace}.${field.label}`, `kernel114.fields.${field.label}`, `${namespace}.${field.label}`])
   const update = (raw: string) => {
     const transformed = transformField?.(object, field, raw)
     const next = transformed === undefined ? defaultUpdate(object, field, raw) : transformed
     if (next) onChange(next)
   }
   if (field.kind === "boolean") return <BooleanField label={label} namespace={namespace} labelKey={field.label} checked={value === true} onChange={(checked) => onChange(setPath(object, field.path, checked || undefined))} />
+  if (field.kind === "json-value") return <JsonValueField path={field.path} label={label} value={value} revision={revision} onChange={(next) => onChange(setPath(object, field.path, next))} onValidity={onFieldValidityChange} />
   if (field.kind === "select" || field.kind === "boolean-select") return <SelectField field={field} label={label} namespace={namespace} value={textValue(value)} onChange={update} />
   if (field.kind === "listen-address") return <ListenAddressField label={label} namespace={namespace} labelKey={field.label} revision={revision} value={textValue(value)} onChange={update} />
   if (field.kind === "network-interface") return <NetworkInterfaceField label={label} namespace={namespace} labelKey={field.label} revision={revision} value={textValue(value)} onChange={update} />

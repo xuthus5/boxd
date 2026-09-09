@@ -11,7 +11,7 @@ set -euo pipefail
 root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 version="${1:-$(git -C "$root_dir" describe --tags --always --dirty 2>/dev/null || echo dev)}"
 arch="${2:-arm64}"
-kernel_version="${KERNEL_VERSION:-1.13.21}"
+kernel_version="${KERNEL_VERSION:-1.14.0}"
 export PATH="$PATH:/usr/local/go/bin:$HOME/go/bin:$(go env GOPATH 2>/dev/null)/bin"
 export GOPROXY="${GOPROXY:-https://proxy.golang.org,https://goproxy.io,direct}"
 export GOOS=darwin
@@ -40,7 +40,7 @@ echo "==> Building macOS desktop binary (${arch})"
 mkdir -p bin
 # 正式发布构建（非 nightly）启用 Wails production tag，禁用 WebView 开发者工具；
 # nightly 保留开发工具便于排查。
-build_tags="desktop embed_ui with_gvisor with_quic with_dhcp with_wireguard with_utls with_acme with_clash_api"
+build_tags="desktop embed_ui with_gvisor with_quic with_dhcp with_wireguard with_utls with_acme with_clash_api with_tailscale with_openvpn with_openconnect with_cloudflared with_usbip with_ccm with_ocm with_v2ray_api"
 if [[ "$version" != "nightly" ]]; then
   build_tags="$build_tags production"
 fi

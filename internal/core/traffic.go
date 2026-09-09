@@ -115,6 +115,12 @@ func (t *TrafficTracker) CloseConnsByProcess(process string) int {
 }
 
 func (t *TrafficTracker) newTrackedConnection(metadata adapter.InboundContext, matchedRule adapter.Rule, matchOutbound adapter.Outbound) *trafficConnInternal {
+	tc := t.makeTrackedConnection(metadata, matchedRule, matchOutbound)
+	t.connections.Store(tc.id, tc)
+	return tc
+}
+
+func (t *TrafficTracker) makeTrackedConnection(metadata adapter.InboundContext, matchedRule adapter.Rule, matchOutbound adapter.Outbound) *trafficConnInternal {
 	id := t.nextID.Add(1)
 	network := connectionNetwork(metadata)
 	if network == "" {
@@ -133,7 +139,6 @@ func (t *TrafficTracker) newTrackedConnection(metadata adapter.InboundContext, m
 		process:  connectionProcess(metadata),
 		start:    time.Now(),
 	}
-	t.connections.Store(id, tc)
 	return tc
 }
 

@@ -88,7 +88,7 @@ func cachedProxySyncConfig(dataDir string) map[string]any {
 }
 
 type cachedProxyRuntime struct {
-	instance *box.Box
+	instance boxInstance
 	selector interface {
 		Now() string
 		SelectOutbound(string) bool
@@ -106,7 +106,7 @@ func startCachedProxyRuntime(t *testing.T, cfg map[string]any) *cachedProxyRunti
 	if err := options.UnmarshalJSONContext(ctx, body); err != nil {
 		t.Fatal(err)
 	}
-	instance, err := box.New(box.Options{Context: ctx, Options: options})
+	instance, err := newRealBox(box.Options{Context: ctx, Options: options})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -5,10 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useConfigQuery } from "@/features/config/config-hooks"
 import {
-  applyDNSFakeIPFieldChange,
   applyDNSGlobalFieldChange,
   dnsGlobalFields,
-  legacyFakeIPFields,
   transformDNSField,
 } from "@/features/policy/dns-form-model"
 import { PolicyFormFields } from "@/features/policy/policy-form-fields"
@@ -42,29 +40,6 @@ export function DNSGlobalCard(props: PolicyVisualEditorProps) {
       <p className="text-muted-foreground">{t("policy.dns.globalFooter")}</p>
       {/* c8 ignore next */}
       <Button size="sm" className="h-8" onClick={() => props.onGlobalSave?.(props.object)}>{t("policy.save")}</Button>
-    </CardFooter>
-  </Card>
-}
-
-export function DNSFakeIPCard(props: PolicyVisualEditorProps) {
-  const { t } = useTranslation()
-  return <Card size="sm">
-    <CardHeader className="gap-1.5">
-      <CardTitle className="truncate">{t("policy.dns.fakeIPTitle")}</CardTitle>
-      <CardDescription>{t("policy.dns.fakeIPDescription")}</CardDescription>
-    </CardHeader>
-    <CardContent>
-      <PolicyFormFields
-        fields={legacyFakeIPFields}
-        object={props.object}
-        namespace="policy.dns"
-        revision={props.revision}
-        onChange={(next) => props.onChange(applyDNSFakeIPFieldChange(props.object, next))}
-        onFieldValidityChange={props.onFieldValidityChange}
-      />
-    </CardContent>
-    <CardFooter>
-      <p className="text-muted-foreground">{t("policy.dns.fakeIPFooter")}</p>
     </CardFooter>
   </Card>
 }

@@ -172,8 +172,9 @@ func checkRouteDownloadDetours(route map[string]any, outboundChecker configRefer
 			continue
 		}
 		path := "route.rule_set[" + strconv.Itoa(index) + "]"
-		tag := strings.TrimSpace(stringValue(ruleSet["tag"]))
-		if tag == "" {
+		tags := stringValues(ruleSet["tag"])
+		tag := strings.Join(tags, "\x00")
+		if tag == "" || containsEmptyRuleSetTag(tags) {
 			addDiagnostic(outboundChecker.report, "missing_tag", model.ConfigDiagnosticSeverityError, path+".tag", "", "")
 			continue
 		}

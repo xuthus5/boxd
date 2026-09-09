@@ -1,3 +1,4 @@
+import { policyOutboundTags } from "@/features/policy/policy-form-model"
 import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 
@@ -25,8 +26,8 @@ export function ExperimentalVisualEditor({
   const config = useConfigQuery()
   const context = useMemo(() => ({
     inboundTags: policyConfigTags(config.data?.inbounds),
-    outboundTags: policyConfigTags(config.data?.outbounds),
-  }), [config.data?.inbounds, config.data?.outbounds])
+    outboundTags: policyOutboundTags(config.data),
+  }), [config.data])
   const cards = [
     {
       key: "cache",

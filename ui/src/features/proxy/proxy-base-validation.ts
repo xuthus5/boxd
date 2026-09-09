@@ -40,7 +40,7 @@ export function inboundBaseFieldValid(object: JsonObject, field: ProxyBaseField)
     case "type":
       return requiredTextValid(type)
     case "listen_port":
-      if (!type || type === "tun") return true
+      if (!type || type === "tun" || type === "cloudflared") return true
       return portValid(object.listen_port)
     default:
       return true

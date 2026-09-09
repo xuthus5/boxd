@@ -35,7 +35,7 @@ func existingRuleSetTags(cfg map[string]any) map[string]bool {
 	sets, _ := route["rule_set"].([]any)
 	for _, item := range sets {
 		if m, ok := item.(map[string]any); ok {
-			if tag, _ := m["tag"].(string); tag != "" {
+			for _, tag := range asStringSlice(m["tag"]) {
 				result[tag] = true
 			}
 		}
@@ -45,8 +45,7 @@ func existingRuleSetTags(cfg map[string]any) map[string]bool {
 
 func existingOutboundTags(cfg map[string]any) map[string]bool {
 	result := make(map[string]bool)
-	outbounds, _ := cfg["outbounds"].([]any)
-	for _, item := range outbounds {
+	for _, item := range configuredEgresses(cfg) {
 		if m, ok := item.(map[string]any); ok {
 			if tag, _ := m["tag"].(string); tag != "" {
 				result[tag] = true

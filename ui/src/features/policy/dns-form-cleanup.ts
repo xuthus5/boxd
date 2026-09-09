@@ -7,11 +7,12 @@ import {
 
 type CleanupKind =
   | "string" | "boolean" | "number" | "list" | "number-list" | "json-object" | "json-array"
-  | "query-type" | "rcode" | "routing-mark"
+  | "query-type" | "rcode" | "routing-mark" | "value"
 type CleanupField = readonly [path: string, kind?: CleanupKind]
 export type CleanupRegistry = Record<string, readonly CleanupField[]>
 
 const domainResolverFields: readonly CleanupField[] = [
+  ["domain_resolver.timeout"], ["domain_resolver.disable_optimistic_cache", "boolean"],
   ["domain_resolver.server"], ["domain_resolver.strategy"], ["domain_resolver.disable_cache", "boolean"],
   ["domain_resolver.rewrite_ttl", "number"], ["domain_resolver.client_subnet"],
 ]
@@ -28,6 +29,7 @@ const dialerFields: readonly CleanupField[] = [
 
 const remoteFields: readonly CleanupField[] = [["server"], ["server_port", "number"], ...dialerFields]
 const tlsFields: readonly CleanupField[] = [
+  ["tls.engine"], ["tls.handshake_timeout"], ["tls.spoof"], ["tls.spoof_method"],
   ["tls.enabled", "boolean"], ["tls.disable_sni", "boolean"], ["tls.server_name"],
   ["tls.insecure", "boolean"], ["tls.alpn", "list"], ["tls.min_version"], ["tls.max_version"],
   ["tls.cipher_suites", "list"], ["tls.curve_preferences", "list"], ["tls.certificate", "list"],
@@ -42,17 +44,13 @@ const tlsFields: readonly CleanupField[] = [
   ["tls.reality.short_id"],
 ]
 
-const legacyFields: readonly CleanupField[] = [
-  ["address"], ["address_resolver"], ["address_strategy"], ["address_fallback_delay"],
-  ["strategy"], ["detour"], ["client_subnet"],
-]
-const localFields: readonly CleanupField[] = [...dialerFields, ["prefer_go", "boolean"]]
+const localFields: readonly CleanupField[] = [...dialerFields, ["prefer_go", "boolean"], ["neighbor_domain", "list"]]
+const endpointFields: readonly CleanupField[] = [["endpoint"], ["accept_default_resolvers", "boolean"], ["accept_search_domain", "boolean"]]
 const httpsFields: readonly CleanupField[] = [
   ...remoteFields, ...tlsFields, ["path"], ["method"], ["headers", "json-object"],
 ]
 
 export const dnsServerCleanupFields: CleanupRegistry = {
-  legacy: legacyFields,
   local: localFields,
   hosts: [["path", "list"], ["predefined", "json-object"]],
   udp: remoteFields,
@@ -62,10 +60,16 @@ export const dnsServerCleanupFields: CleanupRegistry = {
   https: httpsFields,
   h3: httpsFields,
   dhcp: [...localFields, ["interface"]],
+  mdns: [...localFields, ["interface", "list"]],
+  tailscale: endpointFields, openvpn: endpointFields, openconnect: endpointFields,
+  resolved: [["service"], ["accept_default_resolvers", "boolean"]],
   fakeip: [["inet4_range"], ["inet6_range"]],
 }
 
 const defaultRuleFields: readonly CleanupField[] = [
+  ["query_client_subnet", "list"], ["query_dnssec", "boolean"], ["match_response", "value"],
+  ["response_rcode", "rcode"], ["response_answer", "list"], ["response_ns", "list"], ["response_extra", "list"],
+  ["package_name_regex", "list"], ["source_mac_address", "list"], ["source_hostname", "list"], ["preferred_by", "list"],
   ["inbound", "list"], ["ip_version", "number"], ["query_type", "query-type"], ["network", "list"],
   ["auth_user", "list"], ["protocol", "list"], ["domain", "list"], ["domain_suffix", "list"],
   ["domain_keyword", "list"], ["domain_regex", "list"], ["geosite", "list"],
@@ -87,11 +91,16 @@ export const dnsRuleCleanupFields: CleanupRegistry = {
   logical: [["mode"], ["rules", "json-array"], ["invert", "boolean"]],
 }
 
+const routeOptions: readonly CleanupField[] = [["race", "boolean"], ["timeout"], ["disable_cache", "boolean"],
+  ["disable_optimistic_cache", "boolean"], ["rewrite_ttl", "number"], ["client_subnet"], ["remove_client_subnet", "boolean"]]
+
 export const dnsActionCleanupFields: CleanupRegistry = {
-  route: [["server"], ["strategy"], ["disable_cache", "boolean"], ["rewrite_ttl", "number"], ["client_subnet"]],
-  "route-options": [["strategy"], ["disable_cache", "boolean"], ["rewrite_ttl", "number"], ["client_subnet"]],
-  reject: [["method"], ["no_drop", "boolean"]],
-  predefined: [["rcode", "rcode"], ["answer", "list"], ["ns", "list"], ["extra", "list"]],
+  route: [["server"], ["speculative", "boolean"], ...routeOptions],
+  evaluate: [["server"], ["tag"], ["speculative", "boolean"], ...routeOptions],
+  respond: [["race", "boolean"]],
+  "route-options": routeOptions,
+  reject: [["race", "boolean"], ["method"], ["no_drop", "boolean"]],
+  predefined: [["race", "boolean"], ["rcode", "rcode"], ["answer", "list"], ["ns", "list"], ["extra", "list"]],
 }
 
 function validInteger(value: unknown, maximum = Number.MAX_SAFE_INTEGER): boolean {
@@ -100,6 +109,7 @@ function validInteger(value: unknown, maximum = Number.MAX_SAFE_INTEGER): boolea
 
 function matchesField(value: unknown, field: CleanupField): boolean {
   const kind = field[1] ?? "string"
+  if (kind === "value") return true
   if (kind === "query-type") {
     const valid = (item: unknown) => typeof item === "string" || validInteger(item, 0xFFFF)
     return valid(value) || Array.isArray(value) && value.every(valid)

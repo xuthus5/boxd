@@ -1,3 +1,5 @@
+import { createService114Draft, services114Fields } from "@/features/advanced/services114-fields"
+import { currentTypeFields } from "@/features/config/current-type-fields"
 import {
   getPolicyPath,
   isJsonObject,
@@ -8,11 +10,11 @@ import {
 } from "@/features/policy/policy-form-model"
 import type { JsonValue, SingBoxConfig } from "@/lib/api/types"
 
-export const serviceTypes = ["ccm", "derp", "ocm", "resolved", "ssm-api"] as const
+export const serviceTypes = ["ccm", "derp", "ocm", "resolved", "ssm-api", "api", "usbip-server", "usbip-client", "hysteria-realm"] as const
 export type ServiceType = (typeof serviceTypes)[number]
 
-const listenerTypes = ["ccm", "derp", "ocm", "resolved", "ssm-api"] as const
-const tlsTypes = ["ccm", "derp", "ocm", "ssm-api"] as const
+const listenerTypes = ["ccm", "derp", "ocm", "resolved", "ssm-api", "api", "usbip-server", "hysteria-realm"] as const
+const tlsTypes = ["ccm", "derp", "ocm", "ssm-api", "api", "hysteria-realm"] as const
 const listenerWhen = { path: "type", is: listenerTypes }
 const tlsWhen = { path: "type", is: tlsTypes }
 
@@ -42,6 +44,8 @@ export const serviceDetourFields = [
 ] as const satisfies readonly PolicyFieldSpec[]
 
 export const serviceTLSFields = [
+  { path: "tls.handshake_timeout", label: "handshakeTimeout", section: "tls", when: tlsWhen },
+  { path: "tls.certificate_provider", label: "certificateProvider", kind: "json-value", section: "tls", when: tlsWhen },
   { path: "tls.enabled", label: "tlsEnabled", kind: "boolean", section: "tls", when: tlsWhen },
   { path: "tls.server_name", label: "serverName", section: "tls", when: tlsWhen },
   { path: "tls.insecure", label: "insecure", kind: "boolean", section: "tls", when: tlsWhen },
@@ -79,6 +83,7 @@ export const ssmAPIFields = [
 ] as const satisfies readonly PolicyFieldSpec[]
 
 export const serviceFields = [
+  ...services114Fields,
   ...serviceIdentityFields,
   ...serviceListenFields,
   ...serviceDetourFields,
@@ -109,6 +114,8 @@ export function normalizeServices(value: JsonValue | undefined): JsonObject[] {
 }
 
 export function createServiceDraft(type: ServiceType = "resolved"): JsonObject {
+  const modern = createService114Draft(type)
+  if (modern) return modern
   if (type === "resolved") {
     return { type, tag: "", listen: "127.0.0.53", listen_port: 53 }
   }
@@ -130,6 +137,8 @@ export function isServiceReady(value: JsonValue | undefined): value is JsonObjec
   const type = inferServiceType(value)
   if (!type) return false
   const normalized = normalizeServiceObject(value)
+  if (type === "usbip-client") return typeof normalized.server === "string" && Boolean(normalized.server.trim())
+  if (type === "hysteria-realm" && (!Array.isArray(normalized.users) || normalized.users.length === 0)) return false
   if (typeof normalized.listen !== "string" || !normalized.listen.trim()) return false
   if (typeof normalized.listen_port !== "number" || !Number.isInteger(normalized.listen_port)
     || normalized.listen_port < 1 || normalized.listen_port > 65535) return false
@@ -154,7 +163,7 @@ function cleanKnownEmptyFields(object: JsonObject): JsonObject {
 
 export function prepareServiceObject(object: JsonObject): JsonObject {
   const normalized = normalizeServiceObject(object)
-  return cleanKnownEmptyFields(pruneInvisiblePolicyFields(normalized, serviceFields))
+  return cleanKnownEmptyFields(pruneInvisiblePolicyFields(normalized, currentTypeFields(serviceFields, String(normalized.type))))
 }
 
 export function prepareServices(items: readonly JsonObject[]): JsonObject[] {

@@ -1,3 +1,5 @@
+import { hasRuleMatchConditions } from "@/features/policy/policy-match-complete"
+import { dns114GlobalFields, dns114MatchFields, dns114RouteOptions, dnsRaceField, dnsSpeculativeField } from "@/features/policy/dns114-fields"
 import {
   getPolicyPath,
   isJsonObject,
@@ -24,27 +26,22 @@ export { dnsServerFields }
 const domainStrategies = ["prefer_ipv4", "prefer_ipv6", "ipv4_only", "ipv6_only"] as const
 
 export const dnsGlobalFields = [
+  ...dns114GlobalFields,
   { path: "final", label: "final", kind: "ref", ref: "dns-server", section: "basic" },
   { path: "strategy", label: "strategy", kind: "select", options: domainStrategies, section: "basic" },
   { path: "client_subnet", label: "clientSubnet", section: "basic" },
   { path: "disable_cache", label: "disableCache", kind: "boolean", section: "cache" },
   { path: "disable_expire", label: "disableExpire", kind: "boolean", section: "cache" },
-  { path: "independent_cache", label: "independentCache", kind: "boolean", section: "cache" },
   { path: "cache_capacity", label: "cacheCapacity", kind: "number", section: "cache" },
   { path: "reverse_mapping", label: "reverseMapping", kind: "boolean", section: "cache" },
 ] as const satisfies readonly PolicyFieldSpec[]
 
-export const legacyFakeIPFields = [
-  { path: "fakeip.enabled", label: "fakeIPEnabled", kind: "boolean", section: "fakeip" },
-  { path: "fakeip.inet4_range", label: "fakeIPIPv4Range", section: "fakeip", when: { path: "fakeip.enabled", is: true } },
-  { path: "fakeip.inet6_range", label: "fakeIPIPv6Range", section: "fakeip", when: { path: "fakeip.enabled", is: true } },
-] as const satisfies readonly PolicyFieldSpec[]
-
 export const dnsServerTypes = [
-  "legacy", "local", "hosts", "udp", "tcp", "tls", "quic", "https", "h3", "dhcp", "fakeip",
+  "local", "hosts", "udp", "tcp", "tls", "quic", "https", "h3", "dhcp", "fakeip", "mdns", "tailscale", "resolved", "openvpn", "openconnect",
 ] as const
 
 export const dnsRuleMatchFields = [
+  ...dns114MatchFields,
   { path: "type", label: "type", kind: "select", options: ["default", "logical"], section: "basic" },
   { path: "inbound", label: "inbound", kind: "ref-multi", ref: "inbound", section: "basic" },
   { path: "ip_version", label: "ipVersion", kind: "select", options: ["4", "6"], section: "basic" },
@@ -71,7 +68,6 @@ export const dnsRuleMatchFields = [
   { path: "package_name", label: "packageName", kind: "list", section: "process" },
   { path: "user", label: "user", kind: "list", section: "process" },
   { path: "user_id", label: "userID", kind: "number-list", section: "process" },
-  { path: "outbound", label: "outbound", kind: "ref-multi", ref: "outbound", section: "process" },
   { path: "clash_mode", label: "clashMode", section: "process" },
   { path: "rule_set", label: "ruleSet", kind: "ref-multi", ref: "rule-set", section: "process" },
   { path: "rule_set_ip_cidr_match_source", label: "ruleSetIPCIDRMatchSource", kind: "boolean", section: "process" },
@@ -83,27 +79,32 @@ export const dnsRuleMatchFields = [
   { path: "default_interface_address", label: "defaultInterfaceAddress", kind: "list", section: "process" },
   { path: "wifi_ssid", label: "wifiSSID", kind: "list", section: "process" },
   { path: "wifi_bssid", label: "wifiBSSID", kind: "list", section: "process" },
-  { path: "rule_set_ip_cidr_accept_empty", label: "ruleSetIPCIDRAcceptEmpty", kind: "boolean", section: "process" },
   { path: "invert", label: "invert", kind: "boolean", section: "basic" },
 ] as const satisfies readonly PolicyFieldSpec[]
 
-export const dnsActions = ["route", "route-options", "reject", "predefined"] as const
+export const dnsActions = ["route", "evaluate", "respond", "route-options", "reject", "predefined"] as const
 
 const routeOptionFields = [
-  { path: "strategy", label: "strategy", kind: "select", options: domainStrategies, section: "action" },
+  ...dns114RouteOptions,
+  dnsRaceField,
   { path: "disable_cache", label: "disableCache", kind: "boolean", section: "action" },
   { path: "rewrite_ttl", label: "rewriteTTL", kind: "number", section: "action" },
   { path: "client_subnet", label: "clientSubnet", section: "action" },
 ] as const satisfies readonly PolicyFieldSpec[]
 
 export const dnsActionFields: Record<string, readonly PolicyFieldSpec[]> = {
-  route: [{ path: "server", label: "server", kind: "ref", ref: "dns-server", section: "action" }, ...routeOptionFields],
+  route: [{ path: "server", label: "server", kind: "ref", ref: "dns-server", section: "action" }, dnsSpeculativeField, ...routeOptionFields],
+  evaluate: [{ path: "server", label: "server", kind: "ref", ref: "dns-server", section: "action", required: true },
+    { path: "tag", label: "evaluateTag", section: "action" }, dnsSpeculativeField, ...routeOptionFields],
+  respond: [dnsRaceField],
   "route-options": routeOptionFields,
   reject: [
+    dnsRaceField,
     { path: "method", label: "rejectMethod", kind: "select", options: ["default", "drop", "reply"], section: "action" },
     { path: "no_drop", label: "rejectNoDrop", kind: "boolean", section: "action" },
   ],
   predefined: [
+    dnsRaceField,
     { path: "rcode", label: "rcode", section: "action" },
     { path: "answer", label: "answer", kind: "list", section: "action" },
     { path: "ns", label: "nameServer", kind: "list", section: "action" },
@@ -144,13 +145,13 @@ function transformQueryType(object: JsonObject, raw: string): JsonObject | null 
   return setPolicyPath(object, "query_type", value as string | number | (string | number)[])
 }
 
-function transformRCode(object: JsonObject, raw: string): JsonObject | null {
+function transformRCode(object: JsonObject, raw: string, path = "rcode"): JsonObject | null {
   const token = raw.trim()
-  if (!token) return setPolicyPath(object, "rcode", undefined)
+  if (!token) return setPolicyPath(object, path, undefined)
   const numeric = decimalInteger(token, 0xFFF)
-  if (numeric !== null) return setPolicyPath(object, "rcode", numeric)
+  if (numeric !== null) return setPolicyPath(object, path, numeric)
   const name = token.toUpperCase()
-  return rcodeNames.has(name) ? setPolicyPath(object, "rcode", name) : null
+  return rcodeNames.has(name) ? setPolicyPath(object, path, name) : null
 }
 
 const dnsNumberConstraints: PolicyNumberConstraints = {
@@ -168,7 +169,7 @@ const transformDNSNumber = createPolicyNumberTransform(dnsNumberConstraints)
 
 export const transformDNSField: PolicyFieldTransform = (object, field, raw) => {
   if (field.path === "query_type") return transformQueryType(object, raw)
-  if (field.path === "rcode") return transformRCode(object, raw)
+  if (field.path === "rcode" || field.path === "response_rcode") return transformRCode(object, raw, field.path)
   return transformDNSNumber(object, field, raw)
 }
 
@@ -190,27 +191,27 @@ export function setDNSRules(object: JsonObject, rules: readonly JsonObject[]): J
 
 function dnsActionComplete(rule: JsonObject): boolean {
   const action = String(rule.action ?? "route")
-  return action !== "route" || typeof rule.server === "string" && rule.server.trim().length > 0
+  return !["route", "evaluate"].includes(action) || typeof rule.server === "string" && rule.server.trim().length > 0
 }
 
 export function isDNSRuleComplete(rule: JsonObject, depth = 0): boolean {
-  if (!dnsActionComplete(rule)) return false
-  if (rule.type !== "logical") return true
+  if (depth === 0 && !dnsActionComplete(rule)) return false
+  const actionKeys = ["action", "strategy", ...Object.values(dnsActionFields).flat().map((field) => field.path)]
+  if (depth > 0 && actionKeys.some((path) => Object.hasOwn(rule, path))) return false
+  if (rule.type !== "logical") return depth === 0 || hasRuleMatchConditions(rule)
   if (depth >= 64 || typeof rule.mode !== "string" || rule.mode.length === 0 || !Array.isArray(rule.rules) || rule.rules.length === 0) return false
   return rule.rules.every((child) => isJsonObject(child) && isDNSRuleComplete(child, depth + 1))
 }
 
 export function inferDNSServerType(server: JsonObject): string {
-  return typeof server.type === "string" && server.type ? server.type : "legacy"
+  return typeof server.type === "string" ? server.type : ""
 }
 
 export function changeDNSServerType(server: JsonObject, type: string): JsonObject {
   const current = inferDNSServerType(server)
   if (current === type) return server
-  const bothKnown = Object.hasOwn(dnsServerCleanupFields, current) && Object.hasOwn(dnsServerCleanupFields, type)
-  const separated = bothKnown && (current === "legacy") !== (type === "legacy")
-  const next = transitionCleanupFields(server, dnsServerCleanupFields, { current, target: type, share: !separated })
-  return setPolicyPath(next, "type", type === "legacy" ? undefined : type)
+  const next = transitionCleanupFields(server, dnsServerCleanupFields, { current, target: type })
+  return setPolicyPath(next, "type", type)
 }
 
 export function changeDNSRuleType(rule: JsonObject, type: string): JsonObject {
@@ -283,7 +284,7 @@ export function summarizeDNSServer(server: JsonObject, labels = defaultServerSum
   const type = inferDNSServerType(server)
   const host = stringValue(server.server)
   const port = typeof server.server_port === "number" && Number.isFinite(server.server_port) ? `:${server.server_port}` : ""
-  const primary = type === "legacy" ? stringValue(server.address) : host ? `${host}${port}` : stringValue(server.interface)
+  const primary = host ? `${host}${port}` : stringValue(server.interface) || stringValue(server.endpoint) || stringValue(server.service)
   const details = [primary, ...serverTypeDetails(server, type, labels)]
   if (stringValue(server.tag)) details.push(labels.tag(String(server.tag)))
   if (stringValue(server.detour)) details.push(labels.detour(String(server.detour)))
@@ -292,6 +293,7 @@ export function summarizeDNSServer(server: JsonObject, labels = defaultServerSum
 }
 
 const summaryPaths = [
+  ...dns114MatchFields.map((field) => field.path),
   "domain", "domain_suffix", "domain_keyword", "domain_regex", "source_ip_cidr", "source_ip_is_private",
   "ip_cidr", "ip_is_private", "ip_accept_any", "source_port", "source_port_range", "port", "port_range", "process_name",
   "process_path", "process_path_regex", "package_name", "user", "user_id", "rule_set",
@@ -317,13 +319,6 @@ export function summarizeDNSRule(rule: JsonObject, labels = defaultRuleSummaryLa
 
 export function applyDNSGlobalFieldChange(_object: JsonObject, next: JsonObject) {
   return pruneInvisiblePolicyFields(next, dnsGlobalFields)
-}
-
-export function applyDNSFakeIPFieldChange(_object: JsonObject, next: JsonObject) {
-  const normalized = getPolicyPath(next, "fakeip.enabled") === false
-    ? setPolicyPath(next, "fakeip.enabled", undefined)
-    : next
-  return pruneInvisiblePolicyFields(normalized, legacyFakeIPFields)
 }
 
 export function applyDNSRuleFieldChange(object: JsonObject, next: JsonObject) {

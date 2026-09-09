@@ -1,3 +1,4 @@
+import { policyConfigTags } from "@/features/policy/policy-form-model"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCallback, useMemo, useState } from "react"
 import { ListPlusIcon, RouteIcon } from "lucide-react"
@@ -221,8 +222,7 @@ function RuleSetSection({ object, onChange, onRulesChange, onEdit }: {
   })
   const update = (next: readonly JsonObject[]) => { const nextObject = setRouteRuleSets(object, next); onChange(nextObject); onRulesChange?.(nextObject, []) }
   const updatableCount = ruleSets.filter((item) => {
-    const tag = typeof item.tag === "string" ? item.tag : ""
-    return statusByTag.get(tag)?.updatable
+    return policyConfigTags([item]).some((tag) => statusByTag.get(tag)?.updatable)
   }).length
   return <Card size="sm"><CardHeader className="min-w-0 grid-cols-1 has-data-[slot=card-action]:grid-cols-1 sm:has-data-[slot=card-action]:grid-cols-[1fr_auto]">
     <CardTitle>{t("policy.route.ruleSetsTitle")}</CardTitle><CardDescription>{t("policy.route.ruleSetsDescription")}</CardDescription>
@@ -237,13 +237,15 @@ function RuleSetSection({ object, onChange, onRulesChange, onEdit }: {
       ? <EmptySection title={t("policy.route.emptyRuleSetsTitle")} description={t("policy.route.emptyRuleSetsDescription")}
         action={t("policy.route.addRuleSet")} onAdd={() => onEdit(null)} />
       : <div className="flex flex-col gap-2 sm:gap-3">{ruleSets.map((item, index) => {
-        const tag = typeof item.tag === "string" ? item.tag : ""
-        const status = statusByTag.get(tag)
-        return <RouteRuleSetCard key={index} item={item} status={status} lastUpdate={tag ? lastUpdateByTag[tag] : undefined}
+        const tags = policyConfigTags([item])
+        const tag = tags[0] ?? ""
+        const statuses = tags.flatMap((tag) => statusByTag.has(tag) ? [statusByTag.get(tag)!] : [])
+        const status = statuses.find((item) => item.updatable) ?? statuses[0]
+        return <RouteRuleSetCard key={index} item={item} status={status} statuses={statuses} lastUpdate={tag ? lastUpdateByTag[tag] : undefined}
           updating={updateMutation.isPending && (pendingTag === tag || pendingTag === "*")}
           onEdit={() => onEdit(index)} onCopy={() => update(insertCopy(ruleSets, index))}
           onDelete={() => update(ruleSets.filter((_, itemIndex) => itemIndex !== index))}
-          onUpdate={status?.updatable ? () => { setPendingTag(tag); updateMutation.mutate({ tags: [tag] }) } : undefined} />
+          onUpdate={status?.updatable ? () => { setPendingTag(tag); updateMutation.mutate({ tags }) } : undefined} />
       })}</div>}
     </CardContent><CardFooter><p className="text-muted-foreground">{t("policy.route.ruleSetsCount", { count: ruleSets.length })}</p></CardFooter></Card>
 }

@@ -59,6 +59,9 @@ func checkDNSOutboundBootstrapCycles(
 ) {
 	for _, entry := range topology.dnsServers {
 		server := dnsServerObject(topology.cfg, entry.path)
+		if endpoint := stringValue(server["endpoint"]); endpoint != "" {
+			checkDNSEndpointBootstrapCycle(report, topology, entry)
+		}
 		detour := strings.TrimSpace(stringValue(server["detour"]))
 		if _, exists := topology.knownOutbounds[detour]; !exists {
 			continue
@@ -153,6 +156,7 @@ func (t *bootstrapTopology) addDNSDependencies() {
 	for _, entry := range t.dnsServers {
 		server := dnsServerObject(t.cfg, entry.path)
 		source := dnsBootstrapNode(entry.tag)
+		t.addOutboundReference(source, server["endpoint"])
 		for _, value := range []any{server["domain_resolver"], server["address_resolver"]} {
 			t.addDNSReference(source, resolverTag(value))
 		}
@@ -190,6 +194,10 @@ func outboundHasDomainRemote(entry diagnosticEntry, object map[string]any) bool 
 		return wireGuardPeerHasDomain(object["peers"])
 	case "tailscale":
 		return tailscaleControlUsesDomain(object["control_url"])
+	case "openconnect":
+		return openConnectServerUsesDomain(stringValue(object["server"]))
+	case "openvpn-client":
+		return openVPNServerUsesDomain(object)
 	default:
 		return isDomainName(strings.TrimSpace(stringValue(object["server"])))
 	}
@@ -216,7 +224,7 @@ func tailscaleControlUsesDomain(value any) bool {
 
 func resolvesServerOnDetour(typeName string) bool {
 	switch strings.ToLower(typeName) {
-	case "naive", "tailscale", "wireguard":
+	case "naive", "tailscale", "wireguard", "openvpn-client", "openconnect":
 		return true
 	default:
 		return false

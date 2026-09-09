@@ -135,8 +135,7 @@ func setupDiagnosticModule(path string) string {
 }
 
 func setupProxyReady(cfg map[string]any) bool {
-	outbounds, _ := cfg["outbounds"].([]any)
-	for _, item := range outbounds {
+	for _, item := range configuredEgresses(cfg) {
 		outbound, _ := item.(map[string]any)
 		if stringValue(outbound["tag"]) == "" {
 			continue

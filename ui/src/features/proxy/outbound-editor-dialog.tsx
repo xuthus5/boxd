@@ -1,3 +1,4 @@
+import { policyOutboundTags } from "@/features/policy/policy-form-model"
 import { useCallback, useMemo, useRef, useState, type RefObject } from "react"
 import { useTranslation } from "react-i18next"
 
@@ -22,7 +23,7 @@ import { ProxyEditorFooter } from "@/features/proxy/proxy-editor-footer"
 import { useProxyItemValidate } from "@/features/proxy/use-proxy-item-validate"
 import { useProxyItemPathReveal, useProxyJumpPath } from "@/features/proxy/use-proxy-item-path-reveal"
 import type { ConfigSaveErrorState } from "@/features/config/config-save-error"
-import { configTags, dnsServerTags, getPath, type JsonObject, setPath } from "@/features/proxy/proxy-form-model"
+import { dnsServerTags, getPath, type JsonObject, setPath } from "@/features/proxy/proxy-form-model"
 
 interface OutboundEditorDialogProps {
   title: string
@@ -166,7 +167,7 @@ function FormTabs({ object, value, title, revision, activeTab, onTabChange, edit
   const currentTag = String(object.tag ?? "")
   const context = {
     currentTag,
-    outboundTags: configTags(config.data?.outbounds, currentTag),
+    outboundTags: policyOutboundTags(config.data, currentTag),
     dnsServerTags: dnsServerTags(config.data?.dns),
   }
   return <Tabs value={activeTab} onValueChange={(next) => onTabChange(String(next || "basic"))} className="min-h-0 min-w-0">
@@ -190,8 +191,8 @@ function FormTabs({ object, value, title, revision, activeTab, onTabChange, edit
           : <OutboundFormFields fields={protocol} object={object} type={type} revision={revision} context={context} onChange={onChange} onFieldValidityChange={onFieldValidityChange} />}
       </FieldGroup>
     </TabsContent>
-    {outboundTLSTypes.has(type) ? <TabsContent value="tls" className="pt-3 sm:pt-4">
-      <OutboundFormFields fields={outboundTLSFields} object={object} type={type} context={context} onChange={onChange} />
+    {outboundTLSTypes.has(type) ? <TabsContent value="tls" className="pt-3 sm:pt-4" keepMounted>
+      <OutboundFormFields fields={outboundTLSFields} object={object} type={type} context={context} revision={revision} onChange={onChange} onFieldValidityChange={onFieldValidityChange} />
     </TabsContent> : null}
     {hasTransport ? <TabsContent value="transport" className="pt-3 sm:pt-4" keepMounted>
       <OutboundFormFields

@@ -14,7 +14,11 @@ func checkDuplicateTags(report *model.ConfigDiagnostics, entries []diagnosticEnt
 			continue
 		}
 		if _, exists := seen[entry.tag]; exists {
-			addDiagnostic(report, "duplicate_tag", model.ConfigDiagnosticSeverityError, entry.path+".tag", entry.tag, "")
+			path := entry.path + ".tag"
+			if entry.tagPath != "" {
+				path = entry.tagPath
+			}
+			addDiagnostic(report, "duplicate_tag", model.ConfigDiagnosticSeverityError, path, entry.tag, "")
 			continue
 		}
 		seen[entry.tag] = entry

@@ -24,7 +24,7 @@ import {
 } from "@/features/policy/dns-filter"
 import { DNSTypeSummaryBar } from "@/features/policy/dns-type-summary"
 import { toggleRuleInvert } from "@/features/policy/rule-invert"
-import { DNSFakeIPCard, DNSGlobalCard } from "@/features/policy/dns-global-card"
+import { DNSGlobalCard } from "@/features/policy/dns-global-card"
 import { DNSRuleCard } from "@/features/policy/dns-rule-card"
 import { DNSServerCard } from "@/features/policy/dns-server-card"
 import { DNSVisualDialogs, type DNSEditorSelection } from "@/features/policy/dns-visual-dialogs"
@@ -276,7 +276,7 @@ export function DNSVisualEditor(props: PolicyVisualEditorProps): ReactNode {
     }
   }, [])
   usePolicyVisualPathJump({ section: "dns", jumpPath, onJumpPathHandled, lists, onSelect: selectFromPath })
-  const editServer = (index: number | null) => setSelection({ kind: "server", index, item: index === null ? {} : dnsServers(object)[index] })
+  const editServer = (index: number | null) => setSelection({ kind: "server", index, item: index === null ? { type: "udp" } : dnsServers(object)[index] })
   const editRule = (index: number | null) => setSelection({ kind: "rule", index, item: index === null ? { action: "route" } : dnsRules(object)[index] })
   const saveSelection = (item: JsonObject) => {
     if (!selection) return
@@ -288,7 +288,7 @@ export function DNSVisualEditor(props: PolicyVisualEditorProps): ReactNode {
     setSelection(null)
   }
   const serverTags = dnsServers(object).flatMap((s) => typeof s.tag === "string" && s.tag ? [s.tag] : [])
-  return <div className="flex min-w-0 flex-col gap-2 sm:gap-3"><DNSGlobalCard {...props} /><DNSFakeIPCard {...props} />
+  return <div className="flex min-w-0 flex-col gap-2 sm:gap-3"><DNSGlobalCard {...props} />
     <ServerSection object={object} onChange={onChange} onRulesChange={props.onRulesChange} onEdit={editServer} onInstall={props.onInstall} />
     <RuleSection object={object} onChange={onChange} onRulesChange={props.onRulesChange} onEdit={editRule} />
     <DNSVisualDialogs selection={selection} serverTags={serverTags} onClose={() => setSelection(null)}

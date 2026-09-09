@@ -1,3 +1,4 @@
+import { policyOutboundTags } from "@/features/policy/policy-form-model"
 import { TriangleAlertIcon } from "lucide-react"
 import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
@@ -12,7 +13,6 @@ import {
 import { useConfigQuery } from "@/features/config/config-hooks"
 import { PolicyFormFields } from "@/features/policy/policy-form-fields"
 import {
-  policyConfigTags,
   policyDNSServerTags,
   type JsonObject,
 } from "@/features/policy/policy-form-model"
@@ -39,9 +39,9 @@ export function NTPVisualEditor({ object, revision, onChange, onFieldValidityCha
   const { t } = useTranslation()
   const config = useConfigQuery()
   const context = useMemo(() => ({
-    outboundTags: policyConfigTags(config.data?.outbounds),
+    outboundTags: policyOutboundTags(config.data),
     dnsServerTags: policyDNSServerTags(config.data?.dns),
-  }), [config.data?.dns, config.data?.outbounds])
+  }), [config.data])
   const shared = { object, revision, context, onChange, onFieldValidityChange, transformField: transformNTPField }
   return (
     <div className="flex flex-col gap-2 sm:gap-3">

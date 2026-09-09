@@ -56,53 +56,47 @@ function expectEveryFieldGrouped() {
   expect(fields.every((field) => field.closest('[data-slot="field-group"]'))).toBe(true)
 }
 
-describe("DNS globals and legacy FakeIP", () => {
+describe("DNS globals and optimistic caching", () => {
   it("edits every global field while retaining unknown keys", async () => {
     renderDNS(<EditorHarness initial={{ custom: { keep: true } }} />)
     fireEvent.change(screen.getByLabelText("最终 DNS 服务器"), { target: { value: "remote" } })
     await choose("域名策略", "prefer_ipv4")
-    for (const label of ["禁用缓存", "禁用缓存过期", "独立缓存", "反向映射"]) {
+    for (const label of ["禁用缓存", "禁用缓存过期", "反向映射"]) {
       await userEvent.click(screen.getByRole("switch", { name: label }))
     }
     fireEvent.change(screen.getByLabelText("缓存容量"), { target: { value: "4096" } })
     fireEvent.change(screen.getByLabelText("客户端子网"), { target: { value: "192.0.2.0/24" } })
     expect(state()).toMatchObject({
       final: "remote", strategy: "prefer_ipv4", disable_cache: true, disable_expire: true,
-      independent_cache: true, cache_capacity: 4096, client_subnet: "192.0.2.0/24",
+      cache_capacity: 4096, client_subnet: "192.0.2.0/24",
       reverse_mapping: true, custom: { keep: true },
     })
     expect(state()).not.toHaveProperty("fakeip")
   })
 
-  it("creates FakeIP only after editing and prunes known paths without deleting unknown siblings", async () => {
+  it("edits optimistic caching without offering removed FakeIP globals", () => {
     renderDNS(<EditorHarness initial={{}} />)
+    expect(screen.queryByRole("switch", { name: "启用旧式 FakeIP" })).not.toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText("乐观 DNS 缓存"), { target: { value: '{"enabled":true,"timeout":"1h"}' } })
+    fireEvent.change(screen.getByLabelText("DNS 查询超时"), { target: { value: "8s" } })
+    expect(state()).toMatchObject({ optimistic: { enabled: true, timeout: "1h" }, timeout: "8s" })
     expect(state()).not.toHaveProperty("fakeip")
-    await userEvent.click(screen.getByRole("switch", { name: "启用旧式 FakeIP" }))
-    fireEvent.change(screen.getByLabelText("FakeIP IPv4 范围"), { target: { value: "198.18.0.0/15" } })
-    fireEvent.change(screen.getByLabelText("FakeIP IPv6 范围"), { target: { value: "fc00::/18" } })
-    expect(state().fakeip).toEqual({ enabled: true, inet4_range: "198.18.0.0/15", inet6_range: "fc00::/18" })
-    await userEvent.click(screen.getByRole("switch", { name: "启用旧式 FakeIP" }))
-    expect(screen.queryByLabelText("FakeIP IPv4 范围")).not.toBeInTheDocument()
-    expect(state()).not.toHaveProperty("fakeip")
-
-    renderDNS(<EditorHarness initial={{ fakeip: { enabled: true, inet4_range: "198.18.0.0/15", future: 1 } }} />)
-    await userEvent.click(screen.getAllByRole("switch", { name: "启用旧式 FakeIP" })[1])
-    expect(screen.getAllByLabelText("dns state")[1]).toHaveTextContent('"fakeip":{"future":1}')
   })
+
 })
 
 describe("DNS server dialog", () => {
-  it("preserves untouched legacy JSON exactly and changes shape only after type selection", async () => {
+  it("requires a current server type and preserves obsolete raw fields for diagnosis", async () => {
     const legacy = { tag: "legacy", address: "https://dns.google/dns-query", address_resolver: "local", custom: { keep: true } }
     const onSave = vi.fn()
     renderDNS(<DNSServerDialog open title="编辑 DNS 服务器" item={legacy} onOpenChange={vi.fn()} onSave={onSave} />)
-    await userEvent.click(screen.getByRole("button", { name: "保存" }))
-    expect(onSave).toHaveBeenLastCalledWith(legacy)
+    expect(screen.getByRole("button", { name: "保存" })).toBeDisabled()
+    expect(onSave).not.toHaveBeenCalled()
     await choose("服务器类型", "udp")
     expect(screen.queryByLabelText("旧式地址")).not.toBeInTheDocument()
     fireEvent.change(screen.getByLabelText("服务器地址"), { target: { value: "1.1.1.1" } })
     await userEvent.click(screen.getByRole("button", { name: "保存" }))
-    expect(onSave).toHaveBeenLastCalledWith({ tag: "legacy", type: "udp", server: "1.1.1.1", custom: { keep: true } })
+    expect(onSave).toHaveBeenLastCalledWith({ ...legacy, type: "udp", server: "1.1.1.1" })
   })
 
   it.each([
@@ -144,7 +138,7 @@ describe("DNS server dialog", () => {
   })
 
   it.each([
-    [{ tag: "legacy" }, "旧式地址", "local"],
+    [{ type: "openconnect", tag: "vpn" }, "端点标签", "vpn-endpoint"],
     [{ type: "udp", tag: "remote" }, "服务器地址", "1.1.1.1"],
     [{ type: "fakeip", tag: "fake" }, "FakeIP IPv4 范围", "198.18.0.0/15"],
   ] as const)("requires type-specific server values for %j", async (item, label, value) => {
@@ -179,7 +173,7 @@ describe("DNS server dialog", () => {
     await userEvent.click(screen.getByRole("tab", { name: "高级 JSON" }))
     expect(screen.getByRole("textbox", { name: "编辑 DNS 服务器 JSON" })).toHaveTextContent('"future"')
     await userEvent.click(screen.getByRole("button", { name: "保存" }))
-    expect(onSave).toHaveBeenCalledWith(item)
+    expect(onSave).not.toHaveBeenCalled()
   })
 })
 
@@ -199,9 +193,10 @@ describe("DNS server cards", () => {
     expect(screen.getByText("暂无 DNS 服务器")).toBeInTheDocument()
     await user.click(screen.getAllByRole("button", { name: "新增 DNS 服务器" })[0])
     fireEvent.change(screen.getByLabelText("Tag"), { target: { value: "google" } })
-    fireEvent.change(screen.getByLabelText("旧式地址"), { target: { value: "https://dns.google/dns-query" } })
+    await choose("服务器类型", "https")
+    fireEvent.change(screen.getByLabelText("服务器地址"), { target: { value: "dns.google" } })
     await user.click(screen.getByRole("button", { name: "保存" }))
-    expect(screen.getAllByText(/https:\/\/dns.google\/dns-query/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/dns.google/).length).toBeGreaterThan(0)
     await user.click(screen.getByRole("button", { name: "复制 DNS 服务器 google" }))
     expect(screen.getAllByRole("button", { name: "编辑 DNS 服务器 google" })).toHaveLength(2)
     await user.click(screen.getAllByRole("button", { name: "删除 DNS 服务器 google" })[0])

@@ -1,3 +1,4 @@
+import { policyOutboundTags } from "@/features/policy/policy-form-model"
 import { useMemo, useRef, useState, type RefObject } from "react"
 import { useTranslation } from "react-i18next"
 
@@ -21,7 +22,6 @@ import {
 } from "@/features/policy/dns-form-model"
 import { PolicyFormFields } from "@/features/policy/policy-form-fields"
 import {
-  policyConfigTags,
   policyDNSServerTags,
   type JsonObject,
   type PolicyFieldSpec,
@@ -40,13 +40,18 @@ export interface DNSServerDialogProps {
 }
 
 const tagField = [{ path: "tag", label: "tag", required: true, section: "basic" }] as const satisfies readonly PolicyFieldSpec[]
-const basicPaths = new Set(["address", "server", "server_port"])
+const basicPaths = new Set(["server", "server_port", "endpoint", "service"])
 const tlsPaths = new Set([
   "tls.enabled", "tls.disable_sni", "tls.server_name", "tls.insecure", "tls.alpn", "tls.certificate", "tls.certificate_path",
 ])
 const httpPaths = new Set(["path", "method", "headers"])
 const specialPaths: Record<string, Set<string>> = {
-  local: new Set(["prefer_go"]),
+  local: new Set(["prefer_go", "neighbor_domain"]),
+  mdns: new Set(["prefer_go", "neighbor_domain", "interface"]),
+  tailscale: new Set(["accept_default_resolvers", "accept_search_domain"]),
+  openvpn: new Set(["accept_default_resolvers", "accept_search_domain"]),
+  openconnect: new Set(["accept_default_resolvers", "accept_search_domain"]),
+  resolved: new Set(["accept_default_resolvers"]),
   hosts: new Set(["path", "predefined"]),
   dhcp: new Set(["prefer_go", "interface"]),
   fakeip: new Set(["inet4_range", "inet6_range"]),
@@ -57,18 +62,20 @@ function serverFields(type: string, section: "basic" | "dialer" | "tls" | "speci
   const fields = dnsServerFields[type] ?? []
   if (section === "basic") return fields.filter((field) => basicPaths.has(field.path))
   if (section === "tls") {
-    return fields.filter((field) => tlsPaths.has(field.path)
+    return fields.filter((field) => (field.path.startsWith("tls.") || tlsPaths.has(field.path))
       || (["https", "h3"].includes(type) && httpPaths.has(field.path)))
   }
   if (section === "special") return fields.filter((field) => specialPaths[type]?.has(field.path))
-  return fields.filter((field) => !basicPaths.has(field.path) && !tlsPaths.has(field.path)
+  return fields.filter((field) => !basicPaths.has(field.path) && !(field.path.startsWith("tls.") || tlsPaths.has(field.path))
     && !httpPaths.has(field.path) && !specialPaths[type]?.has(field.path))
 }
 
 function requiredServerValues(object: JsonObject): boolean {
   const type = inferDNSServerType(object)
   if (typeof object.tag !== "string" || !object.tag.trim()) return false
-  if (type === "legacy") return typeof object.address === "string" && Boolean(object.address.trim())
+  if (!dnsServerTypes.includes(type as typeof dnsServerTypes[number])) return false
+  if (["tailscale", "openvpn", "openconnect"].includes(type)) return typeof object.endpoint === "string" && Boolean(object.endpoint.trim())
+  if (type === "resolved") return typeof object.service === "string" && Boolean(object.service.trim())
   if (remoteTypes.has(type)) return typeof object.server === "string" && Boolean(object.server.trim())
   if (type === "fakeip") {
     return [object.inet4_range, object.inet6_range].some((value) => typeof value === "string" && value.trim())
@@ -136,10 +143,10 @@ function ServerTabs({ state, title, activeTab, onTabChange, editorRef }: {
   const object = state.object
   const type = inferDNSServerType(object)
   const context = useMemo<PolicyFormContext>(() => ({
-    outboundTags: policyConfigTags(config.data?.outbounds),
+    outboundTags: policyOutboundTags(config.data),
     dnsServerTags: policyDNSServerTags(config.data?.dns),
     currentTag: typeof object.tag === "string" ? object.tag : undefined,
-  }), [config.data?.dns, config.data?.outbounds, object.tag])
+  }), [config.data, object.tag])
   const fieldProps = {
     object,
     type,

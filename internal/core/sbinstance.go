@@ -82,31 +82,7 @@ type selectableOutbound interface {
 }
 
 var newBox = func(options box.Options) (boxInstance, error) {
-	instance, err := box.New(options)
-	if err != nil {
-		return nil, err
-	}
-	return realBox{box: instance}, nil
-}
-
-type realBox struct {
-	box *box.Box
-}
-
-func (b realBox) Start() error {
-	return b.box.Start()
-}
-
-func (b realBox) Close() error {
-	return b.box.Close()
-}
-
-func (b realBox) Router() boxRouter {
-	return b.box.Router()
-}
-
-func (b realBox) Outbound() boxOutboundManager {
-	return b.box.Outbound()
+	return newRealBox(options)
 }
 
 func NewSBInstance(configPath string, logWriter *LogWriter) *SBInstance {
@@ -169,11 +145,11 @@ func (s *SBInstance) createBox(ctx context.Context, configData []byte) (boxInsta
 	if err := options.UnmarshalJSONContext(ctx, configData); err != nil {
 		return nil, err
 	}
-	return newBox(box.Options{
-		Context:           ctx,
-		Options:           options,
-		PlatformLogWriter: s.LogWriter,
-	})
+	boxOptions := box.Options{Context: ctx, Options: options}
+	if s.LogWriter != nil {
+		boxOptions.PlatformLogWriter = s.LogWriter
+	}
+	return newBox(boxOptions)
 }
 
 func (s *SBInstance) Stop() error {

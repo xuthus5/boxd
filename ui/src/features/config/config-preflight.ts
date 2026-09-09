@@ -95,24 +95,22 @@ function collectNamespace(config: SingBoxConfig, sections: string[]): NamedNames
 }
 
 function collectRuleSets(route: JsonObject): NamedNamespace {
-  const tags = new Map<string, NamedEntry>()
+  const entries: NamedEntry[] = []
   const issues: ConfigPreflightIssue[] = []
   for (const [index, value] of arrayValue(route.rule_set).entries()) {
     if (!isObject(value)) continue
-    const path = `route.rule_set[${index}]`
-    const tag = stringValue(value.tag)
-    if (!tag) {
-      issues.push(issue("missing_tag", `${path}.tag`))
-      continue
+    const path = `route.rule_set[${index}].tag`
+    const tags = Array.isArray(value.tag) ? value.tag : [value.tag]
+    if (!tags.length) issues.push(issue("missing_tag", path))
+    for (const [position, raw] of tags.entries()) {
+      const tagPath = Array.isArray(value.tag) ? `${path}[${position}]` : path
+      const tag = stringValue(raw)
+      if (!tag) issues.push(issue("missing_tag", tagPath))
+      else entries.push({ tag, tagPath, value })
     }
-    const previous = tags.get(tag)
-    if (previous) {
-      issues.push(issue("duplicate_tag", `${path}.tag`, tag, previous.tagPath))
-      continue
-    }
-    tags.set(tag, { tag, tagPath: `${path}.tag`, value })
   }
-  return { tags, issues }
+  const collected = collectEntries(entries)
+  return { tags: collected.tags, issues: [...issues, ...collected.issues] }
 }
 
 function checkReference(
@@ -226,7 +224,6 @@ function checkDNSSection(
     const path = `dns.servers[${index}]`
     checkReference(value.detour, `${path}.detour`, outboundTags, "missing_outbound", issues)
     checkDomainResolver(value.domain_resolver, `${path}.domain_resolver`, dnsTags, issues)
-    checkReference(value.address_resolver, `${path}.address_resolver`, dnsTags, "missing_dns_server", issues)
   }
   checkReference(dns.final, "dns.final", dnsTags, "missing_dns_server", issues)
   checkNestedDNSRules(dns.rules, "dns.rules", dnsTags, ruleSetTags, issues)

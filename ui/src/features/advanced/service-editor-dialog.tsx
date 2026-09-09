@@ -1,3 +1,5 @@
+import { policyOutboundTags } from "@/features/policy/policy-form-model"
+import { currentTypeFields } from "@/features/config/current-type-fields"
 import { CircleAlertIcon } from "lucide-react"
 import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -92,11 +94,11 @@ export function ServiceEditorDialog({ open, item, title, onOpenChange, onSave }:
   const parsed = parseObject(json)
   const visualReady = isServiceReady(object) && invalidFields.size === 0
   const jsonReady = Boolean(parsed && isServiceReady(parsed))
-  const canSave = !jsonInvalid && (activeTab === "json" ? jsonReady : visualReady)
+  const canSave = !jsonInvalid && invalidFields.size === 0 && (activeTab === "json" ? jsonReady : visualReady)
   const context = useMemo(() => ({
     inboundTags: policyConfigTags(config.data?.inbounds),
-    outboundTags: policyConfigTags(config.data?.outbounds),
-  }), [config.data?.inbounds, config.data?.outbounds])
+    outboundTags: policyOutboundTags(config.data),
+  }), [config.data])
 
   const updateVisual = (next: JsonObject) => {
     const prepared = prepareServiceObject(next)
@@ -140,11 +142,11 @@ export function ServiceEditorDialog({ open, item, title, onOpenChange, onSave }:
             <TabsTrigger value="visual">{t("advanced.visualTab")}</TabsTrigger>
             <TabsTrigger value="json">{t("advanced.advancedTab")}</TabsTrigger>
           </TabsList>
-          <TabsContent value="visual" className="pt-3 sm:pt-4">
+          <TabsContent value="visual" className="pt-3 sm:pt-4" keepMounted>
             <div className="flex flex-col gap-3">
               <TypeField object={object} onChange={updateVisual} />
               <PolicyFormFields
-                fields={editorFields}
+                fields={currentTypeFields(editorFields, String(object.type))}
                 object={object}
                 namespace="advanced.services"
                 revision={revision}

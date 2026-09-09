@@ -27,12 +27,13 @@ interface RouteRuleSetDialogProps {
   onSave: (item: JsonObject) => void
 }
 
-const tagFields = [{ path: "tag", label: "ruleSetTag", required: true }] as const satisfies readonly PolicyFieldSpec[]
-const formatFields = [{ path: "format", label: "format" }] as const satisfies readonly PolicyFieldSpec[]
+const tagFields = [{ path: "tag", label: "ruleSetTag", kind: "list", required: true }] as const satisfies readonly PolicyFieldSpec[]
+const formatFields = [{ path: "format", label: "format", kind: "select", options: ["source", "binary"] }] as const satisfies readonly PolicyFieldSpec[]
 const localFields = [{ path: "path", label: "path", required: true }] as const satisfies readonly PolicyFieldSpec[]
 const remoteFields = [
   { path: "url", label: "url", required: true },
-  { path: "download_detour", label: "downloadDetour", kind: "ref", ref: "outbound" },
+  { path: "http_client", label: "httpClient", kind: "json-value" },
+  { path: "initial_path", label: "initialPath" },
   { path: "update_interval", label: "updateInterval" },
 ] as const satisfies readonly PolicyFieldSpec[]
 
@@ -43,7 +44,8 @@ function optionsWithCurrent(current: string) {
 }
 
 function requiredFieldsPresent(object: JsonObject): boolean {
-  if (typeof object.tag !== "string" || !object.tag) return false
+  const tags = Array.isArray(object.tag) ? object.tag : [object.tag]
+  if (!tags.length || !tags.every((tag) => typeof tag === "string" && tag.trim())) return false
   if (object.type === "remote") return typeof object.url === "string" && object.url.length > 0
   if (object.type === "local") return typeof object.path === "string" && object.path.length > 0
   return true
@@ -62,8 +64,8 @@ function TypeSelect({ object, onChange }: { object: JsonObject; onChange: (item:
   </Field></FieldGroup>
 }
 
-function RuleSetFields({ object, revision, onChange }: {
-  object: JsonObject; revision: number; onChange: (item: JsonObject) => void
+function RuleSetFields({ object, revision, onChange, onValidity }: {
+  object: JsonObject; revision: number; onChange: (item: JsonObject) => void; onValidity: (path: string, valid: boolean) => void
 }) {
   const type = String(object.type ?? "inline")
   const fields = type === "remote" ? remoteFields : type === "local" ? localFields : []
@@ -71,7 +73,7 @@ function RuleSetFields({ object, revision, onChange }: {
     <PolicyFormFields fields={tagFields} object={object} namespace="policy.route" revision={revision} onChange={onChange} />
     <TypeSelect object={object} onChange={onChange} />
     <PolicyFormFields fields={type === "inline" ? [] : formatFields} object={object} namespace="policy.route" revision={revision} onChange={onChange} />
-    <PolicyFormFields fields={fields} object={object} namespace="policy.route" revision={revision} onChange={onChange} />
+    <PolicyFormFields fields={fields} object={object} namespace="policy.route" revision={revision} onChange={onChange} onFieldValidityChange={onValidity} />
     {type === "inline" ? <RouteInlineRuleSetEditor item={object} onChange={onChange} /> : null}
   </div>
 }
@@ -108,7 +110,7 @@ export function RouteRuleSetDialog({ open, item, index = -1, title, jumpPath, on
         {!requiredValid ? <Alert variant="destructive"><AlertTitle>{t("policy.route.requiredTitle")}</AlertTitle>
           <AlertDescription>{t("policy.route.ruleSetRequiredDescription")}</AlertDescription></Alert> : null}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(String(v || "basic"))} className="min-w-0"><TabsList activateOnFocus className="max-w-full overflow-x-auto overflow-y-hidden"><TabsTrigger value="basic">{t("policy.route.ruleSetBasicTab")}</TabsTrigger><TabsTrigger value="advanced">{t("policy.route.advancedJSON")}</TabsTrigger></TabsList>
-          <TabsContent value="basic" className="pt-4" keepMounted><RuleSetFields object={state.object} revision={state.revision} onChange={state.update} /></TabsContent>
+          <TabsContent value="basic" className="pt-4" keepMounted><RuleSetFields object={state.object} revision={state.revision} onChange={state.update} onValidity={state.updateValidity} /></TabsContent>
           <TabsContent value="advanced" className="pt-4" keepMounted><AdvancedJSONField value={state.value} title={title}
             revision={state.editorRevision} onChange={state.updateJSON} editorRef={editorRef} /></TabsContent>
         </Tabs>

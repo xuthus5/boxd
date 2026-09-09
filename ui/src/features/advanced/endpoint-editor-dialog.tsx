@@ -1,3 +1,6 @@
+import { policyOutboundTags } from "@/features/policy/policy-form-model"
+import { vpnEndpointFields } from "@/features/advanced/vpn-endpoint-fields"
+import { currentTypeFields } from "@/features/config/current-type-fields"
 import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 
@@ -23,7 +26,6 @@ import { useConfigQuery } from "@/features/config/config-hooks"
 import { PolicyFormFields } from "@/features/policy/policy-form-fields"
 import {
   isJsonObject,
-  policyConfigTags,
   policyDNSServerTags,
   setPolicyPath,
   type JsonObject,
@@ -71,7 +73,7 @@ function TypeField({ object, onChange }: { object: JsonObject; onChange: (item: 
 
 function sectionFields(section: "basic" | "type" | "dialer"): readonly PolicyFieldSpec[] {
   if (section === "basic") return endpointIdentityFields.filter((field) => field.path !== "type")
-  if (section === "type") return [...wireGuardFields.filter((field) => field.path !== "peers"), ...tailscaleFields]
+  if (section === "type") return [...wireGuardFields.filter((field) => field.path !== "peers"), ...tailscaleFields, ...vpnEndpointFields]
   return endpointDialerFields
 }
 
@@ -83,12 +85,12 @@ export function EndpointEditorDialog({ open, item, title, onOpenChange, onSave }
   const [json, setJSON] = useState(() => JSON.stringify(item, null, 2))
   const [invalidFields, setInvalidFields] = useState(() => new Set<string>())
   const parsed = parseObject(json)
-  const visualReady = isEndpointReady(object) && invalidFields.size === 0
-  const jsonReady = Boolean(parsed && isEndpointReady(parsed))
+  const visualReady = Boolean(parsed) && isEndpointReady(object) && invalidFields.size === 0
+  const jsonReady = Boolean(parsed && isEndpointReady(parsed)) && invalidFields.size === 0
   const context = useMemo(() => ({
-    outboundTags: policyConfigTags(config.data?.outbounds, typeof object.tag === "string" ? object.tag : undefined),
+    outboundTags: policyOutboundTags(config.data, typeof object.tag === "string" ? object.tag : undefined),
     dnsServerTags: policyDNSServerTags(config.data?.dns),
-  }), [config.data?.dns, config.data?.outbounds, object.tag])
+  }), [config.data, object.tag])
 
   const updateVisual = (next: JsonObject) => {
     const prepared = prepareEndpointObject(next)
@@ -131,7 +133,7 @@ export function EndpointEditorDialog({ open, item, title, onOpenChange, onSave }
             <TabsTrigger value="visual">{t("advanced.visualTab")}</TabsTrigger>
             <TabsTrigger value="json">{t("advanced.advancedTab")}</TabsTrigger>
           </TabsList>
-          <TabsContent value="visual" className="pt-3 sm:pt-4">
+          <TabsContent value="visual" className="pt-3 sm:pt-4" keepMounted>
             <div className="flex flex-col gap-2 sm:gap-3">
               <TypeField object={object} onChange={updateVisual} />
               <PolicyFormFields
@@ -144,7 +146,7 @@ export function EndpointEditorDialog({ open, item, title, onOpenChange, onSave }
                 onFieldValidityChange={updateValidity}
               />
               <PolicyFormFields
-                fields={sectionFields("type")}
+                fields={currentTypeFields(sectionFields("type"), inferEndpointType(object))}
                 object={object}
                 namespace="advanced.endpoints"
                 revision={revision}

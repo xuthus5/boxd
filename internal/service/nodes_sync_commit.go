@@ -46,7 +46,7 @@ func (c syncCommit) write(config map[string]any, groupTags []string) error {
 
 func isProxyLikeOutboundType(typ string) bool {
 	switch typ {
-	case "vless", "vmess", "trojan", "shadowsocks", "hysteria", "hysteria2", "tuic", "shadowtls", "anytls", "ssh", "tor":
+	case "snell", "vless", "vmess", "trojan", "shadowsocks", "hysteria", "hysteria2", "tuic", "shadowtls", "anytls", "ssh", "tor":
 		return true
 	default:
 		return false

@@ -31,7 +31,7 @@ interface RuleSetRequiredCase {
 const ruleSetRequiredCases: RuleSetRequiredCase[] = [
   {
     name: "remote Tag", item: { type: "remote", url: "https://example/r.srs" },
-    label: "Tag", value: "remote", expected: { type: "remote", tag: "remote", url: "https://example/r.srs" },
+    label: "Tag", value: "remote", expected: { type: "remote", tag: ["remote"], url: "https://example/r.srs" },
   },
   {
     name: "remote URL", item: { type: "remote", tag: "remote" },
@@ -43,7 +43,7 @@ const ruleSetRequiredCases: RuleSetRequiredCase[] = [
   },
   {
     name: "inline Tag", item: { type: "inline", rules: [] },
-    label: "Tag", value: "inline", expected: { type: "inline", tag: "inline", rules: [] },
+    label: "Tag", value: "inline", expected: { type: "inline", tag: ["inline"], rules: [] },
   },
 ]
 
@@ -64,8 +64,8 @@ describe("route dialog required values", () => {
 
     await userEvent.click(screen.getAllByRole("button", { name: "新增子规则" })[0])
     expect(screen.getByRole("button", { name: "保存" })).toBeDisabled()
-    await userEvent.click(screen.getByRole("tab", { name: "执行动作" }))
-    await choose("执行动作", "reject")
+    await userEvent.click(screen.getByRole("tab", { name: "域名与地址" }))
+    fireEvent.change(screen.getByLabelText("域名"), { target: { value: "example.org" } })
     await userEvent.click(screen.getByRole("button", { name: "保存" }))
     expect(screen.getByRole("button", { name: "保存" })).toBeEnabled()
   })

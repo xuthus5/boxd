@@ -1,3 +1,5 @@
+import { hasRuleMatchConditions } from "@/features/policy/policy-match-complete"
+import { resolver114Fields } from "@/features/config/kernel114-fields"
 import {
   getPolicyPath,
   isJsonObject,
@@ -15,6 +17,11 @@ const resolverOn = { path: "default_domain_resolver.server" } as const
 const actionResolverOn = { path: "domain_resolver.server" } as const
 
 export const routeGlobalFields = [
+  { path: "find_neighbor", label: "findNeighbor", kind: "boolean", section: "basic" },
+  { path: "dhcp_lease_files", label: "dhcpLeaseFiles", kind: "list", section: "basic" },
+  { path: "default_http_client", label: "defaultHTTPClient", section: "basic" },
+  { path: "default_domain_resolver.timeout", label: "resolverTimeout", section: "dns", when: resolverOn },
+  { path: "default_domain_resolver.disable_optimistic_cache", label: "disableOptimisticCache", kind: "boolean", section: "dns", when: resolverOn },
   { path: "final", label: "final", kind: "ref", ref: "outbound", section: "basic" },
   { path: "find_process", label: "findProcess", kind: "boolean", section: "basic" },
   { path: "auto_detect_interface", label: "autoDetectInterface", kind: "boolean", section: "interface" },
@@ -33,10 +40,13 @@ export const routeGlobalFields = [
 ] as const satisfies readonly PolicyFieldSpec[]
 
 export const routeMatchFields = [
+  { path: "source_mac_address", label: "sourceMACAddress", kind: "list", section: "environment" },
+  { path: "source_hostname", label: "sourceHostname", kind: "list", section: "environment" },
+  { path: "package_name_regex", label: "packageNameRegex", kind: "list", section: "process" },
   { path: "type", label: "type", kind: "select", options: ["default", "logical"], section: "basic" },
   { path: "inbound", label: "inbound", kind: "ref-multi", ref: "inbound", section: "basic" },
   { path: "ip_version", label: "ipVersion", kind: "select", options: ["4", "6"], section: "basic" },
-  { path: "network", label: "network", kind: "network-multi", section: "basic" },
+  { path: "network", label: "network", kind: "network-multi", options: ["tcp", "udp", "icmp"], section: "basic" },
   { path: "auth_user", label: "authUser", kind: "list", section: "basic" },
   { path: "protocol", label: "protocol", kind: "list", section: "basic" },
   { path: "client", label: "client", kind: "list", section: "basic" },
@@ -78,6 +88,8 @@ export const routeActions = [
 ] as const
 
 const routeOptionFields = [
+  { path: "tls_spoof", label: "tlsSpoof", section: "action" },
+  { path: "tls_spoof_method", label: "tlsSpoofMethod", kind: "select", options: ["wrong-sequence", "wrong-checksum", "wrong-ack", "wrong-md5", "wrong-timestamp"], section: "action", when: { path: "tls_spoof" } },
   { path: "override_address", label: "overrideAddress", section: "action" },
   { path: "override_port", label: "overridePort", kind: "number", section: "action" },
   { path: "network_strategy", label: "networkStrategy", kind: "select", options: networkStrategies, section: "action" },
@@ -91,6 +103,7 @@ const routeOptionFields = [
 ] as const satisfies readonly PolicyFieldSpec[]
 
 const directFields = [
+  ...resolver114Fields,
   { path: "bind_interface", label: "bindInterface", kind: "network-interface", section: "action" },
   { path: "inet4_bind_address", label: "inet4BindAddress", section: "action" },
   { path: "inet6_bind_address", label: "inet6BindAddress", section: "action" },
@@ -137,6 +150,8 @@ export const routeActionFields: Record<string, readonly PolicyFieldSpec[]> = {
     { path: "timeout", label: "sniffTimeout", section: "action" },
   ],
   resolve: [
+    { path: "timeout", label: "resolverTimeout", section: "action" },
+    { path: "disable_optimistic_cache", label: "disableOptimisticCache", kind: "boolean", section: "action" },
     { path: "server", label: "resolveServer", kind: "ref", ref: "dns-server", section: "action" },
     { path: "strategy", label: "resolveStrategy", kind: "select", options: domainStrategies, section: "action" },
     { path: "disable_cache", label: "resolveDisableCache", kind: "boolean", section: "action" },
@@ -159,7 +174,7 @@ const ruleSetFields: Record<string, readonly PolicyFieldSpec[]> = {
   local: [{ path: "format", label: "format" }, { path: "path", label: "path" }],
   remote: [
     { path: "format", label: "format" }, { path: "url", label: "url" },
-    { path: "download_detour", label: "downloadDetour", kind: "ref", ref: "outbound" }, { path: "update_interval", label: "updateInterval" },
+    { path: "http_client", label: "httpClient", kind: "json-value" }, { path: "initial_path", label: "initialPath" }, { path: "update_interval", label: "updateInterval" },
   ],
 }
 
@@ -178,6 +193,7 @@ function matchesField(value: unknown, field: PolicyFieldSpec): boolean {
   }
   if (field.kind === "number-list") return typeof value === "number" && Number.isFinite(value)
     || Array.isArray(value) && value.every((item) => typeof item === "number" && Number.isFinite(item))
+  if (field.kind === "json-value") return true
   if (field.kind === "json-object") return value !== null && typeof value === "object" && !Array.isArray(value)
   if (field.kind === "json-array") return Array.isArray(value)
   return typeof value === "string" || typeof value === "number" || typeof value === "boolean"
@@ -236,13 +252,13 @@ export function setRouteRuleSets(object: JsonObject, ruleSets: readonly JsonObje
 function routeActionComplete(rule: JsonObject): boolean {
   const action = String(rule.action ?? "route")
   if (action === "route" || action === "bypass") return typeof rule.outbound === "string" && rule.outbound.length > 0
-  if (action === "resolve") return typeof rule.server === "string" && rule.server.length > 0
   return true
 }
 
 export function isRouteRuleComplete(rule: JsonObject, depth = 0): boolean {
-  if (!routeActionComplete(rule)) return false
-  if (rule.type !== "logical") return true
+  if (depth === 0 && !routeActionComplete(rule)) return false
+  if (depth > 0 && ["action", ...knownActionFields.map((field) => field.path)].some((path) => Object.hasOwn(rule, path.split(".")[0]))) return false
+  if (rule.type !== "logical") return depth === 0 || hasRuleMatchConditions(rule)
   if (depth >= 64 || typeof rule.mode !== "string" || rule.mode.length === 0 || !Array.isArray(rule.rules) || rule.rules.length === 0) return false
   return rule.rules.every((child) => isJsonObject(child) && isRouteRuleComplete(child, depth + 1))
 }
@@ -270,6 +286,7 @@ export function changeRuleSetType(ruleSet: JsonObject, type: string): JsonObject
 }
 
 const summaryPaths = [
+  "source_mac_address", "source_hostname", "package_name_regex",
   "domain", "domain_suffix", "domain_keyword", "domain_regex", "source_ip_cidr", "source_ip_is_private",
   "ip_cidr", "ip_is_private", "source_port", "source_port_range", "port", "port_range", "process_name",
   "process_path", "process_path_regex", "package_name", "user", "user_id", "rule_set",

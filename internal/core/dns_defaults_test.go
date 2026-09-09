@@ -14,7 +14,7 @@ func TestDefaultDNSInstallerInstall(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.DefaultDomainResolver != "dns-direct" || result.DNS["independent_cache"] != true {
+	if result.DefaultDomainResolver != "dns-direct" || result.DNS["independent_cache"] != nil {
 		t.Fatalf("DNS bootstrap/cache defaults = %#v", result)
 	}
 	if result.DNS["strategy"] != "prefer_ipv4" {

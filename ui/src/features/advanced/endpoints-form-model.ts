@@ -1,3 +1,6 @@
+import { resolver114Fields, udpNATFields } from "@/features/config/kernel114-fields"
+import { currentTypeFields } from "@/features/config/current-type-fields"
+import { isVPNEndpointReady, vpnEndpointFields } from "@/features/advanced/vpn-endpoint-fields"
 import {
   isJsonObject,
   pruneInvisiblePolicyFields,
@@ -7,7 +10,7 @@ import {
 import type { JsonValue } from "@/lib/api/types"
 import { isWireGuardPeerListReady } from "@/features/advanced/wireguard-peer-form-model"
 
-export const endpointTypes = ["wireguard", "tailscale"] as const
+export const endpointTypes = ["wireguard", "tailscale", "openvpn-client", "openvpn-server", "openconnect"] as const
 export type EndpointType = (typeof endpointTypes)[number]
 
 const isWireGuard = { path: "type", is: "wireguard" as const }
@@ -23,6 +26,7 @@ export const endpointIdentityFields = [
 ] as const satisfies readonly PolicyFieldSpec[]
 
 export const wireGuardFields = [
+  ...udpNATFields.map((field) => ({ ...field, when: isWireGuard })),
   { path: "system", label: "system", kind: "boolean", section: "wireguard", when: isWireGuard },
   { path: "name", label: "interfaceName", section: "wireguard", when: isWireGuard },
   { path: "mtu", label: "mtu", kind: "number", section: "wireguard", when: isWireGuard },
@@ -35,6 +39,9 @@ export const wireGuardFields = [
 ] as const satisfies readonly PolicyFieldSpec[]
 
 export const tailscaleFields = [
+  { path: "listen_port", label: "listenPort", kind: "number", section: "tailscale", when: isTailscale },
+  { path: "ssh_server", label: "tailscaleSSH", kind: "json-value", section: "tailscale", when: isTailscale },
+  { path: "taildrop_directory", label: "taildropDirectory", section: "tailscale", when: isTailscale },
   { path: "state_directory", label: "stateDirectory", section: "tailscale", when: isTailscale },
   { path: "auth_key", label: "authKey", section: "tailscale", when: isTailscale },
   { path: "control_url", label: "controlURL", section: "tailscale", when: isTailscale },
@@ -67,6 +74,7 @@ export const tailscaleFields = [
 ] as const satisfies readonly PolicyFieldSpec[]
 
 export const endpointDialerFields = [
+  ...resolver114Fields,
   { path: "detour", label: "detour", kind: "ref", ref: "outbound", section: "dialer" },
   { path: "bind_interface", label: "bindInterface", kind: "network-interface", section: "dialer" },
   { path: "inet4_bind_address", label: "inet4BindAddress", section: "dialer" },
@@ -102,7 +110,7 @@ export const endpointDialerFields = [
   },
   {
     path: "network_strategy", label: "networkStrategy", kind: "select",
-    options: ["default", "fallback", "hybrid", "prefer_ipv4", "prefer_ipv6"], section: "dialer",
+    options: ["default", "fallback", "hybrid"], section: "dialer",
   },
   { path: "network_type", label: "networkType", kind: "list", section: "dialer" },
   { path: "fallback_network_type", label: "fallbackNetworkType", kind: "list", section: "dialer" },
@@ -113,6 +121,7 @@ export const endpointFields = [
   ...endpointIdentityFields,
   ...wireGuardFields,
   ...tailscaleFields,
+  ...vpnEndpointFields,
   ...endpointDialerFields,
 ] as const satisfies readonly PolicyFieldSpec[]
 
@@ -128,25 +137,27 @@ export function normalizeEndpoints(value: JsonValue | undefined): JsonObject[] {
   return isEndpointsStructureValid(value) ? value : []
 }
 
-export function inferEndpointType(item: JsonObject): EndpointType {
-  return item.type === "tailscale" ? "tailscale" : "wireguard"
+export function inferEndpointType(item: JsonObject): string {
+  return typeof item.type === "string" ? item.type : ""
 }
 
 export function createEndpointDraft(type: EndpointType = "wireguard"): JsonObject {
-  return type === "tailscale"
-    ? { type: "tailscale", tag: "" }
-    : { type: "wireguard", tag: "", address: [], private_key: "", peers: [] }
+  if (type === "wireguard") return { type, tag: "", address: [], private_key: "", peers: [] }
+  if (type === "openvpn-client") return { type, tag: "", server: "", server_port: 1194, mode: "tls" }
+  if (type === "openvpn-server") return { type, tag: "", listen: "127.0.0.1", listen_port: 1194, address: [], mode: "tls" }
+  if (type === "openconnect") return { type, tag: "", server: "", flavor: "anyconnect" }
+  return { type, tag: "" }
 }
 
 export function changeEndpointType(item: JsonObject, type: string): JsonObject {
-  const nextType: EndpointType = type === "tailscale" ? "tailscale" : "wireguard"
-  const base = createEndpointDraft(nextType)
+  if (!endpointTypes.includes(type as EndpointType)) return item
+  const base = createEndpointDraft(type as EndpointType)
   if (typeof item.tag === "string" && item.tag) base.tag = item.tag
   return prepareEndpointObject(base)
 }
 
 export function prepareEndpointObject(item: JsonObject): JsonObject {
-  return pruneInvisiblePolicyFields(item, endpointFields)
+  return pruneInvisiblePolicyFields(item, currentTypeFields(endpointFields, inferEndpointType(item)))
 }
 
 export function prepareEndpoints(items: readonly JsonObject[]): JsonObject[] {
@@ -156,6 +167,8 @@ export function prepareEndpoints(items: readonly JsonObject[]): JsonObject[] {
 export function isEndpointReady(item: JsonObject): boolean {
   if (typeof item.tag !== "string" || !item.tag.trim()) return false
   const type = inferEndpointType(item)
+  if (!endpointTypes.includes(type as EndpointType)) return false
+  if (["openvpn-client", "openvpn-server", "openconnect"].includes(type)) return isVPNEndpointReady(item)
   if (type === "wireguard") {
     const address = item.address
     const hasAddress = Array.isArray(address)
@@ -176,6 +189,7 @@ export function summarizeEndpoint(item: JsonObject) {
       : typeof item.address === "string" ? item.address : ""
     return { type, detail: address || undefined, meta: peers }
   }
+  if (["openvpn-client", "openvpn-server", "openconnect"].includes(type)) return { type, detail: String(item.server || item.listen || "") || undefined, meta: 0 }
   const hostname = typeof item.hostname === "string" ? item.hostname : ""
   const exitNode = typeof item.exit_node === "string" ? item.exit_node : ""
   return { type, detail: hostname || exitNode || undefined, meta: 0 }

@@ -35,9 +35,9 @@ describe("dnsProbeInput", () => {
       .toEqual({ tag: "cf", type: "udp", server: "1.1.1.1", server_port: 53 })
   })
 
-  it("supports legacy address and rejects local", () => {
+  it("rejects untyped servers and runtime-dependent local DNS", () => {
     expect(dnsProbeInput({ address: "https://dns.google/dns-query" }))
-      .toEqual({ address: "https://dns.google/dns-query" })
+      .toBeNull()
     expect(isDNSServerProbeable({ type: "local" })).toBe(false)
     expect(dnsProbeInput({ type: "local" })).toBeNull()
   })

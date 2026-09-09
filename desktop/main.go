@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"log/slog"
 	"os"
@@ -16,6 +17,13 @@ import (
 var globalApp *application.App
 
 func main() {
+	if handled, err := core.RunInternalCommand(os.Args[1:], os.Stdin); handled {
+		if err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, "boxd:", err)
+			os.Exit(1)
+		}
+		return
+	}
 	// WebKitGTK 渲染环境缓解，需在 webview 创建前设置。
 	enableWebKitWorkarounds()
 	cfg := parseDesktopConfig()

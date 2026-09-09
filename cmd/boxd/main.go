@@ -25,6 +25,13 @@ func main() {
 
 // parseAndExecute 解析参数并执行，返回进程退出码，便于测试。
 func parseAndExecute(args []string, stdout, stderr io.Writer) int {
+	if handled, err := core.RunInternalCommand(args, os.Stdin); handled {
+		if err != nil {
+			_, _ = fmt.Fprintln(stderr, "boxd:", err)
+			return 1
+		}
+		return 0
+	}
 	cfg, err := config.ParseArgs(args, stderr)
 	if err != nil {
 		if config.IsHelpError(err) {

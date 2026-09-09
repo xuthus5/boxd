@@ -51,28 +51,31 @@ func TestNormalizeDNSProbeTarget(t *testing.T) {
 			path:   "dns-query",
 		},
 		{
-			name:   "legacy https address",
-			req:    DNSProbeRequest{Address: "https://dns.google/dns-query"},
-			proto:  "https",
-			server: "dns.google",
-			port:   443,
-			path:   "/dns-query",
+			name:    "legacy https address",
+			req:     DNSProbeRequest{Address: "https://dns.google/dns-query"},
+			wantErr: "unsupported legacy",
+			proto:   "https",
+			server:  "dns.google",
+			port:    443,
+			path:    "/dns-query",
 		},
 		{
-			name:   "legacy host port",
-			req:    DNSProbeRequest{Address: "8.8.8.8:53"},
-			proto:  "udp",
-			server: "8.8.8.8",
-			port:   53,
-			path:   "/dns-query",
+			name:    "legacy host port",
+			req:     DNSProbeRequest{Address: "8.8.8.8:53"},
+			wantErr: "unsupported legacy",
+			proto:   "udp",
+			server:  "8.8.8.8",
+			port:    53,
+			path:    "/dns-query",
 		},
 		{
-			name:   "tls scheme address",
-			req:    DNSProbeRequest{Address: "tls://1.1.1.1:853"},
-			proto:  "tls",
-			server: "1.1.1.1",
-			port:   853,
-			path:   "/dns-query",
+			name:    "tls scheme address",
+			req:     DNSProbeRequest{Address: "tls://1.1.1.1:853"},
+			wantErr: "unsupported legacy",
+			proto:   "tls",
+			server:  "1.1.1.1",
+			port:    853,
+			path:    "/dns-query",
 		},
 		{
 			name:    "local not probeable",
@@ -280,30 +283,6 @@ func TestDefaultDNSPortAndCollectAnswers(t *testing.T) {
 	}
 	if len(collectDNSAnswers(msg)) != 1 {
 		t.Fatal("answers len")
-	}
-}
-
-func TestParseLegacyDNSAddressEdge(t *testing.T) {
-	t.Parallel()
-	_, _, _, _, err := parseLegacyDNSAddress("", "", 0, "")
-	if err == nil {
-		t.Fatal("expected empty address error")
-	}
-	proto, server, port, path, err := parseLegacyDNSAddress("h3://dns.example:8443/query", "", 0, "/dns-query")
-	if err != nil || proto != "h3" || server != "dns.example" || port != 8443 || path != "/query" {
-		t.Fatalf("h3 parse = %s %s %d %s err=%v", proto, server, port, path, err)
-	}
-	_, _, _, _, err = splitSchemeHost("udp", "", 53)
-	if err == nil {
-		t.Fatal("expected empty host")
-	}
-	proto, server, port, path, err = parseLegacyDNSAddress("udp://9.9.9.9", "", 0, "/dns-query")
-	if err != nil || proto != "udp" || server != "9.9.9.9" {
-		t.Fatalf("udp scheme = %s %s %d %s err=%v", proto, server, port, path, err)
-	}
-	proto, server, port, path, err = parseLegacyDNSAddress("tcp://9.9.9.9:5353", "", 0, "/dns-query")
-	if err != nil || proto != "tcp" || server != "9.9.9.9" || port != 5353 {
-		t.Fatalf("tcp scheme = %s %s %d %s err=%v", proto, server, port, path, err)
 	}
 }
 
@@ -533,34 +512,6 @@ func TestExchangeDNSDoHGetFallbackPost(t *testing.T) {
 	}
 }
 
-func TestNormalizeMoreEdges(t *testing.T) {
-	t.Parallel()
-	proto, server, port, path, err := normalizeDNSProbeTarget(DNSProbeRequest{Type: "LEGACY", Address: "1.0.0.1"})
-	if err != nil || proto != "udp" || server != "1.0.0.1" || port != 53 || path != "/dns-query" {
-		t.Fatalf("legacy type = %s %s %d %s err=%v", proto, server, port, path, err)
-	}
-	_, _, _, _, err = normalizeDNSProbeTarget(DNSProbeRequest{Type: "hosts", Server: "x"})
-	if err == nil || !strings.Contains(err.Error(), "not probeable") {
-		t.Fatalf("hosts err=%v", err)
-	}
-	_, _, _, _, err = parseLegacyDNSAddress("https://", "", 0, "/dns-query")
-	if err == nil {
-		t.Fatal("expected empty host for https")
-	}
-	_, _, _, _, err = parseLegacyDNSAddress("https://example.com:bad", "", 0, "/dns-query")
-	if err == nil {
-		t.Fatal("expected bad port")
-	}
-	_, _, _, _, err = splitSchemeHost("tls", "dns.example:bad", 853)
-	if err == nil {
-		t.Fatal("expected bad scheme port")
-	}
-	proto, server, port, path, err = parseLegacyDNSAddress("quic://dns.example", "", 0, "/dns-query")
-	if err != nil || proto != "quic" || server != "dns.example" {
-		t.Fatalf("quic = %s %s %d %s err=%v", proto, server, port, path, err)
-	}
-}
-
 func TestNormalizeDNSProbeTargetRejectsMalformedInputs(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -594,7 +545,7 @@ func TestNormalizeDNSProbeTargetRejectsMalformedInputs(t *testing.T) {
 	}
 
 	proto, server, port, _, err := normalizeDNSProbeTarget(DNSProbeRequest{
-		Address: "tls://[::1]",
+		Type: "tls", Server: "[::1]",
 	})
 	if err != nil || proto != "tls" || server != "::1" || port != 853 {
 		t.Fatalf("bracketed IPv6 = %s %s %d err=%v", proto, server, port, err)

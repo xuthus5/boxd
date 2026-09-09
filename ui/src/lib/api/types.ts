@@ -160,7 +160,6 @@ export interface DNSProbeInput {
   type?: string
   server?: string
   server_port?: number
-  address?: string
   domain?: string
   path?: string
 }
@@ -211,6 +210,10 @@ export interface RuleSetStatusItem {
   url?: string
   update_interval?: string
   download_detour?: string
+  http_client?: string
+  http_client_source?: string
+  kernel_managed?: boolean
+  note_code?: string
   builtin: boolean
   updatable: boolean
   last_updated?: string

@@ -11,7 +11,7 @@ function text(value: unknown) {
 
 export function dnsServerType(item: JsonObject) {
   const value = inferDNSServerType(item).trim()
-  return value || "legacy"
+  return value || "unknown"
 }
 
 export function dnsRuleAction(item: JsonObject) {

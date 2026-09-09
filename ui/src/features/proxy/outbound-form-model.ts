@@ -1,11 +1,13 @@
+import { outboundTLS114Fields, resolver114Fields } from "@/features/config/kernel114-fields"
+import { hysteria2114Fields, outbound114Protocols, quicProtocolFields } from "@/features/proxy/proxy-protocol114-fields"
 import { getPath, pruneInvisibleFields, type FieldSpec, type JsonObject, setPath } from "@/features/proxy/proxy-form-model"
 
 export const outboundTypes = [
   "direct", "block", "selector", "urltest", "socks", "http", "shadowsocks", "vmess", "vless",
-  "trojan", "naive", "hysteria", "hysteria2", "tuic", "ssh", "tor", "shadowtls", "anytls",
+  "trojan", "naive", "hysteria", "hysteria2", "tuic", "ssh", "tor", "shadowtls", "anytls", "snell", "bridge",
 ] as const
 
-export const serverTypes = new Set(["socks", "http", "shadowsocks", "vmess", "vless", "trojan", "naive", "hysteria", "hysteria2", "tuic", "ssh", "shadowtls", "anytls"])
+export const serverTypes = new Set(["socks", "http", "shadowsocks", "vmess", "vless", "trojan", "naive", "hysteria", "hysteria2", "tuic", "ssh", "shadowtls", "anytls", "snell"])
 export const dialerTypes = new Set(["direct", ...serverTypes, "tor"])
 export const outboundTLSTypes = new Set(["http", "vmess", "vless", "trojan", "naive", "hysteria", "hysteria2", "tuic", "shadowtls", "anytls"])
 export const outboundTransportTypes = new Set(["vmess", "vless", "trojan"])
@@ -29,6 +31,7 @@ const udpOverTCPOn = { path: "udp_over_tcp.enabled", is: true } as const
 const keepAliveOn = { path: "disable_tcp_keep_alive", falsy: true } as const
 
 export const dialerFields: FieldSpec[] = [
+  ...resolver114Fields,
   { path: "detour", label: "detour", kind: "ref", ref: "outbound", section: "bind" },
   { path: "bind_interface", label: "bindInterface", kind: "network-interface", section: "bind" },
   { path: "inet4_bind_address", label: "inet4BindAddress", section: "bind" },
@@ -63,6 +66,7 @@ const udpOverTCP: FieldSpec[] = [
 ]
 
 const protocolMap: Record<string, FieldSpec[]> = {
+  ...outbound114Protocols,
   direct: [], block: [], selector: [], urltest: [],
   socks: [
     { path: "version", label: "version", kind: "select", options: ["4", "4a", "5"], section: "auth" },
@@ -123,9 +127,6 @@ const protocolMap: Record<string, FieldSpec[]> = {
     { path: "obfs", label: "obfuscation", section: "protocol" },
     { path: "auth", label: "auth", section: "auth" },
     { path: "auth_str", label: "authString", section: "auth" },
-    { path: "recv_window_conn", label: "receiveWindowConnection", kind: "number", section: "protocol" },
-    { path: "recv_window", label: "receiveWindow", kind: "number", section: "protocol" },
-    { path: "disable_mtu_discovery", label: "disableMTUDiscovery", kind: "boolean", section: "protocol" },
     network,
   ],
   hysteria2: [
@@ -133,8 +134,8 @@ const protocolMap: Record<string, FieldSpec[]> = {
     { path: "hop_interval", label: "hopInterval", section: "protocol" },
     { path: "up_mbps", label: "uploadMbps", kind: "number", section: "protocol" },
     { path: "down_mbps", label: "downloadMbps", kind: "number", section: "protocol" },
-    { path: "obfs.type", label: "obfuscationType", kind: "select", options: ["salamander"], section: "protocol" },
-    { path: "obfs.password", label: "obfuscationPassword", section: "protocol", when: { path: "obfs.type", is: "salamander" } },
+    { path: "obfs.type", label: "obfuscationType", kind: "select", options: ["salamander", "gecko"], section: "protocol" },
+    { path: "obfs.password", label: "obfuscationPassword", section: "protocol", when: { path: "obfs.type", is: ["salamander", "gecko"] } },
     { path: "password", label: "password", section: "auth" },
     network,
     { path: "brutal_debug", label: "brutalDebug", kind: "boolean", section: "protocol" },
@@ -150,6 +151,9 @@ const protocolMap: Record<string, FieldSpec[]> = {
     network,
   ],
   ssh: [
+    { path: "cipher", label: "sshCipher", kind: "list", section: "protocol" },
+    { path: "mac", label: "sshMAC", kind: "list", section: "protocol" },
+    { path: "kex_algorithm", label: "sshKexAlgorithm", kind: "list", section: "protocol" },
     { path: "user", label: "sshUser", section: "auth" },
     { path: "password", label: "password", section: "auth" },
     { path: "private_key", label: "privateKey", kind: "textarea", section: "auth" },
@@ -194,6 +198,7 @@ const groupMap: Record<string, FieldSpec[]> = {
 }
 
 export const outboundTLSFields: FieldSpec[] = [
+  ...outboundTLS114Fields,
   { path: "tls.enabled", label: "tlsEnabled", kind: "boolean", section: "tlsBasic" },
   { path: "tls.disable_sni", label: "disableSNI", kind: "boolean", when: tlsOn, section: "tlsBasic" },
   { path: "tls.server_name", label: "serverName", when: tlsOn, section: "tlsBasic" },
@@ -268,12 +273,18 @@ const transportMap: Record<string, FieldSpec[]> = {
   ],
 }
 
-const credentialPaths = ["username", "password", "uuid", "flow", "security", "auth", "auth_str", "user", "private_key", "private_key_path", "private_key_passphrase", "obfs.password"]
+const credentialPaths = ["psk", "userkey", "username", "password", "uuid", "flow", "security", "auth", "auth_str", "user", "private_key", "private_key_path", "private_key_passphrase", "obfs.password"]
 const tlsCredentialPaths = ["tls.client_certificate", "tls.client_certificate_path", "tls.client_key", "tls.client_key_path"]
-const knownProtocolFields = [...Object.values(protocolMap).flat(), ...Object.values(groupMap).flat()]
+const knownProtocolFields = [...Object.keys(protocolMap).flatMap(protocolFields), ...Object.values(groupMap).flat()]
 const knownTransportFields = Object.values(transportMap).flat()
 
-export function protocolFields(type: string) { return protocolMap[type] ?? [] }
+export function protocolFields(type: string): FieldSpec[] {
+  const hysteria2: FieldSpec[] = type === "hysteria2" ? [...hysteria2114Fields,
+    { path: "hop_interval_max", label: "hopIntervalMax", section: "protocol" },
+    { path: "disable_chrome_parrot", label: "disableChromeParrot", kind: "boolean", section: "protocol" },
+  ] : []
+  return [...(protocolMap[type] ?? []), ...quicProtocolFields(type), ...hysteria2]
+}
 export function groupFields(type: string) { return groupMap[type] ?? [] }
 export function transportTypeFields(type: string) { return [...transportBase, ...(transportMap[type] ?? [])] }
 
@@ -292,6 +303,7 @@ function matchesField(value: unknown, field: FieldSpec) {
   }
   /* c8 ignore next 2 - outbound fields currently never use number-list/users kinds */
   if (field.kind === "number-list") return typeof value === "number" || Array.isArray(value) && value.every((item) => typeof item === "number")
+  if (field.kind === "json-value") return true
   if (field.kind === "json-object") return Boolean(value && typeof value === "object" && !Array.isArray(value))
   /* c8 ignore next */
   if (field.kind === "users") return Array.isArray(value) && value.every((item) => Boolean(item && typeof item === "object" && !Array.isArray(item)))

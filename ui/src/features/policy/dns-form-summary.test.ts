@@ -3,12 +3,12 @@ import { describe, expect, it } from "vitest"
 import { summarizeDNSRule, summarizeDNSServer } from "@/features/policy/dns-form-model"
 
 describe("DNS server summary completeness", () => {
-  it("summarizes legacy and modern endpoints with stable routing details", () => {
+  it("summarizes typed servers and preserves display metadata from untyped data", () => {
     expect(summarizeDNSServer({
       tag: "legacy", address: "https://dns.example/dns-query", detour: "direct", strategy: "prefer_ipv4",
     })).toEqual({
-      type: "legacy",
-      detail: "https://dns.example/dns-query · tag legacy · detour direct · strategy prefer_ipv4",
+      type: "",
+      detail: "tag legacy · detour direct · strategy prefer_ipv4",
     })
     expect(summarizeDNSServer({
       type: "https", tag: "remote", server: "dns.example", server_port: 443,

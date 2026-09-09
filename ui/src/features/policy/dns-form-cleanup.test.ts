@@ -14,7 +14,7 @@ describe("DNS cleanup-only field transitions", () => {
     expect(visible).toContain("interface_address")
     expect(visible).toContain("network_interface_address")
     expect(visible).toContain("default_interface_address")
-    expect(visible).toContain("rule_set_ip_cidr_accept_empty")
+    expect(visible).not.toContain("rule_set_ip_cidr_accept_empty")
     expect(visible).not.toContain("geosite")
     expect(visible).not.toContain("source_geoip")
     expect(visible).not.toContain("geoip")
@@ -78,10 +78,10 @@ describe("DNS cleanup-only field transitions", () => {
     })
   })
 
-  it("removes scalar domain resolvers when a modern server changes to legacy", () => {
+  it("removes scalar resolvers when switching to hosts", () => {
     expect(changeDNSServerType({
       type: "udp", server: "1.1.1.1", domain_resolver: "dns", custom: "keep",
-    }, "legacy")).toEqual({ custom: "keep" })
+    }, "hosts")).toEqual({ type: "hosts", custom: "keep" })
   })
 
   it("removes scalar domain resolvers when a modern server changes to an unknown type", () => {

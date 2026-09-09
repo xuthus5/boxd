@@ -1,5 +1,6 @@
 import type { ConfigDiagnostic, ConfigDiagnostics, ConfigDiagnosticsStatus } from "@/lib/api/types"
 import { configSectionFromPath, configSectionHref, withConfigPathQuery } from "@/features/config/config-save-error"
+import { diagnostic114Codes } from "@/i18n/locales/kernel114-diagnostics"
 
 const issueLabelKeys: Record<string, string> = {
   config_missing: "configDiagnostics.issueLabels.configMissing",
@@ -70,10 +71,12 @@ export function configDiagnosticStatusKey(status: ConfigDiagnosticsStatus | stri
 }
 
 export function configDiagnosticIssueLabelKey(code: string): string {
+  if (diagnostic114Codes.has(code)) return `kernel114.diagnostics.${code}.label`
   return issueLabelKeys[code] ?? "configDiagnostics.issueLabels.unknown"
 }
 
 export function configDiagnosticIssueHintKey(code: string): string {
+  if (diagnostic114Codes.has(code)) return `kernel114.diagnostics.${code}.hint`
   return issueHintKeys[code] ?? "configDiagnostics.issueHints.unknown"
 }
 

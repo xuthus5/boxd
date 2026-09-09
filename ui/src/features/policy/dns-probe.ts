@@ -2,7 +2,7 @@ import type { JsonObject } from "@/features/policy/policy-form-model"
 import { formatDNSProbeFailureSample } from "@/features/policy/dns-probe-error"
 import type { DNSProbeInput, DNSProbeResult } from "@/lib/api/types"
 
-const nonProbeable = new Set(["local", "hosts", "dhcp", "fakeip", "tailscale"])
+const probeableTypes = new Set(["udp", "tcp", "tls", "quic", "https", "h3"])
 const FAILED_SAMPLE_LIMIT = 3
 
 export type DNSProbeFailureSample = {
@@ -24,9 +24,8 @@ export type DNSProbeBatchSummary = {
 
 export function isDNSServerProbeable(item: JsonObject): boolean {
   const type = typeof item.type === "string" ? item.type.toLowerCase() : ""
-  if (type && nonProbeable.has(type)) return false
+  if (!probeableTypes.has(type)) return false
   if (typeof item.server === "string" && item.server.trim()) return true
-  if (typeof item.address === "string" && item.address.trim()) return true
   return false
 }
 
@@ -39,7 +38,6 @@ export function dnsProbeInput(item: JsonObject, domain?: string): DNSProbeInput 
   if (typeof item.server_port === "number" && Number.isFinite(item.server_port)) {
     input.server_port = item.server_port
   }
-  if (typeof item.address === "string" && item.address) input.address = item.address
   if (typeof item.path === "string" && item.path) input.path = item.path
   if (domain) input.domain = domain
   return input

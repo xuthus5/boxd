@@ -224,7 +224,7 @@ func singBoxDNSRuntimeError(body string) error {
 	if err := options.UnmarshalJSONContext(ctx, []byte(body)); err != nil {
 		return err
 	}
-	instance, err := box.New(box.Options{Context: ctx, Options: options})
+	instance, err := newRealBox(box.Options{Context: ctx, Options: options})
 	if err != nil {
 		return err
 	}

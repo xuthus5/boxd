@@ -1,3 +1,4 @@
+import { policyOutboundTags } from "@/features/policy/policy-form-model"
 import { useCallback, useMemo, useRef, useState, type RefObject } from "react"
 import { useTranslation } from "react-i18next"
 
@@ -68,7 +69,7 @@ function BaseFields({ object, onChange }: { object: JsonObject; onChange: (objec
     <div className="sm:col-span-2">
       {type === "tun"
         ? <InboundFormFields fields={tunFields.slice(0, 4)} object={object} type={type} onChange={onChange} />
-        : <InboundFormFields fields={listenFields.slice(0, 2)} object={object} type={type} onChange={onChange} />}
+        : type !== "cloudflared" ? <InboundFormFields fields={listenFields.slice(0, 2)} object={object} type={type} onChange={onChange} /> : null}
       {invalid.has("listen_port") ? <FieldError>{t("proxy.inbound.requiredPort")}</FieldError> : null}
     </div>
   </FieldGroup>
@@ -102,13 +103,13 @@ function FormTabs({
     currentTag,
     inboundType: type,
     inboundTags: configTags(config.data?.inbounds, currentTag),
-    outboundTags: configTags(config.data?.outbounds, currentTag),
+    outboundTags: policyOutboundTags(config.data, currentTag),
     dnsServerTags: dnsServerTags(config.data?.dns),
   }
   return <Tabs value={activeTab} onValueChange={(next) => onTabChange(String(next || "basic"))} className="min-h-0 min-w-0">
     <TabsList activateOnFocus className="h-auto max-w-full justify-start overflow-x-auto overflow-y-hidden" variant="line">
       <TabsTrigger value="basic">{t("proxy.inbound.basic")}</TabsTrigger>
-      <TabsTrigger value="listen">{t(type === "tun" ? "proxy.inbound.tun" : "proxy.inbound.listenAndConnection")}</TabsTrigger>
+      {type !== "cloudflared" ? <TabsTrigger value="listen">{t(type === "tun" ? "proxy.inbound.tun" : "proxy.inbound.listenAndConnection")}</TabsTrigger> : null}
       <TabsTrigger value="protocol">{t("proxy.inbound.protocol")}</TabsTrigger>
       {hasTLS ? <TabsTrigger value="tls">{t("proxy.inbound.tlsReality")}</TabsTrigger> : null}
       {hasTransport ? <TabsTrigger value="transport">{t("proxy.inbound.transportMultiplex")}</TabsTrigger> : null}
@@ -117,7 +118,7 @@ function FormTabs({
     <TabsContent value="basic" className="pt-3 sm:pt-4"><BaseFields object={object} onChange={onChange} /></TabsContent>
     <TabsContent value="listen" className="pt-3 sm:pt-4"><InboundFormFields fields={type === "tun" ? tunFields.slice(4) : listenFields.slice(2)} object={object} type={type} context={context} onChange={onChange} /></TabsContent>
     <TabsContent value="protocol" className="pt-3 sm:pt-4" keepMounted><InboundFormFields fields={protocolFields(type)} object={object} type={type} revision={revision} context={context} onChange={onChange} onFieldValidityChange={onFieldValidityChange} /></TabsContent>
-    {hasTLS ? <TabsContent value="tls" className="pt-3 sm:pt-4"><InboundFormFields fields={tlsFields} object={object} type={type} context={context} onChange={onChange} /></TabsContent> : null}
+    {hasTLS ? <TabsContent value="tls" className="pt-3 sm:pt-4" keepMounted><InboundFormFields fields={tlsFields} object={object} type={type} context={context} revision={revision} onChange={onChange} onFieldValidityChange={onFieldValidityChange} /></TabsContent> : null}
     {hasTransport ? <TabsContent value="transport" className="pt-3 sm:pt-4" keepMounted><InboundFormFields fields={[...(transportTypes.has(type) ? transportTypeFields(transportType) : []), ...(multiplexTypes.has(type) ? multiplexFields : [])]} object={object} type={type} revision={revision} context={context} onChange={onChange} onFieldValidityChange={onFieldValidityChange} /></TabsContent> : null}
     <TabsContent value="advanced" className="pt-3 sm:pt-4" keepMounted><Field><FieldLabel className="sr-only">{t("proxy.advancedJSON")}</FieldLabel><JsonEditor ref={editorRef} value={value} onChange={onJSONChange} ariaLabel={`${title} JSON`} /></Field></TabsContent>
   </Tabs>

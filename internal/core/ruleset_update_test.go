@@ -82,7 +82,7 @@ func TestRuleSetUpdaterLocalAndRemote(t *testing.T) {
 			"rule_set": []any{
 				map[string]any{"tag": "loyalsoldier-direct", "type": "local", "format": "source", "path": filepath.Join(ruleDir, "loyalsoldier-direct.json")},
 				map[string]any{"tag": "custom-local", "type": "local", "format": "source", "path": filepath.Join(ruleDir, "custom.json")},
-				map[string]any{"tag": "geo", "type": "remote", "format": "binary", "url": rulesetTestURL(server, "/geo.srs"), "download_detour": "direct"},
+				map[string]any{"tag": "geo", "type": "remote", "format": "binary", "url": rulesetTestURL(server, "/geo.srs")},
 				map[string]any{"tag": "inline", "type": "inline", "rules": []any{}},
 			},
 		},
@@ -562,7 +562,7 @@ func TestSavedRuleSetBinaryErrorsAndCacheHelpers(t *testing.T) {
 	if err := saved.UnmarshalBinary(nil); err == nil {
 		t.Fatal("expected short binary error")
 	}
-	if err := saved.UnmarshalBinary([]byte{1}); err == nil {
+	if err := saved.UnmarshalBinary([]byte{ruleSetCacheFormatVersion}); err == nil {
 		t.Fatal("expected truncated content length error")
 	}
 
@@ -576,7 +576,7 @@ func TestSavedRuleSetBinaryErrorsAndCacheHelpers(t *testing.T) {
 		t.Fatal("expected truncated etag error")
 	}
 	var oversized bytes.Buffer
-	if err := oversized.WriteByte(1); err != nil {
+	if err := oversized.WriteByte(ruleSetCacheFormatVersion); err != nil {
 		t.Fatal(err)
 	}
 	if err := writeUvarint(&oversized, maxRuleSetBodyBytes+1); err != nil {
@@ -585,7 +585,7 @@ func TestSavedRuleSetBinaryErrorsAndCacheHelpers(t *testing.T) {
 	if err := saved.UnmarshalBinary(oversized.Bytes()); !errors.Is(err, ErrRuleSetContentTooLarge) {
 		t.Fatalf("oversized cache error = %v", err)
 	}
-	if err := saved.UnmarshalBinary([]byte{2}); err == nil {
+	if err := saved.UnmarshalBinary([]byte{ruleSetCacheFormatVersion + 1}); err == nil {
 		t.Fatal("expected unsupported cache version error")
 	}
 	if _, err := (&savedRuleSetBinary{Content: make([]byte, maxRuleSetBodyBytes+1)}).MarshalBinary(); !errors.Is(err, ErrRuleSetContentTooLarge) {
@@ -600,7 +600,7 @@ func TestSavedRuleSetBinaryErrorsAndCacheHelpers(t *testing.T) {
 		t.Fatal("expected missing cache error")
 	}
 	// write cache entry then load
-	if err := updater.saveRemoteCache("geo", []byte("bin"), "etag", time.Unix(20, 0)); err != nil {
+	if err := updater.saveRemoteCache("geo", &savedRuleSetBinary{Content: []byte("bin"), LastEtag: "etag", LastUpdated: time.Unix(20, 0)}); err != nil {
 		t.Fatal(err)
 	}
 	db, err := bbolt.Open(cachePath, 0600, nil)
@@ -658,7 +658,7 @@ func TestOpenCacheReadWriteMkdirError(t *testing.T) {
 	if _, err := updater.openCacheReadWrite(); err == nil {
 		t.Fatal("expected mkdir error")
 	}
-	if err := updater.saveRemoteCache("t", []byte("x"), "e", time.Unix(1, 0)); err == nil {
+	if err := updater.saveRemoteCache("t", &savedRuleSetBinary{Content: []byte("x"), LastEtag: "e", LastUpdated: time.Unix(1, 0)}); err == nil {
 		t.Fatal("expected save cache error")
 	}
 }
@@ -813,7 +813,7 @@ func TestStatusRemoteWithoutIntervalUsesDefault(t *testing.T) {
 		t.Fatal(err)
 	}
 	updater := NewRuleSetUpdater(configPath, dir, NewLoyalsoldierRuleSetInstaller(dir), nil, nil)
-	if err := updater.saveRemoteCache("custom-remote", []byte("abc"), "e", time.Unix(40, 0)); err != nil {
+	if err := updater.saveRemoteCache("custom-remote", &savedRuleSetBinary{Content: []byte("abc"), LastEtag: "e", LastUpdated: time.Unix(40, 0), URLHash: ruleSetURLHash("https://example.com/x.srs")}); err != nil {
 		t.Fatal(err)
 	}
 	status, err := updater.Status(context.Background())

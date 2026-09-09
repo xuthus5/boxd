@@ -47,7 +47,7 @@ describe("dns-filter", () => {
       { action: "reject", domain: ["ads.example"] },
       { server: "dns-local", domain: ["intranet"] },
     ]
-    expect(dnsServerType(servers[2])).toBe("legacy")
+    expect(dnsServerType(servers[2])).toBe("unknown")
     expect(dnsRuleAction(rules[2])).toBe("route")
     expect(matchesDNSServerType(servers[0], "https")).toBe(true)
     expect(matchesDNSRuleAction(rules[1], "reject")).toBe(true)
@@ -57,8 +57,8 @@ describe("dns-filter", () => {
       total: 3,
       buckets: [
         { type: "https", count: 1 },
-        { type: "legacy", count: 1 },
         { type: "udp", count: 1 },
+        { type: "unknown", count: 1 },
       ],
     })
     expect(summarizeDNSRuleActions(rules)).toEqual({

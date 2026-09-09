@@ -15,7 +15,7 @@ const logicalCases: readonly [string, JsonObject, boolean][] = [
   ["empty children", { type: "logical", mode: "and", rules: [], action: "reject" }, false],
   ["non-object child", { type: "logical", mode: "and", rules: [1], action: "reject" }, false],
   ["incomplete object child", { type: "logical", mode: "and", rules: [{}], action: "reject" }, false],
-  ["complete object child", { type: "logical", mode: "and", rules: [{ action: "reject" }], action: "reject" }, true],
+  ["complete object child", { type: "logical", mode: "and", rules: [{ domain_suffix: ["example.org"] }], action: "reject" }, true],
 ]
 
 const predefinedCases: readonly [string, JsonObject][] = [

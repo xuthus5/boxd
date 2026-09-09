@@ -81,7 +81,7 @@ async function expectChineseRouteDialogs() {
   for (const tab of ["基础与网络", "域名与地址", "端口与进程", "规则集与网络环境", "执行动作", "高级 JSON"]) {
     expect(screen.getByRole("tab", { name: tab })).toBeInTheDocument()
   }
-  expect(screen.getByText("直接子规则可在当前表单中编辑，更深层嵌套保留 JSON 编辑。")).toBeInTheDocument()
+  expect(screen.getByText("子规则仅包含匹配条件，动作统一放在外层逻辑规则。更深层嵌套可在高级 JSON 中编辑。")).toBeInTheDocument()
   expect(screen.getByRole("button", { name: "新增子规则" })).toBeInTheDocument()
   await userEvent.click(screen.getByRole("button", { name: "取消" }))
   await userEvent.click(screen.getByRole("button", { name: "新增规则" }))
@@ -93,7 +93,7 @@ async function expectChineseRouteDialogs() {
 }
 
 async function expectChineseDNSCards() {
-  for (const title of ["DNS 全局设置", "旧式 FakeIP", "DNS 服务器", "DNS 规则"]) expect(screen.getByText(title)).toBeInTheDocument()
+  for (const title of ["DNS 全局设置", "DNS 服务器", "DNS 规则"]) expect(screen.getByText(title)).toBeInTheDocument()
   expect(screen.getByText("共 2 台服务器")).toBeInTheDocument()
   expect(screen.getByText("共 2 条规则")).toBeInTheDocument()
   expect(screen.getByText(/标签 legacy/)).toBeInTheDocument()
@@ -114,7 +114,7 @@ async function expectChineseDNSDialogs() {
   expect(screen.getByRole("alert")).toHaveTextContent("请填写当前服务器类型所需的 Tag 和地址信息。")
   await userEvent.click(screen.getByRole("button", { name: "取消" }))
   await userEvent.click(screen.getByRole("button", { name: "编辑 DNS 规则 1" }))
-  expect(screen.getByText("直接子规则可在当前表单中编辑，更深层嵌套保留 JSON 编辑。")).toBeInTheDocument()
+  expect(screen.getByText("子规则仅包含匹配条件，动作统一放在外层逻辑规则。更深层嵌套可在高级 JSON 中编辑。")).toBeInTheDocument()
   expect(screen.getByRole("button", { name: "新增子规则" })).toBeInTheDocument()
   await userEvent.click(screen.getByRole("button", { name: "取消" }))
   await userEvent.click(screen.getByRole("button", { name: "删除 DNS 规则 1" }))
@@ -131,7 +131,7 @@ function expectEnglishRouteCards() {
 }
 
 function expectEnglishDNSCards() {
-  for (const label of ["DNS settings", "Legacy FakeIP", "DNS servers", "DNS rules", "Add DNS server", "Add DNS rule"]) {
+  for (const label of ["DNS settings", "DNS servers", "DNS rules", "Add DNS server", "Add DNS rule"]) {
     expect(screen.getByText(label)).toBeInTheDocument()
   }
   expect(screen.getByText("Source IP is private")).toBeInTheDocument()

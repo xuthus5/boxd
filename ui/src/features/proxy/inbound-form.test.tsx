@@ -317,12 +317,12 @@ describe("inbound hierarchical fields", () => {
     off.unmount()
   })
 
-  it("shows ACME details only after domain is set and keep-alive fields respect disable switch", async () => {
+  it("edits certificate providers and respects the keep-alive switch", async () => {
     const user = userEvent.setup()
     const onChange = vi.fn()
-    renderApp(<InboundFormFields fields={tlsFields} object={{ tls: { enabled: true, acme: { domain: ["a.com"], email: "a@b.com" } } }} type="trojan" onChange={onChange} />)
-    expect(screen.getByLabelText("ACME 邮箱")).toHaveValue("a@b.com")
-    fireEvent.change(screen.getByLabelText("ACME 域名"), { target: { value: "" } })
+    renderApp(<InboundFormFields fields={tlsFields} object={{ tls: { enabled: true, certificate_provider: { type: "acme", domain: ["a.com"], email: "a@b.com" } } }} type="trojan" onChange={onChange} />)
+    expect(screen.queryByLabelText("ACME 邮箱")).not.toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText("证书提供者"), { target: { value: "" } })
     expect(onChange).toHaveBeenLastCalledWith({ tls: { enabled: true } })
     cleanup()
 

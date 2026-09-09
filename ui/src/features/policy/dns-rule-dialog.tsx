@@ -1,3 +1,4 @@
+import { policyOutboundTags } from "@/features/policy/policy-form-model"
 import { useMemo, useRef, useState, type RefObject } from "react"
 import { useTranslation } from "react-i18next"
 
@@ -37,10 +38,9 @@ export interface DNSRuleDialogProps {
   nested?: boolean
 }
 
-const fieldsAt = (paths: readonly string[]) => dnsRuleMatchFields.filter((field) => paths.includes(field.path))
-const basicFields = fieldsAt(["inbound", "ip_version", "query_type", "network", "auth_user", "protocol"])
-const domainFields = fieldsAt(["domain", "domain_suffix", "domain_keyword", "domain_regex", "source_ip_cidr", "source_ip_is_private", "ip_cidr", "ip_is_private", "ip_accept_any"])
-const processFields = fieldsAt(["source_port", "source_port_range", "port", "port_range", "process_name", "process_path", "process_path_regex", "package_name", "user", "user_id", "outbound", "clash_mode", "rule_set", "rule_set_ip_cidr_match_source", "network_type", "network_is_expensive", "network_is_constrained", "interface_address", "network_interface_address", "default_interface_address", "wifi_ssid", "wifi_bssid", "rule_set_ip_cidr_accept_empty"])
+const basicFields = dnsRuleMatchFields.filter((field) => field.section === "basic" && !["type", "invert"].includes(field.path))
+const domainFields = dnsRuleMatchFields.filter((field) => field.section === "domain")
+const processFields = dnsRuleMatchFields.filter((field) => field.section === "process")
 const logicalFields = [
   { path: "mode", label: "logicalMode", kind: "select", options: ["and", "or"], required: true },
   { path: "invert", label: "invert", kind: "boolean" },
@@ -130,13 +130,13 @@ function RuleTabs({ state, title, serverTags, activeTab, onTabChange, editorRef,
   const logical = state.object.type === "logical"
   const context = {
     inboundTags: policyConfigTags(config.data?.inbounds),
-    outboundTags: policyConfigTags(config.data?.outbounds),
+    outboundTags: policyOutboundTags(config.data),
     dnsServerTags: serverTags ? [...serverTags] : [],
     ruleSetTags: policyRuleSetTags(config.data?.route),
   }
   return <Tabs value={activeTab} onValueChange={(v) => onTabChange(String(v || "basic"))} className="min-h-0 min-w-0"><TabsList activateOnFocus className="h-auto max-w-full justify-start overflow-x-auto overflow-y-hidden" variant="line">
     <TabsTrigger value="basic">{t("policy.dns.ruleBasicTab")}</TabsTrigger><TabsTrigger value="domain">{t("policy.dns.domainTab")}</TabsTrigger>
-    <TabsTrigger value="process">{t("policy.dns.processTab")}</TabsTrigger><TabsTrigger value="action">{t("policy.dns.actionTab")}</TabsTrigger>
+    <TabsTrigger value="process">{t("policy.dns.processTab")}</TabsTrigger>{!nested ? <TabsTrigger value="action">{t("policy.dns.actionTab")}</TabsTrigger> : null}
     <TabsTrigger value="advanced">{t("policy.dns.advancedJSON")}</TabsTrigger></TabsList>
     <TabsContent value="basic" className="pt-4" keepMounted><FieldGroup className="gap-4">
       <RuleTypeField object={state.object} onChange={state.update} />
@@ -154,7 +154,7 @@ function RuleTabs({ state, title, serverTags, activeTab, onTabChange, editorRef,
     </FieldGroup></TabsContent>
     <TabsContent value="domain" className="pt-4" keepMounted><FormFields state={state} context={context} fields={logical ? [] : domainFields} /></TabsContent>
     <TabsContent value="process" className="pt-4" keepMounted><FormFields state={state} context={context} fields={logical ? [] : processFields} /></TabsContent>
-    <TabsContent value="action" className="pt-4" keepMounted><ActionFields state={state} serverTags={serverTags} context={context} /></TabsContent>
+    {!nested ? <TabsContent value="action" className="pt-4" keepMounted><ActionFields state={state} serverTags={serverTags} context={context} /></TabsContent> : null}
     <TabsContent value="advanced" className="pt-4" keepMounted><AdvancedJSON value={state.value} title={title}
       revision={state.editorRevision} onChange={state.updateJSON} editorRef={editorRef} /></TabsContent>
   </Tabs>
@@ -166,7 +166,7 @@ export function DNSRuleDialog({ open, item, index = -1, title, serverTags, jumpP
   const [activeTab, setActiveTab] = useState("basic")
   const editorRef = useRef<JsonEditorHandle>(null)
   const revealPath = usePolicyDialogPathReveal(editorRef, setActiveTab, jumpPath, onJumpPathHandled)
-  const requiredValid = isDNSRuleComplete(state.object)
+  const requiredValid = isDNSRuleComplete(state.object, nested ? 1 : 0)
   const canSave = Boolean(state.jsonValid && requiredValid && state.invalidFields.size === 0)
   const { validating, validate, ready } = usePolicyItemValidate({
     section: "dns", kind: "rules", index, object: canSave ? state.object : null,
@@ -182,7 +182,7 @@ export function DNSRuleDialog({ open, item, index = -1, title, serverTags, jumpP
         <AlertDescription>{t("policy.dns.ruleRequiredDescription")}</AlertDescription></Alert> : null}
       <RuleTabs state={state} title={title} serverTags={serverTags} activeTab={activeTab} onTabChange={setActiveTab} editorRef={editorRef} nested={nested} />
     </div></div>
-    <PolicyDialogFooter canSave={canSave} canValidate={canSave && ready} validating={validating}
+    <PolicyDialogFooter canSave={canSave} canValidate={canSave && ready && !nested} validating={validating}
       onClose={() => onOpenChange(false)} onSave={() => { if (state.jsonValid) onSave(state.object) }}
       onValidate={() => { void validate() }} />
   </DialogContent></Dialog>

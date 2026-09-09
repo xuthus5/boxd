@@ -20,10 +20,10 @@ func TestNormalizeDNSProbeTarget(t *testing.T) {
 		wantErr bool
 	}{
 		{name: "udp default port", req: DNSProbeRequest{Type: "udp", Server: "1.1.1.1"}},
-		{name: "address fallback", req: DNSProbeRequest{Address: "udp://dns.example:53"}},
+		{name: "removed address format", req: DNSProbeRequest{Address: "udp://dns.example:53"}, wantErr: true},
 		{name: "not probeable", req: DNSProbeRequest{Type: "hosts", Server: "1.1.1.1"}, wantErr: true},
 		{name: "unsupported", req: DNSProbeRequest{Type: "weird", Server: "1.1.1.1"}, wantErr: true},
-		{name: "legacy type", req: DNSProbeRequest{Type: "legacy", Server: "1.1.1.1"}},
+		{name: "legacy type", req: DNSProbeRequest{Type: "legacy", Server: "1.1.1.1"}, wantErr: true},
 		{name: "missing server", req: DNSProbeRequest{Type: "udp"}, wantErr: true},
 		{name: "invalid server", req: DNSProbeRequest{Type: "udp", Server: "bad server"}, wantErr: true},
 		{name: "invalid port", req: DNSProbeRequest{Type: "udp", Server: "1.1.1.1", ServerPort: 70000}, wantErr: true},

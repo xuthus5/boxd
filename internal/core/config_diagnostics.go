@@ -20,6 +20,7 @@ type diagnosticEntry struct {
 	tag      string
 	typeName string
 	path     string
+	tagPath  string
 }
 
 // AnalyzeConfigFile reads and analyzes one persisted sing-box configuration.
@@ -36,12 +37,19 @@ func AnalyzeConfigFile(path string) model.ConfigDiagnostics {
 		finishConfigDiagnostics(&report)
 		return report
 	}
-	return AnalyzeConfig(body)
+	report := AnalyzeConfig(body)
+	checkPersistedRuleSetFiles(&report, body)
+	finishConfigDiagnostics(&report)
+	return report
 }
 
 // AnalyzeConfig validates and inspects a sing-box JSON document without
 // starting the kernel or touching the persisted configuration.
 func AnalyzeConfig(body []byte) model.ConfigDiagnostics {
+	return analyzeConfigForBuild(body, currentKernelBuildFeatures())
+}
+
+func analyzeConfigForBuild(body []byte, features kernelBuildFeatures) model.ConfigDiagnostics {
 	report := newConfigDiagnostics()
 	var root any
 	if err := json.Unmarshal(body, &root); err != nil {
@@ -56,9 +64,10 @@ func AnalyzeConfig(body []byte) model.ConfigDiagnostics {
 		return report
 	}
 	if err := validateSingBoxConfig(body); err != nil {
-		addDiagnostic(&report, "invalid_singbox_config", model.ConfigDiagnosticSeverityError, "config", "", diagnosticDetail(err))
+		addDiagnostic(&report, "invalid_singbox_config", model.ConfigDiagnosticSeverityError, "config", "", diagnosticConfigErrorDetail(err, cfg))
 	}
 	inspectTopology(&report, cfg)
+	checkConfigBuildFeatures(&report, cfg, features)
 	finishConfigDiagnostics(&report)
 	return report
 }
@@ -106,8 +115,9 @@ func inspectTopology(report *model.ConfigDiagnostics, cfg map[string]any) {
 	bootstrapTopology := newBootstrapTopology(cfg, append(outbounds, endpoints...), dnsServers)
 	checkDNSOutboundBootstrapCycles(report, bootstrapTopology)
 	checkSingBoxMigrationWarnings(report, cfg, dnsServers)
+	checkSingBox114Diagnostics(report, cfg)
 	checkInsecureTLS(report, cfg)
-	if len(inbounds) == 0 {
+	if len(inbounds)+len(endpoints) == 0 {
 		addDiagnostic(report, "no_inbounds", model.ConfigDiagnosticSeverityWarning, "inbounds", "", "")
 	}
 	if len(outbounds)+len(endpoints) == 0 {
@@ -149,11 +159,7 @@ func diagnosticEntriesFromRoute(cfg map[string]any, key string) []diagnosticEntr
 		if !ok || object == nil {
 			continue
 		}
-		entries = append(entries, diagnosticEntry{
-			tag:      strings.TrimSpace(stringValue(object["tag"])),
-			typeName: stringValue(object["type"]),
-			path:     "route." + key + "[" + strconv.Itoa(index) + "]",
-		})
+		entries = append(entries, diagnosticRuleSetEntries(object, "route."+key+"["+strconv.Itoa(index)+"]")...)
 	}
 	return entries
 }

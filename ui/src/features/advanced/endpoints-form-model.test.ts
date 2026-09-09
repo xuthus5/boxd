@@ -56,18 +56,18 @@ describe("endpoints form model", () => {
     expect(isEndpointReady({ type: "tailscale", tag: "" })).toBe(false)
   })
 
-  it("prunes type-specific invisible fields", () => {
+  it("preserves mismatched protocol fields for diagnosis and prunes disabled options", () => {
     const prepared = prepareEndpointObject({
       type: "tailscale",
       tag: "ts",
-      private_key: "should-drop",
+      private_key: "preserved-for-diagnosis",
       peers: [{ public_key: "x" }],
       hostname: "node-a",
       system_interface: false,
       system_interface_name: "tailscale0",
     })
-    expect(getPolicyPath(prepared, "private_key")).toBeUndefined()
-    expect(getPolicyPath(prepared, "peers")).toBeUndefined()
+    expect(getPolicyPath(prepared, "private_key")).toBe("preserved-for-diagnosis")
+    expect(getPolicyPath(prepared, "peers")).toEqual([{ public_key: "x" }])
     expect(getPolicyPath(prepared, "hostname")).toBe("node-a")
     expect(getPolicyPath(prepared, "system_interface_name")).toBeUndefined()
   })
@@ -82,7 +82,7 @@ describe("endpoints form model", () => {
     expect(summarizeEndpoint({ type: "tailscale", tag: "ts", hostname: "box" }))
       .toEqual({ type: "tailscale", detail: "box", meta: 0 })
     expect(prepareEndpoints([{ type: "tailscale", tag: "ts", private_key: "x" }])).toEqual([
-      { type: "tailscale", tag: "ts" },
+      { type: "tailscale", tag: "ts", private_key: "x" },
     ])
   })
 })

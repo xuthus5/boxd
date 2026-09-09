@@ -53,8 +53,8 @@ func TestInitialConfigTUNNamespaceSmoke(t *testing.T) {
 			t.Run(mode+"/"+network, func(t *testing.T) { exchangeTUNSmokeDNS(t, network) })
 		}
 	}
-	assertTUNSmokeBlockedDNSLog(t, logs)
 	assertTUNSmokeNoUplinkTraffic(t, packetFD)
+	assertTUNSmokeBlockedDNSLog(t, logs)
 	if err := instance.Stop(); err != nil {
 		t.Fatal(err)
 	}
@@ -72,12 +72,18 @@ func requireTUNSmokeNamespace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	initial, err := os.Readlink("/proc/1/ns/net")
-	if err != nil {
-		t.Fatal(err)
+	initial := os.Getenv("BOXD_TUN_HOST_NETNS")
+	if initial == "" {
+		initial, err = os.Readlink("/proc/1/ns/net")
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 	if current == initial {
 		t.Fatal("refusing to create TUN or change routes in the host network namespace")
+	}
+	if _, err := os.Stat("/run/dbus/system_bus_socket"); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("TUN smoke requires a container or mount namespace hiding the host system bus")
 	}
 	if !bootstrapTUNAvailable() {
 		t.Fatal("isolated smoke requires CAP_NET_ADMIN and /dev/net/tun")
@@ -193,12 +199,14 @@ func exchangeTUNSmokeDNS(t *testing.T, network string) {
 
 func assertTUNSmokeBlockedDNSLog(t *testing.T, logs *LogWriter) {
 	t.Helper()
+	queried, blocked := false, false
 	for _, entry := range logs.Recent() {
-		if strings.Contains(entry.Message, tunSmokeUnknown) && strings.Contains(entry.Message, "exchange failed") {
-			return
-		}
+		queried = queried || strings.Contains(entry.Message, "dns: exchange "+tunSmokeUnknown)
+		blocked = blocked || strings.Contains(entry.Message, "outbound/block[block]: blocked connection to 8.8.8.8:443")
 	}
-	t.Fatalf("unknown DNS requests never reached the actual DNS router: %v", logs.Recent())
+	if !queried || !blocked {
+		t.Fatalf("DNS router evidence missing: queried=%v blocked=%v", queried, blocked)
+	}
 }
 
 func captureTUNSmokeUplink(t *testing.T) int {

@@ -39,14 +39,14 @@ describe("DNS visual editor replacement workflows", () => {
   it("replaces existing servers and rules and closes a cancelled dialog", async () => {
     const user = userEvent.setup()
     renderEditor(<EditorHarness initial={{
-      servers: [{ tag: "local", address: "local" }],
+      servers: [{ type: "tcp", tag: "local", server: "127.0.0.2" }],
       rules: [{ action: "reject", domain: ["old.example"] }],
     }} />)
 
     await user.click(screen.getByRole("button", { name: "编辑 DNS 服务器 local" }))
-    fireEvent.change(screen.getByLabelText("旧式地址"), { target: { value: "tcp://127.0.0.1" } })
+    fireEvent.change(screen.getByLabelText("服务器地址"), { target: { value: "127.0.0.1" } })
     await user.click(screen.getByRole("button", { name: "保存" }))
-    expect((state().servers as JsonObject[])[0]).toMatchObject({ address: "tcp://127.0.0.1" })
+    expect((state().servers as JsonObject[])[0]).toMatchObject({ type: "tcp", server: "127.0.0.1" })
 
     await user.click(screen.getByRole("button", { name: "编辑 DNS 规则 1" }))
     await user.click(screen.getByRole("tab", { name: "执行动作" }))
@@ -78,10 +78,10 @@ describe("DNS visual editor replacement workflows", () => {
     const editor = screen.getByRole("textbox", { name: "编辑 DNS 服务器 JSON" })
     await user.click(editor)
     await user.keyboard("{Control>}a{/Control}")
-    await user.paste('{"type":"future","tag":"new","payload":{"keep":true}}')
+    await user.paste('{"type":"mdns","tag":"new","payload":{"keep":true}}')
     await user.click(screen.getByRole("button", { name: "保存" }))
     expect(screen.getByRole("button", { name: "编辑 DNS 服务器 new" })).toBeInTheDocument()
-    expect((state().servers as JsonObject[])[0]).toEqual({ type: "future", tag: "new", payload: { keep: true } })
+    expect((state().servers as JsonObject[])[0]).toEqual({ type: "mdns", tag: "new", payload: { keep: true } })
   })
 })
 

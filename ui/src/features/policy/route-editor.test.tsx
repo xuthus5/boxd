@@ -219,11 +219,11 @@ describe("route rule dialog", () => {
     }), { name: "", description: "" })
   })
 
-  it("requires the resolver server and exposes action-specific fields", async () => {
+  it("allows DNS routing fallback when resolve has no explicit server", async () => {
     renderDialog(<RouteRuleDialog open item={{ action: "resolve" }} title="编辑规则" onOpenChange={vi.fn()} onSave={vi.fn()} />)
     await userEvent.click(screen.getByRole("tab", { name: "执行动作" }))
     expect(screen.getByLabelText("解析服务器")).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "保存" })).toBeDisabled()
+    expect(screen.getByRole("button", { name: "保存" })).toBeEnabled()
     fireEvent.change(screen.getByLabelText("解析服务器"), { target: { value: "dns-remote" } })
     expect(screen.getByRole("button", { name: "保存" })).toBeEnabled()
     await choose("执行动作", "direct")
@@ -242,7 +242,7 @@ describe("route rule dialog", () => {
     const user = userEvent.setup()
     renderDialog(<RouteRuleDialog open title="编辑规则" item={{
       type: "logical", mode: "and", rules: [{
-        type: "logical", mode: "and", rules: [{ action: "reject" }], invert: false, action: "reject",
+        type: "logical", mode: "and", rules: [{ domain: ["example.org"] }], invert: false,
       }], invert: false, action: "reject",
     }} onOpenChange={vi.fn()} onSave={vi.fn()} />)
     expect(screen.getByRole("combobox", { name: "逻辑模式" })).toHaveTextContent("and")
@@ -251,10 +251,10 @@ describe("route rule dialog", () => {
     const childDialog = within(screen.getAllByRole("dialog").at(-1)!)
     fireEvent.change(childDialog.getByLabelText("子规则 JSON"), { target: { value: "invalid" } })
     expect(childDialog.getByRole("button", { name: "保存" })).toBeDisabled()
-    await user.click(childDialog.getByRole("tab", { name: "执行动作" }))
+    await user.click(childDialog.getByRole("tab", { name: "域名与地址" }))
     expect(childDialog.getByRole("button", { name: "保存" })).toBeDisabled()
     await user.click(childDialog.getByRole("tab", { name: "基础与网络" }))
-    fireEvent.change(childDialog.getByLabelText("子规则 JSON"), { target: { value: '[{"action":"reject"}]' } })
+    fireEvent.change(childDialog.getByLabelText("子规则 JSON"), { target: { value: '[{"domain":["example.org"]}]' } })
     expect(childDialog.getByRole("button", { name: "保存" })).toBeEnabled()
   })
 

@@ -9,7 +9,7 @@ import {
 export const headlessRuleMatchFields = [
   { path: "type", label: "ruleType", kind: "select", options: ["default", "logical"], section: "basic" },
   { path: "query_type", label: "queryType", kind: "list", section: "basic" },
-  { path: "network", label: "network", kind: "network-multi", section: "basic" },
+  { path: "network", label: "network", kind: "network-multi", options: ["tcp", "udp", "icmp"], section: "basic" },
   { path: "domain", label: "domain", kind: "list", section: "domain" },
   { path: "domain_suffix", label: "domainSuffix", kind: "list", section: "domain" },
   { path: "domain_keyword", label: "domainKeyword", kind: "list", section: "domain" },
@@ -24,6 +24,7 @@ export const headlessRuleMatchFields = [
   { path: "process_path", label: "processPath", kind: "list", section: "process" },
   { path: "process_path_regex", label: "processPathRegex", kind: "list", section: "process" },
   { path: "package_name", label: "packageName", kind: "list", section: "process" },
+  { path: "package_name_regex", label: "packageNameRegex", kind: "list", section: "process" },
   { path: "network_type", label: "networkType", kind: "list", section: "environment" },
   { path: "network_is_expensive", label: "networkIsExpensive", kind: "boolean", section: "environment" },
   { path: "network_is_constrained", label: "networkIsConstrained", kind: "boolean", section: "environment" },
@@ -114,7 +115,7 @@ export function isHeadlessRuleComplete(rule: JsonObject): boolean {
 const summaryPaths = [
   "domain", "domain_suffix", "domain_keyword", "domain_regex", "source_ip_cidr", "ip_cidr",
   "source_port", "source_port_range", "port", "port_range", "process_name", "process_path",
-  "process_path_regex", "package_name", "query_type", "network", "network_type",
+  "process_path_regex", "package_name", "package_name_regex", "query_type", "network", "network_type",
   "network_is_expensive", "network_is_constrained", "network_interface_address",
   "default_interface_address", "wifi_ssid", "wifi_bssid", "invert",
 ]

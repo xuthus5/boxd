@@ -34,8 +34,8 @@ const ruleTabs = {
   "域名与地址": ["域名", "域名后缀", "域名关键字", "域名正则", "源 IP CIDR", "源 IP 为私有地址", "目标 IP CIDR", "目标 IP 为私有地址", "匹配任意 DNS 地址"],
   "端口与环境": [
     "源端口", "源端口范围", "目标端口", "目标端口范围", "进程名", "进程路径", "进程路径正则",
-    "应用包名", "用户", "用户 ID", "出站", "Clash 模式", "规则集", "规则集 IP 匹配源地址",
-    "网络类型", "计费网络", "受限网络", "接口地址", "网络接口地址", "默认接口地址", "Wi-Fi SSID", "Wi-Fi BSSID", "允许规则集 IP 结果为空",
+    "应用包名", "用户", "用户 ID", "Clash 模式", "规则集", "规则集 IP 匹配源地址",
+    "网络类型", "计费网络", "受限网络", "接口地址", "网络接口地址", "默认接口地址", "Wi-Fi SSID", "Wi-Fi BSSID",
   ],
 } as const
 
@@ -80,8 +80,6 @@ describe("DNS rule field matrix", () => {
 
 describe("DNS server field matrix", () => {
   it.each([
-    ["legacy", "基础", ["服务器类型", "Tag", "旧式地址"]],
-    ["legacy", "拨号与解析", ["旧式地址解析器", "旧式地址策略", "旧式地址回退延迟", "域名策略", "前置出站", "客户端子网"]],
     ["local", "拨号与解析", dialerLabels],
     ["local", "类型专属", ["优先 Go 解析器"]],
     ["dhcp", "拨号与解析", dialerLabels],
@@ -104,6 +102,11 @@ describe("DNS server field matrix", () => {
     ["h3", "TLS 与 HTTP", [...tlsLabels, "HTTP 路径", "HTTP Method", "HTTP Headers"]],
     ["hosts", "类型专属", ["Hosts 路径", "预定义 Hosts"]],
     ["fakeip", "类型专属", ["FakeIP IPv4 范围", "FakeIP IPv6 范围"]],
+    ["mdns", "类型专属", ["网络接口", "邻居主机域名"]],
+    ["openvpn", "基础", ["端点标签"]],
+    ["openconnect", "基础", ["端点标签"]],
+    ["tailscale", "类型专属", ["接受默认解析器", "使用搜索域"]],
+    ["resolved", "基础", ["Resolved 服务标签"]],
   ] as const)("renders %s approved fields in %s", (type, tab, labels) => {
     renderDNS(<DNSServerDialog open title="编辑 DNS 服务器" item={serverItem(type)}
       onOpenChange={vi.fn()} onSave={vi.fn()} />)

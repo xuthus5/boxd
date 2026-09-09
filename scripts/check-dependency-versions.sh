@@ -89,7 +89,7 @@ check_github_dep() {
 # check_series_dep <name> <module> <modfile> <repo>
 # 系列内严格比较：同一 major.minor 系列内出现更新的 patch 即失败；
 # 上游发布更新的 minor/major 时仅告警——是否跟进破坏性升级由人工决策，
-# 避免 CI 强制引入未经评估的变更（如 sing-box 1.14.0 的启动 data race）。
+# 避免 CI 强制引入尚未完成配置适配和运行验证的跨系列升级。
 check_series_dep() {
   local name="$1" module="$2" modfile="$3" repo="$4"
   local pinned

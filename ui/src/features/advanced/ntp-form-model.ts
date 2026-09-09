@@ -23,6 +23,8 @@ export const ntpBasicFields = [
 ] as const satisfies readonly PolicyFieldSpec[]
 
 export const ntpDialerFields = [
+  { path: "domain_resolver.timeout", label: "resolverTimeout", section: "resolver", when: activeResolverOn },
+  { path: "domain_resolver.disable_optimistic_cache", label: "disableOptimisticCache", kind: "boolean", section: "resolver", when: activeResolverOn },
   { path: "detour", label: "detour", kind: "ref", ref: "outbound", section: "dialer", when: enabledOn },
   { path: "bind_interface", label: "bindInterface", kind: "network-interface", section: "dialer", when: enabledOn },
   { path: "inet4_bind_address", label: "inet4BindAddress", section: "dialer", when: enabledOn },

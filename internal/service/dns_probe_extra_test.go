@@ -13,59 +13,6 @@ import (
 	"github.com/miekg/dns"
 )
 
-func TestParseLegacyDNSAddress(t *testing.T) {
-	tests := []struct {
-		name    string
-		address string
-		proto   string
-		wantErr bool
-	}{
-		{name: "empty", address: "", wantErr: true},
-		{name: "https scheme", address: "https://dns.example/dns-query", proto: "udp"},
-		{name: "h3 scheme", address: "h3://dns.example/dns-query", proto: "udp"},
-		{name: "tls scheme", address: "tls://dns.example:853", proto: "udp"},
-		{name: "quic scheme", address: "quic://dns.example:853", proto: "udp"},
-		{name: "tcp scheme", address: "tcp://dns.example:53", proto: "udp"},
-		{name: "udp scheme", address: "udp://dns.example:53", proto: "udp"},
-		{name: "hostport", address: "1.1.1.1:53", proto: "udp"},
-		{name: "plain host", address: "1.1.1.1", proto: "udp"},
-		{name: "invalid port", address: "1.1.1.1:99999", wantErr: true},
-		{name: "https bad host", address: "https:///dns-query", wantErr: true},
-		{name: "https userinfo", address: "https://user@dns.example/", wantErr: true},
-		{name: "invalid colon", address: "a:b:c", wantErr: true},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			_, _, _, _, err := parseLegacyDNSAddress(test.address, test.proto, 0, "/dns-query")
-			if (err != nil) != test.wantErr {
-				t.Fatalf("err = %v, wantErr %v", err, test.wantErr)
-			}
-		})
-	}
-}
-
-func TestSplitSchemeHost(t *testing.T) {
-	tests := []struct {
-		name     string
-		hostport string
-		wantErr  bool
-	}{
-		{name: "empty", hostport: "", wantErr: true},
-		{name: "hostport", hostport: "dns.example:853"},
-		{name: "bracketed", hostport: "[2001:db8::1]"},
-		{name: "invalid colon", hostport: "a:b:c", wantErr: true},
-		{name: "plain", hostport: "dns.example"},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			_, _, _, _, err := splitSchemeHost("tls", test.hostport, 853)
-			if (err != nil) != test.wantErr {
-				t.Fatalf("err = %v, wantErr %v", err, test.wantErr)
-			}
-		})
-	}
-}
-
 func TestDefaultDNSPort(t *testing.T) {
 	tests := map[string]int{
 		"tls": 853, "quic": 853, "https": 443, "h3": 443, "udp": 53, "other": 53,

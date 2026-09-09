@@ -1,3 +1,4 @@
+import { policyConfigTags } from "@/features/policy/policy-form-model"
 import { useState } from "react"
 import { CopyIcon, EllipsisIcon, PencilIcon, RefreshCwIcon, Trash2Icon } from "lucide-react"
 import { useTranslation } from "react-i18next"
@@ -11,6 +12,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem,
 import type { JsonObject } from "@/features/policy/policy-form-model"
 import { headlessRules } from "@/features/policy/route-headless-rule-model"
 import { summarizeRuleSet } from "@/features/policy/route-form-model"
+import { RuleSetClientStatus } from "@/features/policy/ruleset-client-status"
 import {
   resolveRuleSetErrorCode,
   ruleSetErrorHintKey,
@@ -22,6 +24,7 @@ import type { RuleSetStatusItem, RuleSetUpdateResult } from "@/lib/api/types"
 interface RouteRuleSetCardProps {
   item: JsonObject
   status?: RuleSetStatusItem
+  statuses?: RuleSetStatusItem[]
   lastUpdate?: RuleSetUpdateResult
   updating?: boolean
   onEdit: () => void
@@ -47,6 +50,7 @@ function RuleSetUpdateError({
   const { t } = useTranslation()
   if (result.ok || !result.error?.trim()) return null
   const code = resolveRuleSetErrorCode(result)
+  if (code === "kernel_managed") return <p className="text-xs text-muted-foreground">{t(ruleSetErrorHintKey(code))}</p>
   const copyError = () => {
     const payload = ruleSetUpdateErrorClipboardText(result)
     if (!payload) return
@@ -80,6 +84,7 @@ function RuleSetUpdateError({
 export function RouteRuleSetCard({
   item,
   status,
+  statuses,
   lastUpdate,
   updating,
   onEdit,
@@ -89,7 +94,7 @@ export function RouteRuleSetCard({
 }: RouteRuleSetCardProps) {
   const { t } = useTranslation()
   const [deleting, setDeleting] = useState(false)
-  const tag = typeof item.tag === "string" && item.tag ? item.tag : t("policy.route.unnamed")
+  const tag = policyConfigTags([item]).join(", ") || t("policy.route.unnamed")
   const summary = summarizeRuleSet(item)
   const detail = String(item.type ?? "inline") === "inline"
     ? t("policy.route.inlineRuleCount", { count: headlessRules(item).length })
@@ -138,7 +143,7 @@ export function RouteRuleSetCard({
           {updatedLabel ? (
             <p className="text-muted-foreground text-xs">{t("policy.route.lastUpdated", { time: updatedLabel })}</p>
           ) : null}
-          {status?.note ? <p className="text-muted-foreground text-xs">{status.note}</p> : null}
+          <RuleSetClientStatus statuses={statuses ?? (status ? [status] : [])} />
           {lastUpdate ? <RuleSetUpdateError result={lastUpdate} tag={tag} /> : null}
         </CardContent>
         <CardFooter className="justify-between gap-2">

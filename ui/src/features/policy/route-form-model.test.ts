@@ -25,8 +25,10 @@ import {
 const paths = (fields: readonly { path: string }[]) => fields.map((field) => field.path)
 
 describe("route form metadata", () => {
-  it("models route globals from sing-box 1.13", () => {
+  it("models route globals from sing-box 1.14", () => {
     expect(paths(routeGlobalFields)).toEqual([
+      "find_neighbor", "dhcp_lease_files", "default_http_client",
+      "default_domain_resolver.timeout", "default_domain_resolver.disable_optimistic_cache",
       "final", "find_process", "auto_detect_interface", "override_android_vpn",
       "default_interface", "default_mark", "default_domain_resolver.server",
       "default_domain_resolver.strategy", "default_domain_resolver.disable_cache",
@@ -43,6 +45,7 @@ describe("route form metadata", () => {
 
   it("models every approved default route match field", () => {
     expect(paths(routeMatchFields)).toEqual([
+      "source_mac_address", "source_hostname", "package_name_regex",
       "type", "inbound", "ip_version", "network", "auth_user", "protocol", "client",
       "domain", "domain_suffix", "domain_keyword", "domain_regex", "source_ip_cidr",
       "source_ip_is_private", "ip_cidr", "ip_is_private", "source_port",
@@ -437,9 +440,9 @@ describe("route rule completeness", () => {
   it("checks required actions and recursive logical children", () => {
     expect(isRouteRuleComplete({ outbound: "proxy" })).toBe(true)
     expect(isRouteRuleComplete({ action: "route" })).toBe(false)
-    expect(isRouteRuleComplete({ action: "resolve" })).toBe(false)
+    expect(isRouteRuleComplete({ action: "resolve" })).toBe(true)
     expect(isRouteRuleComplete({ action: "resolve", server: "dns" })).toBe(true)
-    expect(isRouteRuleComplete({ type: "logical", mode: "and", rules: [{ action: "reject" }], action: "reject" })).toBe(true)
+    expect(isRouteRuleComplete({ type: "logical", mode: "and", rules: [{ domain_suffix: ["example.org"] }], action: "reject" })).toBe(true)
     expect(isRouteRuleComplete({ type: "logical", mode: "and", rules: [{ action: "route" }], action: "reject" })).toBe(false)
     expect(isRouteRuleComplete({ type: "logical", mode: "and", rules: [1], action: "reject" })).toBe(false)
     expect(isRouteRuleComplete({ type: "logical", rules: [{ action: "reject" }], action: "reject" })).toBe(false)

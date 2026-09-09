@@ -18,6 +18,7 @@ const LogsPage = lazy(() => import("@/features/observability/logs-page").then((m
 const EndpointsPage = lazy(() => import("@/features/advanced/endpoints-page").then((module) => ({ default: module.EndpointsPage })))
 const CertificatePage = lazy(() => import("@/features/advanced/certificate-page").then((module) => ({ default: module.CertificatePage })))
 const ServicesPage = lazy(() => import("@/features/advanced/services-page").then((module) => ({ default: module.ServicesPage })))
+const SharedResourcesPage = lazy(() => import("@/features/advanced/shared-resources-page").then((module) => ({ default: module.SharedResourcesPage })))
 const LogPage = lazy(() => import("@/features/advanced/log-page").then((module) => ({ default: module.LogPage })))
 const NTPPage = lazy(() => import("@/features/advanced/ntp-page").then((module) => ({ default: module.NTPPage })))
 const ExperimentalPage = lazy(() => import("@/features/advanced/experimental-page").then((module) => ({ default: module.ExperimentalPage })))
@@ -47,6 +48,9 @@ export function AppRoutes() {
           <Route path="/advanced/endpoints" element={<EndpointsPage />} />
           <Route path="/advanced/certificate" element={<CertificatePage />} />
           <Route path="/advanced/services" element={<ServicesPage />} />
+          <Route path="/advanced/network-namespaces" element={<SharedResourcesPage section="network_namespaces" />} />
+          <Route path="/advanced/certificate-providers" element={<SharedResourcesPage section="certificate_providers" />} />
+          <Route path="/advanced/http-clients" element={<SharedResourcesPage section="http_clients" />} />
           <Route path="/advanced/log" element={<LogPage />} />
           <Route path="/advanced/ntp" element={<NTPPage />} />
           <Route path="/advanced/experimental" element={<ExperimentalPage />} />

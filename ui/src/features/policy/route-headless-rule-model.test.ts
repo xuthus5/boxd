@@ -12,11 +12,11 @@ import {
 const paths = (fields: readonly { path: string }[]) => fields.map((field) => field.path)
 
 describe("route headless rule metadata", () => {
-  it("models every sing-box 1.13 headless match field", () => {
+  it("models every sing-box 1.14 headless match field", () => {
     expect(paths(headlessRuleMatchFields)).toEqual([
       "type", "query_type", "network", "domain", "domain_suffix", "domain_keyword", "domain_regex",
       "source_ip_cidr", "ip_cidr", "source_port", "source_port_range", "port", "port_range",
-      "process_name", "process_path", "process_path_regex", "package_name", "network_type",
+      "process_name", "process_path", "process_path_regex", "package_name", "package_name_regex", "network_type",
       "network_is_expensive", "network_is_constrained", "network_interface_address",
       "default_interface_address", "wifi_ssid", "wifi_bssid", "invert",
     ])

@@ -302,7 +302,7 @@ func TestUpsertProxySelectorExisting(t *testing.T) {
 		map[string]any{"type": "urltest", "tag": "g", "outbounds": []string{"n"}},
 		map[string]any{"type": "vless", "tag": "n"},
 	}
-	result := upsertProxySelector(outbounds, []string{"g"}, []string{"n"})
+	result := upsertProxySelector(map[string]any{"outbounds": outbounds}, []string{"g"}, []string{"n"})
 	entry, _ := result[0].(map[string]any)
 	if entry["default"] != "g" {
 		t.Fatalf("default = %v", entry["default"])
@@ -310,7 +310,7 @@ func TestUpsertProxySelectorExisting(t *testing.T) {
 }
 
 func TestUpsertProxySelectorEmptyMembers(t *testing.T) {
-	result := upsertProxySelector([]any{}, nil, nil)
+	result := upsertProxySelector(map[string]any{}, nil, nil)
 	if len(result) != 2 {
 		t.Fatalf("result = %v", result)
 	}

@@ -7,19 +7,13 @@ import {
 import type { JsonValue } from "@/lib/api/types"
 
 const cacheOn = { path: "cache_file.enabled", is: true as const }
-const rdrcOn = [
-  { path: "cache_file.enabled", is: true as const },
-  { path: "cache_file.store_rdrc", is: true as const },
-] as const
 const statsOn = { path: "v2ray_api.stats.enabled", is: true as const }
-
 export const experimentalCacheFields = [
+  { path: "cache_file.store_dns", label: "storeDNS", kind: "boolean", when: cacheOn },
   { path: "cache_file.enabled", label: "cacheEnabled", kind: "boolean" },
   { path: "cache_file.path", label: "cachePath", when: cacheOn },
   { path: "cache_file.cache_id", label: "cacheID", when: cacheOn },
   { path: "cache_file.store_fakeip", label: "storeFakeIP", kind: "boolean", when: cacheOn },
-  { path: "cache_file.store_rdrc", label: "storeRDRC", kind: "boolean", when: cacheOn },
-  { path: "cache_file.rdrc_timeout", label: "rdrcTimeout", when: rdrcOn },
 ] as const satisfies readonly PolicyFieldSpec[]
 
 export const experimentalClashFields = [

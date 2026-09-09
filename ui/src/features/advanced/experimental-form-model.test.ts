@@ -48,7 +48,7 @@ describe("experimental form model", () => {
     expect(getPolicyPath(prepared, "cache_file.enabled")).toBe(false)
     expect(getPolicyPath(prepared, "cache_file.path")).toBeUndefined()
     expect(getPolicyPath(prepared, "cache_file.store_fakeip")).toBeUndefined()
-    expect(getPolicyPath(prepared, "cache_file.rdrc_timeout")).toBeUndefined()
+    expect(getPolicyPath(prepared, "cache_file.rdrc_timeout")).toBe("7d")
     expect(getPolicyPath(prepared, "v2ray_api.stats.enabled")).toBe(false)
     expect(getPolicyPath(prepared, "v2ray_api.stats.inbounds")).toBeUndefined()
     expect(getPolicyPath(prepared, "v2ray_api.listen")).toBe("127.0.0.1:8080")

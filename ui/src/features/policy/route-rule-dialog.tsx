@@ -1,3 +1,4 @@
+import { policyOutboundTags } from "@/features/policy/policy-form-model"
 import { useMemo, useRef, useState, type RefObject } from "react"
 import { useTranslation } from "react-i18next"
 
@@ -66,8 +67,8 @@ function MetadataFields({ metadata, onChange }: { metadata: RouteRuleMetadata; o
 const paths = (values: readonly string[]) => routeMatchFields.filter((field) => values.includes(field.path))
 const basicFields = paths(["type", "inbound", "ip_version", "network", "auth_user", "protocol", "client", "invert"])
 const domainFields = paths(["domain", "domain_suffix", "domain_keyword", "domain_regex", "source_ip_cidr", "source_ip_is_private", "ip_cidr", "ip_is_private"])
-const processFields = paths(["source_port", "source_port_range", "port", "port_range", "process_name", "process_path", "process_path_regex", "package_name", "user", "user_id"])
-const environmentFields = paths(["rule_set", "rule_set_ip_cidr_match_source", "clash_mode", "network_type", "network_is_expensive", "network_is_constrained", "interface_address", "network_interface_address", "default_interface_address", "wifi_ssid", "wifi_bssid", "preferred_by"])
+const processFields = paths(["source_port", "source_port_range", "port", "port_range", "process_name", "process_path", "process_path_regex", "package_name", "package_name_regex", "user", "user_id"])
+const environmentFields = paths(["rule_set", "rule_set_ip_cidr_match_source", "clash_mode", "network_type", "network_is_expensive", "network_is_constrained", "interface_address", "network_interface_address", "default_interface_address", "wifi_ssid", "wifi_bssid", "preferred_by", "source_mac_address", "source_hostname"])
 const logicalBaseFields = [
   { path: "mode", label: "logicalMode", kind: "select", options: ["and", "or"], required: true },
   routeMatchFields.at(-1)!,
@@ -156,7 +157,7 @@ function RuleTabs(props: RuleTabsProps) {
   const logical = object.type === "logical"
   const context = {
     inboundTags: policyConfigTags(config.data?.inbounds),
-    outboundTags: policyConfigTags(config.data?.outbounds),
+    outboundTags: policyOutboundTags(config.data),
     dnsServerTags: policyDNSServerTags(config.data?.dns),
     ruleSetTags: policyRuleSetTags(config.data?.route),
   }
@@ -164,7 +165,7 @@ function RuleTabs(props: RuleTabsProps) {
     <TabsList activateOnFocus className="h-auto max-w-full justify-start overflow-x-auto overflow-y-hidden" variant="line">
       <TabsTrigger value="basic">{t("policy.route.basicTab")}</TabsTrigger><TabsTrigger value="domain">{t("policy.route.domainTab")}</TabsTrigger>
       <TabsTrigger value="process">{t("policy.route.processTab")}</TabsTrigger><TabsTrigger value="environment">{t("policy.route.environmentTab")}</TabsTrigger>
-      <TabsTrigger value="action">{t("policy.route.actionTab")}</TabsTrigger><TabsTrigger value="advanced">{t("policy.route.advancedJSON")}</TabsTrigger>
+      {!nested ? <TabsTrigger value="action">{t("policy.route.actionTab")}</TabsTrigger> : null}<TabsTrigger value="advanced">{t("policy.route.advancedJSON")}</TabsTrigger>
     </TabsList>
     <TabsContent value="basic" className="pt-4" keepMounted>
       <div className="flex flex-col gap-4"><RuleTypeSelect object={object} onChange={onChange} />
@@ -190,7 +191,7 @@ function RuleTabs(props: RuleTabsProps) {
       </div>
     </TabsContent>
     <TabsContent value="environment" className="pt-4" keepMounted><StructuredFields object={object} fields={logical ? [] : environmentFields} revision={revision} onChange={onChange} onValidity={onValidity} transform={transform} context={context} /></TabsContent>
-    <TabsContent value="action" className="pt-4" keepMounted><ActionFields object={object} revision={revision} onChange={onChange} onValidity={onValidity} transform={transform} context={context} /></TabsContent>
+    {!nested ? <TabsContent value="action" className="pt-4" keepMounted><ActionFields object={object} revision={revision} onChange={onChange} onValidity={onValidity} transform={transform} context={context} /></TabsContent> : null}
     <TabsContent value="advanced" className="pt-4" keepMounted><AdvancedJSONField value={value} title={title}
       revision={editorRevision} onChange={onJSONChange} editorRef={editorRef} /></TabsContent>
   </Tabs>
@@ -203,7 +204,7 @@ export function RouteRuleDialog({ open, item, index = -1, metadata = emptyMetada
   const [activeTab, setActiveTab] = useState("basic")
   const editorRef = useRef<JsonEditorHandle>(null)
   const revealPath = usePolicyDialogPathReveal(editorRef, setActiveTab, jumpPath, onJumpPathHandled)
-  const requiredValid = isRouteRuleComplete(state.object)
+  const requiredValid = isRouteRuleComplete(state.object, nested ? 1 : 0)
   const canSave = state.jsonValid && requiredValid && state.invalidFields.size === 0
   const { validating, validate, ready } = usePolicyItemValidate({
     section: "route", kind: "rules", index, object: canSave ? state.object : null,
@@ -223,7 +224,7 @@ export function RouteRuleDialog({ open, item, index = -1, metadata = emptyMetada
           editorRevision={state.editorRevision} onChange={state.update} onJSONChange={state.updateJSON}
           onValidity={state.updateValidity} transform={state.transform} activeTab={activeTab} onTabChange={setActiveTab} editorRef={editorRef} nested={nested} />
       </div></div>
-      <PolicyDialogFooter canSave={canSave} canValidate={canSave && ready} validating={validating}
+      <PolicyDialogFooter canSave={canSave} canValidate={canSave && ready && !nested} validating={validating}
         onClose={() => onOpenChange(false)} onSave={() => { if (state.jsonValid) onSave(state.object, details) }}
         onValidate={() => { void validate() }} />
     </DialogContent>

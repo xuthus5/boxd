@@ -24,11 +24,11 @@ function objects(value: JsonValue | undefined) {
 }
 
 export function hasProxyOutbound(config: SingBoxConfig | undefined) {
-  return objects(config?.outbounds).some((item) => {
+  return [...objects(config?.outbounds), ...objects(config?.endpoints)].some((item) => {
     const type = String(item.type ?? "")
     const tag = String(item.tag ?? "")
     if (!tag || !type) return false
-    return !["direct", "block", "dns", "blackhole", "selector", "urltest"].includes(type)
+    return !["direct", "block", "dns", "blackhole", "selector", "urltest", "bridge", "openvpn-server"].includes(type)
   })
 }
 
@@ -60,7 +60,7 @@ function baseModulesReady(setup: SetupStatus | undefined, config: SingBoxConfig 
     return ["outbounds", "dns", "route"].every((id) => setup.modules.some((module) => module.id === id && module.state === "ready"))
   }
   const dns = isObject(config?.dns) ? config.dns : undefined
-  return objects(config?.outbounds).length > 0 && objects(dns?.servers).length > 0 && hasRouteRules(config)
+  return (objects(config?.outbounds).length > 0 || hasProxyOutbound(config)) && objects(dns?.servers).length > 0 && hasRouteRules(config)
 }
 
 function accessConfigured(setup: SetupStatus | undefined, config: SingBoxConfig | undefined) {

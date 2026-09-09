@@ -32,7 +32,7 @@ func singBoxOutboundDialError(t *testing.T, body, tag string) error {
 	if err := options.UnmarshalJSONContext(ctx, []byte(body)); err != nil {
 		t.Fatal(err)
 	}
-	instance, err := box.New(box.Options{Context: ctx, Options: options})
+	instance, err := newRealBox(box.Options{Context: ctx, Options: options})
 	if err != nil {
 		t.Fatal(err)
 	}

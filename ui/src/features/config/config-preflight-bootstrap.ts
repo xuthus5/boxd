@@ -205,7 +205,6 @@ function addDNSDependencies(context: BootstrapContext) {
   for (const entry of context.dnsEntries.values()) {
     const source = dnsNode(entry.tag)
     addDNSReference(context, source, resolverTag(entry.value.domain_resolver))
-    addDNSReference(context, source, resolverTag(entry.value.address_resolver))
     if (isDomainName(entry.value.server)) {
       addDomainReference(context, source, entry.value.detour)
     } else {

@@ -15,8 +15,8 @@ import {
 } from "@/features/advanced/services-form-model"
 
 describe("services form model", () => {
-  it("supports every sing-box 1.13 service type", () => {
-    expect(serviceTypes).toEqual(["ccm", "derp", "ocm", "resolved", "ssm-api"])
+  it("supports every sing-box 1.14 service type", () => {
+    expect(serviceTypes).toEqual(["ccm", "derp", "ocm", "resolved", "ssm-api", "api", "usbip-server", "usbip-client", "hysteria-realm"])
     for (const type of serviceTypes) {
       expect(inferServiceType({ type })).toBe(type)
     }
@@ -73,7 +73,7 @@ describe("services form model", () => {
     })
   })
 
-  it("removes hidden type fields but preserves unknown extensions", () => {
+  it("preserves incompatible original fields and unknown extensions for diagnosis", () => {
     const prepared = prepareServiceObject({
       type: "resolved",
       listen: "127.0.0.53",
@@ -83,7 +83,7 @@ describe("services form model", () => {
       tls: { enabled: true },
     })
     expect(prepared).toEqual({
-      type: "resolved",
+      type: "resolved", config_path: "stale.derp", tls: { enabled: true },
       listen: "127.0.0.53",
       listen_port: 53,
       future_option: { enabled: true },

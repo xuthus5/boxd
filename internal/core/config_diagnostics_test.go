@@ -64,8 +64,8 @@ func TestAnalyzeConfigReportsSingBoxMigrationWarnings(t *testing.T) {
   }
 }`))
 
-	// 锁定 sing-box 1.13：legacy fakeip 仍可运行，诊断保持 warning 级别。
-	if report.Status != model.ConfigDiagnosticsWarning {
+	// sing-box 1.14 已移除旧 DNS server / fakeip 格式。
+	if report.Status != model.ConfigDiagnosticsError {
 		t.Fatalf("status = %q, report = %+v", report.Status, report)
 	}
 	if !hasDiagnostic(report.Issues, "legacy_dns_server", "local") {

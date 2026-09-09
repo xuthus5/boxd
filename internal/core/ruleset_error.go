@@ -12,19 +12,22 @@ import (
 
 // 规则集更新稳定错误码，供前端提示与诊断复制。
 const (
-	RuleSetErrorNotUpdatable = "not_updatable"
-	RuleSetErrorUnsupported  = "unsupported"
-	RuleSetErrorInvalidURL   = "invalid_url"
-	RuleSetErrorBlockedURL   = "blocked_url"
-	RuleSetErrorNetwork      = "network"
-	RuleSetErrorTimeout      = "timeout"
-	RuleSetErrorHTTP         = "http_status"
-	RuleSetErrorEmpty        = "empty_content"
-	RuleSetErrorTooLarge     = "content_too_large"
-	RuleSetErrorPermission   = "permission"
-	RuleSetErrorCache        = "cache"
-	RuleSetErrorUnknown      = "unknown"
+	RuleSetErrorNotUpdatable  = "not_updatable"
+	RuleSetErrorUnsupported   = "unsupported"
+	RuleSetErrorKernelManaged = "kernel_managed"
+	RuleSetErrorInvalidURL    = "invalid_url"
+	RuleSetErrorBlockedURL    = "blocked_url"
+	RuleSetErrorNetwork       = "network"
+	RuleSetErrorTimeout       = "timeout"
+	RuleSetErrorHTTP          = "http_status"
+	RuleSetErrorEmpty         = "empty_content"
+	RuleSetErrorTooLarge      = "content_too_large"
+	RuleSetErrorPermission    = "permission"
+	RuleSetErrorCache         = "cache"
+	RuleSetErrorUnknown       = "unknown"
 )
+
+var ErrRuleSetKernelManaged = errors.New("rule-set HTTP client is managed by the kernel; manual updates are unavailable")
 
 // ClassifyRuleSetUpdateError 将规则集更新失败映射为稳定错误码。
 func ClassifyRuleSetUpdateError(msg string, err error) string {
@@ -37,6 +40,9 @@ func ClassifyRuleSetUpdateError(msg string, err error) string {
 func classifyRuleSetErrorValue(err error) string {
 	if err == nil {
 		return ""
+	}
+	if errors.Is(err, ErrRuleSetKernelManaged) {
+		return RuleSetErrorKernelManaged
 	}
 	if errors.Is(err, ErrRuleSetNotUpdatable) {
 		return RuleSetErrorNotUpdatable

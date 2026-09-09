@@ -54,8 +54,6 @@ function fakeIPEntry(entry: DNSPreflightEntry): FakeIPEntry | undefined {
   const path = entryPath(entry)
   const type = stringValue(entry.value.type)
   if (type === "fakeip") return { entry, path: `${path}.type` }
-  const legacy = !type || type === "legacy"
-  if (legacy && stringValue(entry.value.address) === "fakeip") return { entry, path: `${path}.address` }
   return undefined
 }
 
@@ -96,7 +94,6 @@ function dependencyEdges(
   const path = entryPath(entry)
   const candidates = [
     resolverEdge(entry.value.domain_resolver, `${path}.domain_resolver`),
-    resolverEdge(entry.value.address_resolver, `${path}.address_resolver`),
   ]
   return candidates.filter((edge): edge is DNSDependencyEdge => Boolean(edge && entries.has(edge.target)))
 }

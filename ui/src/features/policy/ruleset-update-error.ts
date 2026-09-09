@@ -2,6 +2,7 @@ import type { RuleSetUpdateResult, RuleSetUpdateResponse } from "@/lib/api/types
 
 export type RuleSetUpdateErrorCode =
   | "not_updatable"
+  | "kernel_managed"
   | "unsupported"
   | "invalid_url"
   | "blocked_url"
@@ -15,6 +16,7 @@ export type RuleSetUpdateErrorCode =
   | "unknown"
 
 const HINT_KEYS: Record<string, string> = {
+  kernel_managed: "kernel114.ruleSetKernelManaged",
   not_updatable: "policy.route.errorHintNotUpdatable",
   unsupported: "policy.route.errorHintUnsupported",
   invalid_url: "policy.route.errorHintInvalidURL",
@@ -37,6 +39,7 @@ export function ruleSetErrorHintKey(code?: string): string {
 export function classifyRuleSetErrorMessage(message?: string): RuleSetUpdateErrorCode {
   const lower = (message ?? "").toLowerCase()
   if (!lower) return "unknown"
+  if (lower.includes("kernel managed") || lower.includes("kernel-managed")) return "kernel_managed"
   if (lower.includes("not updatable")) return "not_updatable"
   if (lower.includes("not auto-updated") || lower.includes("not supported")) return "unsupported"
   if (lower.includes("url is empty") || lower.includes("invalid url") || lower.includes("unsupported protocol")) {
@@ -98,7 +101,7 @@ export function summarizeRuleSetUpdate(response?: Partial<RuleSetUpdateResponse>
   for (const item of results) {
     if (item.ok) continue
     const code = resolveRuleSetErrorCode(item)
-    if (code === "not_updatable" || code === "unsupported") continue
+    if (code === "not_updatable" || code === "unsupported" || code === "kernel_managed") continue
     if (failedSamples.length >= FAILED_SAMPLE_LIMIT) continue
     failedSamples.push({
       tag: item.tag?.trim() || "—",

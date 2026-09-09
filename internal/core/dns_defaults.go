@@ -33,11 +33,10 @@ func (i *DefaultDNSInstaller) Install(cfg map[string]any) (*DNSDefaultsResult, e
 	}
 	ruleSets := existingRuleSetTags(cfg)
 	dns := map[string]any{
-		"servers":           defaultDNSServers(proxy),
-		"strategy":          "prefer_ipv4",
-		"rules":             defaultDNSRules(ruleSets),
-		"final":             "dns-remote",
-		"independent_cache": true,
+		"servers":  defaultDNSServers(proxy),
+		"strategy": "prefer_ipv4",
+		"rules":    defaultDNSRules(ruleSets),
+		"final":    "dns-remote",
 	}
 
 	return &DNSDefaultsResult{
@@ -71,7 +70,7 @@ func dnsProxyIsSafe(outbounds map[string]map[string]any, tag string, visiting ma
 	visiting[tag] = true
 	defer delete(visiting, tag)
 	switch stringValue(outbound["type"]) {
-	case "", "direct", "dns":
+	case "", "direct", "bridge", "dns", "openvpn-server":
 		return false
 	case "selector", "urltest":
 		members := asStringSlice(outbound["outbounds"])
@@ -90,8 +89,7 @@ func dnsProxyIsSafe(outbounds map[string]map[string]any, tag string, visiting ma
 // existingOutbounds 返回按 tag 索引的既有出站配置。
 func existingOutbounds(cfg map[string]any) map[string]map[string]any {
 	result := make(map[string]map[string]any)
-	outbounds, _ := cfg["outbounds"].([]any)
-	for _, item := range outbounds {
+	for _, item := range configuredEgresses(cfg) {
 		if m, ok := item.(map[string]any); ok {
 			if tag, _ := m["tag"].(string); tag != "" {
 				result[tag] = m

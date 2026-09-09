@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { CircleHelpIcon } from "lucide-react"
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react"
+import { JsonValueField } from "@/features/config/json-value-field"
 import { useTranslation } from "react-i18next"
 
 import { Checkbox } from "@/components/ui/checkbox"
@@ -55,7 +56,8 @@ function useFieldValidity(path: string, valid: boolean, onChange?: ValidityCallb
 
 function FieldHelp({ namespace, labelKey }: { namespace: string; labelKey: string }) {
   const { t, i18n } = useTranslation()
-  const helpKey = `${namespace}.${labelKey}Help`
+  const localHelpKey = `${namespace}.${labelKey}Help`
+  const helpKey = i18n.exists(localHelpKey) ? localHelpKey : `kernel114.fields.${labelKey}Help`
   if (!i18n.exists(helpKey)) return null
   return <Tooltip>
     <TooltipTrigger
@@ -158,12 +160,11 @@ function RefSelectField({ field, label, namespace, value, context, onChange, onF
   </Field>
 }
 
-function NetworkMultiField({ label, namespace, labelKey, value, onChange }: {
-  label: string; namespace: string; labelKey: string; value: string[]
+function NetworkMultiField({ label, namespace, labelKey, value, onChange, options = ["tcp", "udp"] }: {
+  label: string; namespace: string; labelKey: string; value: string[]; options?: readonly string[]
   onChange: (value: string[] | undefined) => void
 }) {
   const id = useId()
-  const options = ["tcp", "udp"]
   const toggle = (option: string, checked: boolean) => {
     const next = checked ? [...new Set([...value, option])] : value.filter((item) => item !== option)
     onChange(next.length ? next : undefined)
@@ -362,7 +363,7 @@ function PolicyField(props: Omit<PolicyFormFieldsProps, "fields" | "leading"> & 
   const { field, object, namespace, revision, context, onChange, onFieldValidityChange, transformField } = props
   const { t } = useTranslation()
   const value = getPolicyPath(object, field.path)
-  const label = t(`${namespace}.${field.label}`)
+  const label = t([`${namespace}.${field.label}`, `kernel114.fields.${field.label}`, `${namespace}.${field.label}`])
   const update = (raw: string) => {
     const transformed = transformField?.(object, field, raw)
     const next = transformed === undefined ? defaultPolicyFieldUpdate(object, field, raw) : transformed
@@ -402,13 +403,14 @@ function PolicyField(props: Omit<PolicyFormFieldsProps, "fields" | "leading"> & 
       onChange={(next) => onChange(setPolicyPath(object, field.path, next))} />
   }
   if (field.kind === "network-multi") {
-    return <NetworkMultiField label={label} namespace={namespace} labelKey={field.label} value={listValue(value)}
+    return <NetworkMultiField label={label} namespace={namespace} labelKey={field.label} value={listValue(value)} options={field.options}
       onChange={(next) => onChange(setPolicyPath(object, field.path, next))} />
   }
   if (field.kind === "network-interface") {
     return <NetworkInterfaceField label={label} namespace={namespace} labelKey={field.label} revision={revision}
       value={textValue(value)} onChange={update} />
   }
+  if (field.kind === "json-value") return <JsonValueField path={field.path} label={label} value={value} revision={revision} onChange={(next) => onChange(setPolicyPath(object, field.path, next))} onValidity={onFieldValidityChange} />
   if (field.kind === "json-object" || field.kind === "json-array") {
     return <StructuredField field={field} label={label} namespace={namespace} revision={revision}
       value={value} array={field.kind === "json-array"}
