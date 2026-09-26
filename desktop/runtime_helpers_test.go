@@ -14,7 +14,8 @@ const desktopTestConfigJSON = `{
     {"type": "block", "tag": "block"},
     {"type": "selector", "tag": "proxy", "outbounds": ["block"]}
   ],
-  "route": {"final": "proxy"}
+  "route": {"final": "proxy"},
+  "experimental": {"clash_api": {}}
 }`
 
 // 普通接口测试复用已安装状态，完整离线初始化由 TestInitRuntimeEmbedded 覆盖。

@@ -7,7 +7,6 @@ import (
 
 	tun "github.com/sagernet/sing-tun"
 	"github.com/sagernet/sing/common/control"
-	"github.com/sagernet/sing/common/x/list"
 )
 
 var errNetworkCallbackLayout = errors.New("unsupported sing-box network monitor callback layout")
@@ -16,6 +15,7 @@ type networkStartupGate struct {
 	mu             sync.Mutex
 	callback       tun.DefaultInterfaceUpdateCallback
 	initialize     tun.DefaultInterfaceUpdateCallback
+	unregister     func()
 	started        bool
 	closed         bool
 	pending        bool
@@ -23,42 +23,21 @@ type networkStartupGate struct {
 	flags          int
 }
 
+// newNetworkStartupGate 在 Box.New 之后、内核 Start 之前挂载 boxd 的接口回调。
+// 1.14.2 起内核改为在 Start(Initialize) 阶段才注册自己的接口回调，监视器在 New
+// 之后为空，因此这里不再接管既有回调，而是自行注册一个，用于缓冲启动期通知并
+// 在 boxd 启动完成后重放。
 func newNetworkStartupGate(monitor tun.DefaultInterfaceMonitor) (*networkStartupGate, error) {
 	gate := &networkStartupGate{}
 	if monitor == nil {
 		return gate, nil
 	}
-	// 1.14 原生监视器把 NetworkManager 的通知注册为首个回调。
-	// 仅在 Box.New 完成而监视器尚未启动时修改公开令牌，保留移除令牌的语义。
 	if fmt.Sprintf("%T", monitor) != "*tun.defaultInterfaceMonitor" {
 		return nil, fmt.Errorf("%w: monitor %T", errNetworkCallbackLayout, monitor)
 	}
-	marker := monitor.RegisterCallback(nil)
-	if marker == nil {
-		return nil, fmt.Errorf("%w: missing callback token", errNetworkCallbackLayout)
-	}
-	err := gate.attach(marker)
-	monitor.UnregisterCallback(marker)
-	if err != nil {
-		return nil, err
-	}
+	element := monitor.RegisterCallback(gate.notify)
+	gate.unregister = func() { monitor.UnregisterCallback(element) }
 	return gate, nil
-}
-
-func (g *networkStartupGate) attach(marker *list.Element[tun.DefaultInterfaceUpdateCallback]) error {
-	first := marker.Prev()
-	if first == nil || marker.Next() != nil {
-		return fmt.Errorf("%w: missing initial network callback", errNetworkCallbackLayout)
-	}
-	for first.Prev() != nil {
-		first = first.Prev()
-	}
-	if first.Value == nil {
-		return fmt.Errorf("%w: empty initial network callback", errNetworkCallbackLayout)
-	}
-	g.callback = first.Value
-	first.Value = g.notify
-	return nil
 }
 
 func (g *networkStartupGate) notify(networkInterface *control.Interface, flags int) {
@@ -103,7 +82,13 @@ func (g *networkStartupGate) start() {
 func (g *networkStartupGate) close() {
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	if g.closed {
+		return
+	}
 	g.closed = true
 	g.pending = false
 	g.interfaceValue = nil
+	if g.unregister != nil {
+		g.unregister()
+	}
 }

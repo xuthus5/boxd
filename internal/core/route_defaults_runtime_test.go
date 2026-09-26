@@ -21,7 +21,7 @@ func TestRouteDefaultsRuntimeDomainAndIPPolicy(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			runtime := newPolicyRuntime(t, policyDefaultsFixture())
 			if test.mode != "" {
-				runtime.mode.mode = test.mode
+				runtime.mode.SetMode(test.mode)
 			}
 			_ = runtime.route(t, test.domain)
 			if runtime.trace.outbound != test.outbound {
@@ -57,7 +57,7 @@ func TestRouteDefaultsRuntimePrivateIPsBypassGlobal(t *testing.T) {
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			runtime := newPolicyRuntime(t, policyDefaultsFixture())
-			runtime.mode.mode = "Global"
+			runtime.mode.SetMode("Global")
 			_ = runtime.route(t, test.address)
 			if runtime.trace.outbound != "direct" {
 				t.Fatalf("Global private destination selected %q, want direct", runtime.trace.outbound)
@@ -76,7 +76,7 @@ func TestRouteDefaultsRuntimeRetainsLegacyBypassWithoutDirect(t *testing.T) {
 		map[string]any{"ip_is_private": true, "outbound": "bypass"},
 	}
 	runtime := newPolicyRuntime(t, cfg)
-	runtime.mode.mode = "Global"
+	runtime.mode.SetMode("Global")
 	_ = runtime.route(t, "10.1.2.3")
 	if runtime.trace.outbound != "bypass" {
 		t.Fatalf("existing LAN route selected %q, want bypass", runtime.trace.outbound)

@@ -14,6 +14,7 @@ import (
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/adapter/outbound"
 	sbdns "github.com/sagernet/sing-box/dns"
+	"github.com/sagernet/sing-box/experimental/clashmode"
 	"github.com/sagernet/sing-box/include"
 	"github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing-box/option"
@@ -29,17 +30,17 @@ type policyRuntime struct {
 	instance *box.Box
 	direct   *policyDNSTransport
 	remote   *policyDNSTransport
-	mode     *policyClashMode
+	mode     *clashmode.Manager
 	trace    *policyRouteTrace
 }
 
 func newPolicyRuntime(t *testing.T, cfg map[string]any) *policyRuntime {
 	t.Helper()
+	ctx := include.Context(t.Context())
 	runtime := &policyRuntime{
-		ctx:    include.Context(t.Context()),
+		ctx:    ctx,
 		direct: &policyDNSTransport{TransportAdapter: sbdns.NewTransportAdapter("policy-test", "dns-direct", nil)},
 		remote: &policyDNSTransport{TransportAdapter: sbdns.NewTransportAdapter("policy-test", "dns-remote", nil)},
-		mode:   &policyClashMode{mode: "Rule"},
 		trace:  &policyRouteTrace{},
 	}
 	runtime.registerTransports()
@@ -50,6 +51,10 @@ func newPolicyRuntime(t *testing.T, cfg map[string]any) *policyRuntime {
 	}
 	instance := native.box
 	runtime.instance = instance
+	// Clash 模式管理器在内核注册 DNSRouter 之后创建以绑定真实路由，
+	// 并在 Start 前注册，供 clash_mode 规则项解析。
+	runtime.mode = clashmode.NewManager(runtime.ctx, log.NewNOPFactory().Logger(), "Rule", []string{"Rule", "Global", "Direct"})
+	service.MustRegisterPtr(runtime.ctx, runtime.mode)
 	instance.Router().AppendTracker(runtime.trace)
 	t.Cleanup(func() {
 		if err := native.Close(); err != nil {
@@ -79,7 +84,6 @@ func (r *policyRuntime) registerTransports() {
 	) (adapter.Outbound, error) {
 		return block.New(ctx, router, logger, tag, option.StubOptions{})
 	})
-	service.MustRegister[adapter.ClashServer](r.ctx, r.mode)
 }
 
 func (r *policyRuntime) options(t *testing.T, cfg map[string]any) option.Options {
@@ -181,13 +185,6 @@ func (s *policyDNSTransport) ExchangeAsync(ctx context.Context, message *mdns.Ms
 	response, err := s.Exchange(ctx, message)
 	callback(response, err)
 }
-
-type policyClashMode struct {
-	adapter.ClashServer
-	mode string
-}
-
-func (s *policyClashMode) Mode() string { return s.mode }
 
 type policyRouteTrace struct {
 	adapter.ConnectionTracker

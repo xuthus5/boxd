@@ -19,7 +19,7 @@ func TestDNSDefaultsRuntimeQueryPolicy(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			runtime := newPolicyRuntime(t, policyDefaultsFixture())
 			if test.mode != "" {
-				runtime.mode.mode = test.mode
+				runtime.mode.SetMode(test.mode)
 			}
 			if _, err := runtime.query(test.domain); err != nil {
 				t.Fatal(err)
@@ -48,7 +48,7 @@ func TestDNSDefaultsRuntimeSeparateResolverCaches(t *testing.T) {
 	if _, err := runtime.query("direct.test"); err != nil {
 		t.Fatal(err)
 	}
-	runtime.mode.mode = "Global"
+	runtime.mode.SetMode("Global")
 	if _, err := runtime.query("direct.test"); err != nil {
 		t.Fatal(err)
 	}

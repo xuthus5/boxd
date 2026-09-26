@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	yaml "gopkg.in/yaml.v3"
+	"github.com/goccy/go-yaml"
 
 	"github.com/xuthus5/boxd/internal/model"
 )

@@ -31,7 +31,7 @@ Control plane for [sing-box](https://github.com/SagerNet/sing-box). Manage kerne
 | Frontend | React 19, TypeScript, Vite, shadcn/ui, Tailwind CSS |
 | Auth | JWT (HS256), Argon2id passwords |
 
-The embedded kernel targets **sing-box 1.14.0**. Editors support DNS response evaluation, VPN endpoints, Snell, bridge, and shared network namespaces / certificate providers / HTTP clients. Removed formats are reported in configuration diagnostics. See [upgrade notes](docs/boxd/sing-box-1.14.md).
+The embedded kernel targets **sing-box 1.14.2**. Editors support DNS response evaluation, VPN endpoints, Snell, bridge, and shared network namespaces / certificate providers / HTTP clients. Removed formats are reported in configuration diagnostics. See [upgrade notes](docs/boxd/sing-box-1.14.md).
 
 ## Quick start
 

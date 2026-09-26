@@ -9,6 +9,7 @@ import (
 
 	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/common/urltest"
+	"github.com/sagernet/sing-box/experimental/clashmode"
 	"github.com/sagernet/sing/service"
 )
 
@@ -136,28 +137,12 @@ type clashModeControl interface {
 
 // clashModeFromContext 从内核上下文解析 Clash 模式控制器；测试可替换。
 var clashModeFromContext = func(ctx context.Context) clashModeControl {
-	server := service.FromContext[adapter.ClashServer](ctx)
-	if server == nil {
+	manager := service.PtrFromContext[clashmode.Manager](ctx)
+	if manager == nil {
 		return nil
 	}
-	setter, ok := server.(interface{ SetMode(mode string) })
-	if !ok {
-		return nil
-	}
-	return clashModeBridge{mode: server.Mode, list: server.ModeList, set: setter.SetMode}
+	return manager
 }
-
-type clashModeBridge struct {
-	mode func() string
-	list func() []string
-	set  func(string)
-}
-
-func (b clashModeBridge) Mode() string { return b.mode() }
-
-func (b clashModeBridge) ModeList() []string { return b.list() }
-
-func (b clashModeBridge) SetMode(mode string) { b.set(mode) }
 
 // ClashMode 返回当前 Clash 模式。内核未运行返回 ErrNotRunning；
 // 未启用 clash_api 返回 ErrFeatureNotEnabled。

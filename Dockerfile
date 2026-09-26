@@ -10,7 +10,7 @@ RUN npm run build
 FROM golang:1.26.6-alpine AS go-builder
 WORKDIR /app
 ARG VERSION=dev
-ARG KERNEL_VERSION=1.14.0
+ARG KERNEL_VERSION=1.14.2
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .

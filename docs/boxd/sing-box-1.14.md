@@ -1,6 +1,6 @@
 # sing-box 1.14 配置能力升级
 
-目标版本固定为 **1.14.0**，以该标签的 `option/`、注册表、运行代码和迁移说明为准。编辑器与默认配置面向新格式；旧配置中的错误保留在诊断中说明，不通过兼容转换掩盖。
+目标版本固定为 **1.14.2**，以该标签的 `option/`、注册表、运行代码和迁移说明为准。编辑器与默认配置面向新格式；旧配置中的错误保留在诊断中说明，不通过兼容转换掩盖。
 
 ## 验收范围
 
@@ -21,16 +21,16 @@
 
 - 1.14 的旧 DNS server / `dns.fakeip` 格式已移除。`independent_cache`、`store_rdrc`、内联 `tls.acme` 等仍被内核接受但已弃用，默认值与编辑器不再生成它们。
 - 新 DNS `query_type` / `ip_version` 与旧地址过滤、旧 DNS action `strategy` 混用会导致启动错误，不能仅做普通弃用提醒。
-- `block` 文档的移除说明与 1.14.0 实际注册表不一致；原生阻止出站仍被注册且可运行。默认无节点占位保留原生阻止能力，路由阻止动作使用 `reject`。
+- `block` 文档的移除说明与 1.14.2 实际注册表不一致；原生阻止出站仍被注册且可运行。默认无节点占位保留原生阻止能力，路由阻止动作使用 `reject`。
 - 既有 `proxy`、自定义 DNS、节点、监听地址和内核自启选择继续保留；有效的用户配置不因升级被整份覆盖。
 - 网络命名空间 helper 只服务内核生命周期；不会把宿主路由或其他服务纳入测试。
 - 正式单文件静态构建启用 OpenVPN、OpenConnect、cloudflared、USB/IP、Tailscale 等功能；Naive 出站另需平台原生库，不包含在该构建中。配置诊断按实际编译能力报告缺失功能，避免将可解析误称为可运行。
 
 ## 验证依据
 
-- [1.14.0 发布说明](https://github.com/SagerNet/sing-box/releases/tag/v1.14.0)
-- [固定版本配置类型](https://github.com/SagerNet/sing-box/tree/v1.14.0/option)
-- [固定版本迁移说明](https://github.com/SagerNet/sing-box/blob/v1.14.0/docs/migration.md)
+- [1.14.2 发布说明](https://github.com/SagerNet/sing-box/releases/tag/v1.14.2)
+- [固定版本配置类型](https://github.com/SagerNet/sing-box/tree/v1.14.2/option)
+- [固定版本迁移说明](https://github.com/SagerNet/sing-box/blob/v1.14.2/docs/migration.md)
 - Go 全仓测试、race、lint 和安全扫描通过，整体覆盖率 92.48%；桌面模块覆盖率 68.59%，满足其 60% 门禁。
 - 前端 1,448 项测试通过，行覆盖率 96.27%、函数 92.78%、分支 90.77%；TypeScript、ESLint 与生产构建通过。
 - 真实浏览器的配置保存/重载与诊断深链共 12 项通过，375px 视口无横向溢出。

@@ -8,7 +8,7 @@ set -euo pipefail
 
 root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 version="${1:-$(git -C "$root_dir" describe --tags --always --dirty 2>/dev/null || echo dev)}"
-kernel_version="${KERNEL_VERSION:-1.14.0}"
+kernel_version="${KERNEL_VERSION:-1.14.2}"
 target_os="${2:-$(go env GOOS)}"
 target_arch="${3:-$(go env GOARCH)}"
 export PATH="$PATH:/usr/local/go/bin:$HOME/go/bin"

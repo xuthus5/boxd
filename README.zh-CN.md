@@ -30,7 +30,7 @@ sing-box 控制平面（control plane）。提供 Web 面板管理内核配置�
 | 前端 | React 19、TypeScript、Vite、shadcn/ui、Tailwind CSS |
 | 认证 | JWT（HS256），密码 Argon2id |
 
-内嵌内核面向 **sing-box 1.14.0**。编辑器支持 DNS 响应评估、VPN 端点、Snell、bridge，以及共享网络命名空间、证书提供者和 HTTP 客户端；已移除格式会在配置诊断中说明。详见[升级说明](docs/boxd/sing-box-1.14.md)。
+内嵌内核面向 **sing-box 1.14.2**。编辑器支持 DNS 响应评估、VPN 端点、Snell、bridge，以及共享网络命名空间、证书提供者和 HTTP 客户端；已移除格式会在配置诊断中说明。详见[升级说明](docs/boxd/sing-box-1.14.md)。
 
 ## 快速开始
 
