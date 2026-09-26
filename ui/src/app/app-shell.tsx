@@ -35,7 +35,7 @@ function navigationContext(pathname: string) {
     if (item) return { group: group.label, item: item.label }
   }
   const footer = footerItems.find((item) => item.to === pathname)
-  return footer ? { group: "nav.settings", item: footer.label } : { group: "", item: "" }
+  return footer ? { group: "", item: footer.label } : { group: "", item: "" }
 }
 
 function NavItems({ items }: { items: NavigationItem[] }) {

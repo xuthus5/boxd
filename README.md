@@ -20,6 +20,7 @@ Control plane for [sing-box](https://github.com/SagerNet/sing-box). Manage kerne
 - **Auth**: densified login failures with error codes/hints and copyable diagnostics
 - **Page load diagnostics**: shared densified query-load failures (code/hint/copy/retry) across dashboard, proxy, policy, nodes/subs, settings, and advanced pages
 - **Settings**: theme, language, and log level persisted in DB; password/JWT rotation, dirty-state save gates, probe URLs, global URLTest defaults, redacted support-bundle export, and panel backup export
+- **Terminal helper**: copy http_proxy/https_proxy export commands for Bash/Zsh, Fish, PowerShell, and CMD, using the address from the detected mixed/HTTP/SOCKS inbound
 
 ## Stack
 
@@ -78,6 +79,7 @@ go run -tags with_clash_api ./cmd/boxd/
 4. **Route / DNS / Certificates / Services / Kernel logging / NTP / Experimental**: customize the installed policy and optional trust stores, services, logging, and time sync. Unused optional modules are omitted from the default config.
 5. **Dashboard**: complete the four-step setup, preview and apply modules together, then validate/start the kernel when needed. Saving or importing preserves a stopped kernel; an active kernel reloads the new configuration.
 6. **Settings**: theme, language, minimum log level (stored in the database), system probe URLs, kernel autostart, redacted support-bundle export, and backup export.
+7. **Terminal helper**: copy the http_proxy/https_proxy export command for your shell; the proxy address comes from the mixed, HTTP, or SOCKS inbound.
 
 ### Built-in routing helpers
 

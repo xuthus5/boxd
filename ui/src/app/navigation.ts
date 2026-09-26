@@ -17,6 +17,7 @@ import {
   SettingsIcon,
   Share2Icon,
   ShieldCheckIcon,
+  TerminalIcon,
 } from "lucide-react"
 import type { ComponentType } from "react"
 
@@ -68,5 +69,6 @@ export const navigationGroups: NavigationGroup[] = [
 ]
 
 export const footerItems: NavigationItem[] = [
+  { label: "nav.terminal", to: "/terminal", icon: TerminalIcon },
   { label: "nav.settings", to: "/settings", icon: SettingsIcon },
 ]

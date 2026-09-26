@@ -25,6 +25,7 @@ const ExperimentalPage = lazy(() => import("@/features/advanced/experimental-pag
 const ConfigHistoryPage = lazy(() => import("@/features/advanced/config-history-page").then((module) => ({ default: module.ConfigHistoryPage })))
 const RawConfigPage = lazy(() => import("@/features/advanced/raw-config-page").then((module) => ({ default: module.RawConfigPage })))
 const SettingsPage = lazy(() => import("@/features/settings/settings-page").then((module) => ({ default: module.SettingsPage })))
+const TerminalPage = lazy(() => import("@/features/terminal/terminal-page").then((module) => ({ default: module.TerminalPage })))
 
 function RouteLoading() {
   return <main className="flex flex-1 flex-col gap-4 p-4" role="status" aria-live="polite" aria-label="Loading page"><Skeleton className="h-8 w-48" /><Skeleton className="h-64 w-full" /></main>
@@ -56,6 +57,7 @@ export function AppRoutes() {
           <Route path="/advanced/experimental" element={<ExperimentalPage />} />
           <Route path="/advanced/history" element={<ConfigHistoryPage />} />
           <Route path="/advanced/raw" element={<RawConfigPage />} />
+          <Route path="/terminal" element={<TerminalPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
       </Route>
