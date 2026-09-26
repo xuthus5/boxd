@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { I18nextProvider } from "react-i18next"
 import { toast } from "sonner"
 
-import { RuntimeSettingsCard } from "@/features/settings/settings-page"
+import { GeneralSettingsCard } from "@/features/settings/settings-page"
 import { i18n } from "@/i18n"
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
@@ -13,13 +13,22 @@ vi.mock("@/lib/api/desktop", () => ({ isDesktop: vi.fn(), desktopRequest: vi.fn(
 
 import { desktopRequest, isDesktop } from "@/lib/api/desktop"
 
+const preferences = {
+  theme: "system" as const,
+  language: "zh" as const,
+  minimumLogLevel: "all" as const,
+  setTheme: vi.fn(),
+  setLanguage: vi.fn(),
+  setMinimumLogLevel: vi.fn(),
+}
+
 function renderCard(appAutostart = false, desktop = true) {
   vi.mocked(isDesktop).mockReturnValue(desktop)
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
   const result = render(
     <I18nextProvider i18n={i18n}>
       <QueryClientProvider client={client}>
-        <RuntimeSettingsCard url="https://www.gstatic.com/generate_204" enabled={false} appAutostart={appAutostart} />
+        <GeneralSettingsCard url="https://www.gstatic.com/generate_204" enabled={false} appAutostart={appAutostart} preferences={preferences} />
       </QueryClientProvider>
     </I18nextProvider>,
   )
@@ -31,7 +40,7 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-describe("RuntimeSettingsCard app autostart", () => {
+describe("GeneralSettingsCard app autostart", () => {
   it("hides the app autostart switch in web mode", () => {
     renderCard(false, false)
     expect(screen.queryByText("开机自启动")).not.toBeInTheDocument()

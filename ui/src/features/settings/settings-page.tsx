@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldTitle } from "@/components/ui/field"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { usePreferences } from "@/features/preferences/preferences-provider"
@@ -25,17 +26,73 @@ import { isDesktop } from "@/lib/api/desktop"
 import type { Language, LogThreshold, Theme } from "@/lib/storage"
 import { PageLoadErrorAlert } from "@/features/common/page-load-error-alert"
 
-function AppearanceCard() {
-  const preferences = usePreferences()
+export function GeneralSettingsCard({
+  url,
+  enabled,
+  appAutostart,
+  preferences,
+}: {
+  url: string
+  enabled: boolean
+  appAutostart: boolean
+  preferences: ReturnType<typeof usePreferences>
+}) {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const [savedURL, setSavedURL] = useState(url)
+  const [testURL, setTestURL] = useState(() => resolveInitialSpeedTestURL(url))
+  const [autostart, setAutostart] = useState(enabled)
+  const [desktopAutostart, setDesktopAutostart] = useState(appAutostart)
+  const urlReady = isTestURLReady(testURL, savedURL)
+  const urlInvalid = Boolean(testURL.trim()) && !isHTTPURL(testURL.trim())
+  const saveURL = useMutation({
+    mutationFn: () => api.settings.setTestURL(testURL.trim()),
+    onSuccess: () => {
+      setSavedURL(testURL.trim())
+      toast.success(t("settings.testURLSaved"))
+    },
+    onError: (error: Error) => reportSettingsRequestError(error, t, {
+      scope: "test-url",
+      fallback: t("settings.testURLFailed"),
+    }),
+  })
+  const saveAutostart = (checked: boolean) => {
+    const previous = autostart
+    setAutostart(checked)
+    api.settings.setAutostart(checked).then(() => {
+      void queryClient.invalidateQueries({ queryKey: ["settings", "autostart"] })
+      toast.success(t("settings.autostartSaved"))
+    }).catch((error: Error) => {
+      setAutostart(previous)
+      reportSettingsRequestError(error, t, {
+        scope: "autostart",
+        fallback: t("settings.autostartFailed"),
+      })
+    })
+  }
+  const saveDesktopAutostart = (checked: boolean) => {
+    const previous = desktopAutostart
+    setDesktopAutostart(checked)
+    api.desktop.setAutostart(checked).then(() => {
+      void queryClient.invalidateQueries({ queryKey: ["desktop", "autostart"] })
+      toast.success(t("settings.appAutostartSaved"))
+    }).catch((error: Error) => {
+      setDesktopAutostart(previous)
+      reportSettingsRequestError(error, t, {
+        scope: "app-autostart",
+        fallback: t("settings.appAutostartFailed"),
+      })
+    })
+  }
   return (
     <Card size="sm">
       <CardHeader className="gap-1.5">
-        <CardTitle className="truncate">{t("settings.appearanceTitle")}</CardTitle>
-        <CardDescription>{t("settings.appearanceDescription")}</CardDescription>
+        <CardTitle className="truncate">{t("settings.runtimeTitle")}</CardTitle>
+        <CardDescription>{t("settings.runtimeDescription")}</CardDescription>
       </CardHeader>
       <CardContent>
         <FieldGroup className="gap-2 sm:gap-3">
+          <p className="text-xs font-medium text-muted-foreground">{t("settings.appearanceTitle")}</p>
           <Field orientation="responsive" className="gap-2 sm:justify-between">
             <FieldTitle id="theme-label" className="shrink-0">{t("settings.theme")}</FieldTitle>
             <FieldContent className="w-full sm:w-auto sm:min-w-40">
@@ -116,68 +173,7 @@ function AppearanceCard() {
               </Select>
             </FieldContent>
           </Field>
-        </FieldGroup>
-      </CardContent>
-    </Card>
-  )
-}
-
-export function RuntimeSettingsCard({ url, enabled, appAutostart }: { url: string; enabled: boolean; appAutostart: boolean }) {
-  const { t } = useTranslation()
-  const queryClient = useQueryClient()
-  const [savedURL, setSavedURL] = useState(url)
-  const [testURL, setTestURL] = useState(() => resolveInitialSpeedTestURL(url))
-  const [autostart, setAutostart] = useState(enabled)
-  const [desktopAutostart, setDesktopAutostart] = useState(appAutostart)
-  const urlReady = isTestURLReady(testURL, savedURL)
-  const urlInvalid = Boolean(testURL.trim()) && !isHTTPURL(testURL.trim())
-  const saveURL = useMutation({
-    mutationFn: () => api.settings.setTestURL(testURL.trim()),
-    onSuccess: () => {
-      setSavedURL(testURL.trim())
-      toast.success(t("settings.testURLSaved"))
-    },
-    onError: (error: Error) => reportSettingsRequestError(error, t, {
-      scope: "test-url",
-      fallback: t("settings.testURLFailed"),
-    }),
-  })
-  const saveAutostart = (checked: boolean) => {
-    const previous = autostart
-    setAutostart(checked)
-    api.settings.setAutostart(checked).then(() => {
-      void queryClient.invalidateQueries({ queryKey: ["settings", "autostart"] })
-      toast.success(t("settings.autostartSaved"))
-    }).catch((error: Error) => {
-      setAutostart(previous)
-      reportSettingsRequestError(error, t, {
-        scope: "autostart",
-        fallback: t("settings.autostartFailed"),
-      })
-    })
-  }
-  const saveDesktopAutostart = (checked: boolean) => {
-    const previous = desktopAutostart
-    setDesktopAutostart(checked)
-    api.desktop.setAutostart(checked).then(() => {
-      void queryClient.invalidateQueries({ queryKey: ["desktop", "autostart"] })
-      toast.success(t("settings.appAutostartSaved"))
-    }).catch((error: Error) => {
-      setDesktopAutostart(previous)
-      reportSettingsRequestError(error, t, {
-        scope: "app-autostart",
-        fallback: t("settings.appAutostartFailed"),
-      })
-    })
-  }
-  return (
-    <Card size="sm">
-      <CardHeader className="gap-1.5">
-        <CardTitle className="truncate">{t("settings.runtimeTitle")}</CardTitle>
-        <CardDescription>{t("settings.runtimeDescription")}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <FieldGroup className="gap-2 sm:gap-3">
+          <Separator />
           <div className="grid gap-2">
             <ProbeURLField
               id="test-url"
@@ -238,5 +234,17 @@ export function SettingsPage() {
       />
     )
   }
-  return <div className="flex flex-col gap-3 sm:gap-4"><h1 className="text-2xl font-semibold">{t("settings.title")}</h1><div className="grid gap-3 sm:gap-4 lg:grid-cols-2"><AppearanceCard /><AccountSecurityCard defaultPassword={password.data!.defaultPassword} jwt={jwt.data!} /><RuntimeSettingsCard url={testURL.data!.url} enabled={autostart.data!.enabled} appAutostart={appAutostart.data?.enabled ?? false} /><URLTestDefaultsCard defaults={urlTestDefaults.data!} /><RuleSetAutoUpdateCard defaults={ruleSetAuto.data!} /><SupportBundleCard preferences={{ theme: preferences.theme, language: preferences.language, minimumLogLevel: preferences.minimumLogLevel }} /><BackupExportCard /></div></div>
+  return (
+    <div className="flex flex-col gap-3">
+      <h1 className="text-2xl font-semibold">{t("settings.title")}</h1>
+      <div className="columns-1 gap-3 lg:columns-2 [&>*]:mb-3 [&>*]:break-inside-avoid">
+        <GeneralSettingsCard url={testURL.data!.url} enabled={autostart.data!.enabled} appAutostart={appAutostart.data?.enabled ?? false} preferences={preferences} />
+        <AccountSecurityCard defaultPassword={password.data!.defaultPassword} jwt={jwt.data!} />
+        <URLTestDefaultsCard defaults={urlTestDefaults.data!} />
+        <RuleSetAutoUpdateCard defaults={ruleSetAuto.data!} />
+        <SupportBundleCard preferences={{ theme: preferences.theme, language: preferences.language, minimumLogLevel: preferences.minimumLogLevel }} />
+        <BackupExportCard />
+      </div>
+    </div>
+  )
 }
