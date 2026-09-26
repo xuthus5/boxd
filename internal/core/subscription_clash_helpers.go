@@ -114,6 +114,11 @@ func asString(value any) string {
 		return strconv.Itoa(v)
 	case int64:
 		return strconv.FormatInt(v, 10)
+	// goccy/go-yaml 把 YAML 整数解码为 uint64，yaml.v3 为 int。
+	case uint:
+		return strconv.FormatUint(uint64(v), 10)
+	case uint64:
+		return strconv.FormatUint(v, 10)
 	case float64:
 		return strconv.FormatInt(int64(v), 10)
 	default:
@@ -136,6 +141,11 @@ func asInt(value any) int {
 		return v
 	case int64:
 		return int(v)
+	// goccy/go-yaml 把 YAML 整数解码为 uint64，yaml.v3 为 int。
+	case uint:
+		return int(v)
+	case uint64:
+		return int(v)
 	case float64:
 		return int(v)
 	case string:
@@ -153,6 +163,11 @@ func asBool(value any) bool {
 	case string:
 		return strings.EqualFold(v, "true") || strings.EqualFold(v, "yes") || v == "1"
 	case int:
+		return v != 0
+	// goccy/go-yaml 把 YAML 整数解码为 uint64，yaml.v3 为 int。
+	case uint:
+		return v != 0
+	case uint64:
 		return v != 0
 	case float64:
 		return v != 0

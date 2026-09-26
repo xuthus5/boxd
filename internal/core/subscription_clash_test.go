@@ -122,14 +122,23 @@ func TestClashHelpers(t *testing.T) {
 	if asString("a") != "a" || asString(1) != "1" || asString(int64(2)) != "2" || asString(3.0) != "3" {
 		t.Fatal("asString numbers")
 	}
+	if asString(uint64(4)) != "4" || asString(uint(5)) != "5" {
+		t.Fatal("asString unsigned")
+	}
 	if asString(true) != "true" || asString(false) != "false" || asString(struct{}{}) != "" {
 		t.Fatal("asString misc")
 	}
 	if asInt("12") != 12 || asInt(12) != 12 || asInt(int64(13)) != 13 || asInt(14.0) != 14 || asInt(struct{}{}) != 0 {
 		t.Fatal("asInt")
 	}
+	if asInt(uint64(15)) != 15 || asInt(uint(16)) != 16 {
+		t.Fatal("asInt unsigned")
+	}
 	if !asBool(true) || !asBool("yes") || !asBool(1) || !asBool(1.0) || asBool("no") || asBool(0) {
 		t.Fatal("asBool")
+	}
+	if !asBool(uint64(1)) || asBool(uint64(0)) || !asBool(uint(1)) {
+		t.Fatal("asBool unsigned")
 	}
 	m := map[string]any{"a": "", "b": "ok"}
 	if firstString(m, "a", "b") != "ok" || firstString(m, "x") != "" {
