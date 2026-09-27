@@ -727,6 +727,7 @@ export const zh = {
     observability: {
       ...zhBase.translation.observability,
       moreConnectionActions: "更多操作: {{target}}",
+      moreLogActions: "更多操作: {{subject}}",
       rate: "实时速率",
       sortByRate: "按实时速率",
     },

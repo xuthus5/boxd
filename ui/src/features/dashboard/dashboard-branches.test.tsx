@@ -162,11 +162,12 @@ describe("dashboard component states", () => {
     expect(screen.getByText(/上传 2.00 KB · 下载 4.00 KB/)).toBeInTheDocument()
   })
 
-  it("renders empty and populated recent logs", () => {
+  it("renders empty and populated recent logs", async () => {
     const view = renderApp(<AuthProvider><PreferencesProvider><RecentLogs items={[]} /></PreferencesProvider></AuthProvider>)
     expect(screen.getByText("暂无日志")).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "查看日志" })).toHaveAttribute("href", "/observability/logs")
     view.unmount()
+    const user = userEvent.setup()
     renderApp(<AuthProvider><PreferencesProvider><RecentLogs items={[{ level: "error", message: "ready", timestamp: "2026-01-01T00:00:00Z" }]} /></PreferencesProvider></AuthProvider>)
     expect(screen.getByText("ready")).toBeInTheDocument()
     expect(screen.getByRole("columnheader", { name: "时间" })).toBeInTheDocument()
@@ -174,8 +175,9 @@ describe("dashboard component states", () => {
     expect(document.querySelector("time")).toHaveAttribute("datetime", "2026-01-01T00:00:00Z")
     expect(screen.getByText("ready").closest("td")).toHaveClass("col-span-2", "sm:table-cell")
     expect(document.querySelector("time")?.closest("td")).toHaveClass("items-center", "min-h-9")
-    expect(screen.getByRole("button", { name: "复制消息: ready" })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "复制整行: ready" })).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "更多操作: ready" }))
+    expect(await screen.findByRole("menuitem", { name: "复制消息: ready" })).toBeInTheDocument()
+    expect(screen.getByRole("menuitem", { name: "复制整行: ready" })).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "查看错误日志" })).toHaveAttribute("href", "/observability/logs?preset=errors")
   })
 
@@ -190,7 +192,8 @@ describe("dashboard component states", () => {
         </PreferencesProvider>
       </AuthProvider>,
     )
-    await user.click(screen.getByRole("button", { name: "复制消息: dial example.com:443" }))
+    await user.click(screen.getByRole("button", { name: "更多操作: dial example.com:443" }))
+    await user.click(await screen.findByRole("menuitem", { name: "复制消息: dial example.com:443" }))
     await waitFor(() => expect(spy).toHaveBeenCalledWith("dial example.com:443"))
     expect(toast.success).toHaveBeenCalledWith("日志消息已复制")
   })

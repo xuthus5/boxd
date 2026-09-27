@@ -9,7 +9,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { HealthStreamErrorBlock } from "@/features/dashboard/health-stream-error-block"
 import { buildLogsHref } from "@/features/observability/log-filter-presets"
-import { LogCopyActions } from "@/features/observability/log-list-rows"
+import { LogActionsMenu } from "@/features/observability/log-list-rows"
 import { meetsLogThreshold } from "@/features/observability/log-level"
 import { usePreferences } from "@/features/preferences/preferences-provider"
 import type { LogEvent } from "@/lib/api/types"
@@ -70,7 +70,7 @@ export function RecentLogs({
                 <TableHead className="w-28">{t("observability.time")}</TableHead>
                 <TableHead className="w-20">{t("dashboard.level")}</TableHead>
                 <TableHead>{t("dashboard.message")}</TableHead>
-                <TableHead className="w-40">{t("common.actions")}</TableHead>
+                <TableHead className="w-12">{t("common.actions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -89,9 +89,7 @@ export function RecentLogs({
                     {item.message}
                   </TableCell>
                   <TableCell className="col-span-2 block p-2 pt-0 sm:table-cell sm:p-2">
-                    <div className="flex flex-wrap gap-1">
-                      <LogCopyActions item={item} />
-                    </div>
+                    <LogActionsMenu item={item} deepLinks={false} />
                   </TableCell>
                 </TableRow>
               ))}

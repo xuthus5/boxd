@@ -1,18 +1,18 @@
-import { CopyIcon, GlobeIcon, NetworkIcon } from "lucide-react"
+import { CopyIcon, EllipsisIcon, GlobeIcon, NetworkIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
-import { Button, buttonVariants } from "@/components/ui/button"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { TableCell, TableRow } from "@/components/ui/table"
 import { logConnectionsHref, logDNSHref } from "@/features/observability/connection-facets"
 import { reportExportError } from "@/features/observability/export-error-actions"
 import { formatLogLine, formatLogMessage, formatLogTimestamp } from "@/features/observability/log-export"
 import type { LogEvent } from "@/lib/api/types"
 import { copyText } from "@/lib/clipboard"
-import { cn } from "@/lib/utils"
 
 function copyLogPayload(payload: string, okKey: string, failKey: string, t: (key: string) => string) {
   if (!payload) return
@@ -26,67 +26,57 @@ function copyLogPayload(payload: string, okKey: string, failKey: string, t: (key
   )
 }
 
-export function LogCopyActions({ item }: { item: LogEvent }) {
+// 日志行操作统一收纳进菜单，避免操作列占用过多宽度。
+export function LogActionsMenu({ item, deepLinks = true }: { item: LogEvent; deepLinks?: boolean }) {
   const { t } = useTranslation()
   const message = formatLogMessage(item)
   const line = formatLogLine(item)
+  const subject = message || item.level || "log"
+  const connectionsHref = deepLinks ? logConnectionsHref(item.message) : ""
+  const dnsHref = deepLinks ? logDNSHref(item.message) : ""
   return (
-    <>
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        className="h-8"
-        disabled={!message}
-        onClick={() => copyLogPayload(message, "observability.logMessageCopied", "observability.logCopyFailed", t)}
-        aria-label={`${t("observability.copyLogMessage")}: ${message || item.level || "log"}`}
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={<Button variant="outline" size="icon-sm" aria-label={t("observability.moreLogActions", { subject })} />}
       >
-        <CopyIcon data-icon="inline-start" />
-        {t("observability.copyLogMessage")}
-      </Button>
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        className="h-8"
-        disabled={!line.trim()}
-        onClick={() => copyLogPayload(line, "observability.logLineCopied", "observability.logCopyFailed", t)}
-        aria-label={`${t("observability.copyLogLine")}: ${message || item.level || "log"}`}
-      >
-        <CopyIcon data-icon="inline-start" />
-        {t("observability.copyLogLine")}
-      </Button>
-    </>
-  )
-}
-
-function LogDeepLinks({ item }: { item: LogEvent }) {
-  const { t } = useTranslation()
-  const connectionsHref = logConnectionsHref(item.message)
-  const dnsHref = logDNSHref(item.message)
-  return (
-    <>
-      {connectionsHref ? (
-        <Link
-          to={connectionsHref}
-          aria-label={`${t("observability.viewConnections")}: ${item.message}`}
-          className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
-        >
-          <NetworkIcon data-icon="inline-start" />
-          {t("observability.viewConnections")}
-        </Link>
-      ) : null}
-      {dnsHref ? (
-        <Link
-          to={dnsHref}
-          aria-label={`${t("observability.viewDNS")}: ${item.message}`}
-          className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
-        >
-          <GlobeIcon data-icon="inline-start" />
-          {t("observability.viewDNS")}
-        </Link>
-      ) : null}
-    </>
+        <EllipsisIcon />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuGroup>
+          <DropdownMenuItem
+            disabled={!message}
+            aria-label={`${t("observability.copyLogMessage")}: ${subject}`}
+            onClick={() => copyLogPayload(message, "observability.logMessageCopied", "observability.logCopyFailed", t)}
+          >
+            <CopyIcon />{t("observability.copyLogMessage")}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={!line.trim()}
+            aria-label={`${t("observability.copyLogLine")}: ${subject}`}
+            onClick={() => copyLogPayload(line, "observability.logLineCopied", "observability.logCopyFailed", t)}
+          >
+            <CopyIcon />{t("observability.copyLogLine")}
+          </DropdownMenuItem>
+          {connectionsHref || dnsHref ? <DropdownMenuSeparator /> : null}
+          {connectionsHref ? (
+            <DropdownMenuItem
+              aria-label={`${t("observability.viewConnections")}: ${item.message}`}
+              render={<Link to={connectionsHref} />}
+            >
+              <NetworkIcon />{t("observability.viewConnections")}
+            </DropdownMenuItem>
+          ) : null}
+          {dnsHref ? (
+            <DropdownMenuItem
+              aria-label={`${t("observability.viewDNS")}: ${item.message}`}
+              render={<Link to={dnsHref} />}
+            >
+              <GlobeIcon />{t("observability.viewDNS")}
+            </DropdownMenuItem>
+          ) : null}
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -104,9 +94,8 @@ export function LogMobileCard({ item }: { item: LogEvent }) {
           {item.message}
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-wrap gap-1.5">
-        <LogCopyActions item={item} />
-        <LogDeepLinks item={item} />
+      <CardContent>
+        <LogActionsMenu item={item} />
       </CardContent>
     </Card>
   )
@@ -125,10 +114,7 @@ export function LogDesktopRow({ item }: { item: LogEvent }) {
         <span className="line-clamp-2">{item.message}</span>
       </TableCell>
       <TableCell>
-        <div className="flex flex-wrap gap-1">
-          <LogCopyActions item={item} />
-          <LogDeepLinks item={item} />
-        </div>
+        <LogActionsMenu item={item} />
       </TableCell>
     </TableRow>
   )

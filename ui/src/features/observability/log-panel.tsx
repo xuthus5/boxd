@@ -252,7 +252,7 @@ function LogDesktopVirtualTable({ items, title }: { items: LogEvent[]; title: st
             <TableHead>{t("observability.time")}</TableHead>
             <TableHead>{t("dashboard.level")}</TableHead>
             <TableHead>{t("dashboard.message")}</TableHead>
-            <TableHead className="w-28">{t("common.actions")}</TableHead>
+            <TableHead className="w-12">{t("common.actions")}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

@@ -728,6 +728,7 @@ export const en = {
     observability: {
       ...enBase.translation.observability,
       moreConnectionActions: "More actions: {{target}}",
+      moreLogActions: "More actions: {{subject}}",
       rate: "Rate",
       sortByRate: "Sort by real-time rate",
     },

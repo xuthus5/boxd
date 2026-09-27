@@ -99,8 +99,12 @@ describe("LogsPage", () => {
     renderApp(<App />, "/observability/logs")
 
     expect((await screen.findAllByText(/outbound connection to api.telegram.org:443/)).length).toBeGreaterThan(0)
-    const link = screen.getAllByRole("link", { name: /查看连接/ })[0]
-    expect(link).toHaveAttribute("href", "/observability/connections?q=api.telegram.org")
+    const user = userEvent.setup()
+    await user.click(screen.getByRole("button", { name: /更多操作: .*api\.telegram\.org/ }))
+    expect(await screen.findByRole("menuitem", { name: /查看连接: .*api\.telegram\.org/ })).toHaveAttribute(
+      "href",
+      "/observability/connections?q=api.telegram.org",
+    )
   })
 
 
