@@ -44,7 +44,7 @@ export function DashboardPage() {
     ? { ...connectionSnapshot, list: liveConnections }
     : undefined, [connectionSnapshot, liveConnections])
   const [status, history, memory, version] = useQueries({ queries: [
-    { queryKey: ["service"], queryFn: api.service.status, refetchInterval: 5000 },
+    { queryKey: ["service"], queryFn: api.service.status, refetchInterval: 1000, staleTime: 900 },
     { queryKey: ["traffic-history"], queryFn: api.stats.history },
     { queryKey: ["memory"], queryFn: api.runtime.memory, refetchInterval: 10000 },
     { queryKey: ["version"], queryFn: api.runtime.version },

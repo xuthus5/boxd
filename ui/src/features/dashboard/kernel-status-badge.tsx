@@ -16,8 +16,8 @@ export function KernelStatusBadge() {
   const status = useQuery({
     queryKey: ["service"],
     queryFn: api.service.status,
-    refetchInterval: 5000,
-    staleTime: 4000,
+    refetchInterval: 1000,
+    staleTime: 900,
     retry: false,
   })
 
