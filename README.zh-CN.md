@@ -201,7 +201,7 @@ ICMP 测速会打开原始套接字，需要 `CAP_NET_RAW` 能力。
 
 ### 桌面 UI 稳定性
 
-Linux 上 WebKit 渲染进程崩溃（常见于睡眠唤醒后）会自动重载页面恢复 UI，托盘另有 **Reload UI** 兜底入口；应用默认设置 `WEBKIT_DISABLE_DMABUF_RENDERER=1` 规避已知的 GPU 崩溃路径，可通过同名环境变量覆盖。
+Linux 上 WebKit 渲染进程崩溃（常见于睡眠唤醒后）会自动重载页面恢复 UI，托盘另有 **重载界面** 兜底入口；应用默认设置 `WEBKIT_DISABLE_DMABUF_RENDERER=1` 规避已知的 GPU 崩溃路径，可通过同名环境变量覆盖。
 
 ## Podman / Docker
 

@@ -117,7 +117,7 @@ type ConfigService interface {
 
 | 能力 | 实现 |
 | --- | --- |
-| 系统托盘 | `app.SystemTray`：显示内核状态，快捷启动/停止/重启，打开窗口，退出 |
+| 系统托盘 | `app.SystemTray`：显示内核状态，快捷启动/停止/重启，打开窗口，退出；文案跟随界面语言（zh/en），切换后原地重建菜单 |
 | 开机自启 | Wails `app.Preferences` / Linux XDG autostart `.desktop` 到 `~/.config/autostart` |
 | 单实例守护 | 应用启动互斥（锁文件或 Wails 单实例选项），二次启动聚焦已有窗口 |
 | 原生文件对话框 | 导入/导出本地 JSON、备份导出用 `app.Dialog`（GTK4 走 `xdg-desktop-portal`） |

@@ -515,7 +515,13 @@ func setUIPreferencesBridge(rt *desktopRuntime, body json.RawMessage) (any, erro
 	if err != nil {
 		return nil, err
 	}
-	return rt.svc.Settings().SetUIPreferences(ctx(), req)
+	saved, err := rt.svc.Settings().SetUIPreferences(ctx(), req)
+	if err != nil {
+		return nil, err
+	}
+	// 语言可能变化：刷新托盘菜单文案。
+	refreshTrayLanguage(rt)
+	return saved, nil
 }
 
 func setJWTSecretBridge(rt *desktopRuntime, body json.RawMessage) (any, error) {
