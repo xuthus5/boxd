@@ -48,12 +48,32 @@ describe("RouteModeCard", () => {
     expect(toast.success).toHaveBeenCalledWith("路由模式已切换为全局直连")
   })
 
-  it("hints to install the default route when clash_mode rules are missing", async () => {
-    vi.stubGlobal("fetch", clashModeFetch(["Rule"]))
+  it("enables the global modes by installing the default route", async () => {
+    let installed = false
+    const fetchMock = vi.fn((input: string | URL | Request, init?: RequestInit) => {
+      const path = String(typeof input === "string" ? input : input instanceof URL ? input.pathname : new URL(input.url).pathname)
+      if (path.includes("/api/config/route/defaults") && init?.method === "POST") {
+        installed = true
+        return Promise.resolve(new Response(JSON.stringify({ status: "ok", data: {}, error: null, meta: null })))
+      }
+      return Promise.resolve(new Response(JSON.stringify({
+        mode: "Rule",
+        mode_list: installed ? ["Rule", "Global", "Direct"] : ["Rule"],
+      })))
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    const user = userEvent.setup()
     wrap(<RouteModeCard enabled />)
 
     expect(await screen.findByText(/缺少 clash_mode 规则/)).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "全局直连" })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "补齐规则并启用" }))
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith("/api/config/route/defaults", expect.objectContaining({ method: "POST" }))
+    })
+    expect(await screen.findByRole("button", { name: "全局直连" })).toBeInTheDocument()
+    expect(toast.success).toHaveBeenCalledWith("已补齐 clash_mode 规则，可切换全局直连与全局代理")
   })
 
   it("asks to start the kernel when it is not running", () => {

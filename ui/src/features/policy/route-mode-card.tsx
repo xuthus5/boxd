@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
@@ -50,6 +51,23 @@ export function RouteModeCard({ enabled }: { enabled: boolean }) {
     onError: (error: Error) => reportSettingsRequestError(error, t, {
       scope: "route-mode",
       fallback: t("policy.routeModeFailed"),
+    }),
+  })
+  // 配置里缺少 clash_mode 规则时，安装默认路由会按既有优先级补齐规则，从而启用全局模式。
+  const installDefaults = useMutation({
+    mutationFn: () => api.config.installRoute(),
+    onSuccess: async (response) => {
+      if (response.status === "rolled_back") {
+        toast.error(t("policy.routeModeEnableFailed"))
+        return
+      }
+      await queryClient.invalidateQueries({ queryKey: ["config"] })
+      await query.refetch()
+      toast.success(t("policy.routeModeEnabled"))
+    },
+    onError: (error: Error) => reportSettingsRequestError(error, t, {
+      scope: "route-mode-enable",
+      fallback: t("policy.routeModeEnableFailed"),
     }),
   })
 
@@ -118,7 +136,19 @@ export function RouteModeCard({ enabled }: { enabled: boolean }) {
           ))}
         </ToggleGroup>
         {missingModes ? (
-          <p className="text-xs text-muted-foreground">{t("policy.routeModeNeedsDefaultRoute")}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs text-muted-foreground">{t("policy.routeModeNeedsDefaultRoute")}</p>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-7"
+              disabled={installDefaults.isPending}
+              onClick={() => installDefaults.mutate()}
+            >
+              {installDefaults.isPending ? t("policy.routeModeEnabling") : t("policy.routeModeEnable")}
+            </Button>
+          </div>
         ) : null}
       </CardContent>
     </Card>

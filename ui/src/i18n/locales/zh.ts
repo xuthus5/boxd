@@ -128,7 +128,8 @@ const zhBase = {
       routeModeRule: "规则模式", routeModeDirect: "全局直连", routeModeGlobal: "全局代理",
       routeModeRuleHint: "按配置的路由规则逐条匹配。", routeModeDirectHint: "所有流量直接直连，忽略路由规则。", routeModeGlobalHint: "所有流量走代理出口，忽略路由规则。",
       routeModeNeedRunning: "启动内核后可切换路由模式。", routeModeUnavailable: "当前内核未启用 clash_api，无法切换路由模式。",
-      routeModeNeedsDefaultRoute: "当前配置缺少 clash_mode 规则，只能使用规则模式；安装默认路由后会补齐全局直连与全局代理。",
+      routeModeNeedsDefaultRoute: "当前配置缺少 clash_mode 规则，只能使用规则模式；可按既有优先级补齐规则以启用全局直连与全局代理。",
+      routeModeEnable: "补齐规则并启用", routeModeEnabling: "正在安装…", routeModeEnabled: "已补齐 clash_mode 规则，可切换全局直连与全局代理", routeModeEnableFailed: "补齐 clash_mode 规则失败",
       routeModeUpdated: "路由模式已切换为{{mode}}", routeModeFailed: "切换路由模式失败",
        diffAdded: "新增", diffRemoved: "删除", diffChanged: "变更", diffNone: "本节无变化", diffMore: "另有 {{count}} 项", description: "结构化配置可通过 JSON 完整管理，并保留未知字段。", save: "保存配置", installRoute: "安装默认路由", installDNS: "安装默认 DNS", installed: "默认配置已安装", rolledBack: "配置已回滚", visualTab: "可视化配置", advancedTab: "高级 JSON", jsonLabel: "流量策略 JSON", invalidStructureTitle: "配置结构无效", invalidStructureDescription: "规则、规则集或服务器列表必须是仅包含对象的数组。请在高级 JSON 中修复。", route: {
       globalTitle: "全局路由设置", globalDescription: "配置默认出站、域名解析与网络回退行为。", globalFooter: "未展示的字段会保留在高级 JSON 中。", outboundDescription: "只能选择当前出站配置中的 Tag。", outboundLoading: "正在加载出站配置…",
