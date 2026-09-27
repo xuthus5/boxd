@@ -14,17 +14,22 @@ func TestRouteDefaultsProtectDNSBeforeCustomRules(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	prelude := []any{
+	// DNS/广告 prelude、私网旁路与全局模式都排在自定义规则之前，全局模式才能覆盖用户规则。
+	prefix := []any{
 		map[string]any{"port": 53, "action": "hijack-dns"},
 		map[string]any{"action": "sniff"},
 		map[string]any{"protocol": "dns", "action": "hijack-dns"},
 		map[string]any{"rule_set": []string{"loyalsoldier-reject"}, "action": "reject"},
+		map[string]any{"ip_is_private": true, "outbound": "direct"},
+		map[string]any{"network": "icmp", "outbound": "direct"},
+		map[string]any{"clash_mode": "Direct", "outbound": "direct"},
+		map[string]any{"clash_mode": "Global", "outbound": "proxy"},
 	}
-	if len(result.Rules) < len(prelude) || !reflect.DeepEqual(prelude, result.Rules[:len(prelude)]) {
-		t.Fatalf("DNS/advertisement prelude = %#v", result.Rules)
+	if len(result.Rules) < len(prefix) || !reflect.DeepEqual(prefix, result.Rules[:len(prefix)]) {
+		t.Fatalf("prelude/safety/mode rules = %#v", result.Rules)
 	}
-	if index := policyRuleIndex(t, result.Rules, custom); index != len(prelude) {
-		t.Fatalf("custom rule index = %d, want directly after safety prelude", index)
+	if index := policyRuleIndex(t, result.Rules, custom); index != len(prefix) {
+		t.Fatalf("custom rule index = %d, want directly after prelude/safety/modes", index)
 	}
 }
 
@@ -61,7 +66,9 @@ func TestRouteDefaultsPreserveConditionalRules(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(custom, result.Rules[4:4+len(custom)]) {
+	defaults := buildDefaultRouteRules(cfg)
+	afterModes := len(defaults.prelude) + len(defaults.safety) + len(defaults.modes)
+	if !reflect.DeepEqual(custom, result.Rules[afterModes:afterModes+len(custom)]) {
 		t.Fatalf("conditional custom rules changed: %#v", result.Rules)
 	}
 	if policyRuleIndex(t, result.Rules, map[string]any{"action": "sniff"}) != 1 {
@@ -163,8 +170,20 @@ func TestRouteDefaultsRetainsLegacyBypassWithoutReplacement(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Rules) < 4+len(legacy) || !reflect.DeepEqual(legacy, result.Rules[4:4+len(legacy)]) {
+	defaults := buildDefaultRouteRules(cfg)
+	afterPrelude := len(defaults.prelude)
+	bypass := legacy[:2]
+	if len(result.Rules) < afterPrelude+len(bypass) || !reflect.DeepEqual(bypass, result.Rules[afterPrelude:afterPrelude+len(bypass)]) {
 		t.Fatalf("working bypass routes without replacements changed: %#v", result.Rules)
+	}
+	for _, value := range legacy {
+		rule := value.(map[string]any)
+		if index := policyRuleIndex(t, result.Rules, rule); index < 0 {
+			t.Fatalf("legacy bypass route dropped: %#v", rule)
+		}
+	}
+	if modeIndex := policyRuleIndex(t, result.Rules, map[string]any{"clash_mode": "Global", "outbound": "proxy"}); modeIndex < afterPrelude+len(bypass) {
+		t.Fatalf("global mode must follow the bypass routes: %#v", result.Rules)
 	}
 }
 

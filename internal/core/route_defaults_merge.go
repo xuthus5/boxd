@@ -17,11 +17,20 @@ func mergeDefaultRouteRules(existing []any, defaults defaultRouteRules) (*RouteD
 	if err != nil {
 		return nil, err
 	}
+	// 私网/ICMP 旁路保持高于全局模式的优先级；其余自定义规则让位于全局模式。
+	bypass, custom := splitBypassRules(custom)
 	result := &RouteDefaultsResult{
-		Rules:     make([]any, 0, len(defaults.prelude)+len(custom)+len(defaults.policy)),
+		Rules:     make([]any, 0, len(defaults.prelude)+len(bypass)+len(defaults.safety)+len(defaults.modes)+len(custom)+len(defaults.policy)),
 		Installed: make([]map[string]any, 0),
 	}
 	if err := appendDefaultRouteRules(result, defaults.prelude, existingKeys); err != nil {
+		return nil, err
+	}
+	result.Rules = append(result.Rules, bypass...)
+	if err := appendDefaultRouteRules(result, defaults.safety, existingKeys); err != nil {
+		return nil, err
+	}
+	if err := appendDefaultRouteRules(result, defaults.modes, existingKeys); err != nil {
 		return nil, err
 	}
 	result.Rules = append(result.Rules, custom...)
@@ -31,9 +40,32 @@ func mergeDefaultRouteRules(existing []any, defaults defaultRouteRules) (*RouteD
 	return result, nil
 }
 
+func splitBypassRules(rules []any) (bypass, rest []any) {
+	for _, value := range rules {
+		if rule, ok := value.(map[string]any); ok && isBypassRule(rule) {
+			bypass = append(bypass, value)
+			continue
+		}
+		rest = append(rest, value)
+	}
+	return bypass, rest
+}
+
+func isBypassRule(rule map[string]any) bool {
+	if private, _ := rule["ip_is_private"].(bool); private {
+		return true
+	}
+	for _, network := range asStringSlice(rule["network"]) {
+		if network == "icmp" {
+			return true
+		}
+	}
+	return false
+}
+
 func knownDefaultRouteRules(defaults defaultRouteRules) (map[string]bool, error) {
 	known := make(map[string]bool)
-	for _, group := range [][]map[string]any{defaults.prelude, defaults.policy, defaults.legacy} {
+	for _, group := range [][]map[string]any{defaults.prelude, defaults.safety, defaults.modes, defaults.policy, defaults.legacy} {
 		for _, rule := range group {
 			key, err := routeRuleKey(rule)
 			if err != nil {
