@@ -4,7 +4,23 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
-const Select = SelectPrimitive.Root
+// base-ui 在受控值或 items 变化导致所选项消失时会补发一次 reason="none" 的 null。
+// 调用方普遍按 String(value) 处理，会把这个空值写成 "null"，因此这里丢弃这类非用户
+// 选择的通知；用户真正选中 null 项（如“未设置”）仍以 item-press 透传给调用方。
+function Select<Value, Multiple extends boolean | undefined = false>(
+  props: SelectPrimitive.Root.Props<Value, Multiple>,
+) {
+  const { onValueChange } = props
+  return (
+    <SelectPrimitive.Root
+      {...props}
+      onValueChange={(value, eventDetails) => {
+        if (value === null && eventDetails.reason === "none") return
+        onValueChange?.(value, eventDetails)
+      }}
+    />
+  )
+}
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (
