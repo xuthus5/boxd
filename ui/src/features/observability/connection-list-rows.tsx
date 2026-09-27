@@ -1,10 +1,11 @@
-import { CopyIcon, NetworkIcon, RouteIcon, ScrollTextIcon } from "lucide-react"
+import { CopyIcon, EllipsisIcon, NetworkIcon, RouteIcon, ScrollTextIcon, XIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 import { toast } from "sonner"
 
-import { Button, buttonVariants } from "@/components/ui/button"
+import { Button } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { TableCell, TableRow } from "@/components/ui/table"
 import { formatBytes } from "@/features/dashboard/format"
 import { formatConnectionRatePair, type ConnectionWithRates } from "@/features/observability/connection-rate"
@@ -25,7 +26,6 @@ import {
   titleFor,
 } from "@/features/observability/connection-list-helpers"
 import { copyText } from "@/lib/clipboard"
-import { cn } from "@/lib/utils"
 
 function copyConnectionDiagnostics(connection: ConnectionWithRates, t: (key: string) => string) {
   const payload = formatConnectionClipboardText(connection)
@@ -37,6 +37,71 @@ function copyConnectionDiagnostics(connection: ConnectionWithRates, t: (key: str
       kind: "copy-connection",
       fallback: t("observability.connectionCopyFailed"),
     }),
+  )
+}
+
+// 单条连接的操作统一收纳进菜单，避免操作列占用整行宽度。
+function ConnectionActionsMenu({
+  connection,
+  busy,
+  onClose,
+}: {
+  connection: ConnectionWithRates
+  busy: boolean
+  onClose: (id: string) => void
+}) {
+  const { t } = useTranslation()
+  const id = String(connection.id)
+  const target = connection.target || id
+  const logsHref = connection.target ? targetLogsHref(connection.target) : ""
+  const node = nodeHref(connection.outbound)
+  const rule = ruleRouteHref(connection.rule)
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={<Button variant="outline" size="icon-sm" aria-label={t("observability.moreConnectionActions", { target })} />}
+      >
+        <EllipsisIcon />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuGroup>
+          {logsHref ? (
+            <DropdownMenuItem
+              aria-label={`${t("observability.viewTargetLogs")}: ${connection.target}`}
+              render={<Link to={logsHref} />}
+            >
+              <ScrollTextIcon />{t("observability.viewTargetLogs")}
+            </DropdownMenuItem>
+          ) : null}
+          {node ? (
+            <DropdownMenuItem
+              aria-label={`${t("observability.viewNode")}: ${connection.outbound}`}
+              render={<Link to={node} />}
+            >
+              <NetworkIcon />{t("observability.viewNode")}
+            </DropdownMenuItem>
+          ) : null}
+          {rule ? (
+            <DropdownMenuItem
+              aria-label={`${t("observability.viewRule")}: ${connection.rule}`}
+              render={<Link to={rule} />}
+            >
+              <RouteIcon />{t("observability.viewRule")}
+            </DropdownMenuItem>
+          ) : null}
+          <DropdownMenuItem
+            aria-label={`${t("observability.copyConnection")}: ${target}`}
+            onClick={() => copyConnectionDiagnostics(connection, t)}
+          >
+            <CopyIcon />{t("observability.copyConnection")}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem variant="destructive" disabled={busy} onClick={() => onClose(id)}>
+            <XIcon />{t("observability.close")}
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -52,7 +117,6 @@ export function ConnectionMobileCard({
   onClose: (id: string) => void
 }) {
   const { t } = useTranslation()
-  const id = String(connection.id)
   const duration = formatDuration(connection.start)
   const show = (column: ConnectionColumnId) => connectionColumnVisible(columns, column)
   return (
@@ -91,51 +155,8 @@ export function ConnectionMobileCard({
             <FacetLink field="rule" value={connection.rule} label={t("observability.rule")} />
           ) : null}
         </CardDescription>
-        <CardAction className="flex flex-wrap justify-end gap-1">
-          {connection.target ? (
-            <Link
-              to={targetLogsHref(connection.target)}
-              aria-label={`${t("observability.viewTargetLogs")}: ${connection.target}`}
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
-            >
-              <ScrollTextIcon data-icon="inline-start" />
-              {t("observability.viewTargetLogs")}
-            </Link>
-          ) : null}
-          {nodeHref(connection.outbound) ? (
-            <Link
-              to={nodeHref(connection.outbound)}
-              aria-label={`${t("observability.viewNode")}: ${connection.outbound}`}
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
-            >
-              <NetworkIcon data-icon="inline-start" />
-              {t("observability.viewNode")}
-            </Link>
-          ) : null}
-          {ruleRouteHref(connection.rule) ? (
-            <Link
-              to={ruleRouteHref(connection.rule)}
-              aria-label={`${t("observability.viewRule")}: ${connection.rule}`}
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
-            >
-              <RouteIcon data-icon="inline-start" />
-              {t("observability.viewRule")}
-            </Link>
-          ) : null}
-          <Button
-            type="button"
-            size="sm"
-            className="h-8"
-            variant="outline"
-            aria-label={`${t("observability.copyConnection")}: ${connection.target || id}`}
-            onClick={() => copyConnectionDiagnostics(connection, t)}
-          >
-            <CopyIcon data-icon="inline-start" />
-            {t("observability.copyConnection")}
-          </Button>
-          <Button size="sm" className="h-8" variant="destructive" disabled={busy} onClick={() => onClose(id)}>
-            {t("observability.close")}
-          </Button>
+        <CardAction>
+          <ConnectionActionsMenu connection={connection} busy={busy} onClose={onClose} />
         </CardAction>
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
@@ -169,7 +190,6 @@ export function ConnectionDesktopRow({
   onClose: (id: string) => void
 }) {
   const { t } = useTranslation()
-  const id = String(connection.id)
   const duration = formatDuration(connection.start)
   const visible = CONNECTION_COLUMNS.filter((column) => connectionColumnVisible(columns, column.id))
   return (
@@ -178,52 +198,7 @@ export function ConnectionDesktopRow({
         if (column.id === "actions") {
           return (
             <TableCell key={column.id}>
-              <div className="flex flex-wrap items-center gap-1">
-                {connection.target ? (
-                  <Link
-                    to={targetLogsHref(connection.target)}
-                    aria-label={`${t("observability.viewTargetLogs")}: ${connection.target}`}
-                    className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
-                  >
-                    <ScrollTextIcon data-icon="inline-start" />
-                    {t("observability.viewTargetLogs")}
-                  </Link>
-                ) : null}
-                {nodeHref(connection.outbound) ? (
-                  <Link
-                    to={nodeHref(connection.outbound)}
-                    aria-label={`${t("observability.viewNode")}: ${connection.outbound}`}
-                    className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
-                  >
-                    <NetworkIcon data-icon="inline-start" />
-                    {t("observability.viewNode")}
-                  </Link>
-                ) : null}
-                {ruleRouteHref(connection.rule) ? (
-                  <Link
-                    to={ruleRouteHref(connection.rule)}
-                    aria-label={`${t("observability.viewRule")}: ${connection.rule}`}
-                    className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8")}
-                  >
-                    <RouteIcon data-icon="inline-start" />
-                    {t("observability.viewRule")}
-                  </Link>
-                ) : null}
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-8"
-                  variant="outline"
-                  aria-label={`${t("observability.copyConnection")}: ${connection.target || id}`}
-                  onClick={() => copyConnectionDiagnostics(connection, t)}
-                >
-                  <CopyIcon data-icon="inline-start" />
-                  {t("observability.copyConnection")}
-                </Button>
-                <Button size="sm" className="h-8" variant="destructive" disabled={busy} onClick={() => onClose(id)}>
-                  {t("observability.close")}
-                </Button>
-              </div>
+              <ConnectionActionsMenu connection={connection} busy={busy} onClose={onClose} />
             </TableCell>
           )
         }

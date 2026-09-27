@@ -32,6 +32,7 @@ afterEach(() => {
 describe("ConnectionDesktopRow", () => {
   it("copies full connection diagnostics", async () => {
     const spy = vi.spyOn(copy, "copyText").mockResolvedValue()
+    const user = userEvent.setup()
     render(
       <I18nextProvider i18n={i18n}>
         <MemoryRouter>
@@ -48,7 +49,8 @@ describe("ConnectionDesktopRow", () => {
         </MemoryRouter>
       </I18nextProvider>,
     )
-    await userEvent.setup().click(screen.getByRole("button", { name: "复制连接: api.example.com:443" }))
+    await user.click(screen.getByRole("button", { name: "更多操作: api.example.com:443" }))
+    await user.click(await screen.findByRole("menuitem", { name: "复制连接: api.example.com:443" }))
     await waitFor(() => expect(spy).toHaveBeenCalled())
     expect(String(spy.mock.calls[0][0])).toContain("id: 7")
     expect(String(spy.mock.calls[0][0])).toContain("target: api.example.com:443")
@@ -85,15 +87,6 @@ describe("ConnectionDesktopRow", () => {
       </I18nextProvider>,
     )
     const user = userEvent.setup()
-    expect(screen.getByRole("link", { name: "查看日志: api.example.com:443" })).toHaveAttribute(
-      "href",
-      "/observability/logs?q=api.example.com",
-    )
-    expect(screen.getByRole("link", { name: "查看节点: proxy" })).toHaveAttribute("href", "/nodes?q=proxy")
-    expect(screen.getByRole("link", { name: "查看规则: geosite-google" })).toHaveAttribute(
-      "href",
-      "/policy/route?q=geosite-google",
-    )
     expect(screen.getByRole("link", { name: "网络: tcp" })).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "出站: proxy" })).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "规则: geosite-google" })).toBeInTheDocument()
@@ -102,13 +95,28 @@ describe("ConnectionDesktopRow", () => {
     expect(screen.getByText("mixed-in")).toBeInTheDocument()
     expect(screen.getByText("tls")).toBeInTheDocument()
     expect(screen.getByText("↑ 1.00 KB/s · ↓ 2.00 KB/s")).toBeInTheDocument()
+    // 行操作收纳在菜单里，按需展开。
+    expect(screen.queryByRole("menuitem", { name: /查看日志/ })).not.toBeInTheDocument()
 
+    await user.click(screen.getByRole("button", { name: "更多操作: api.example.com:443" }))
+    expect(await screen.findByRole("menuitem", { name: "查看日志: api.example.com:443" })).toHaveAttribute(
+      "href",
+      "/observability/logs?q=api.example.com",
+    )
+    expect(screen.getByRole("menuitem", { name: "查看节点: proxy" })).toHaveAttribute("href", "/nodes?q=proxy")
+    expect(screen.getByRole("menuitem", { name: "查看规则: geosite-google" })).toHaveAttribute(
+      "href",
+      "/policy/route?q=geosite-google",
+    )
+
+    await user.click(screen.getByRole("menuitem", { name: "复制连接: api.example.com:443" }))
     await user.click(screen.getByRole("button", { name: "复制目标: api.example.com:443" }))
-    await user.click(screen.getByRole("button", { name: "复制连接: api.example.com:443" }))
     await waitFor(() => expect(spy).toHaveBeenCalledTimes(2))
     expect(toast.success).toHaveBeenCalledWith("目标已复制")
     expect(toast.success).toHaveBeenCalledWith("连接信息已复制")
-    await user.click(screen.getByRole("button", { name: "关闭" }))
+
+    await user.click(screen.getByRole("button", { name: "更多操作: api.example.com:443" }))
+    await user.click(await screen.findByRole("menuitem", { name: "关闭" }))
     expect(onClose).toHaveBeenCalledWith("7")
   })
 
@@ -140,11 +148,12 @@ describe("ConnectionDesktopRow", () => {
       </I18nextProvider>,
     )
     const user = userEvent.setup()
-    expect(screen.queryByRole("link", { name: /查看节点/ })).not.toBeInTheDocument()
-    expect(screen.queryByRole("link", { name: /查看规则/ })).not.toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "关闭" })).toBeDisabled()
+    await user.click(screen.getByRole("button", { name: "更多操作: sparse.example:443" }))
+    expect(await screen.findByRole("menuitem", { name: "关闭" })).toHaveAttribute("aria-disabled", "true")
+    expect(screen.queryByRole("menuitem", { name: /查看节点/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole("menuitem", { name: /查看规则/ })).not.toBeInTheDocument()
+    await user.click(screen.getByRole("menuitem", { name: "复制连接: sparse.example:443" }))
     await user.click(screen.getByRole("button", { name: "复制目标: sparse.example:443" }))
-    await user.click(screen.getByRole("button", { name: "复制连接: sparse.example:443" }))
     await waitFor(() => expect(spy).toHaveBeenCalledTimes(2))
     expect(toast.error).toHaveBeenCalled()
   })
@@ -167,22 +176,26 @@ describe("ConnectionMobileCard", () => {
       </I18nextProvider>,
     )
     const user = userEvent.setup()
-    expect(screen.getByRole("link", { name: "查看日志: api.example.com:443" })).toBeInTheDocument()
-    expect(screen.getByRole("link", { name: "查看节点: proxy" })).toBeInTheDocument()
-    expect(screen.getByRole("link", { name: "查看规则: geosite-google" })).toBeInTheDocument()
     expect(screen.getByTitle("10.0.0.2:1234")).toBeInTheDocument()
     expect(screen.getByText(/上传:/)).toBeInTheDocument()
     expect(screen.getByText(/下载:/)).toBeInTheDocument()
     expect(screen.getByText(/实时速率:/)).toHaveTextContent("↑ 1.00 KB/s · ↓ 2.00 KB/s")
     expect(screen.getByText(/时长:/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "更多操作: api.example.com:443" }))
+    expect(await screen.findByRole("menuitem", { name: "查看日志: api.example.com:443" })).toBeInTheDocument()
+    expect(screen.getByRole("menuitem", { name: "查看节点: proxy" })).toBeInTheDocument()
+    expect(screen.getByRole("menuitem", { name: "查看规则: geosite-google" })).toBeInTheDocument()
+    await user.click(screen.getByRole("menuitem", { name: "复制连接: api.example.com:443" }))
     await user.click(screen.getByRole("button", { name: "复制目标: api.example.com:443" }))
-    await user.click(screen.getByRole("button", { name: "复制连接: api.example.com:443" }))
     await waitFor(() => expect(spy).toHaveBeenCalledTimes(2))
-    await user.click(screen.getByRole("button", { name: "关闭" }))
+
+    await user.click(screen.getByRole("button", { name: "更多操作: api.example.com:443" }))
+    await user.click(await screen.findByRole("menuitem", { name: "关闭" }))
     expect(onClose).toHaveBeenCalledWith("7")
   })
 
-  it("omits optional mobile sections and disables close when busy", () => {
+  it("omits optional mobile sections and disables close when busy", async () => {
     render(
       <I18nextProvider i18n={i18n}>
         <MemoryRouter>
@@ -195,11 +208,12 @@ describe("ConnectionMobileCard", () => {
         </MemoryRouter>
       </I18nextProvider>,
     )
-    expect(screen.queryByRole("link", { name: /查看日志/ })).not.toBeInTheDocument()
-    expect(screen.queryByRole("link", { name: /查看节点/ })).not.toBeInTheDocument()
-    expect(screen.queryByRole("link", { name: /查看规则/ })).not.toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole("button", { name: "更多操作: 7" }))
+    expect(await screen.findByRole("menuitem", { name: "关闭" })).toHaveAttribute("aria-disabled", "true")
+    expect(screen.queryByRole("menuitem", { name: /查看日志/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole("menuitem", { name: /查看节点/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole("menuitem", { name: /查看规则/ })).not.toBeInTheDocument()
     expect(screen.queryByRole("button", { name: /复制目标/ })).not.toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "关闭" })).toBeDisabled()
   })
 
   it("reports mobile target copy failures", async () => {

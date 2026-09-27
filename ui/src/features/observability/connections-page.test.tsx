@@ -188,9 +188,15 @@ describe("ConnectionsPage", () => {
     renderApp(<App />, "/observability/connections")
 
     expect(await screen.findByText("example.com:443")).toBeInTheDocument()
-    const link = screen.getByRole("link", { name: "查看日志: example.com:443" })
-    expect(link).toHaveAttribute("href", "/observability/logs?q=example.com")
-    expect(screen.getByRole("link", { name: "查看日志: cdn.example.net:443" })).toHaveAttribute(
+    const user = userEvent.setup()
+    await user.click(screen.getByRole("button", { name: "更多操作: example.com:443" }))
+    expect(await screen.findByRole("menuitem", { name: "查看日志: example.com:443" })).toHaveAttribute(
+      "href",
+      "/observability/logs?q=example.com",
+    )
+    await user.keyboard("{Escape}")
+    await user.click(screen.getByRole("button", { name: "更多操作: cdn.example.net:443" }))
+    expect(await screen.findByRole("menuitem", { name: "查看日志: cdn.example.net:443" })).toHaveAttribute(
       "href",
       "/observability/logs?q=cdn.example.net",
     )
@@ -202,8 +208,12 @@ describe("ConnectionsPage", () => {
     renderApp(<App />, "/observability/connections")
 
     expect(await screen.findByText("example.com:443")).toBeInTheDocument()
-    expect(screen.getByRole("link", { name: "查看节点: proxy" })).toHaveAttribute("href", "/nodes?q=proxy")
-    expect(screen.getByRole("link", { name: "查看节点: direct" })).toHaveAttribute("href", "/nodes?q=direct")
+    const user = userEvent.setup()
+    await user.click(screen.getByRole("button", { name: "更多操作: example.com:443" }))
+    expect(await screen.findByRole("menuitem", { name: "查看节点: proxy" })).toHaveAttribute("href", "/nodes?q=proxy")
+    await user.keyboard("{Escape}")
+    await user.click(screen.getByRole("button", { name: "更多操作: cdn.example.net:443" }))
+    expect(await screen.findByRole("menuitem", { name: "查看节点: direct" })).toHaveAttribute("href", "/nodes?q=direct")
   })
 
   it("deep-links connection rules to the route policy page", async () => {
@@ -212,11 +222,15 @@ describe("ConnectionsPage", () => {
     renderApp(<App />, "/observability/connections")
 
     expect(await screen.findByText("example.com:443")).toBeInTheDocument()
-    expect(screen.getByRole("link", { name: "查看规则: geosite-google" })).toHaveAttribute(
+    const user = userEvent.setup()
+    await user.click(screen.getByRole("button", { name: "更多操作: example.com:443" }))
+    expect(await screen.findByRole("menuitem", { name: "查看规则: geosite-google" })).toHaveAttribute(
       "href",
       "/policy/route?q=geosite-google",
     )
-    expect(screen.getByRole("link", { name: "查看规则: geoip-cn" })).toHaveAttribute(
+    await user.keyboard("{Escape}")
+    await user.click(screen.getByRole("button", { name: "更多操作: cdn.example.net:443" }))
+    expect(await screen.findByRole("menuitem", { name: "查看规则: geoip-cn" })).toHaveAttribute(
       "href",
       "/policy/route?q=geoip-cn",
     )
