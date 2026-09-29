@@ -203,6 +203,10 @@ ICMP 测速会打开原始套接字，需要 `CAP_NET_RAW` 能力。
 
 Linux 上 WebKit 渲染进程崩溃（常见于睡眠唤醒后）会自动重载页面恢复 UI，托盘另有 **重载界面** 兜底入口；应用默认设置 `WEBKIT_DISABLE_DMABUF_RENDERER=1` 规避已知的 GPU 崩溃路径，可通过同名环境变量覆盖。
 
+### 桌面开机自启
+
+开启"开机自启"后，应用以 `--hidden` 参数注册，开机登录时静默驻留系统托盘、不弹出窗体；点击托盘或按全局快捷键 `Ctrl+Shift+B` 可显示窗口。
+
 ## Podman / Docker
 
 ### Podman 本地构建与启动

@@ -6,8 +6,33 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/services/notifications"
 )
+
+// fakeAutostart 记录自启注册调用，供原生能力单测注入。
+type fakeAutostart struct {
+	enabled   bool
+	enableErr error
+	args      []string
+	enables   int
+	disables  int
+}
+
+func (f *fakeAutostart) IsEnabled() (bool, error) { return f.enabled, nil }
+
+func (f *fakeAutostart) EnableWithOptions(opts application.AutostartOptions) error {
+	f.enables++
+	f.args = opts.Arguments
+	f.enabled = true
+	return f.enableErr
+}
+
+func (f *fakeAutostart) Disable() error {
+	f.disables++
+	f.enabled = false
+	return nil
+}
 
 func TestNativeRuntimeInfo(t *testing.T) {
 	rt := &desktopRuntime{cfg: desktopConfig{Mode: "embedded", RemoteURL: "http://127.0.0.1:9091"}}
@@ -99,4 +124,92 @@ func TestNotifyViaServicePanicSafe(t *testing.T) {
 	if err := sendNotification("t", "m"); err == nil {
 		t.Fatal("expected dbus-uninitialized send to return error")
 	}
+}
+
+func TestHasHiddenFlag(t *testing.T) {
+	cases := []struct {
+		name string
+		args []string
+		want bool
+	}{
+		{name: "empty", args: nil, want: false},
+		{name: "unrelated", args: []string{"--desktop-mode", "remote"}, want: false},
+		{name: "present", args: []string{"--hidden"}, want: true},
+		{name: "present among others", args: []string{"--foo", "--hidden", "--bar"}, want: true},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := hasHiddenFlag(tt.args); got != tt.want {
+				t.Fatalf("hasHiddenFlag(%v) = %v, want %v", tt.args, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSetAutostartRegistersHiddenFlag(t *testing.T) {
+	fake := &fakeAutostart{}
+	rt := &desktopRuntime{autostart: fake}
+	n := NewNativeCapabilities(rt)
+	if err := n.SetAutostart(context.Background(), true); err != nil {
+		t.Fatalf("SetAutostart(true) error = %v", err)
+	}
+	if fake.enables != 1 {
+		t.Fatalf("enable calls = %d, want 1", fake.enables)
+	}
+	if len(fake.args) != 1 || fake.args[0] != autostartHiddenFlag {
+		t.Fatalf("autostart args = %v, want [%s]", fake.args, autostartHiddenFlag)
+	}
+}
+
+func TestSetAutostartDisable(t *testing.T) {
+	fake := &fakeAutostart{enabled: true}
+	rt := &desktopRuntime{autostart: fake}
+	n := NewNativeCapabilities(rt)
+	if err := n.SetAutostart(context.Background(), false); err != nil {
+		t.Fatalf("SetAutostart(false) error = %v", err)
+	}
+	if fake.disables != 1 || fake.enabled {
+		t.Fatalf("disable calls = %d, enabled = %v", fake.disables, fake.enabled)
+	}
+}
+
+func TestEnsureAutostartHiddenArg(t *testing.T) {
+	t.Run("nil runtime", func(t *testing.T) {
+		if err := NewNativeCapabilities(nil).ensureAutostartHiddenArg(); err != nil {
+			t.Fatalf("error = %v", err)
+		}
+	})
+
+	t.Run("disabled is untouched", func(t *testing.T) {
+		fake := &fakeAutostart{}
+		rt := &desktopRuntime{autostart: fake}
+		if err := NewNativeCapabilities(rt).ensureAutostartHiddenArg(); err != nil {
+			t.Fatalf("error = %v", err)
+		}
+		if fake.enables != 0 {
+			t.Fatalf("enable calls = %d, want 0", fake.enables)
+		}
+	})
+
+	t.Run("enabled is re-registered with flag", func(t *testing.T) {
+		fake := &fakeAutostart{enabled: true}
+		rt := &desktopRuntime{autostart: fake}
+		if err := NewNativeCapabilities(rt).ensureAutostartHiddenArg(); err != nil {
+			t.Fatalf("error = %v", err)
+		}
+		if fake.enables != 1 {
+			t.Fatalf("enable calls = %d, want 1", fake.enables)
+		}
+		if len(fake.args) != 1 || fake.args[0] != autostartHiddenFlag {
+			t.Fatalf("autostart args = %v, want [%s]", fake.args, autostartHiddenFlag)
+		}
+	})
+
+	t.Run("enable error is propagated", func(t *testing.T) {
+		fake := &fakeAutostart{enabled: true, enableErr: errors.New("boom")}
+		rt := &desktopRuntime{autostart: fake}
+		if err := NewNativeCapabilities(rt).ensureAutostartHiddenArg(); err == nil {
+			t.Fatal("expected error")
+		}
+	})
 }

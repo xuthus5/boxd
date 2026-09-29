@@ -9,8 +9,22 @@ import (
 	"strings"
 	"time"
 
+	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/services/notifications"
 )
+
+// autostartHiddenFlag 是开机自启注册时附加的启动参数：带此参数启动时仅驻留托盘，不弹出窗体。
+const autostartHiddenFlag = "--hidden"
+
+// hasHiddenFlag 判断命令行参数中是否包含隐藏启动标记。
+func hasHiddenFlag(args []string) bool {
+	for _, arg := range args {
+		if arg == autostartHiddenFlag {
+			return true
+		}
+	}
+	return false
+}
 
 // NativeCapabilities 提供桌面原生能力：自启、单实例、对话框、通知、数据目录等。
 // 封装为 Wails 可绑定服务，供前端与托盘调用。
@@ -41,9 +55,26 @@ func (n *NativeCapabilities) SetAutostart(_ context.Context, enabled bool) error
 		return errors.New("autostart is not available")
 	}
 	if enabled {
-		return n.rt.autostart.Enable()
+		return n.rt.autostart.EnableWithOptions(autostartOptions())
 	}
 	return n.rt.autostart.Disable()
+}
+
+// autostartOptions 返回自启注册选项：附加 --hidden，使开机启动静默驻留托盘。
+func autostartOptions() application.AutostartOptions {
+	return application.AutostartOptions{Arguments: []string{autostartHiddenFlag}}
+}
+
+// ensureAutostartHiddenArg 在自启已启用时按最新选项补齐注册，兼容早于隐藏启动参数的旧注册。
+func (n *NativeCapabilities) ensureAutostartHiddenArg() error {
+	if n.rt == nil || n.rt.autostart == nil {
+		return nil
+	}
+	enabled, err := n.rt.autostart.IsEnabled()
+	if err != nil || !enabled {
+		return err
+	}
+	return n.rt.autostart.EnableWithOptions(autostartOptions())
 }
 
 // autostartEnabled 判断自启状态，供托盘使用（错误时不阻塞）。

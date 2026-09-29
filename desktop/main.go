@@ -83,6 +83,14 @@ func main() {
 	// 注入原生能力依赖（AutostartManager）。
 	rt.autostart = app.Autostart
 
+	// 开机自启拉起时以隐藏方式启动，仅驻留托盘；手动启动时补齐旧注册的隐藏参数。
+	startHidden := hasHiddenFlag(os.Args[1:])
+	if !startHidden {
+		if err := NewNativeCapabilities(rt).ensureAutostartHiddenArg(); err != nil {
+			slog.Warn("reconcile autostart hidden flag failed", "err", err)
+		}
+	}
+
 	window := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:             "main",
 		Title:            "boxd",
@@ -92,6 +100,7 @@ func main() {
 		MinHeight:        600,
 		BackgroundColour: application.NewRGB(255, 255, 255),
 		URL:              "/",
+		Hidden:           startHidden,
 	})
 	_ = window
 

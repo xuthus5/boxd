@@ -395,7 +395,7 @@ Package the desktop app into a binary, deb/rpm/AppImage plus a `.desktop` entry
 # produces desktop/bin/boxd-desktop, boxd-desktop.deb, boxd-desktop.rpm, boxd-desktop-<arch>.AppImage
 ```
 
-The desktop app runs the sing-box core in-process (embedded mode, data in `~/.local/share/boxd`), or connects to a remote boxd service (`BOXD_DESKTOP_MODE=remote`). It exposes a system tray, native windows, file dialogs, autostart, and URL scheme deep links; the React frontend auto-detects the desktop runtime and uses Wails bindings and events instead of HTTP/SSE.
+The desktop app runs the sing-box core in-process (embedded mode, data in `~/.local/share/boxd`), or connects to a remote boxd service (`BOXD_DESKTOP_MODE=remote`). It exposes a system tray, native windows, file dialogs, autostart, and URL scheme deep links; the React frontend auto-detects the desktop runtime and uses Wails bindings and events instead of HTTP/SSE. When launched by autostart, the app stays hidden in the tray (`--hidden`) instead of opening a window.
 
 **First launch password reset**: On first launch, the desktop app uses the default password `admin123`. The UI will force a password change before allowing access. After resetting, log in with username `admin` and your new password.
 

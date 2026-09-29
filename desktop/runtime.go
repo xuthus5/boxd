@@ -40,13 +40,20 @@ func defaultDesktopConfig() desktopConfig {
 	}
 }
 
+// autostartManager 抽象开机自启注册，便于测试注入替身。
+type autostartManager interface {
+	IsEnabled() (bool, error)
+	EnableWithOptions(opts application.AutostartOptions) error
+	Disable() error
+}
+
 // desktopRuntime 聚合桌面端共享的运行时依赖。
 type desktopRuntime struct {
 	cfg             desktopConfig
 	db              *bbolt.DB
 	svc             *service.ServiceSet
 	instance        *core.SBInstance
-	autostart       *application.AutostartManager
+	autostart       autostartManager
 	backgroundStop  func() // 停止后台服务
 	startFn         func() error
 	autostartKernel bool

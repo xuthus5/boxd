@@ -118,7 +118,7 @@ type ConfigService interface {
 | 能力 | 实现 |
 | --- | --- |
 | 系统托盘 | `app.SystemTray`：显示内核状态，快捷启动/停止/重启，打开窗口，退出；文案跟随界面语言（zh/en），切换后原地重建菜单 |
-| 开机自启 | Wails `app.Preferences` / Linux XDG autostart `.desktop` 到 `~/.config/autostart` |
+| 开机自启 | Wails `app.Autostart`（Windows 注册表 Run、Linux XDG autostart `.desktop`、macOS LaunchAgent/SMAppService）；注册附加 `--hidden`，开机启动静默驻留托盘，手动启动时补齐旧注册 |
 | 单实例守护 | 应用启动互斥（锁文件或 Wails 单实例选项），二次启动聚焦已有窗口 |
 | 原生文件对话框 | 导入/导出本地 JSON、备份导出用 `app.Dialog`（GTK4 走 `xdg-desktop-portal`） |
 | 系统通知 | Wails notifications 服务（freedesktop 通知规范，Linux 直连 DBus，不依赖 notify-send） |
@@ -151,6 +151,7 @@ type ConfigService interface {
 | `BOXD_REMOTE_URL` | `--remote-url` | `http://127.0.0.1:9091` | 远程模式目标地址 |
 | `BOXD_AUTOSTART` | `--autostart` | `false` | 开机自启 |
 | `BOXD_SINGLE_INSTANCE` | `--single-instance` | `true` | 单实例守护 |
+| - | `--hidden` | - | 隐藏窗口启动，仅驻留托盘（由自启注册自动附加，无需手动传入） |
 
 内嵌模式数据目录默认 `~/.local/share/boxd`，配置文件 `~/.config/boxd/config.json`，目录权限 0700、文件 0600（沿用项目安全规则）。
 
