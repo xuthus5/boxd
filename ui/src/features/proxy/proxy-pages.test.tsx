@@ -74,6 +74,43 @@ describe("proxy configuration pages", () => {
     expect(screen.queryByText("node.example:443")).not.toBeInTheDocument()
   })
 
+  it("refreshes the fallback current node right after switching the exit node on the card", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    let selected = false
+    vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {
+      const path = String(input)
+      if (path === "/api/subscriptions/") {
+        return Promise.resolve(new Response(JSON.stringify([
+          { id: "sub-1", name: "main", url: "https://example.com", interval_min: 60, last_updated: "", outbounds: [{ tag: "hk", type: "vless" }, { tag: "us", type: "trojan" }] },
+        ])))
+      }
+      if (path === "/api/subscriptions/sub-1/selector") {
+        selected = true
+        return Promise.resolve(new Response(JSON.stringify({ id: "sub-1", name: "main", selected: "us" })))
+      }
+      if (path === "/api/nodes/groups") {
+        return Promise.resolve(new Response(JSON.stringify({ groups: [] })))
+      }
+      return Promise.resolve(new Response(JSON.stringify({
+        inbounds: [],
+        outbounds: [
+          { type: "vless", tag: "hk", server: "hk.example", server_port: 443 },
+          { type: "trojan", tag: "us", server: "us.example", server_port: 443 },
+          { type: "selector", tag: "main", outbounds: ["hk", "us"], default: selected ? "us" : "hk" },
+          { type: "direct", tag: "direct" },
+        ],
+      })))
+    }))
+    const user = userEvent.setup()
+    renderApp(<App />, "/proxy/outbounds")
+    const trigger = await screen.findByRole("combobox", { name: "main" })
+    expect(trigger).toHaveTextContent("hk")
+    await user.click(trigger)
+    await user.click(await screen.findByRole("option", { name: "us" }))
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "main" })).toHaveTextContent("us"))
+    expect(screen.getByText("当前节点: us")).toBeInTheDocument()
+  })
+
   it("shows config and runtime group type mismatch on outbound cards", async () => {
     sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
     vi.stubGlobal("fetch", vi.fn((input: string | URL | Request) => {

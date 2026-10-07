@@ -13,6 +13,7 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { buildConnectionsHref } from "@/features/observability/connection-facets"
 import { buildLogsHref } from "@/features/observability/log-filter-presets"
+import { configKey } from "@/features/config/config-hooks"
 import {
   delayBatchFailureClipboardText,
   delayBatchToastTone,
@@ -48,7 +49,11 @@ function SelectorControl({ group, subscriptionId }: { group: OutboundGroup; subs
     onSuccess: async () => {
       await client.invalidateQueries({ queryKey: ["nodes", "groups"] })
       if (!subscriptionId) return
-      await client.invalidateQueries({ queryKey: ["subscriptions"] })
+      // 订阅出口切换会重写配置里的组默认值，配置查询与订阅列表都要失效，否则卡片仍显示旧节点。
+      await Promise.all([
+        client.invalidateQueries({ queryKey: ["subscriptions"] }),
+        client.invalidateQueries({ queryKey: configKey }),
+      ])
       toast.success(t("subscriptions.exitNodeUpdated"))
     },
     onError: (error: Error) => {

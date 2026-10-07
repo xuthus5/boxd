@@ -37,6 +37,7 @@ import {
 import { api } from "@/lib/api/endpoints"
 import type { Subscription } from "@/lib/api/types"
 import { PageLoadErrorAlert } from "@/features/common/page-load-error-alert"
+import { configKey } from "@/features/config/config-hooks"
 
 export function SubscriptionsPage() {
   const { t } = useTranslation()
@@ -57,6 +58,8 @@ export function SubscriptionsPage() {
   const refresh = () => Promise.all([
     client.invalidateQueries({ queryKey: ["subscriptions"] }),
     client.invalidateQueries({ queryKey: ["nodes"] }),
+    // 订阅变更会重写出站配置，配置查询失效后出站分组卡片才能显示新的出口默认值。
+    client.invalidateQueries({ queryKey: configKey }),
   ])
   const action = (
     request: Promise<unknown>,
