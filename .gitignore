@@ -17,3 +17,4 @@ __debug_bin*
 *.syso
 MicrosoftEdgeWebview2Setup.exe
 .idea
+.commandcode
