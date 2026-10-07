@@ -50,7 +50,7 @@ function subscriptionTags(subscriptions: Subscription[]) {
 }
 
 function OutboundSections({ groups, independent, onEdit, onDelete }: {
-  groups: { group: OutboundGroup; configType?: string }[]
+  groups: { group: OutboundGroup; configType?: string; subscriptionId?: string }[]
   independent: IndexedItem[]
   onEdit: (index: number) => void
   onDelete: (index: number) => void
@@ -65,7 +65,14 @@ function OutboundSections({ groups, independent, onEdit, onDelete }: {
             <p className="text-sm text-muted-foreground">{t("proxy.description")}</p>
           </div>
           <div className="grid gap-2 sm:gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {groups.map(({ group, configType }) => <RuntimeGroupCard key={group.tag} group={group} configType={configType} />)}
+            {groups.map(({ group, configType, subscriptionId }) => (
+              <RuntimeGroupCard
+                key={group.tag}
+                group={group}
+                configType={configType}
+                subscriptionId={subscriptionId}
+              />
+            ))}
           </div>
         </section>
       ) : null}
@@ -113,7 +120,7 @@ export function OutboundCards({ items, onEdit, onDelete }: {
     const group = runtimeGroups.get(subscription.name) ?? configuredGroup
     if (!group) return []
     const configType = configuredGroup?.type ?? (typeof configured?.item.type === "string" ? configured.item.type : undefined)
-    return [{ group, configType }]
+    return [{ group, configType, subscriptionId: subscription.id }]
   })
   return <OutboundSections groups={groups} independent={independent} onEdit={onEdit} onDelete={onDelete} />
 }

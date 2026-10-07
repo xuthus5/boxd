@@ -35,16 +35,27 @@ import { api } from "@/lib/api/endpoints"
 import { cn } from "@/lib/utils"
 import type { OutboundGroup } from "@/lib/api/types"
 
-function SelectorControl({ group }: { group: OutboundGroup }) {
+function SelectorControl({ group, subscriptionId }: { group: OutboundGroup; subscriptionId?: string }) {
   const { t } = useTranslation()
   const client = useQueryClient()
   const mutation = useMutation({
-    mutationFn: (tag: string) => api.nodes.select(group.tag, tag),
-    onSuccess: () => client.invalidateQueries({ queryKey: ["nodes", "groups"] }),
+    // 订阅分组把出口写回订阅并同步配置，避免重载后回退到默认节点；其他分组仅切换运行时。
+    mutationFn: async (tag: string) => {
+      await (subscriptionId
+        ? api.subscriptions.select(subscriptionId, tag)
+        : api.nodes.select(group.tag, tag))
+    },
+    onSuccess: async () => {
+      await client.invalidateQueries({ queryKey: ["nodes", "groups"] })
+      if (!subscriptionId) return
+      await client.invalidateQueries({ queryKey: ["subscriptions"] })
+      toast.success(t("subscriptions.exitNodeUpdated"))
+    },
     onError: (error: Error) => {
       const code = classifyNodeRequestError(error)
       const payload = nodeRequestErrorClipboardText(error, { scope: "select", group: group.tag })
-      toast.error(formatNodeRequestErrorToast(error, t("nodes.selectFailed")), {
+      const fallback = subscriptionId ? t("subscriptions.selectExitFailed") : t("nodes.selectFailed")
+      toast.error(formatNodeRequestErrorToast(error, fallback), {
         description: t(nodeRequestErrorHintKey(code)),
         action: payload ? {
           label: t("nodes.copyRequestError"),
@@ -164,7 +175,14 @@ function URLTestControl({ group }: { group: OutboundGroup }) {
   )
 }
 
-export function RuntimeGroupCard({ group, configType }: { group: OutboundGroup; configType?: string }) {
+export interface RuntimeGroupCardProps {
+  group: OutboundGroup
+  configType?: string
+  /** 订阅分组 id；传入后出口切换会持久化到订阅并同步配置。 */
+  subscriptionId?: string
+}
+
+export function RuntimeGroupCard({ group, configType, subscriptionId }: RuntimeGroupCardProps) {
   const { t } = useTranslation()
   const mismatched = Boolean(configType && configType !== group.type)
   return (
@@ -186,7 +204,9 @@ export function RuntimeGroupCard({ group, configType }: { group: OutboundGroup; 
             </AlertDescription>
           </Alert>
         ) : null}
-        {group.type === "selector" ? <SelectorControl group={group} /> : <URLTestControl group={group} />}
+        {group.type === "selector"
+          ? <SelectorControl group={group} subscriptionId={subscriptionId} />
+          : <URLTestControl group={group} />}
         {group.now ? (
           <div className="flex flex-wrap gap-1.5">
             <Link

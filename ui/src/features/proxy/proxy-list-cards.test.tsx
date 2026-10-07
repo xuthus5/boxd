@@ -80,6 +80,41 @@ describe("proxy list cards", () => {
     expect(screen.getAllByRole("combobox").length).toBeGreaterThanOrEqual(2)
   })
 
+  it("writes exit-node changes back to the owning subscription", async () => {
+    const calls: { path: string; method: string }[] = []
+    vi.stubGlobal("fetch", vi.fn((input: string | URL | Request, init?: RequestInit) => {
+      const path = String(input)
+      calls.push({ path, method: init?.method ?? "GET" })
+      if (path === "/api/subscriptions/sub-1/selector") {
+        return Promise.resolve(new Response(JSON.stringify({ id: "sub-1", name: "airport", selected: "node-b" })))
+      }
+      if (path === "/api/subscriptions/") {
+        return Promise.resolve(new Response(JSON.stringify([
+          { id: "sub-1", name: "airport", outbounds: [{ tag: "node-a" }, { tag: "node-b" }] },
+        ])))
+      }
+      return Promise.resolve(new Response(JSON.stringify({
+        groups: [{ type: "selector", tag: "airport", now: "node-a", all: ["node-a", "node-b"] }],
+      })))
+    }))
+    const user = userEvent.setup()
+    renderApp(
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <OutboundCards
+          items={[{ index: 0, item: { tag: "airport", type: "selector", outbounds: ["node-a", "node-b"] } }]}
+          onEdit={vi.fn()}
+          onDelete={vi.fn()}
+        />
+      </QueryClientProvider>,
+    )
+    await user.click(await screen.findByRole("combobox", { name: "airport" }))
+    await user.click(await screen.findByRole("option", { name: "node-b" }))
+    await waitFor(() => expect(
+      calls.some((call) => call.method === "PUT" && call.path === "/api/subscriptions/sub-1/selector"),
+    ).toBe(true))
+    expect(calls.some((call) => call.path.includes("/api/nodes/selectors/"))).toBe(false)
+  })
+
   it("forwards inbound quick patches", async () => {
     const onPatch = vi.fn()
     const user = userEvent.setup()

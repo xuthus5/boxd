@@ -44,6 +44,51 @@ describe("RuntimeGroupCard", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/nodes/selectors/proxy/select"), expect.objectContaining({ method: "POST" })))
   })
 
+  it("persists a subscription group selection through the subscription API", async () => {
+    const fetchMock = vi.fn((input: string | URL | Request, init?: RequestInit) => {
+      const path = typeof input === "string" ? input : input.toString()
+      if (init?.method === "PUT" && path.includes("/api/subscriptions/sub-1/selector")) {
+        return Promise.resolve(new Response(JSON.stringify({ id: "sub-1", name: "proxy", selected: "b" })))
+      }
+      if (path.includes("/api/nodes/groups")) {
+        return Promise.resolve(new Response(JSON.stringify({ groups: [{ type: "selector", tag: "proxy", now: "a", all: ["a", "b"] }] })))
+      }
+      return Promise.resolve(new Response("{}"))
+    })
+    vi.stubGlobal("fetch", fetchMock)
+    wrap(<RuntimeGroupCard group={{ type: "selector", tag: "proxy", now: "a", all: ["a", "b"] }} subscriptionId="sub-1" />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole("combobox", { name: "proxy" }))
+    await user.click(await screen.findByRole("option", { name: "b" }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/subscriptions/sub-1/selector"),
+      expect.objectContaining({ method: "PUT" }),
+    ))
+    expect(fetchMock.mock.calls.some((call) => String(call[0]).includes("/api/nodes/selectors/"))).toBe(false)
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("出口节点已切换"))
+  })
+
+  it("reports subscription group selection failures", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(
+      JSON.stringify({ code: "subscription_sync_failed", message: "sync failed" }),
+      { status: 500 },
+    )))
+    vi.mocked(copyText).mockResolvedValue(undefined)
+    wrap(<RuntimeGroupCard group={{ type: "selector", tag: "proxy", now: "a", all: ["a", "b"] }} subscriptionId="sub-1" />)
+    const user = userEvent.setup()
+    await user.click(screen.getByRole("combobox", { name: "proxy" }))
+    await user.click(await screen.findByRole("option", { name: "b" }))
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalled()
+      const [message, options] = vi.mocked(toast.error).mock.calls[0]
+      expect(String(message)).toContain("sync failed")
+      expect(options).toEqual(expect.objectContaining({
+        description: expect.any(String),
+        action: expect.objectContaining({ label: expect.any(String) }),
+      }))
+    })
+  })
+
   it("deep-links current member to connections and logs", () => {
     wrap(<RuntimeGroupCard group={{ type: "selector", tag: "proxy", now: "a", all: ["a", "b"] }} />)
     expect(screen.getByRole("link", { name: "查看连接: a" })).toHaveAttribute(

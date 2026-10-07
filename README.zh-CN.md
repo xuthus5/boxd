@@ -73,7 +73,7 @@ go run -tags with_clash_api ./cmd/boxd/
 ## 使用说明
 
 1. 登录面板，轮换管理员密码。
-2. **订阅 / 节点**：添加公网 HTTP(S) 订阅 URL，或导入 VMess、VLESS、Trojan、Shadowsocks/SIP002、SSR、Hysteria/Hysteria2、TUIC、AnyTLS、ShadowTLS 链接。本机/私网源和不安全重定向会被拦截。订阅会按各自间隔后台刷新，全局间隔作为旧数据回退。按需配置 URLTest（可继承全局默认）。订阅下载限制为 16 MiB，刷新或配置同步失败会展示可操作错误码。 关闭后该订阅组将使用 Selector 策略：由你手动选择当前出口节点，不会自动按延迟切换。
+2. **订阅 / 节点**：添加公网 HTTP(S) 订阅 URL，或导入 VMess、VLESS、Trojan、Shadowsocks/SIP002、SSR、Hysteria/Hysteria2、TUIC、AnyTLS、ShadowTLS 链接。本机/私网源和不安全重定向会被拦截。订阅会按各自间隔后台刷新，全局间隔作为旧数据回退。按需配置 URLTest（可继承全局默认）。订阅下载限制为 16 MiB，刷新或配置同步失败会展示可操作错误码。关闭 URLTest 后该组变为 Selector：可在订阅卡片或出站分组卡片手动选择出口节点，选择会持久化为组默认出口。
 3. **入站 / 出站**：检查自动生成的监听与代理组；可在具备权限时添加 TUN 或自定义监听。导入的节点和订阅组会自动接入代理选择器。
 4. **路由 / DNS / 证书 / Services / 内核日志 / NTP / Experimental**：按需调整预装策略及可选的信任库、服务、日志和时间同步；默认配置省略未使用的可选模块。
 5. **仪表盘**：按四步引导预览并一次应用模块、完成客户端接入，再按需校验并启动。保存或导入会保持内核原来的停止状态；运行中的内核会重载配置。
