@@ -2,12 +2,18 @@ package service
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"strings"
 
 	"github.com/xuthus5/boxd/internal/core"
 	"github.com/xuthus5/boxd/internal/model"
 )
+
+// outboundSelector 抽象内核运行时的出口切换能力，便于按需注入与测试。
+type outboundSelector interface {
+	SelectOutbound(groupTag, outTag string) error
+}
 
 // SubscriptionInput 订阅创建/更新请求。
 type SubscriptionInput struct {
@@ -106,6 +112,49 @@ func (s *SubscriptionService) Delete(_ context.Context, id string) error {
 	}
 	slog.Info("subscription deleted", "id", id)
 	return nil
+}
+
+// SetSelected 持久化订阅在 selector 模式下的出口节点并同步配置；内核运行时会即时切换。
+func (s *SubscriptionService) SetSelected(_ context.Context, id, tag string) error {
+	subscription := s.manager.Get(id)
+	if subscription == nil {
+		return Errorf(404, model.ErrorSubscriptionNotFound, "subscription not found")
+	}
+	if err := core.ValidateSubscriptionSelection(*subscription, tag); err != nil {
+		return Errorf(400, model.ErrorInvalidRequest, "%v", err)
+	}
+	if _, err := s.manager.SetSelected(id, tag); err != nil {
+		slog.Error("subscription selection update failed", "id", id, "tag", tag, "err", err)
+		return Errorf(500, model.ErrorInternal, "%v", err)
+	}
+	if s.nodeMgr != nil {
+		if err := SyncOutboundsToConfig(s.nodeMgr, s.manager, s.configPath); err != nil {
+			if _, restoreErr := s.manager.SetSelected(id, subscription.Selected); restoreErr != nil {
+				slog.Error("restoring previous subscription selection failed", "id", id, "err", restoreErr)
+			}
+			slog.Error("subscription selection config sync failed", "id", id, "err", err)
+			return Errorf(500, model.ErrorSubscriptionSync, "%v", subscriptionSyncErrorMessage(err))
+		}
+	}
+	s.applyRuntimeSelection(subscription.Name, tag)
+	slog.Info("subscription selection updated", "id", id, "name", subscription.Name, "tag", tag)
+	return nil
+}
+
+// applyRuntimeSelection 在内核运行时即时切换出口；未运行时留待内核启动后读取配置默认值。
+func (s *SubscriptionService) applyRuntimeSelection(group, tag string) {
+	if tag == "" {
+		return
+	}
+	selector, ok := s.instance.(outboundSelector)
+	if !ok {
+		return
+	}
+	if err := selector.SelectOutbound(group, tag); err != nil && !errors.Is(err, core.ErrNotRunning) {
+		slog.Warn("subscription selection saved but runtime switch failed",
+			"group", group, "tag", tag, "err", err,
+		)
+	}
 }
 
 // Refresh 刷新单个订阅并同步配置。

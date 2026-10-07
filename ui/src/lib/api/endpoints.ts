@@ -175,6 +175,10 @@ export const api = {
       json("PUT", input),
     ),
     delete: (id: string) => apiRequest<void>(`/api/subscriptions/${segment(id)}`, json("DELETE")),
+    select: (id: string, tag: string) => apiRequest<Subscription>(
+      `/api/subscriptions/${segment(id)}/selector`,
+      json("PUT", { tag }),
+    ),
     refresh: (id: string) => apiRequest<JsonValue>(`/api/subscriptions/${segment(id)}/refresh`, json("POST")),
     refreshAll: () => apiRequestEnvelope<JsonValue>("/api/subscriptions/refresh-all", json("POST")),
   },

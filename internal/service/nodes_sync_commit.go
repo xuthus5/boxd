@@ -45,12 +45,7 @@ func (c syncCommit) write(config map[string]any, groupTags []string) error {
 }
 
 func isProxyLikeOutboundType(typ string) bool {
-	switch typ {
-	case "snell", "vless", "vmess", "trojan", "shadowsocks", "hysteria", "hysteria2", "tuic", "shadowtls", "anytls", "ssh", "tor":
-		return true
-	default:
-		return false
-	}
+	return core.IsProxyLikeOutboundType(typ)
 }
 
 func cloneAnyMap(in map[string]any) map[string]any {

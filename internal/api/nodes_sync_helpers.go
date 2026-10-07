@@ -1,12 +1,9 @@
 package api
 
+import "github.com/xuthus5/boxd/internal/core"
+
 func isProxyLikeOutboundType(typ string) bool {
-	switch typ {
-	case "snell", "vless", "vmess", "trojan", "shadowsocks", "hysteria", "hysteria2", "tuic", "shadowtls", "anytls", "ssh", "tor":
-		return true
-	default:
-		return false
-	}
+	return core.IsProxyLikeOutboundType(typ)
 }
 
 func cloneAnyMap(in map[string]any) map[string]any {

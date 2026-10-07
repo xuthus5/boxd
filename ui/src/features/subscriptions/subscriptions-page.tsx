@@ -123,6 +123,7 @@ export function SubscriptionsPage() {
     () => summarizeSubscriptionStatus(items, search),
     [items, search],
   )
+  const urltestEnabled = (item: Subscription) => item.urltest?.enabled ?? defaults.data?.enabled ?? true
   const loadError = query.error || defaults.error
 
   const retryFailed = async () => {
@@ -262,6 +263,8 @@ export function SubscriptionsPage() {
                 <SubscriptionItem
                   key={item.id}
                   item={item}
+                  selectorMode={!urltestEnabled(item)}
+                  onSelectExit={(tag) => action(api.subscriptions.select(item.id, tag), t("subscriptions.exitNodeUpdated"), { scope: "select-exit", id: item.id, name: item.name, fallback: t("subscriptions.selectExitFailed") })}
                   onEdit={() => setEditing(item)}
                   onRefresh={() => action(api.subscriptions.refresh(item.id), item.error ? t("subscriptions.retryDone") : t("subscriptions.refreshDone"), { scope: "refresh", id: item.id, name: item.name, fallback: t("subscriptions.refreshFailed") })}
                   onDelete={() => action(api.subscriptions.delete(item.id).then(() => api.nodes.sync()), t("subscriptions.deleted"), { scope: "delete", id: item.id, name: item.name, fallback: t("subscriptions.deleteFailed") })}

@@ -295,7 +295,12 @@ func (s *BoxdBridgeService) dispatchApplyHistoryPath(ctx context.Context, path, 
 	return BridgeResponse{}, nil, false
 }
 
-// dispatchSubscriptionPath 处理订阅参数路由：GET/PUT/DELETE /api/subscriptions/{id}、POST /{id}/refresh。
+// bridgeSelectorInput 描述 selector 模式下选择的出口节点。
+type bridgeSelectorInput struct {
+	Tag string `json:"tag"`
+}
+
+// dispatchSubscriptionPath 处理订阅参数路由：GET/PUT/DELETE /api/subscriptions/{id}、PUT /{id}/selector、POST /{id}/refresh。
 func (s *BoxdBridgeService) dispatchSubscriptionPath(ctx context.Context, path, method string, body json.RawMessage) (BridgeResponse, error, bool) {
 	const prefix = "/api/subscriptions/"
 	if !strings.HasPrefix(path, prefix) {
@@ -307,6 +312,15 @@ func (s *BoxdBridgeService) dispatchSubscriptionPath(ctx context.Context, path, 
 		resp, err := okResult(s.rt.svc.Subscriptions().Get(ctx, rest))
 		return resp, err, true
 	case "PUT":
+		if id, ok := strings.CutSuffix(rest, "/selector"); ok {
+			payload, err := bridgeBody[bridgeSelectorInput](body)
+			if err != nil {
+				resp, rerr := errResult(err)
+				return resp, rerr, true
+			}
+			resp, rerr := errResult(s.rt.svc.Subscriptions().SetSelected(ctx, id, payload.Tag))
+			return resp, rerr, true
+		}
 		input, err := bridgeBody[service.SubscriptionInput](body)
 		if err != nil {
 			resp, rerr := errResult(err)

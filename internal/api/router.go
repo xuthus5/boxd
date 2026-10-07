@@ -130,6 +130,7 @@ func NewRouter(
 		r.Get("/{id}", subscriptionHandler.Get)
 		r.Put("/{id}", subscriptionHandler.Update)
 		r.Delete("/{id}", subscriptionHandler.Delete)
+		r.Put("/{id}/selector", subscriptionHandler.SetSelector)
 		r.Post("/{id}/refresh", subscriptionHandler.Refresh)
 		r.Post("/refresh-all", subscriptionHandler.RefreshAll)
 	})

@@ -64,6 +64,7 @@ type Subscription struct {
 	URL         string               `json:"url"`
 	IntervalMin int                  `json:"interval_min"`
 	URLTest     *URLTestOverrides    `json:"urltest,omitempty"`
+	Selected    string               `json:"selected,omitempty"`
 	LastUpdated time.Time            `json:"last_updated"`
 	Error       string               `json:"error,omitempty"`
 	ErrorCode   string               `json:"error_code,omitempty"`

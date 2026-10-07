@@ -103,6 +103,7 @@ export interface Subscription {
   url: string
   interval_min: number
   urltest?: URLTestOverrides
+  selected?: string
   last_updated: string
   error?: string
   error_code?: string

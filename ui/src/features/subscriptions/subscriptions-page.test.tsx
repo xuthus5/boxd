@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 
 import App from "@/App"
 import { SubscriptionsPage } from "@/features/subscriptions/subscriptions-page"
+import { i18n } from "@/i18n"
 import { sessionStore } from "@/lib/session"
 import { renderApp } from "@/test/render"
 
@@ -49,6 +50,36 @@ describe("SubscriptionsPage", () => {
 
     expect(await screen.findByText("URLTest：继承全局")).toBeInTheDocument()
     expect(screen.queryByText("URLTest：自定义")).not.toBeInTheDocument()
+  })
+
+  it("persists the exit node selection for selector subscriptions", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    const calls: string[] = []
+    vi.stubGlobal("fetch", vi.fn((input: string | URL | Request, init?: RequestInit) => {
+      const path = typeof input === "string" ? input : input.toString()
+      calls.push(`${init?.method ?? "GET"} ${path}`)
+      if (path.endsWith("/selector")) {
+        return Promise.resolve(new Response(JSON.stringify({ id: "sub-1", selected: "us-01" })))
+      }
+      const data = path.endsWith("/urltest-defaults")
+        ? { enabled: true, url: "https://www.gstatic.com/generate_204", interval: "3m", tolerance: 50 }
+        : path.endsWith("/nodes/") ? [] : [{
+          id: "sub-1", name: "split", url: "https://example.com/sub", interval_min: 60,
+          last_updated: "2026-01-01T00:00:00Z", urltest: { enabled: false },
+          outbounds: [
+            { tag: "hk-01", type: "vless", server: "hk.example", port: 443 },
+            { tag: "us-01", type: "trojan", server: "us.example", port: 443 },
+          ],
+        }]
+      return Promise.resolve(new Response(JSON.stringify(data)))
+    }))
+    renderApp(<App />, "/subscriptions")
+
+    const user = userEvent.setup()
+    const trigger = await screen.findByRole("combobox", { name: `${i18n.t("subscriptions.exitNode")}: split` })
+    await user.click(trigger)
+    await user.click(await screen.findByRole("option", { name: "us-01" }))
+    await waitFor(() => expect(calls).toContain("PUT /api/subscriptions/sub-1/selector"))
   })
 
   it("sorts failed subscriptions first then by last_updated", async () => {

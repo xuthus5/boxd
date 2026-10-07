@@ -8,6 +8,7 @@ import { ConfirmAction } from "@/components/confirm-action"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { buildNodesHref } from "@/features/nodes/nodes-filter"
 import { buildLogsHref } from "@/features/observability/log-filter-presets"
 import { copyText } from "@/lib/clipboard"
@@ -24,9 +25,36 @@ import { cn } from "@/lib/utils"
 
 export interface SubscriptionItemProps {
   item: Subscription
+  selectorMode?: boolean
+  onSelectExit?: (tag: string) => void
   onEdit: () => void
   onRefresh: () => void
   onDelete: () => void
+}
+
+function ExitNodeSelect({ item, onSelectExit }: { item: Subscription; onSelectExit?: (tag: string) => void }) {
+  const { t } = useTranslation()
+  const tags = (item.outbounds ?? [])
+    .map((outbound) => outbound.tag)
+    .filter((tag): tag is string => Boolean(tag))
+  if (!tags.length) return null
+  const selected = item.selected && tags.includes(item.selected) ? item.selected : tags[0]
+  const items = tags.map((tag) => ({ label: tag, value: tag }))
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-xs text-muted-foreground sm:text-sm">{t("subscriptions.exitNode")}</span>
+      <Select items={items} value={selected} onValueChange={(value) => onSelectExit?.(String(value))}>
+        <SelectTrigger aria-label={`${t("subscriptions.exitNode")}: ${item.name}`} className="h-8 w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            {items.map((entry) => <SelectItem key={entry.value} value={entry.value}>{entry.label}</SelectItem>)}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+    </div>
+  )
 }
 
 function urlTestStatus(item: Subscription, t: (key: string) => string) {
@@ -36,7 +64,7 @@ function urlTestStatus(item: Subscription, t: (key: string) => string) {
   return t("subscriptions.urlTestInherited")
 }
 
-export function SubscriptionItem({ item, onEdit, onRefresh, onDelete }: SubscriptionItemProps) {
+export function SubscriptionItem({ item, selectorMode, onSelectExit, onEdit, onRefresh, onDelete }: SubscriptionItemProps) {
   const { t, i18n } = useTranslation()
   const [mountedAt] = useState(() => Date.now())
   const openURL = subscriptionSourceURL(item.url)
@@ -143,6 +171,7 @@ export function SubscriptionItem({ item, onEdit, onRefresh, onDelete }: Subscrip
             </div>
           ) : null}
           <SubscriptionTrafficBadges traffic={item.traffic} />
+          {selectorMode ? <ExitNodeSelect item={item} onSelectExit={onSelectExit} /> : null}
           <div className="flex flex-wrap gap-1.5">
             <Link
               to={buildNodesHref({ query: item.name })}

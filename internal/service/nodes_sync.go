@@ -234,10 +234,16 @@ func (b subscriptionGroupBuilder) append(
 			entry["url"] = resolved.URL
 			entry["interval"] = resolved.Interval
 			entry["tolerance"] = resolved.Tolerance
+			delete(entry, "default")
 		} else {
 			delete(entry, "url")
 			delete(entry, "interval")
 			delete(entry, "tolerance")
+			if fallback := core.ResolveSubscriptionSelectorDefault(memberTags, subscription.Selected); fallback != "" {
+				entry["default"] = fallback
+			} else {
+				delete(entry, "default")
+			}
 		}
 		outbounds = append(outbounds, entry)
 		groupTags = append(groupTags, subscription.Name)
