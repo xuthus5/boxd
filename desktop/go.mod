@@ -5,7 +5,7 @@ go 1.26.6
 require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/sagernet/sing-box v1.14.2
-	github.com/wailsapp/wails/v3 v3.0.0-beta.26
+	github.com/wailsapp/wails/v3 v3.0.0-beta.28
 	github.com/xuthus5/boxd v0.0.0
 	go.etcd.io/bbolt v1.5.0
 )
