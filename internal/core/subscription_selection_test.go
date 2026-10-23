@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/json"
 	"testing"
 
 	"go.etcd.io/bbolt"
@@ -63,6 +64,129 @@ func TestResolveSubscriptionSelectorDefault(t *testing.T) {
 	}
 	if got := ResolveSubscriptionSelectorDefault(members, "missing"); got != "" {
 		t.Fatalf("stale selection = %q", got)
+	}
+}
+
+func TestResolveSubscriptionSelectorTarget(t *testing.T) {
+	members := []string{"node-a", "node-b"}
+	cases := []struct {
+		name     string
+		selected string
+		want     string
+	}{
+		{name: "selected", selected: "node-b", want: "node-b"},
+		{name: "empty falls back", selected: "", want: "node-a"},
+		{name: "stale falls back", selected: "removed", want: "node-a"},
+		{name: "empty members", want: ""},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			caseMembers := members
+			if testCase.name == "empty members" {
+				caseMembers = nil
+			}
+			if got := ResolveSubscriptionSelectorTarget(caseMembers, testCase.selected); got != testCase.want {
+				t.Fatalf("target = %q, want %q", got, testCase.want)
+			}
+		})
+	}
+}
+
+func TestManagedSubscriptionSelectorTargets(t *testing.T) {
+	db, cleanup := setupSubDB(t)
+	defer cleanup()
+	manager := NewSubscriptionManager(db, t.TempDir())
+	disabled := false
+	selector, err := manager.Create(SubscriptionParams{
+		Name: "selector", URL: "https://example.com/selector",
+		URLTest: &model.URLTestOverrides{Enabled: &disabled},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeCoreSubscriptionOutbounds(t, manager, selector.ID, []model.Outbound{
+		{Tag: "node-a", Type: "vless"},
+		{Tag: "node-b", Type: "trojan"},
+	}, "node-b")
+	empty, err := manager.Create(SubscriptionParams{
+		Name: "empty", URL: "https://example.com/empty",
+		URLTest: &model.URLTestOverrides{Enabled: &disabled},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeCoreSubscriptionOutbounds(t, manager, empty.ID, []model.Outbound{
+		{Tag: "node-c", Type: "shadowsocks"},
+	}, "")
+	enabled := true
+	urltest, err := manager.Create(SubscriptionParams{
+		Name: "url-test", URL: "https://example.com/url-test",
+		URLTest: &model.URLTestOverrides{Enabled: &enabled},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeCoreSubscriptionOutbounds(t, manager, urltest.ID, []model.Outbound{
+		{Tag: "node-d", Type: "vmess"},
+	}, "")
+	noMembers, err := manager.Create(SubscriptionParams{
+		Name: "no-members", URL: "https://example.com/no-members",
+		URLTest: &model.URLTestOverrides{Enabled: &disabled},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeCoreSubscriptionOutbounds(t, manager, noMembers.ID, nil, "")
+
+	targets, err := ManagedSubscriptionSelectorTargets(manager)
+	if err != nil {
+		t.Fatalf("ManagedSubscriptionSelectorTargets() error = %v", err)
+	}
+	if targets["selector"] != "node-b" || targets["empty"] != "node-c" {
+		t.Fatalf("targets = %#v", targets)
+	}
+	if _, exists := targets["url-test"]; exists {
+		t.Fatalf("urltest group must be skipped: %#v", targets)
+	}
+	if _, exists := targets["no-members"]; exists {
+		t.Fatalf("empty group must be skipped: %#v", targets)
+	}
+	if got, err := ManagedSubscriptionSelectorTargets(nil); err != nil || len(got) != 0 {
+		t.Fatalf("nil manager = %#v, %v", got, err)
+	}
+}
+
+func TestManagedSubscriptionSelectorTargetsErrors(t *testing.T) {
+	db, cleanup := setupSubDB(t)
+	manager := NewSubscriptionManager(db, t.TempDir())
+	cleanup()
+	if _, err := ManagedSubscriptionSelectorTargets(manager); err == nil {
+		t.Fatal("closed database should fail")
+	}
+}
+
+func writeCoreSubscriptionOutbounds(
+	t *testing.T,
+	manager *SubscriptionManager,
+	id string,
+	outbounds []model.Outbound,
+	selected string,
+) {
+	t.Helper()
+	subscription := manager.Get(id)
+	if subscription == nil {
+		t.Fatalf("subscription %q not found", id)
+	}
+	subscription.Outbounds = outbounds
+	subscription.Selected = selected
+	data, err := json.Marshal(subscription)
+	if err != nil {
+		t.Fatalf("encoding subscription: %v", err)
+	}
+	if err := manager.DB().Update(func(tx *bbolt.Tx) error {
+		return tx.Bucket(subBucket).Put([]byte(id), data)
+	}); err != nil {
+		t.Fatalf("saving subscription: %v", err)
 	}
 }
 

@@ -74,10 +74,14 @@ func initializeDesktopCredentials(settings *core.SettingsManager, cfg desktopCon
 func newDesktopDependencies(cfg desktopConfig, state desktopInitialState) service.Deps {
 	kernelLogWriter := core.NewLogWriter(desktopLogCapacity)
 	instance := core.NewSBInstance(cfg.ConfigPath, kernelLogWriter)
+	subscriptionManager := core.NewSubscriptionManager(state.db, cfg.DataDir)
+	instance.SetSelectorApplyProvider(func() (map[string]string, error) {
+		return core.ManagedSubscriptionSelectorTargets(subscriptionManager)
+	})
 	return service.Deps{
 		DB: state.db, ConfigPath: cfg.ConfigPath, DataDir: cfg.DataDir,
 		Username: cfg.Username, Version: core.Version, Settings: state.settings, Instance: instance,
-		NodeManager: core.NewNodeManager(state.db), SubManager: core.NewSubscriptionManager(state.db, cfg.DataDir),
+		NodeManager: core.NewNodeManager(state.db), SubManager: subscriptionManager,
 		RuleSetInstaller: core.NewLoyalsoldierRuleSetInstaller(cfg.DataDir),
 		RuleSetUpdater:   core.NewRuleSetUpdater(cfg.ConfigPath, cfg.DataDir, nil, instance.Stop, instance.Start),
 		KernelLogWriter:  kernelLogWriter, AppLogWriter: core.NewLogWriter(desktopLogCapacity),

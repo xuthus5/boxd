@@ -3,7 +3,9 @@ package core
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
+	"sort"
 	"sync"
 	"time"
 
@@ -38,6 +40,7 @@ type SBInstance struct {
 	lastError     string
 	lastErrorCode string
 	lastErrorAt   time.Time
+	selectorApply func() (map[string]string, error)
 	LogWriter     *LogWriter
 	Traffic       *TrafficTracker
 }
@@ -92,6 +95,14 @@ func NewSBInstance(configPath string, logWriter *LogWriter) *SBInstance {
 	}
 }
 
+// SetSelectorApplyProvider configures selector targets applied after every successful kernel start or reload.
+// Managed subscription groups use this to override stale sing-box cache selections with the persisted choice.
+func (s *SBInstance) SetSelectorApplyProvider(provider func() (map[string]string, error)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.selectorApply = provider
+}
+
 func (s *SBInstance) Start() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -127,6 +138,12 @@ func (s *SBInstance) startLocked() error {
 		s.recordStartErrorLocked(err)
 		return err
 	}
+	if err := s.applySelectorTargetsLocked(instance); err != nil {
+		_ = instance.Close()
+		cancel()
+		s.recordStartErrorLocked(err)
+		return err
+	}
 
 	s.box = instance
 	s.boxCtx = ctx
@@ -137,6 +154,31 @@ func (s *SBInstance) startLocked() error {
 	s.lastError = ""
 	s.lastErrorCode = ""
 	s.lastErrorAt = time.Time{}
+	return nil
+}
+
+func (s *SBInstance) applySelectorTargetsLocked(instance boxInstance) error {
+	if s.selectorApply == nil {
+		return nil
+	}
+	targets, err := s.selectorApply()
+	if err != nil {
+		return fmt.Errorf("load managed selector targets: %w", err)
+	}
+	groups := make([]string, 0, len(targets))
+	for group := range targets {
+		groups = append(groups, group)
+	}
+	sort.Strings(groups)
+	for _, group := range groups {
+		target := targets[group]
+		if target == "" {
+			continue
+		}
+		if err := selectOutboundFromManager(instance.Outbound(), group, target); err != nil {
+			return fmt.Errorf("apply managed selector %q: %w", group, err)
+		}
+	}
 	return nil
 }
 

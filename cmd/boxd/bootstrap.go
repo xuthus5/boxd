@@ -113,6 +113,9 @@ func newHandlerBuildState(
 	appLogWriter := core.NewLogWriter(200)
 	instance := core.NewSBInstance(cfg.ConfigPath, kernelLogWriter)
 	subscriptionManager := core.NewSubscriptionManager(db, cfg.DataDir)
+	instance.SetSelectorApplyProvider(func() (map[string]string, error) {
+		return core.ManagedSubscriptionSelectorTargets(subscriptionManager)
+	})
 	nodeManager := core.NewNodeManager(db)
 	ruleSetInstaller := core.NewLoyalsoldierRuleSetInstaller(cfg.DataDir)
 	ruleSetUpdater := core.NewRuleSetUpdater(cfg.ConfigPath, cfg.DataDir, ruleSetInstaller, instance.Stop, instance.Start)

@@ -81,6 +81,97 @@ func TestSBInstanceRestartPropagatesStartError(t *testing.T) {
 	}
 }
 
+func TestSBInstanceStartAppliesManagedSelectorTargets(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "config.json")
+	if err := os.WriteFile(configPath, []byte(`{}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	selector := &fakeSelectorOutbound{tag: "proxy", outType: "selector", all: []string{"a", "b"}, now: "a"}
+	fake := newSelectorFakeBox(selector)
+	withNewBox(t, func(box.Options) (boxInstance, error) { return fake, nil })
+
+	instance := NewSBInstance(configPath, NewLogWriter(5))
+	instance.SetSelectorApplyProvider(func() (map[string]string, error) {
+		return map[string]string{"proxy": "b"}, nil
+	})
+	if err := instance.Start(); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	defer func() { _ = instance.Stop() }()
+	if selector.now != "b" {
+		t.Fatalf("selector now = %q, want b", selector.now)
+	}
+}
+
+func TestSBInstanceStartFailsWhenManagedSelectorProviderFails(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "config.json")
+	if err := os.WriteFile(configPath, []byte(`{}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	fake := newFakeBox()
+	withNewBox(t, func(box.Options) (boxInstance, error) { return fake, nil })
+
+	instance := NewSBInstance(configPath, NewLogWriter(5))
+	instance.SetSelectorApplyProvider(func() (map[string]string, error) {
+		return nil, errors.New("selection source failed")
+	})
+	if err := instance.Start(); err == nil {
+		t.Fatal("expected selector provider error")
+	}
+	if !fake.closed || instance.Status().Running {
+		t.Fatal("failed selector application must close and stop the kernel")
+	}
+}
+
+func TestSBInstanceStartFailsWhenManagedSelectorTargetIsInvalid(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "config.json")
+	if err := os.WriteFile(configPath, []byte(`{}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	selector := &fakeSelectorOutbound{tag: "proxy", outType: "selector", all: []string{"a"}, now: "a"}
+	fake := newSelectorFakeBox(selector)
+	withNewBox(t, func(box.Options) (boxInstance, error) { return fake, nil })
+
+	instance := NewSBInstance(configPath, NewLogWriter(5))
+	instance.SetSelectorApplyProvider(func() (map[string]string, error) {
+		return map[string]string{"proxy": "missing"}, nil
+	})
+	if err := instance.Start(); err == nil {
+		t.Fatal("expected invalid selector target error")
+	}
+	if !fake.closed {
+		t.Fatal("failed selector application must close the kernel")
+	}
+}
+
+func TestSBInstanceReloadReappliesManagedSelectorTargets(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "config.json")
+	if err := os.WriteFile(configPath, []byte(`{}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	selector := &fakeSelectorOutbound{tag: "proxy", outType: "selector", all: []string{"a", "b"}, now: "a"}
+	fake := newSelectorFakeBox(selector)
+	withNewBox(t, func(box.Options) (boxInstance, error) { return fake, nil })
+
+	target := "b"
+	instance := NewSBInstance(configPath, NewLogWriter(5))
+	instance.SetSelectorApplyProvider(func() (map[string]string, error) {
+		return map[string]string{"proxy": target}, nil
+	})
+	if err := instance.Start(); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	target = "a"
+	selector.now = "b"
+	if err := instance.Reload(); err != nil {
+		t.Fatalf("Reload() error = %v", err)
+	}
+	defer func() { _ = instance.Stop() }()
+	if selector.now != "a" {
+		t.Fatalf("selector now = %q, want a", selector.now)
+	}
+}
+
 func TestSBInstanceStatusRunningUptime(t *testing.T) {
 	instance := NewSBInstance("config.json", NewLogWriter(5))
 	instance.running = true

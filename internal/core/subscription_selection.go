@@ -50,6 +50,45 @@ func ResolveSubscriptionSelectorDefault(members []string, selected string) strin
 	return ""
 }
 
+// ResolveSubscriptionSelectorTarget returns the runtime selector target. An empty or stale persisted
+// selection falls back to the first member, matching sing-box's selector behaviour without a default.
+func ResolveSubscriptionSelectorTarget(members []string, selected string) string {
+	if target := ResolveSubscriptionSelectorDefault(members, selected); target != "" {
+		return target
+	}
+	if len(members) > 0 {
+		return members[0]
+	}
+	return ""
+}
+
+// ManagedSubscriptionSelectorTargets returns the authoritative runtime selector target for every
+// managed subscription selector. URLTest groups and subscriptions without proxy members are skipped.
+func ManagedSubscriptionSelectorTargets(manager *SubscriptionManager) (map[string]string, error) {
+	if manager == nil {
+		return map[string]string{}, nil
+	}
+	subscriptions, err := manager.List()
+	if err != nil {
+		return nil, fmt.Errorf("list subscriptions: %w", err)
+	}
+	defaults, err := NewSettingsManager(manager.DB()).URLTestDefaults()
+	if err != nil {
+		return nil, err
+	}
+	targets := make(map[string]string, len(subscriptions))
+	for _, subscription := range subscriptions {
+		if subscription.Name == "" || ResolveURLTest(defaults, subscription.URLTest).Enabled {
+			continue
+		}
+		target := ResolveSubscriptionSelectorTarget(SubscriptionSelectableTags(subscription), subscription.Selected)
+		if target != "" {
+			targets[subscription.Name] = target
+		}
+	}
+	return targets, nil
+}
+
 // SetSelected 持久化订阅在 selector 模式下选中的出口节点，空 tag 表示清除选择。
 func (m *SubscriptionManager) SetSelected(id, tag string) (*model.Subscription, error) {
 	m.mu.Lock()

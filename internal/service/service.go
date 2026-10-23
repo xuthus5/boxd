@@ -71,6 +71,13 @@ func (a restartAdapter) Restart() error {
 	return a.instance.Restart()
 }
 
+func (a restartAdapter) SelectOutbound(groupTag, outTag string) error {
+	if a.instance == nil {
+		return core.ErrNotRunning
+	}
+	return a.instance.SelectOutbound(groupTag, outTag)
+}
+
 // Config 返回配置用例服务。
 func (s *ServiceSet) Config() *Config { return s.config }
 

@@ -35,3 +35,16 @@ func TestRestartAdapterReloadPreservesStoppedDiagnostics(t *testing.T) {
 		t.Fatalf("adapter status must match kernel diagnostics: want=%#v got=%#v", before, got)
 	}
 }
+
+func TestRestartAdapterSelectOutboundDelegatesAndHandlesNil(t *testing.T) {
+	var nilAdapter restartAdapter
+	if err := nilAdapter.SelectOutbound("proxy", "node"); !errors.Is(err, core.ErrNotRunning) {
+		t.Fatalf("nil adapter SelectOutbound() error = %v, want %v", err, core.ErrNotRunning)
+	}
+
+	instance := core.NewSBInstance(filepath.Join(t.TempDir(), "missing.json"), core.NewLogWriter(5))
+	adapter := restartAdapter{instance: instance}
+	if err := adapter.SelectOutbound("proxy", "node"); !errors.Is(err, core.ErrNotRunning) {
+		t.Fatalf("stopped adapter SelectOutbound() error = %v, want %v", err, core.ErrNotRunning)
+	}
+}

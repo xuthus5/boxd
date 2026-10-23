@@ -147,6 +147,9 @@ func TestSubscriptionServiceSetSelectedSyncsConfigAndRuntime(t *testing.T) {
 	if _, exists := selectorGroupDefault(t, configPath, subscription.Name); exists {
 		t.Fatal("cleared selection should drop the default field")
 	}
+	if len(instance.selections) != 2 || instance.selections[1] != "sub-a/node-a" {
+		t.Fatalf("cleared selection should apply first member: %#v", instance.selections)
+	}
 }
 
 func TestSubscriptionServiceSetSelectedRejectsUnknownNode(t *testing.T) {
@@ -223,11 +226,12 @@ func TestSubscriptionServiceSetSelectedToleratesRuntimeVariants(t *testing.T) {
 	cases := []struct {
 		name     string
 		instance restartable
+		wantErr  bool
 	}{
 		{name: "nil instance", instance: nil},
 		{name: "not selectable", instance: &fakeRestart{}},
 		{name: "not running", instance: &failingSelectorInstance{err: core.ErrNotRunning}},
-		{name: "switch failure", instance: &failingSelectorInstance{err: errors.New("switch failed")}},
+		{name: "switch failure", instance: &failingSelectorInstance{err: errors.New("switch failed")}, wantErr: true},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -240,10 +244,42 @@ func TestSubscriptionServiceSetSelectedToleratesRuntimeVariants(t *testing.T) {
 				{Tag: "node-a", Type: "vless", Server: "192.0.2.1", Port: 443},
 			})
 			service := NewSubscriptionService(subscriptionManager, nodeManager, configPath, testCase.instance)
-			if err := service.SetSelected(context.Background(), subscription.ID, "node-a"); err != nil {
-				t.Fatalf("SetSelected() error = %v", err)
+			err := service.SetSelected(context.Background(), subscription.ID, "node-a")
+			if (err != nil) != testCase.wantErr {
+				t.Fatalf("SetSelected() error = %v, wantErr=%v", err, testCase.wantErr)
 			}
 		})
+	}
+}
+
+func TestSubscriptionServiceSetSelectedRollsBackOnRuntimeFailure(t *testing.T) {
+	db := newTestDB(t)
+	configPath := filepath.Join(t.TempDir(), "config.json")
+	writeTestConfig(t, configPath, map[string]any{"outbounds": []any{}, "route": map[string]any{}})
+	nodeManager := core.NewNodeManager(db)
+	subscriptionManager := core.NewSubscriptionManager(db, t.TempDir())
+	subscription := seedServiceSubscription(t, subscriptionManager, "sub-a", []model.Outbound{
+		{Tag: "node-a", Type: "vless", Server: "192.0.2.1", Port: 443},
+		{Tag: "node-b", Type: "trojan", Server: "192.0.2.2", Port: 443},
+	})
+	if _, err := subscriptionManager.SetSelected(subscription.ID, "node-a"); err != nil {
+		t.Fatalf("preselecting: %v", err)
+	}
+	service := NewSubscriptionService(
+		subscriptionManager,
+		nodeManager,
+		configPath,
+		&failingSelectorInstance{err: errors.New("switch failed")},
+	)
+
+	if err := service.SetSelected(context.Background(), subscription.ID, "node-b"); err == nil {
+		t.Fatal("runtime failure should surface")
+	}
+	if stored := subscriptionManager.Get(subscription.ID); stored == nil || stored.Selected != "node-a" {
+		t.Fatalf("selection should roll back: %#v", stored)
+	}
+	if selected, exists := selectorGroupDefault(t, configPath, subscription.Name); !exists || selected != "node-a" {
+		t.Fatalf("config default should roll back: %q (exists=%v)", selected, exists)
 	}
 }
 

@@ -44,8 +44,11 @@ func (s *SBInstance) SelectOutbound(groupTag, outTag string) error {
 	if !running || box == nil {
 		return ErrNotRunning
 	}
+	return selectOutboundFromManager(box.Outbound(), groupTag, outTag)
+}
 
-	ob, found := box.Outbound().Outbound(groupTag)
+func selectOutboundFromManager(manager boxOutboundManager, groupTag, outTag string) error {
+	ob, found := manager.Outbound(groupTag)
 	if !found {
 		return fmt.Errorf("%w: %q", ErrGroupNotFound, groupTag)
 	}

@@ -2,8 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"errors"
-	"log/slog"
 	"net/http"
 	"strings"
 
@@ -158,64 +156,6 @@ func (h *SubscriptionHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, nil)
-}
-
-type subscriptionSelectorRequest struct {
-	Tag string `json:"tag"`
-}
-
-// SetSelector PUT /api/subscriptions/{id}/selector ———— 设置 selector 模式下的出口节点。
-func (h *SubscriptionHandler) SetSelector(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-
-	var req subscriptionSelectorRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, "invalid request body")
-		return
-	}
-
-	subscription := h.manager.Get(id)
-	if subscription == nil {
-		writeJSONErrorCode(w, http.StatusNotFound, model.ErrorSubscriptionNotFound, "subscription not found")
-		return
-	}
-	if err := core.ValidateSubscriptionSelection(*subscription, req.Tag); err != nil {
-		writeJSONErrorCode(w, http.StatusBadRequest, model.ErrorInvalidRequest, err.Error())
-		return
-	}
-
-	updated, err := h.manager.SetSelected(id, req.Tag)
-	if err != nil {
-		writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorInternal, err.Error())
-		return
-	}
-	if h.nodeMgr != nil {
-		if err := syncOutboundsToConfig(h.nodeMgr, h.manager, h.configPath); err != nil {
-			if _, restoreErr := h.manager.SetSelected(id, subscription.Selected); restoreErr != nil {
-				slog.Error("restoring previous subscription selection failed", "id", id, "err", restoreErr)
-			}
-			writeJSONErrorCode(w, http.StatusInternalServerError, model.ErrorSubscriptionSync, subscriptionSyncErrorMessage(err))
-			return
-		}
-	}
-	applyRuntimeSelection(h.instance, updated.Name, req.Tag)
-	writeJSON(w, http.StatusOK, updated)
-}
-
-// applyRuntimeSelection 在内核运行时即时切换出口；未运行时仅依赖配置默认值。
-func applyRuntimeSelection(instance restartableInstance, group, tag string) {
-	if instance == nil || tag == "" {
-		return
-	}
-	selector, ok := instance.(subscriptionOutboundSelector)
-	if !ok {
-		return
-	}
-	if err := selector.SelectOutbound(group, tag); err != nil && !errors.Is(err, core.ErrNotRunning) {
-		slog.Warn("subscription selection saved but runtime switch failed",
-			"group", group, "tag", tag, "err", err,
-		)
-	}
 }
 
 func (h *SubscriptionHandler) Refresh(w http.ResponseWriter, r *http.Request) {

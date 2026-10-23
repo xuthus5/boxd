@@ -107,7 +107,8 @@ func TestSubscriptionHandlerSetSelectorClearsDefault(t *testing.T) {
 	if _, err := subscriptionManager.SetSelected(subscription.ID, "node-b"); err != nil {
 		t.Fatalf("preselecting: %v", err)
 	}
-	handler := NewSubscriptionHandler(subscriptionManager, nodeManager, configPath)
+	instance := &fakeSubscriptionInstance{}
+	handler := NewSubscriptionHandler(subscriptionManager, nodeManager, configPath, instance)
 
 	recorder := httptest.NewRecorder()
 	request := withURLParam(jsonRequest(
@@ -122,6 +123,9 @@ func TestSubscriptionHandlerSetSelectorClearsDefault(t *testing.T) {
 	group := outboundByTag(t, readConfigMap(t, configPath), "sub-a")
 	if _, exists := group["default"]; exists {
 		t.Fatalf("cleared group still has default: %#v", group["default"])
+	}
+	if len(instance.selections) != 1 || instance.selections[0] != "sub-a/node-a" {
+		t.Fatalf("cleared selection should apply first member: %#v", instance.selections)
 	}
 }
 
@@ -225,10 +229,11 @@ func TestSubscriptionHandlerSetSelectorToleratesRuntimeInstanceVariants(t *testi
 	cases := []struct {
 		name     string
 		instance restartableInstance
+		wantCode int
 	}{
-		{name: "not selectable", instance: &restartOnlyInstance{}},
-		{name: "not running", instance: &failingSelectorInstance{err: core.ErrNotRunning}},
-		{name: "switch failure", instance: &failingSelectorInstance{err: errors.New("switch failed")}},
+		{name: "not selectable", instance: &restartOnlyInstance{}, wantCode: http.StatusOK},
+		{name: "not running", instance: &failingSelectorInstance{err: core.ErrNotRunning}, wantCode: http.StatusOK},
+		{name: "switch failure", instance: &failingSelectorInstance{err: errors.New("switch failed")}, wantCode: http.StatusInternalServerError},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -239,8 +244,17 @@ func TestSubscriptionHandlerSetSelectorToleratesRuntimeInstanceVariants(t *testi
 				http.MethodPut, "/api/subscriptions/"+subscription.ID+"/selector", `{"tag":"node-b"}`,
 			), "id", subscription.ID)
 			handler.SetSelector(recorder, request)
-			if recorder.Code != http.StatusOK {
+			if recorder.Code != testCase.wantCode {
 				t.Fatalf("status = %d body=%s", recorder.Code, recorder.Body.String())
+			}
+			if testCase.wantCode != http.StatusOK {
+				if stored := subscriptionManager.Get(subscription.ID); stored == nil || stored.Selected != "" {
+					t.Fatalf("selection should roll back: %#v", stored)
+				}
+				group := outboundByTag(t, readConfigMap(t, configPath), "sub-a")
+				if _, exists := group["default"]; exists {
+					t.Fatalf("config default should roll back: %#v", group["default"])
+				}
 			}
 		})
 	}

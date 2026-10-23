@@ -123,38 +123,60 @@ func (s *SubscriptionService) SetSelected(_ context.Context, id, tag string) err
 	if err := core.ValidateSubscriptionSelection(*subscription, tag); err != nil {
 		return Errorf(400, model.ErrorInvalidRequest, "%v", err)
 	}
-	if _, err := s.manager.SetSelected(id, tag); err != nil {
+	updated, err := s.manager.SetSelected(id, tag)
+	if err != nil {
 		slog.Error("subscription selection update failed", "id", id, "tag", tag, "err", err)
 		return Errorf(500, model.ErrorInternal, "%v", err)
 	}
 	if s.nodeMgr != nil {
 		if err := SyncOutboundsToConfig(s.nodeMgr, s.manager, s.configPath); err != nil {
-			if _, restoreErr := s.manager.SetSelected(id, subscription.Selected); restoreErr != nil {
-				slog.Error("restoring previous subscription selection failed", "id", id, "err", restoreErr)
+			restoreErr := s.restoreSelection(id, subscription.Selected)
+			slog.Error("subscription selection config sync failed", "id", id, "err", err, "restore_err", restoreErr)
+			if restoreErr != nil {
+				return Errorf(500, model.ErrorSubscriptionSync, "%v; restore failed: %v", subscriptionSyncErrorMessage(err), restoreErr)
 			}
-			slog.Error("subscription selection config sync failed", "id", id, "err", err)
 			return Errorf(500, model.ErrorSubscriptionSync, "%v", subscriptionSyncErrorMessage(err))
 		}
 	}
-	s.applyRuntimeSelection(subscription.Name, tag)
+	if err := s.applyRuntimeSelection(*updated); err != nil {
+		rollbackErr := s.restoreSelection(id, subscription.Selected)
+		slog.Error("subscription runtime selection failed", "id", id, "tag", tag, "err", err, "rollback_err", rollbackErr)
+		if rollbackErr != nil {
+			return Errorf(500, model.ErrorSubscriptionSync, "runtime selection failed: %v; rollback failed: %v", err, rollbackErr)
+		}
+		return Errorf(500, model.ErrorInternal, "runtime selection failed: %v", err)
+	}
 	slog.Info("subscription selection updated", "id", id, "name", subscription.Name, "tag", tag)
 	return nil
 }
 
-// applyRuntimeSelection 在内核运行时即时切换出口；未运行时留待内核启动后读取配置默认值。
-func (s *SubscriptionService) applyRuntimeSelection(group, tag string) {
-	if tag == "" {
-		return
+func (s *SubscriptionService) restoreSelection(id, selected string) error {
+	_, selectErr := s.manager.SetSelected(id, selected)
+	var syncErr error
+	if s.nodeMgr != nil {
+		syncErr = SyncOutboundsToConfig(s.nodeMgr, s.manager, s.configPath)
 	}
+	return errors.Join(selectErr, syncErr)
+}
+
+// applyRuntimeSelection applies the persisted target immediately. A stopped kernel is reconciled on start.
+func (s *SubscriptionService) applyRuntimeSelection(subscription model.Subscription) error {
 	selector, ok := s.instance.(outboundSelector)
 	if !ok {
-		return
+		return nil
 	}
-	if err := selector.SelectOutbound(group, tag); err != nil && !errors.Is(err, core.ErrNotRunning) {
-		slog.Warn("subscription selection saved but runtime switch failed",
-			"group", group, "tag", tag, "err", err,
-		)
+	target := core.ResolveSubscriptionSelectorTarget(
+		core.SubscriptionSelectableTags(subscription),
+		subscription.Selected,
+	)
+	if target == "" {
+		return nil
 	}
+	err := selector.SelectOutbound(subscription.Name, target)
+	if errors.Is(err, core.ErrNotRunning) || errors.Is(err, core.ErrNotSelectable) {
+		return nil
+	}
+	return err
 }
 
 // Refresh 刷新单个订阅并同步配置。
