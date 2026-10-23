@@ -210,10 +210,10 @@ func (tc *trafficConnInternal) wrap(conn net.Conn) net.Conn {
 	return &wrappedConn{
 		Conn: conn,
 		onRead: func(n int) {
-			tc.onTraffic(0, int64(n))
+			tc.onTraffic(int64(n), 0)
 		},
 		onWrite: func(n int) {
-			tc.onTraffic(int64(n), 0)
+			tc.onTraffic(0, int64(n))
 		},
 		onClose: func() {
 			tc.tracker.connections.Delete(tc.id)

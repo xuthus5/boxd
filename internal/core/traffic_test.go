@@ -137,17 +137,20 @@ func TestTrafficConnInternalWrapTracksTotals(t *testing.T) {
 	if _, err := conn.Read(readBuf); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := conn.Write([]byte("world")); err != nil {
+	if _, err := conn.Write([]byte("world!")); err != nil {
 		t.Fatal(err)
 	}
 
 	up, down := tracker.Total()
-	if up != 5 || down != 5 {
+	if up != 5 || down != 6 {
 		t.Fatalf("totals = %d,%d", up, down)
 	}
 	conns := tracker.Connections()
 	if len(conns) != 1 || conns[0].Target != "example.com" || conns[0].Outbound != "proxy" {
 		t.Fatalf("connections = %#v", conns)
+	}
+	if conns[0].Upload != 5 || conns[0].Download != 6 {
+		t.Fatalf("connection traffic = %#v", conns[0])
 	}
 
 	if err := conn.Close(); err != nil {
@@ -209,12 +212,15 @@ func TestTrafficTrackerRoutedPacketConnection(t *testing.T) {
 	if _, err := got.ReadPacket(buffer); err != nil {
 		t.Fatal(err)
 	}
-	if err := got.WritePacket(buf.As([]byte("pong")), M.ParseSocksaddr("1.1.1.1:53")); err != nil {
+	if err := got.WritePacket(buf.As([]byte("pong!!")), M.ParseSocksaddr("1.1.1.1:53")); err != nil {
 		t.Fatal(err)
 	}
 	up, down := tracker.Total()
-	if up != 4 || down != 4 {
+	if up != 4 || down != 6 {
 		t.Fatalf("totals = %d,%d", up, down)
+	}
+	if conns := tracker.Connections(); len(conns) != 1 || conns[0].Upload != 4 || conns[0].Download != 6 {
+		t.Fatalf("connections = %#v", conns)
 	}
 	if err := got.Close(); err != nil {
 		t.Fatal(err)
