@@ -367,7 +367,9 @@ jobs:
         run: |
           set -euo pipefail
           if [ "${{ matrix.os }}" = "windows" ]; then
-            assets=(desktop/bin/boxd-desktop.exe boxd-desktop-*.zip)
+            # 原始 Windows 二进制名不含架构，两个矩阵 Job 并行上传会触发 clobber 竞态。
+            # 架构专属 zip 已包含该二进制，原始文件仍保留在 Actions Artifact 中。
+            assets=(boxd-desktop-*.zip)
           else
             # macOS：仅发布 zip 与可选 dmg，避免上传无意义的裸二进制。
             assets=(boxd-desktop-*.zip)
