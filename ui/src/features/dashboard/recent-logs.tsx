@@ -43,7 +43,7 @@ export function RecentLogs({
   const hasError = visible.some((item) => item.level === "error")
   const logsHref = hasError ? buildLogsHref({ preset: "errors" }) : buildLogsHref()
   return (
-    <Card size="sm" className="lg:col-span-3">
+    <Card size="sm">
       <CardHeader className="gap-1.5">
         <CardTitle className="truncate">{t("dashboard.recentLogs")}</CardTitle>
         <CardDescription>{t("dashboard.recentLogsDescription")}</CardDescription>

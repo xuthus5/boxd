@@ -105,55 +105,59 @@ export function DashboardPage() {
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-2xl font-semibold">{t("pages.dashboard")}</h1>
-      <div className="grid gap-4 lg:grid-cols-3">
-        <SetupChecklistCard status={status.data} />
-        <HealthSummaryCard
-          snapshot={healthSnapshot}
-          status={status.data}
-          streamError={connections.error || undefined}
-          streamStatus={connections.status}
-          onReconnect={connections.reconnect}
-        />
-        <ServiceCard
-          status={status.data!}
-          pending={pendingAction}
-          onAction={(action) => serviceMutation.mutate(action)}
-          readiness={{
-            isLoading: readiness.isLoading,
-            isFetching: readiness.isFetching,
-            ready: readiness.data?.status === "ready" && !readiness.error,
-            error: readiness.error,
-            onRetry: () => { void readiness.refetch() },
-          }}
-        />
-        <ProxySelectorCard />
-        <ClashModeCard enabled={Boolean(status.data?.running)} />
-        <RuntimeStatsCard memory={memory.data!} panelVersion={version.data!.version} kernelVersion={version.data!.kernel_version} />
-        <ConfigDiagnosticsCard />
-        <RuleSetHealthCard
-          appLogs={appLogs.items}
-          appLogError={appLogs.error}
-          appLogStatus={appLogs.status}
-          onReconnectAppLogs={appLogs.reconnect}
-        />
-        <OpsShortcutsCard />
-        <ConfigApplyTimelineCard />
-        <TrafficChart
-          points={points}
-          streamError={traffic.error || undefined}
-          streamStatus={traffic.status}
-          streamPath={api.stats.paths.traffic}
-          onReconnect={traffic.reconnect}
-        />
-        <RuntimeActions pending={maintenance.isPending} onGC={() => maintenance.mutate(api.runtime.gc)} onFlushDNS={() => maintenance.mutate(api.runtime.flushDNS)} onFlushFakeIP={() => maintenance.mutate(api.runtime.flushFakeIP)} />
-        <RecentLogs
-          items={logs.items}
-          streamError={logs.error || undefined}
-          streamStatus={logs.status}
-          streamPath={api.stats.paths.logs}
-          onReconnect={logs.reconnect}
-        />
+      <SetupChecklistCard status={status.data} />
+      <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-12">
+        <aside data-testid="dashboard-status-column" className="order-1 flex min-w-0 flex-col gap-4 md:order-2 xl:col-span-4">
+          <ServiceCard
+            status={status.data!}
+            pending={pendingAction}
+            onAction={(action) => serviceMutation.mutate(action)}
+            readiness={{
+              isLoading: readiness.isLoading,
+              isFetching: readiness.isFetching,
+              ready: readiness.data?.status === "ready" && !readiness.error,
+              error: readiness.error,
+              onRetry: () => { void readiness.refetch() },
+            }}
+          />
+          <ProxySelectorCard />
+          <HealthSummaryCard
+            snapshot={healthSnapshot}
+            status={status.data}
+            streamError={connections.error || undefined}
+            streamStatus={connections.status}
+            onReconnect={connections.reconnect}
+          />
+          <ClashModeCard enabled={Boolean(status.data?.running)} />
+          <RuntimeStatsCard memory={memory.data!} panelVersion={version.data!.version} kernelVersion={version.data!.kernel_version} />
+          <RuntimeActions pending={maintenance.isPending} onGC={() => maintenance.mutate(api.runtime.gc)} onFlushDNS={() => maintenance.mutate(api.runtime.flushDNS)} onFlushFakeIP={() => maintenance.mutate(api.runtime.flushFakeIP)} />
+        </aside>
+        <section data-testid="dashboard-main-column" className="order-2 flex min-w-0 flex-col gap-4 md:order-1 xl:col-span-8">
+          <TrafficChart
+            points={points}
+            streamError={traffic.error || undefined}
+            streamStatus={traffic.status}
+            streamPath={api.stats.paths.traffic}
+            onReconnect={traffic.reconnect}
+          />
+          <ConfigDiagnosticsCard />
+          <RuleSetHealthCard
+            appLogs={appLogs.items}
+            appLogError={appLogs.error}
+            appLogStatus={appLogs.status}
+            onReconnectAppLogs={appLogs.reconnect}
+          />
+          <ConfigApplyTimelineCard />
+        </section>
       </div>
+      <OpsShortcutsCard />
+      <RecentLogs
+        items={logs.items}
+        streamError={logs.error || undefined}
+        streamStatus={logs.status}
+        streamPath={api.stats.paths.logs}
+        onReconnect={logs.reconnect}
+      />
     </div>
   )
 }

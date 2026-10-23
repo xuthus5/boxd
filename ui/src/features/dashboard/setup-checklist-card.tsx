@@ -54,7 +54,7 @@ export function SetupChecklistCard({ status }: { status?: ServiceStatus }) {
   if (setup.isLoading || subscriptions.isLoading) return <Skeleton className="h-48 w-full" />
 
   return (
-    <Card size="sm" className="lg:col-span-3">
+    <Card size="sm">
       <CardHeader className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <CardTitle>{t("setup.title")}</CardTitle>

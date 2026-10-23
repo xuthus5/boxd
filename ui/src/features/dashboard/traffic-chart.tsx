@@ -93,7 +93,7 @@ export const TrafficChart = memo(function TrafficChart({
     ? `${t("dashboard.upload")} ${formatRate(latestRate?.upload_rate ?? 0)} · ${t("dashboard.download")} ${formatRate(latestRate?.download_rate ?? 0)}`
     : `${t("dashboard.upload")} ${formatBytes(latestTotal?.upload_bytes ?? 0)} · ${t("dashboard.download")} ${formatBytes(latestTotal?.download_bytes ?? 0)}`
   return (
-    <Card size="sm" className="lg:col-span-2">
+    <Card size="sm">
       <Tabs value={mode} onValueChange={(value) => setMode(String(value) as "rate" | "total")}>
       <CardHeader className="gap-2 sm:gap-3">
         <CardTitle className="truncate">{t("dashboard.traffic")}</CardTitle>

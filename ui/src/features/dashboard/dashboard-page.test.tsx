@@ -76,6 +76,8 @@ describe("DashboardPage", () => {
 
     renderApp(<App />, "/dashboard")
 
+    expect(await screen.findByTestId("dashboard-status-column")).toBeInTheDocument()
+    expect(screen.getByTestId("dashboard-main-column")).toBeInTheDocument()
     expect((await screen.findAllByText("运行中")).length).toBeGreaterThan(0)
     expect(await screen.findByText("面板已就绪")).toBeInTheDocument()
     expect(await screen.findByText("运行健康")).toBeInTheDocument()
