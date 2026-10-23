@@ -26,7 +26,7 @@ func TestDNSOutboundBootstrapCyclesMatchRuntimeDialFailures(t *testing.T) {
 
 func singBoxOutboundDialError(t *testing.T, body, tag string) error {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(include.Context(context.Background()), 100*time.Millisecond)
+	ctx, cancel := context.WithCancel(include.Context(context.Background()))
 	defer cancel()
 	var options option.Options
 	if err := options.UnmarshalJSONContext(ctx, []byte(body)); err != nil {
@@ -48,7 +48,9 @@ func singBoxOutboundDialError(t *testing.T, body, tag string) error {
 	if !loaded {
 		t.Fatalf("outbound %q not found", tag)
 	}
-	conn, dialErr := outbound.DialContext(ctx, "tcp", M.ParseSocksaddr("example.com:80"))
+	dialCtx, dialCancel := context.WithTimeout(ctx, 100*time.Millisecond)
+	defer dialCancel()
+	conn, dialErr := outbound.DialContext(dialCtx, "tcp", M.ParseSocksaddr("example.com:80"))
 	if conn == nil {
 		return dialErr
 	}

@@ -151,7 +151,7 @@ type policyDNSTransport struct {
 	fail  bool
 }
 
-func (s *policyDNSTransport) Start(_ adapter.StartStage) error { return nil }
+func (s *policyDNSTransport) Start(_ adapter.StartStage, _ *adapter.Scope) error { return nil }
 
 func (s *policyDNSTransport) Close() error { return nil }
 

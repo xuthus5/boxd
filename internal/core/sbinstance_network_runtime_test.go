@@ -86,7 +86,7 @@ type startupProbeOutbound struct {
 	reset  chan struct{}
 }
 
-func (o *startupProbeOutbound) Start(stage adapter.StartStage) error {
+func (o *startupProbeOutbound) Start(stage adapter.StartStage, _ *adapter.Scope) error {
 	if stage == adapter.StartStateStarted {
 		o.client, o.server = net.Pipe()
 	}
