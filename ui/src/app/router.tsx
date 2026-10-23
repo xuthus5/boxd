@@ -3,6 +3,7 @@ import { lazy, Suspense } from "react"
 
 import { AppShell } from "@/app/app-shell"
 import { ProtectedRoute } from "@/app/protected-route"
+import { AdvancedSectionLayout } from "@/features/advanced/advanced-section-layout"
 import { LoginPage } from "@/features/auth/login-page"
 import { Skeleton } from "@/components/ui/skeleton"
 
@@ -46,17 +47,17 @@ export function AppRoutes() {
           <Route path="/subscriptions" element={<SubscriptionsPage />} />
           <Route path="/observability/connections" element={<ConnectionsPage />} />
           <Route path="/observability/logs" element={<LogsPage />} />
-          <Route path="/advanced/endpoints" element={<EndpointsPage />} />
-          <Route path="/advanced/certificate" element={<CertificatePage />} />
-          <Route path="/advanced/services" element={<ServicesPage />} />
-          <Route path="/advanced/network-namespaces" element={<SharedResourcesPage section="network_namespaces" />} />
-          <Route path="/advanced/certificate-providers" element={<SharedResourcesPage section="certificate_providers" />} />
-          <Route path="/advanced/http-clients" element={<SharedResourcesPage section="http_clients" />} />
-          <Route path="/advanced/log" element={<LogPage />} />
-          <Route path="/advanced/ntp" element={<NTPPage />} />
-          <Route path="/advanced/experimental" element={<ExperimentalPage />} />
-          <Route path="/advanced/history" element={<ConfigHistoryPage />} />
-          <Route path="/advanced/raw" element={<RawConfigPage />} />
+          <Route path="/advanced/endpoints" element={<AdvancedSectionLayout section="connections"><EndpointsPage /></AdvancedSectionLayout>} />
+          <Route path="/advanced/certificate" element={<AdvancedSectionLayout section="certificates"><CertificatePage /></AdvancedSectionLayout>} />
+          <Route path="/advanced/services" element={<AdvancedSectionLayout section="connections"><ServicesPage /></AdvancedSectionLayout>} />
+          <Route path="/advanced/network-namespaces" element={<AdvancedSectionLayout section="resources"><SharedResourcesPage section="network_namespaces" /></AdvancedSectionLayout>} />
+          <Route path="/advanced/certificate-providers" element={<AdvancedSectionLayout section="certificates"><SharedResourcesPage section="certificate_providers" /></AdvancedSectionLayout>} />
+          <Route path="/advanced/http-clients" element={<AdvancedSectionLayout section="resources"><SharedResourcesPage section="http_clients" /></AdvancedSectionLayout>} />
+          <Route path="/advanced/log" element={<AdvancedSectionLayout section="kernel"><LogPage /></AdvancedSectionLayout>} />
+          <Route path="/advanced/ntp" element={<AdvancedSectionLayout section="kernel"><NTPPage /></AdvancedSectionLayout>} />
+          <Route path="/advanced/experimental" element={<AdvancedSectionLayout section="kernel"><ExperimentalPage /></AdvancedSectionLayout>} />
+          <Route path="/advanced/history" element={<AdvancedSectionLayout section="configuration"><ConfigHistoryPage /></AdvancedSectionLayout>} />
+          <Route path="/advanced/raw" element={<AdvancedSectionLayout section="configuration"><RawConfigPage /></AdvancedSectionLayout>} />
           <Route path="/terminal" element={<TerminalPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>

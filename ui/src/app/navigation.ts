@@ -1,11 +1,7 @@
 import {
   ActivityIcon,
   BoxIcon,
-  BracesIcon,
   CircleGaugeIcon,
-  ClockIcon,
-  FileCogIcon,
-  FlaskConicalIcon,
   GlobeIcon,
   HistoryIcon,
   ListTreeIcon,
@@ -25,6 +21,7 @@ export interface NavigationItem {
   label: string
   to: string
   icon: ComponentType
+  match?: readonly string[]
 }
 
 export interface NavigationGroup {
@@ -54,19 +51,17 @@ export const navigationGroups: NavigationGroup[] = [
     { label: "nav.logs", to: "/observability/logs", icon: ScrollTextIcon },
   ] },
   { label: "nav.advanced", items: [
-    { label: "nav.endpoints", to: "/advanced/endpoints", icon: BoxIcon },
-    { label: "nav.certificate", to: "/advanced/certificate", icon: ShieldCheckIcon },
-    { label: "nav.services", to: "/advanced/services", icon: ServerCogIcon },
-    { label: "kernel114.network_namespaces.title", to: "/advanced/network-namespaces", icon: NetworkIcon },
-    { label: "kernel114.certificate_providers.title", to: "/advanced/certificate-providers", icon: ShieldCheckIcon },
-    { label: "kernel114.http_clients.title", to: "/advanced/http-clients", icon: GlobeIcon },
-    { label: "nav.logConfig", to: "/advanced/log", icon: FileCogIcon },
-    { label: "nav.ntp", to: "/advanced/ntp", icon: ClockIcon },
-    { label: "nav.experimental", to: "/advanced/experimental", icon: FlaskConicalIcon },
-    { label: "nav.configHistory", to: "/advanced/history", icon: HistoryIcon },
-    { label: "nav.rawConfig", to: "/advanced/raw", icon: BracesIcon },
+    { label: "nav.endpointsAndServices", to: "/advanced/endpoints", icon: BoxIcon, match: ["/advanced/endpoints", "/advanced/services"] },
+    { label: "nav.certificate", to: "/advanced/certificate", icon: ShieldCheckIcon, match: ["/advanced/certificate", "/advanced/certificate-providers"] },
+    { label: "nav.sharedResources", to: "/advanced/network-namespaces", icon: NetworkIcon, match: ["/advanced/network-namespaces", "/advanced/http-clients"] },
+    { label: "nav.kernelOptions", to: "/advanced/log", icon: ServerCogIcon, match: ["/advanced/log", "/advanced/ntp", "/advanced/experimental"] },
+    { label: "nav.configManagement", to: "/advanced/history", icon: HistoryIcon, match: ["/advanced/history", "/advanced/raw"] },
   ] },
 ]
+
+export function isNavigationItemActive(item: NavigationItem, pathname: string) {
+  return (item.match ?? [item.to]).includes(pathname)
+}
 
 export const footerItems: NavigationItem[] = [
   { label: "nav.terminal", to: "/terminal", icon: TerminalIcon },

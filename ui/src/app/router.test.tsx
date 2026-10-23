@@ -33,13 +33,31 @@ describe("application routing", () => {
     expect(screen.getByText("sing-box control plane")).toBeInTheDocument()
     expect(within(screen.getByRole("banner")).getByText("仪表盘")).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "日志" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "端点与服务" })).toHaveAttribute("href", "/advanced/endpoints")
     expect(screen.getByRole("link", { name: "证书" })).toHaveAttribute("href", "/advanced/certificate")
-    expect(screen.getByRole("link", { name: "服务" })).toHaveAttribute("href", "/advanced/services")
-    expect(screen.getByRole("link", { name: "内核日志配置" })).toHaveAttribute("href", "/advanced/log")
-    expect(screen.getByRole("link", { name: "NTP" })).toHaveAttribute("href", "/advanced/ntp")
-    expect(screen.getByRole("link", { name: "配置历史" })).toHaveAttribute("href", "/advanced/history")
+    expect(screen.getByRole("link", { name: "共享资源" })).toHaveAttribute("href", "/advanced/network-namespaces")
+    expect(screen.getByRole("link", { name: "内核选项" })).toHaveAttribute("href", "/advanced/log")
+    expect(screen.getByRole("link", { name: "配置管理" })).toHaveAttribute("href", "/advanced/history")
+    expect(screen.queryByRole("link", { name: "服务" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("link", { name: "证书提供者" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("link", { name: "NTP" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("link", { name: "配置历史" })).not.toBeInTheDocument()
     expect(screen.queryByRole("link", { name: "内核日志" })).not.toBeInTheDocument()
     expect(screen.queryByRole("link", { name: "应用日志" })).not.toBeInTheDocument()
+  })
+
+  it("groups certificate trust stores and providers under one advanced section", async () => {
+    sessionStore.set({ token: "token", expiresAt: "2099-01-01T00:00:00Z" })
+    installMockAPI()
+    const user = userEvent.setup()
+    renderApp(<App />, "/advanced/certificate-providers")
+
+    expect(await screen.findByRole("heading", { name: "证书提供者" })).toBeInTheDocument()
+    expect(within(screen.getByRole("banner")).getByText("证书")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "证书" })).toHaveAttribute("href", "/advanced/certificate")
+
+    await user.click(screen.getByRole("tab", { name: "默认信任库" }))
+    expect(await screen.findByRole("heading", { name: "证书信任库" })).toBeInTheDocument()
   })
 
   it("opens the full configuration history page", async () => {

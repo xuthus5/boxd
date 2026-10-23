@@ -21,20 +21,20 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
-import { footerItems, navigationGroups, primaryItems, type NavigationItem } from "@/app/navigation"
+import { footerItems, isNavigationItemActive, navigationGroups, primaryItems, type NavigationItem } from "@/app/navigation"
 import { useAuth } from "@/features/auth/auth-context"
 import { KernelStatusBadge } from "@/features/dashboard/kernel-status-badge"
 import { AppearanceMenu } from "@/features/preferences/appearance-menu"
 import { DefaultPasswordGate } from "@/features/settings/default-password-gate"
 
 function navigationContext(pathname: string) {
-  const primary = primaryItems.find((item) => item.to === pathname)
+  const primary = primaryItems.find((item) => isNavigationItemActive(item, pathname))
   if (primary) return { group: "", item: primary.label }
   for (const group of navigationGroups) {
-    const item = group.items.find((candidate) => candidate.to === pathname)
+    const item = group.items.find((candidate) => isNavigationItemActive(candidate, pathname))
     if (item) return { group: group.label, item: item.label }
   }
-  const footer = footerItems.find((item) => item.to === pathname)
+  const footer = footerItems.find((item) => isNavigationItemActive(item, pathname))
   return footer ? { group: "", item: footer.label } : { group: "", item: "" }
 }
 
@@ -45,7 +45,7 @@ function NavItems({ items }: { items: NavigationItem[] }) {
     <SidebarMenu>
       {items.map((item) => (
         <SidebarMenuItem key={item.to}>
-          <SidebarMenuButton render={<NavLink to={item.to} aria-label={t(item.label)} />} isActive={pathname === item.to} tooltip={t(item.label)}>
+          <SidebarMenuButton render={<NavLink to={item.to} aria-label={t(item.label)} />} isActive={isNavigationItemActive(item, pathname)} tooltip={t(item.label)}>
             <item.icon />
             <span className="group-data-[collapsible=icon]:hidden">{t(item.label)}</span>
           </SidebarMenuButton>
