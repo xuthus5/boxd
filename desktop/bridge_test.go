@@ -310,20 +310,40 @@ func TestBridgeRuntimeOps(t *testing.T) {
 	rt := newTestRuntimeWithService(t)
 	svc := newBoxdBridgeService(rt)
 
-	resp, err := svc.Call(BridgeRequest{Path: "/api/runtime/groups", Method: "GET"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp.Status != "ok" {
-		t.Fatalf("groups status = %q", resp.Status)
+	for _, path := range []string{"/api/runtime/groups", "/api/nodes/groups"} {
+		resp, err := svc.Call(BridgeRequest{Path: path, Method: "GET"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.Status != "ok" {
+			t.Fatalf("groups status = %q", resp.Status)
+		}
+		assertOutboundGroupsEnvelope(t, resp.Data)
 	}
 
-	resp, err = svc.Call(BridgeRequest{Path: "/api/network/interfaces", Method: "GET"})
+	resp, err := svc.Call(BridgeRequest{Path: "/api/network/interfaces", Method: "GET"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if resp.Status != "ok" {
 		t.Fatalf("interfaces status = %q", resp.Status)
+	}
+}
+
+func assertOutboundGroupsEnvelope(t *testing.T, data any) {
+	t.Helper()
+	body, err := json.Marshal(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var payload struct {
+		Groups []core.OutboundGroupInfo `json:"groups"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		t.Fatalf("groups payload must be an object with groups field, got %s: %v", body, err)
+	}
+	if payload.Groups == nil {
+		t.Fatalf("groups field is missing in %s", body)
 	}
 }
 

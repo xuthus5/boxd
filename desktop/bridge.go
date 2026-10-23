@@ -190,7 +190,7 @@ func (s *BoxdBridgeService) dispatch(ctx context.Context, req BridgeRequest) (Br
 	case "/api/runtime/clash-mode":
 		return okResult(s.rt.svc.Runtime().GetClashMode(ctx))
 	case "/api/runtime/groups":
-		return okResult(s.rt.svc.Runtime().OutboundGroups(ctx))
+		return okResult(outboundGroupsResult(ctx, s.rt))
 	case "/api/stats/traffic/history":
 		return okResult(s.rt.svc.Stats().Traffic(ctx))
 	case "/api/stats/traffic":
@@ -216,7 +216,7 @@ func (s *BoxdBridgeService) dispatch(ctx context.Context, req BridgeRequest) (Br
 		}
 		return okResult(s.rt.svc.Stats().Connections(ctx))
 	case "/api/nodes/groups":
-		return okResult(s.rt.svc.Runtime().OutboundGroups(ctx))
+		return okResult(outboundGroupsResult(ctx, s.rt))
 	case "/api/network/interfaces":
 		return okResult(s.rt.svc.Network().ListInterfaces(ctx))
 	case "/api/config/rule-sets/status":
@@ -573,6 +573,14 @@ func okResult(data any, err error) (BridgeResponse, error) {
 		return errResult(err)
 	}
 	return BridgeResponse{Data: data, Status: "ok"}, nil
+}
+
+func outboundGroupsResult(ctx context.Context, rt *desktopRuntime) (map[string]any, error) {
+	groups, err := rt.svc.Runtime().OutboundGroups(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"groups": groups}, nil
 }
 
 func errResult(err error) (BridgeResponse, error) {
