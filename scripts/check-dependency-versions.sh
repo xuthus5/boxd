@@ -138,7 +138,7 @@ check_series_dep "sing-box" \
 
 check_github_dep "wails/v3" \
   "github.com/wailsapp/wails/v3" "$root_dir/desktop/go.mod" \
-  "wailsapp/wails" "prerelease" "v"
+  "wailsapp/wails" "stable" "v"
 
 if [ "$failed" -ne 0 ]; then
   echo "Dependency versions are outdated; run 'go get' to upgrade." >&2
