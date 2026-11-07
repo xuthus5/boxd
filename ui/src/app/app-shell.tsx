@@ -79,7 +79,7 @@ function AppSidebar() {
     }
   }
   return (
-    <Sidebar collapsible="icon" className="border-r border-sidebar-border/70">
+    <Sidebar collapsible="icon" className="app-sidebar-surface border-r border-sidebar-border/70">
       <SidebarHeader className="p-3">
         <SidebarMenu>
           <SidebarMenuItem>

@@ -81,14 +81,14 @@
     --chart-4: oklch(0.64 0.13 230);
     --chart-5: oklch(0.66 0.19 35);
     --radius: 0.75rem;
-    --sidebar: oklch(0.16 0.035 140);
-    --sidebar-foreground: oklch(0.94 0.02 128);
-    --sidebar-primary: oklch(0.79 0.19 132);
-    --sidebar-primary-foreground: oklch(0.16 0.04 140);
-    --sidebar-accent: oklch(0.78 0.18 132 / 14%);
-    --sidebar-accent-foreground: oklch(0.985 0.015 128);
-    --sidebar-border: oklch(0.82 0.15 132 / 10%);
-    --sidebar-ring: oklch(0.74 0.18 132);
+    --sidebar: var(--background);
+    --sidebar-foreground: var(--foreground);
+    --sidebar-primary: var(--primary);
+    --sidebar-primary-foreground: var(--primary-foreground);
+    --sidebar-accent: var(--accent);
+    --sidebar-accent-foreground: var(--accent-foreground);
+    --sidebar-border: var(--border);
+    --sidebar-ring: var(--ring);
 }
 
 .dark {
@@ -119,14 +119,14 @@
     --chart-3: oklch(0.8 0.15 85);
     --chart-4: oklch(0.72 0.13 230);
     --chart-5: oklch(0.74 0.17 35);
-    --sidebar: oklch(0.11 0.02 140);
-    --sidebar-foreground: oklch(0.94 0.02 128);
-    --sidebar-primary: oklch(0.8 0.19 132);
-    --sidebar-primary-foreground: oklch(0.15 0.04 140);
-    --sidebar-accent: oklch(0.78 0.18 132 / 12%);
-    --sidebar-accent-foreground: oklch(0.985 0.015 128);
-    --sidebar-border: oklch(0.82 0.15 132 / 12%);
-    --sidebar-ring: oklch(0.72 0.18 132);
+    --sidebar: var(--background);
+    --sidebar-foreground: var(--foreground);
+    --sidebar-primary: var(--primary);
+    --sidebar-primary-foreground: var(--primary-foreground);
+    --sidebar-accent: var(--accent);
+    --sidebar-accent-foreground: var(--accent-foreground);
+    --sidebar-border: var(--border);
+    --sidebar-ring: var(--ring);
 }
 
 @layer base {
@@ -155,6 +155,12 @@
 
 @layer utilities {
   .app-shell-main {
+    background-image:
+      radial-gradient(ellipse 55% 34% at 66% -10%, color-mix(in oklch, var(--primary) 11%, transparent), transparent 74%),
+      radial-gradient(ellipse 28% 24% at 100% 8%, color-mix(in oklch, var(--chart-2) 8%, transparent), transparent 72%);
+    background-attachment: fixed;
+  }
+  .app-sidebar-surface [data-slot="sidebar-inner"] {
     background-image:
       radial-gradient(ellipse 55% 34% at 66% -10%, color-mix(in oklch, var(--primary) 11%, transparent), transparent 74%),
       radial-gradient(ellipse 28% 24% at 100% 8%, color-mix(in oklch, var(--chart-2) 8%, transparent), transparent 72%);
