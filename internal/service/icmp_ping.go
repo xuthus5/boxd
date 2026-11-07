@@ -85,7 +85,7 @@ func probeICMPEcho(ctx context.Context, target string) (float64, error) {
 		elapsed := time.Since(start)
 		parsed, err := parseICMPReply(network, reply[:n])
 		if err == nil && parsed && peerMatches(peer, ip) {
-			return float64(elapsed.Microseconds()) / 1000.0, nil
+			return float64(elapsed.Nanoseconds()) / 1e6, nil
 		}
 		if time.Since(start) > icmpProbeTimeout {
 			return 0, errors.New("icmp echo timed out")

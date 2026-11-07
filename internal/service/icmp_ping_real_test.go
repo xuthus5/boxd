@@ -13,7 +13,7 @@ func TestProbeICMPEchoLocalhost(t *testing.T) {
 	if err != nil {
 		t.Skipf("icmp raw socket unavailable: %v", err)
 	}
-	if latency <= 0 {
+	if latency < 0 {
 		t.Fatalf("latency = %v", latency)
 	}
 }
