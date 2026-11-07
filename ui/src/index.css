@@ -154,6 +154,13 @@
 }
 
 @layer utilities {
+  .window-drag {
+    --wails-draggable: drag;
+    user-select: none;
+  }
+  .window-no-drag {
+    --wails-draggable: no-drag;
+  }
   .app-shell-main {
     background-image:
       radial-gradient(ellipse 55% 34% at 66% -10%, color-mix(in oklch, var(--primary) 11%, transparent), transparent 74%),

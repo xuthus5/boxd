@@ -22,6 +22,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { footerItems, isNavigationItemActive, navigationGroups, primaryItems, type NavigationItem } from "@/app/navigation"
+import { handleDesktopTitleBarDoubleClick, WindowControls } from "@/app/window-controls"
 import { useAuth } from "@/features/auth/auth-context"
 import { KernelStatusBadge } from "@/features/dashboard/kernel-status-badge"
 import { AppearanceMenu } from "@/features/preferences/appearance-menu"
@@ -80,12 +81,12 @@ function AppSidebar() {
   }
   return (
     <Sidebar collapsible="icon" className="app-sidebar-surface border-r border-sidebar-border/70">
-      <SidebarHeader className="p-3">
+      <SidebarHeader className="window-drag p-3">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
               size="lg"
-              className="h-14 gap-3 rounded-2xl px-2 hover:bg-sidebar-accent/70"
+              className="window-no-drag h-14 gap-3 rounded-2xl px-2 hover:bg-sidebar-accent/70"
               render={<NavLink to="/dashboard" aria-label="boxd" />}
               tooltip="boxd"
             >
@@ -135,13 +136,17 @@ function AppSidebar() {
 export function AppShell() {
   const { pathname } = useLocation()
   const { t } = useTranslation()
+  const desktop = isDesktop()
   const context = navigationContext(pathname)
   return (
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset className="min-w-0 overflow-hidden">
-        <header className="sticky top-0 z-10 flex h-16 items-center gap-3 border-b border-border/70 bg-background/75 px-4 shadow-[0_1px_0_oklch(0.18_0.04_140/0.03)] backdrop-blur-xl md:px-6">
-          <SidebarTrigger className="rounded-lg"><PanelLeftIcon /></SidebarTrigger>
+        <header
+          className="window-drag sticky top-0 z-10 flex h-16 items-center gap-3 border-b border-border/70 bg-background/75 px-4 shadow-[0_1px_0_oklch(0.18_0.04_140/0.03)] backdrop-blur-xl md:px-6"
+          onDoubleClick={desktop ? handleDesktopTitleBarDoubleClick : undefined}
+        >
+          <SidebarTrigger className="window-no-drag rounded-lg"><PanelLeftIcon /></SidebarTrigger>
           <Separator orientation="vertical" className="h-6 bg-border/70" />
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <span className="flex items-center gap-1.5 truncate text-[0.65rem] font-semibold tracking-[0.15em] text-muted-foreground uppercase">
@@ -150,12 +155,18 @@ export function AppShell() {
             </span>
             <span className="truncate text-sm font-semibold tracking-tight">{context.item ? t(context.item) : "boxd"}</span>
           </div>
-          <KernelStatusBadge />
+          <div className="window-no-drag contents"><KernelStatusBadge /></div>
           <Separator orientation="vertical" className="hidden h-6 bg-border/70 sm:block" />
-          <AppearanceMenu />
+          <div className="window-no-drag contents"><AppearanceMenu /></div>
+          {desktop ? (
+            <>
+              <Separator orientation="vertical" className="h-6 bg-border/70" />
+              <WindowControls />
+            </>
+          ) : null}
         </header>
         <main className="app-shell-main mx-auto flex min-w-0 w-full max-w-[1600px] flex-1 flex-col gap-4 p-4 md:gap-5 md:p-6 lg:p-8">
-          {isDesktop() ? <Outlet /> : <DefaultPasswordGate><Outlet /></DefaultPasswordGate>}
+          {desktop ? <Outlet /> : <DefaultPasswordGate><Outlet /></DefaultPasswordGate>}
         </main>
       </SidebarInset>
     </SidebarProvider>
