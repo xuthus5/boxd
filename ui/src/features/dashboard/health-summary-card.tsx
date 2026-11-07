@@ -77,7 +77,7 @@ export function HealthSummaryCard({
     <Card size="sm">
       <CardHeader className="gap-1.5">
         <CardTitle className="flex min-w-0 items-center gap-2 truncate">
-          <ActivityIcon className="size-4 shrink-0" aria-hidden="true" />
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-success/10 text-success ring-1 ring-success/15"><ActivityIcon className="size-4" aria-hidden="true" /></span>
           <span className="truncate">{t("dashboard.healthTitle")}</span>
         </CardTitle>
         <CardDescription>{t("dashboard.healthDescription")}</CardDescription>

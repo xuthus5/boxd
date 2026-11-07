@@ -1,4 +1,4 @@
-import { DatabaseZapIcon, RotateCcwIcon, Trash2Icon } from "lucide-react"
+import { DatabaseZapIcon, RotateCcwIcon, Trash2Icon, WrenchIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@/components/ui/button"
@@ -16,7 +16,7 @@ export function RuntimeActions({ onGC, onFlushDNS, onFlushFakeIP, pending }: Run
   return (
     <Card size="sm">
       <CardHeader className="gap-1.5">
-        <CardTitle className="truncate">{t("dashboard.maintenance")}</CardTitle>
+        <CardTitle className="flex min-w-0 items-center gap-2 truncate"><span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground ring-1 ring-border"><WrenchIcon className="size-4" /></span><span className="truncate">{t("dashboard.maintenance")}</span></CardTitle>
         <CardDescription>{t("dashboard.maintenanceDescription")}</CardDescription>
       </CardHeader>
       <CardContent className="grid grid-cols-1 gap-2 sm:grid-cols-3">

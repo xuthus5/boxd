@@ -1,3 +1,4 @@
+import { ScrollTextIcon } from "lucide-react"
 import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
@@ -45,7 +46,7 @@ export function RecentLogs({
   return (
     <Card size="sm">
       <CardHeader className="gap-1.5">
-        <CardTitle className="truncate">{t("dashboard.recentLogs")}</CardTitle>
+        <CardTitle className="flex min-w-0 items-center gap-2 truncate"><span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground ring-1 ring-border"><ScrollTextIcon className="size-4" /></span><span className="truncate">{t("dashboard.recentLogs")}</span></CardTitle>
         <CardDescription>{t("dashboard.recentLogsDescription")}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-2 sm:gap-3">

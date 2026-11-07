@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
+import { ListChecksIcon } from "lucide-react"
 import { lazy, Suspense, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
@@ -51,14 +52,24 @@ export function SetupChecklistCard({ status }: { status?: ServiceStatus }) {
   const state = useSetupChecklist(status)
   const { setup, subscriptions, steps, items, available, editing, setEditing, showAccess, setShowAccess } = state
   const progress = setupProgress(steps)
+  const percent = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0
   if (setup.isLoading || subscriptions.isLoading) return <Skeleton className="h-48 w-full" />
 
   return (
     <Card size="sm">
       <CardHeader className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <CardTitle>{t("setup.title")}</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <span className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/15"><ListChecksIcon className="size-3.5" /></span>
+            {t("setup.title")}
+          </CardTitle>
           <CardDescription>{t("setup.description")}</CardDescription>
+          <div className="mt-2 flex max-w-sm items-center gap-2" aria-hidden="true">
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+              <div className="h-full rounded-full bg-gradient-to-r from-primary to-chart-1 transition-[width] duration-500" style={{ width: `${percent}%` }} />
+            </div>
+            <span className="text-[0.65rem] tabular-nums text-muted-foreground">{percent}%</span>
+          </div>
         </div>
         <Badge variant="secondary" className="shrink-0">{t("setup.progress", { done: progress.done, total: progress.total })}</Badge>
       </CardHeader>

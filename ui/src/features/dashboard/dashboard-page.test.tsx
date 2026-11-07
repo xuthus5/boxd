@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react"
+import { screen, within } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import App from "@/App"
@@ -84,14 +84,13 @@ describe("DashboardPage", () => {
     expect(screen.getByText("2 条活跃连接")).toBeInTheDocument()
     expect(screen.getByText(/主要出口/)).toBeInTheDocument()
     expect(screen.getByText("运行时统计")).toBeInTheDocument()
-    expect(screen.getByText("1.00 KB")).toBeInTheDocument()
+    expect(within(screen.getByTestId("runtime-stats-card")).getByText("1.00 KB")).toBeInTheDocument()
     expect(screen.getByText("1.13.14")).toBeInTheDocument()
     expect(screen.getByText("运维入口")).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "错误日志" })).toHaveAttribute("href", "/observability/logs?preset=errors")
     expect(screen.getByRole("button", { name: "启动" })).toHaveClass("h-8")
     expect(screen.getByRole("button", { name: "停止" })).toHaveClass("h-8")
     expect(screen.getByRole("button", { name: "重启" })).toHaveClass("h-8")
-    expect(screen.getByRole("link", { name: "错误日志" })).toHaveClass("h-8")
     expect(await screen.findByText(/下载 20 B\/s/)).toBeInTheDocument()
     expect(screen.getAllByText("ready").length).toBeGreaterThan(0)
     // Module management remains accessible after startup.

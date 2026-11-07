@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { SlidersHorizontalIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
@@ -55,7 +56,7 @@ export function ClashModeCard({ enabled }: { enabled: boolean }) {
     return (
       <Card size="sm">
         <CardHeader className="gap-1.5">
-          <CardTitle className="truncate">{t("dashboard.clashMode")}</CardTitle>
+          <CardTitle className="flex min-w-0 items-center gap-2 truncate"><span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-chart-2/10 text-chart-2 ring-1 ring-chart-2/15"><SlidersHorizontalIcon className="size-4" /></span><span className="truncate">{t("dashboard.clashMode")}</span></CardTitle>
           <CardDescription>{t("dashboard.clashModeNeedRunning")}</CardDescription>
         </CardHeader>
       </Card>
@@ -69,7 +70,7 @@ export function ClashModeCard({ enabled }: { enabled: boolean }) {
     return (
       <Card size="sm">
         <CardHeader className="gap-1.5">
-          <CardTitle className="truncate">{t("dashboard.clashMode")}</CardTitle>
+          <CardTitle className="flex min-w-0 items-center gap-2 truncate"><span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-chart-2/10 text-chart-2 ring-1 ring-chart-2/15"><SlidersHorizontalIcon className="size-4" /></span><span className="truncate">{t("dashboard.clashMode")}</span></CardTitle>
           {disabled ? (
             <CardDescription>{t("dashboard.clashModeDisabled")}</CardDescription>
           ) : null}
@@ -96,7 +97,7 @@ export function ClashModeCard({ enabled }: { enabled: boolean }) {
   return (
     <Card size="sm">
       <CardHeader className="gap-1.5">
-        <CardTitle className="truncate">{t("dashboard.clashMode")}</CardTitle>
+        <CardTitle className="flex min-w-0 items-center gap-2 truncate"><span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-chart-2/10 text-chart-2 ring-1 ring-chart-2/15"><SlidersHorizontalIcon className="size-4" /></span><span className="truncate">{t("dashboard.clashMode")}</span></CardTitle>
         <CardDescription>{t("dashboard.clashModeDescription")}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-2 sm:gap-3">

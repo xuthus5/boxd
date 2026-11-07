@@ -122,6 +122,7 @@ export function TrafficSeries({ data, dataKey, timeDomain, timeOrigin, valueDoma
           d={segment.path}
           fill="none"
           stroke={`var(--color-${dataKey})`}
+          strokeWidth={2}
           strokeLinecap="round"
           strokeLinejoin="round"
           vectorEffect="non-scaling-stroke"

@@ -51,17 +51,19 @@ export function OpsShortcutsCard() {
         <CardTitle className="truncate">{t("dashboard.opsShortcutsTitle")}</CardTitle>
         <CardDescription>{t("dashboard.opsShortcutsDescription")}</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-wrap gap-1.5 sm:gap-2">
+      <CardContent className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
         {shortcuts.map((item) => {
           const Icon = item.icon
           return (
             <Link
               key={item.labelKey}
               to={item.to}
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-8 gap-1.5")}
+              className={cn(buttonVariants({ variant: "ghost" }), "h-auto min-h-16 flex-col items-start justify-between gap-2 rounded-xl border border-border/70 bg-muted/15 p-3 text-xs font-medium transition-all hover:-translate-y-0.5 hover:border-primary/20 hover:bg-primary/5 hover:text-primary")}
             >
-              <Icon data-icon="inline-start" />
-              {t(item.labelKey)}
+              <span className="flex size-7 items-center justify-center rounded-lg bg-background text-muted-foreground ring-1 ring-border/80 group-hover/button:text-primary">
+                <Icon className="size-3.5" />
+              </span>
+              <span className="text-left leading-snug">{t(item.labelKey)}</span>
             </Link>
           )
         })}

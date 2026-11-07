@@ -1,4 +1,4 @@
-import { CopyIcon, PauseIcon, PlayIcon, RotateCcwIcon } from "lucide-react"
+import { CopyIcon, PauseIcon, PlayIcon, RotateCcwIcon, ServerCogIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 import { toast } from "sonner"
@@ -207,7 +207,10 @@ export function ServiceCard({ status, pending, onAction, readiness }: ServiceCar
   return (
     <Card size="sm">
       <CardHeader className="gap-1.5">
-        <CardTitle className="truncate">{t("dashboard.service")}</CardTitle>
+        <CardTitle className="flex min-w-0 items-center gap-2 truncate">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15"><ServerCogIcon className="size-4" /></span>
+          <span className="truncate">{t("dashboard.service")}</span>
+        </CardTitle>
         <CardDescription>{t("dashboard.serviceDescription")}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-2 sm:gap-3">

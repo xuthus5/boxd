@@ -45,7 +45,12 @@ function NavItems({ items }: { items: NavigationItem[] }) {
     <SidebarMenu>
       {items.map((item) => (
         <SidebarMenuItem key={item.to}>
-          <SidebarMenuButton render={<NavLink to={item.to} aria-label={t(item.label)} />} isActive={isNavigationItemActive(item, pathname)} tooltip={t(item.label)}>
+          <SidebarMenuButton
+            render={<NavLink to={item.to} aria-label={t(item.label)} />}
+            isActive={isNavigationItemActive(item, pathname)}
+            tooltip={t(item.label)}
+            className="h-9 rounded-xl px-2.5 text-sidebar-foreground/70 transition-colors duration-200 hover:text-sidebar-foreground data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground data-active:shadow-[inset_2px_0_0_var(--sidebar-primary)]"
+          >
             <item.icon />
             <span className="group-data-[collapsible=icon]:hidden">{t(item.label)}</span>
           </SidebarMenuButton>
@@ -73,38 +78,47 @@ function AppSidebar() {
     }
   }
   return (
-    <Sidebar collapsible="icon">
-      <SidebarHeader>
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border/70">
+      <SidebarHeader className="p-3">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
               size="lg"
+              className="h-14 gap-3 rounded-2xl px-2 hover:bg-sidebar-accent/70"
               render={<NavLink to="/dashboard" aria-label="boxd" />}
               tooltip="boxd"
             >
-              <BoxIcon />
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sidebar-primary to-[oklch(0.62_0.22_300)] text-sidebar-primary-foreground shadow-[0_8px_24px_-10px_var(--sidebar-primary)]">
+                <BoxIcon />
+              </span>
               <span className="flex min-w-0 flex-col items-start group-data-[collapsible=icon]:hidden">
-                <span className="truncate font-semibold">boxd</span>
-                <span className="truncate text-xs text-sidebar-foreground/60">sing-box control plane</span>
+                <span className="truncate text-[0.95rem] font-semibold tracking-tight">boxd</span>
+                <span className="truncate text-[0.68rem] tracking-[0.08em] text-sidebar-foreground/50 uppercase">sing-box control plane</span>
               </span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
-      <SidebarContent>
-        <SidebarGroup><SidebarGroupContent><NavItems items={primaryItems} /></SidebarGroupContent></SidebarGroup>
+      <SidebarContent className="gap-1 px-1 pb-2">
+        <SidebarGroup className="py-1"><SidebarGroupContent><NavItems items={primaryItems} /></SidebarGroupContent></SidebarGroup>
         {navigationGroups.map((group) => (
-          <SidebarGroup key={group.label}>
-            <SidebarGroupLabel>{t(group.label)}</SidebarGroupLabel>
+          <SidebarGroup key={group.label} className="gap-1 py-1.5">
+            <SidebarGroupLabel className="h-7 px-2.5 text-[0.62rem] font-semibold tracking-[0.16em] text-sidebar-foreground/40 uppercase">{t(group.label)}</SidebarGroupLabel>
             <SidebarGroupContent><NavItems items={group.items} /></SidebarGroupContent>
           </SidebarGroup>
         ))}
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="gap-2 border-t border-sidebar-border/70 p-3">
         <NavItems items={footerItems} />
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton disabled={loggingOut} tooltip={t("nav.logout")} aria-label={t("nav.logout")} onClick={() => { void logout() }}>
+            <SidebarMenuButton
+              disabled={loggingOut}
+              tooltip={t("nav.logout")}
+              aria-label={t("nav.logout")}
+              className="h-9 rounded-xl px-2.5 text-sidebar-foreground/60 hover:text-sidebar-foreground"
+              onClick={() => { void logout() }}
+            >
               {loggingOut ? <Spinner aria-hidden="true" /> : <LogOutIcon />}
               <span className="group-data-[collapsible=icon]:hidden">{t("nav.logout")}</span>
             </SidebarMenuButton>
@@ -122,18 +136,22 @@ export function AppShell() {
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset>
-        <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/75">
-          <SidebarTrigger><PanelLeftIcon /></SidebarTrigger>
-          <Separator orientation="vertical" className="h-5" />
-          <div className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate text-xs text-muted-foreground">{context.group ? t(context.group) : "boxd"}</span>
-            <span className="truncate text-sm font-medium">{context.item ? t(context.item) : "boxd"}</span>
+      <SidebarInset className="min-w-0 overflow-hidden">
+        <header className="sticky top-0 z-10 flex h-16 items-center gap-3 border-b border-border/70 bg-background/75 px-4 shadow-[0_1px_0_oklch(0.2_0.03_260/0.02)] backdrop-blur-xl md:px-6">
+          <SidebarTrigger className="rounded-lg"><PanelLeftIcon /></SidebarTrigger>
+          <Separator orientation="vertical" className="h-6 bg-border/70" />
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="flex items-center gap-1.5 truncate text-[0.65rem] font-semibold tracking-[0.15em] text-muted-foreground uppercase">
+              <span className="size-1.5 rounded-full bg-primary" aria-hidden="true" />
+              {context.group ? t(context.group) : "boxd"}
+            </span>
+            <span className="truncate text-sm font-semibold tracking-tight">{context.item ? t(context.item) : "boxd"}</span>
           </div>
           <KernelStatusBadge />
+          <Separator orientation="vertical" className="hidden h-6 bg-border/70 sm:block" />
           <AppearanceMenu />
         </header>
-        <main className="mx-auto flex min-w-0 w-full max-w-screen-2xl flex-1 flex-col gap-4 p-4 md:p-6"><DefaultPasswordGate><Outlet /></DefaultPasswordGate></main>
+        <main className="app-shell-main mx-auto flex min-w-0 w-full max-w-[1600px] flex-1 flex-col gap-4 p-4 md:gap-5 md:p-6 lg:p-8"><DefaultPasswordGate><Outlet /></DefaultPasswordGate></main>
       </SidebarInset>
     </SidebarProvider>
   )

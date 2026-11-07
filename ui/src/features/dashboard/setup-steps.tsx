@@ -25,7 +25,7 @@ function SetupStepAction({ step, props }: { step: SetupStep; props: SetupStepsPr
 export function SetupSteps(props: SetupStepsProps) {
   const { t } = useTranslation()
   return <ol className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-    {props.steps.map((step, index) => <li key={step.id} className="flex flex-col gap-3 rounded-md border p-3" data-setup-step={step.id}>
+    {props.steps.map((step, index) => <li key={step.id} className="flex flex-col gap-3 rounded-xl border border-border/70 bg-muted/15 p-3 transition-colors hover:bg-muted/30 data-[done=true]:border-success/20 data-[done=true]:bg-success/5" data-setup-step={step.id} data-done={step.done}>
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-medium">{index + 1}. {t(`setup.${step.id}Step`)}</p>
         <Badge variant={step.done ? "secondary" : "outline"}>{t(step.done ? (step.id === "kernel" ? "setup.running" : "setup.configured") : "setup.pending")}</Badge>

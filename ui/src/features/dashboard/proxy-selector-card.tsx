@@ -1,3 +1,4 @@
+import { RouteIcon } from "lucide-react"
 import { useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
@@ -199,6 +200,7 @@ export function ProxySelectorCard() {
     <Card size="sm">
       <CardHeader className="gap-1.5">
         <CardTitle className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-chart-1/10 text-chart-1 ring-1 ring-chart-1/15"><RouteIcon className="size-4" /></span>
           <span className="truncate">{t("dashboard.proxySelector")}</span>
           <Badge variant="outline">{state.group.tag}</Badge>
           <DelayBadge value={currentDelay} />

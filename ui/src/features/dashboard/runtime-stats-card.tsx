@@ -1,3 +1,4 @@
+import { CpuIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -24,9 +25,9 @@ export function RuntimeStatsCard({
 }) {
   const { t } = useTranslation()
   return (
-    <Card size="sm">
+    <Card size="sm" data-testid="runtime-stats-card">
       <CardHeader className="gap-1.5">
-        <CardTitle className="truncate">{t("dashboard.runtimeStatsTitle")}</CardTitle>
+        <CardTitle className="flex min-w-0 items-center gap-2 truncate"><span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-warning/12 text-warning ring-1 ring-warning/20"><CpuIcon className="size-4" /></span><span className="truncate">{t("dashboard.runtimeStatsTitle")}</span></CardTitle>
         <CardDescription>{t("dashboard.runtimeStatsDescription")}</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-2 sm:grid-cols-2">

@@ -3,8 +3,10 @@ import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
+import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ClashModeCard } from "@/features/dashboard/clash-mode-card"
+import { DashboardOverview } from "@/features/dashboard/dashboard-overview"
 import { HealthSummaryCard } from "@/features/dashboard/health-summary-card"
 import { SetupChecklistCard } from "@/features/dashboard/setup-checklist-card"
 import { ProxySelectorCard } from "@/features/dashboard/proxy-selector-card"
@@ -24,9 +26,38 @@ import { PageLoadErrorAlert } from "@/features/common/page-load-error-alert"
 import { useStreamBuffer } from "@/features/observability/use-stream-buffer"
 import { useConnectionRates } from "@/features/observability/use-connection-rates"
 import { api } from "@/lib/api/endpoints"
-import type { ConnectionEvent, LogEvent, TrafficEvent } from "@/lib/api/types"
+import type { ConnectionEvent, LogEvent, ServiceStatus, TrafficEvent } from "@/lib/api/types"
 
 const serviceActions = { start: api.service.start, stop: api.service.stop, restart: api.service.restart }
+
+function DashboardHeader({ status }: { status?: ServiceStatus }) {
+  const { t } = useTranslation()
+  const running = Boolean(status?.running)
+  return (
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <span className="flex items-center gap-2 text-[0.65rem] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
+          <span className="size-1.5 rounded-full bg-primary shadow-[0_0_10px_var(--primary)]" aria-hidden="true" />
+          {t("dashboard.controlPlane")}
+        </span>
+        <h1 className="text-3xl font-semibold tracking-[-0.04em] sm:text-[2rem]">{t("pages.dashboard")}</h1>
+        <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">{t("dashboard.subtitle")}</p>
+      </div>
+      <Badge
+        variant={running ? "default" : "destructive"}
+        className="h-8 w-fit gap-2 rounded-full px-3.5 text-xs shadow-sm"
+        aria-label={running ? t("dashboard.running") : t("dashboard.stopped")}
+      >
+        <span className="relative flex size-2">
+          <span className={running ? "absolute inline-flex size-full animate-ping rounded-full bg-primary-foreground/50 motion-reduce:hidden" : "hidden"} />
+          <span className="relative inline-flex size-2 rounded-full bg-current" />
+        </span>
+        {running ? t("dashboard.running") : t("dashboard.stopped")}
+        {running && status?.uptime ? <span className="font-normal opacity-70">· {status.uptime}</span> : null}
+      </Badge>
+    </div>
+  )
+}
 
 export function DashboardPage() {
   const { t } = useTranslation()
@@ -40,6 +71,11 @@ export function DashboardPage() {
   const connectionSnapshot = useMemo(() => connections.items.at(-1), [connections.items])
   const snapshotConnections = useMemo(() => connectionSnapshot?.list ?? [], [connectionSnapshot])
   const liveConnections = useConnectionRates(snapshotConnections)
+  const connectionCounts = useMemo(() => ({
+    total: liveConnections.length,
+    tcp: liveConnections.filter((connection) => connection.network?.toLowerCase() === "tcp").length,
+    udp: liveConnections.filter((connection) => connection.network?.toLowerCase() === "udp").length,
+  }), [liveConnections])
   const healthSnapshot = useMemo(() => connectionSnapshot
     ? { ...connectionSnapshot, list: liveConnections }
     : undefined, [connectionSnapshot, liveConnections])
@@ -82,12 +118,22 @@ export function DashboardPage() {
     [history.data?.points, traffic.items],
   )
 
-  if ([status, history, memory, version].some((query) => query.isLoading)) return <div className="flex flex-col gap-4"><h1 className="text-2xl font-semibold">{t("pages.dashboard")}</h1><Skeleton className="h-64 w-full" /></div>
+  if ([status, history, memory, version].some((query) => query.isLoading)) {
+    return (
+      <div className="flex flex-col gap-5">
+        <DashboardHeader />
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 4 }, (_, index) => <Skeleton key={index} className="h-32 rounded-2xl" />)}
+        </div>
+        <Skeleton className="h-72 w-full rounded-2xl" />
+      </div>
+    )
+  }
   const error = [status, history, memory, version].find((query) => query.error)?.error
   if (error) {
     return (
-      <div className="flex flex-col gap-4">
-        <h1 className="text-2xl font-semibold">{t("pages.dashboard")}</h1>
+      <div className="flex flex-col gap-5">
+        <DashboardHeader />
         <PageLoadErrorAlert
           error={error}
           scope="dashboard"
@@ -103,11 +149,19 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-2xl font-semibold">{t("pages.dashboard")}</h1>
+    <div className="flex flex-col gap-5">
+      <DashboardHeader status={status.data} />
+      <DashboardOverview
+        points={points}
+        activeConnections={connectionCounts.total}
+        tcpConnections={connectionCounts.tcp}
+        udpConnections={connectionCounts.udp}
+        memory={memory.data!}
+        running={Boolean(status.data?.running)}
+      />
       <SetupChecklistCard status={status.data} />
-      <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-12">
-        <aside data-testid="dashboard-status-column" className="order-1 flex min-w-0 flex-col gap-4 md:order-2 xl:col-span-4">
+      <div className="grid items-start gap-5 md:grid-cols-2 xl:grid-cols-12">
+        <aside data-testid="dashboard-status-column" className="order-1 flex min-w-0 flex-col gap-5 md:order-2 xl:col-span-4">
           <ServiceCard
             status={status.data!}
             pending={pendingAction}
@@ -132,7 +186,7 @@ export function DashboardPage() {
           <RuntimeStatsCard memory={memory.data!} panelVersion={version.data!.version} kernelVersion={version.data!.kernel_version} />
           <RuntimeActions pending={maintenance.isPending} onGC={() => maintenance.mutate(api.runtime.gc)} onFlushDNS={() => maintenance.mutate(api.runtime.flushDNS)} onFlushFakeIP={() => maintenance.mutate(api.runtime.flushFakeIP)} />
         </aside>
-        <section data-testid="dashboard-main-column" className="order-2 flex min-w-0 flex-col gap-4 md:order-1 xl:col-span-8">
+        <section data-testid="dashboard-main-column" className="order-2 flex min-w-0 flex-col gap-5 md:order-1 xl:col-span-8">
           <TrafficChart
             points={points}
             streamError={traffic.error || undefined}
