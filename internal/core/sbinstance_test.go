@@ -445,7 +445,12 @@ func (s *fakeSelectorOutbound) ListenPacket(context.Context, M.Socksaddr) (net.P
 
 var _ selectableOutbound = (*fakeSelectorOutbound)(nil)
 
-func (s *fakeSelectorOutbound) Now() string { return s.now }
+func (s *fakeSelectorOutbound) Selected(string) adapter.Outbound {
+	if s.now == "" {
+		return nil
+	}
+	return fakeOutbound{tag: s.now}
+}
 
 func (s *fakeSelectorOutbound) All() []string { return s.all }
 
@@ -505,6 +510,16 @@ func TestOutboundGroupsListsSelectors(t *testing.T) {
 	g := groups[0]
 	if g.Tag != "proxy" || g.Type != "selector" || g.Now != "a" || len(g.All) != 2 || g.All[0] != "a" {
 		t.Fatalf("group = %#v", g)
+	}
+}
+
+func TestOutboundGroupsHandlesMissingSelection(t *testing.T) {
+	selector := &fakeSelectorOutbound{tag: "proxy", outType: "selector", all: []string{"a"}}
+	instance := startInstanceWithBox(t, newSelectorFakeBox(selector))
+
+	groups := instance.OutboundGroups()
+	if len(groups) != 1 || groups[0].Now != "" {
+		t.Fatalf("groups = %#v", groups)
 	}
 }
 
@@ -681,7 +696,9 @@ func (u *fakeURLTestOutbound) ListenPacket(context.Context, M.Socksaddr) (net.Pa
 	return nil, errors.New("not implemented")
 }
 
-func (u *fakeURLTestOutbound) Now() string { return u.now }
+func (u *fakeURLTestOutbound) Selected(string) adapter.Outbound {
+	return fakeOutbound{tag: u.now}
+}
 
 func (u *fakeURLTestOutbound) All() []string { return u.all }
 

@@ -6,6 +6,7 @@ import (
 	"net"
 
 	M "github.com/sagernet/sing/common/metadata"
+	N "github.com/sagernet/sing/common/network"
 )
 
 // OutboundGroups 返回当前所有出站分组（selector/urltest）及其当前选中与成员列表。
@@ -27,11 +28,19 @@ func (s *SBInstance) OutboundGroups() []OutboundGroupInfo {
 		groups = append(groups, OutboundGroupInfo{
 			Type: g.Type(),
 			Tag:  g.Tag(),
-			Now:  g.Now(),
+			Now:  selectedGroupTag(g),
 			All:  g.All(),
 		})
 	}
 	return groups
+}
+
+func selectedGroupTag(group groupOutbound) string {
+	selected := group.Selected(N.NetworkTCP)
+	if selected == nil {
+		return ""
+	}
+	return selected.Tag()
 }
 
 // SelectOutbound 切换某 selector 分组的当前出站。selector 内部会在启用 cache_file 时持久化选择。

@@ -74,8 +74,8 @@ type boxOutboundManager interface {
 // 避免直接依赖 protocol/group 包。
 type groupOutbound interface {
 	adapter.Outbound
-	Now() string
 	All() []string
+	Selected(network string) adapter.Outbound
 }
 
 // selectableOutbound 额外支持手动切换成员（selector）。

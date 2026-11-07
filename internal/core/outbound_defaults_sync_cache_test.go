@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	box "github.com/sagernet/sing-box"
+	"github.com/sagernet/sing-box/adapter"
 	"github.com/sagernet/sing-box/include"
 	"github.com/sagernet/sing-box/option"
 )
@@ -22,7 +23,7 @@ func TestSyncProxySelectorPreservesCachedSelection(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := cachedProxySyncConfig(t.TempDir())
 			first := startCachedProxyRuntime(t, cfg)
-			if first.selector.Now() != "node-a" {
+			if first.selectedTag() != "node-a" {
 				t.Fatal("fixture must start with the configured default")
 			}
 			if !first.selector.SelectOutbound(tt.selected) {
@@ -31,7 +32,7 @@ func TestSyncProxySelectorPreservesCachedSelection(t *testing.T) {
 			first.close(t)
 			cfg["outbounds"] = SyncProxySelector(cfg["outbounds"].([]any), tt.members)
 			second := startCachedProxyRuntime(t, cfg)
-			if got := second.selector.Now(); got != tt.selected {
+			if got := second.selectedTag(); got != tt.selected {
 				t.Fatalf("want cached selection %q after sync and reopen, got %q", tt.selected, got)
 			}
 		})
@@ -56,14 +57,14 @@ func TestSyncProxySelectorDropsCachedBlockingPlaceholder(t *testing.T) {
 	withoutNodes := []any{outbounds[0], outbounds[2]}
 	cfg["outbounds"] = SyncProxySelector(withoutNodes, nil)
 	blocked := startCachedProxyRuntime(t, cfg)
-	if blocked.selector.Now() != "block" {
+	if blocked.selectedTag() != "block" {
 		t.Fatal("removing the final node must block")
 	}
 	blocked.close(t)
 	withNode := append(cfg["outbounds"].([]any), outbounds[1])
 	cfg["outbounds"] = SyncProxySelector(withNode, []string{"node-a"})
 	connected := startCachedProxyRuntime(t, cfg)
-	if got := connected.selector.Now(); got != "node-a" {
+	if got := connected.selectedTag(); got != "node-a" {
 		t.Fatalf("first node must replace the cached block placeholder, got %q", got)
 	}
 }
@@ -90,9 +91,17 @@ func cachedProxySyncConfig(dataDir string) map[string]any {
 type cachedProxyRuntime struct {
 	instance boxInstance
 	selector interface {
-		Now() string
+		Selected(string) adapter.Outbound
 		SelectOutbound(string) bool
 	}
+}
+
+func (r *cachedProxyRuntime) selectedTag() string {
+	selected := r.selector.Selected("tcp")
+	if selected == nil {
+		return ""
+	}
+	return selected.Tag()
 }
 
 func startCachedProxyRuntime(t *testing.T, cfg map[string]any) *cachedProxyRuntime {
@@ -120,7 +129,7 @@ func startCachedProxyRuntime(t *testing.T, cfg map[string]any) *cachedProxyRunti
 		t.Fatal("proxy outbound is missing")
 	}
 	runtime.selector, ok = outbound.(interface {
-		Now() string
+		Selected(string) adapter.Outbound
 		SelectOutbound(string) bool
 	})
 	if !ok {
