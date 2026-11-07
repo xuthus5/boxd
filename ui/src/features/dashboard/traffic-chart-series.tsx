@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef } from "react"
+import { useEffect, useId, useMemo, useRef, useState } from "react"
 
 import {
   TRAFFIC_UPDATE_DURATION_MS,
@@ -28,6 +28,13 @@ interface TrafficSeriesPoint {
 interface TrafficSegment {
   key: string
   path: string
+}
+
+interface TrafficMatrix {
+  scaleX: number
+  scaleY: number
+  translateX: number
+  translateY: number
 }
 
 function trafficSeriesPoints(data: readonly TrafficChartPoint[], dataKey: string) {
@@ -64,33 +71,76 @@ function trafficSeriesTransform(input: {
   timeDomain: TrafficDomain
   timeOrigin: number
   valueDomain: TrafficDomain
-}) {
+}): TrafficMatrix {
   const timeSpan = input.timeDomain[1] - input.timeDomain[0]
   const valueSpan = input.valueDomain[1] - input.valueDomain[0]
   const scaleX = timeSpan > 0 ? input.plotArea.width / timeSpan : 1
   const scaleY = valueSpan > 0 ? input.plotArea.height / valueSpan : 1
   const translateX = input.plotArea.x - ((input.timeDomain[0] - input.timeOrigin) * scaleX)
   const translateY = input.plotArea.y + input.plotArea.height + (input.valueDomain[0] * scaleY)
-  return `matrix(${scaleX}, 0, 0, ${scaleY}, ${translateX}, ${translateY})`
+  return { scaleX, scaleY, translateX, translateY }
 }
 
-function useTrafficMotion(motionRef: React.RefObject<SVGGElement | null>, enabled: boolean) {
+function formatTrafficMatrix(matrix: TrafficMatrix) {
+  return `matrix(${matrix.scaleX} 0 0 ${matrix.scaleY} ${matrix.translateX} ${matrix.translateY})`
+}
+
+function sameTrafficMatrix(left: TrafficMatrix, right: TrafficMatrix) {
+  return left.scaleX === right.scaleX
+    && left.scaleY === right.scaleY
+    && left.translateX === right.translateX
+    && left.translateY === right.translateY
+}
+
+function interpolateTrafficMatrix(start: TrafficMatrix, end: TrafficMatrix, progress: number): TrafficMatrix {
+  const mix = (from: number, to: number) => from + ((to - from) * progress)
+  return {
+    scaleX: mix(start.scaleX, end.scaleX),
+    scaleY: mix(start.scaleY, end.scaleY),
+    translateX: mix(start.translateX, end.translateX),
+    translateY: mix(start.translateY, end.translateY),
+  }
+}
+
+function prefersReducedTrafficMotion() {
+  return typeof window.matchMedia === "function"
+    && window.matchMedia("(prefers-reduced-motion: reduce)").matches
+}
+
+function useTrafficMotion(
+  motionRef: React.RefObject<SVGGElement | null>,
+  target: TrafficMatrix | undefined,
+  enabled: boolean,
+) {
+  const renderedRef = useRef<TrafficMatrix | null>(null)
+  const frameRef = useRef(0)
+
   useEffect(() => {
     const motion = motionRef.current
-    if (!motion) return
-    if (!enabled) {
-      motion.classList.remove("transition-transform")
+    if (!motion || !target) return
+    const start = renderedRef.current
+    if (!enabled || !start || sameTrafficMatrix(start, target) || prefersReducedTrafficMotion()) {
+      renderedRef.current = target
+      motion.setAttribute("transform", formatTrafficMatrix(target))
       return
     }
-    let readyFrame = 0
-    const paintFrame = window.requestAnimationFrame(() => {
-      readyFrame = window.requestAnimationFrame(() => motion.classList.add("transition-transform"))
-    })
-    return () => {
-      window.cancelAnimationFrame(paintFrame)
-      window.cancelAnimationFrame(readyFrame)
+
+    const startedAt = performance.now()
+    const update = (timestamp: number) => {
+      const progress = Math.min(1, Math.max(0, (timestamp - startedAt) / TRAFFIC_UPDATE_DURATION_MS))
+      const next = interpolateTrafficMatrix(start, target, progress)
+      renderedRef.current = next
+      motion.setAttribute("transform", formatTrafficMatrix(next))
+      frameRef.current = progress < 1 ? window.requestAnimationFrame(update) : 0
     }
-  }, [enabled, motionRef])
+
+    window.cancelAnimationFrame(frameRef.current)
+    frameRef.current = window.requestAnimationFrame(update)
+    return () => {
+      window.cancelAnimationFrame(frameRef.current)
+      frameRef.current = 0
+    }
+  }, [enabled, motionRef, target])
 }
 
 export function TrafficSeries({ data, dataKey, timeDomain, timeOrigin, valueDomain }: TrafficSeriesProps) {
@@ -102,8 +152,13 @@ export function TrafficSeries({ data, dataKey, timeDomain, timeOrigin, valueDoma
     () => trafficSegments(trafficSeriesPoints(data, dataKey), timeOrigin),
     [data, dataKey, timeOrigin],
   )
-  const transform = plotArea ? trafficSeriesTransform({ plotArea, timeDomain, timeOrigin, valueDomain }) : undefined
-  useTrafficMotion(motionRef, segments.length > 0)
+  const transform = useMemo(
+    () => plotArea ? trafficSeriesTransform({ plotArea, timeDomain, timeOrigin, valueDomain }) : undefined,
+    [plotArea, timeDomain, timeOrigin, valueDomain],
+  )
+  const targetTransform = useMemo(() => transform ? formatTrafficMatrix(transform) : undefined, [transform])
+  const [initialTransform] = useState(() => targetTransform)
+  useTrafficMotion(motionRef, transform, segments.length > 0)
   if (!plotArea || !transform) return null
 
   return <>
@@ -112,8 +167,8 @@ export function TrafficSeries({ data, dataKey, timeDomain, timeOrigin, valueDoma
       <g
         ref={motionRef}
         data-traffic-series={dataKey}
-        className="ease-linear motion-reduce:transition-none will-change-transform"
-        style={{ transform, transformBox: "view-box", transformOrigin: "0 0", transitionDuration: `${TRAFFIC_UPDATE_DURATION_MS}ms` }}
+        data-traffic-transform-target={targetTransform}
+        transform={initialTransform}
       >
         {segments.map((segment) => <path
           key={segment.key}

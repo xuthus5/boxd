@@ -61,9 +61,10 @@ describe("TrafficSeries", () => {
       timeDomain={[origin, origin]}
       valueDomain={[0, 0]}
     /></svg>)
-    expect(view.container.querySelector("[data-traffic-series]")).toHaveStyle({
-      transform: "matrix(1, 0, 0, 1, 72, 224)",
-    })
+    expect(view.container.querySelector("[data-traffic-series]")).toHaveAttribute(
+      "transform",
+      "matrix(1 0 0 1 72 224)",
+    )
 
     view.rerender(<svg><TrafficSeries
       data={[]}

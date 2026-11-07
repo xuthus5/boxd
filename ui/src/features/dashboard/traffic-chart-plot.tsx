@@ -1,9 +1,7 @@
-import { useState } from "react"
 import { Line, XAxis, YAxis } from "recharts"
 
 import {
   TRAFFIC_AXIS_WIDTH,
-  TRAFFIC_UPDATE_DURATION_MS,
   formatTrafficTimestamp,
   getTrafficTimestampValue,
   type TrafficChartPoint,
@@ -68,42 +66,28 @@ function timeTicks(domain: TrafficDomain, width: number) {
 
 function TrafficAxes({ timeDomain, valueDomain, formatter, hasData }: TrafficAxesProps) {
   const plotArea = useStableTrafficPlotArea()
-  const [initialDomainEnd] = useState(() => timeDomain[1])
   if (!plotArea || !hasData) return null
   const xTicks = timeTicks(timeDomain, plotArea.width)
   const yTicks = domainTicks(valueDomain, TRAFFIC_VALUE_TICK_COUNT)
-  const tickMotionClass = timeDomain[1] === initialDomainEnd
-    ? undefined
-    : "transition-transform ease-linear motion-reduce:transition-none"
   return <g aria-hidden="true" pointerEvents="none">
-    {xTicks.map((value) => <g
-      key={value}
-      data-traffic-time-tick={value}
-      className={tickMotionClass}
-      style={{
-        transform: `translateX(${scaleCoordinate({ value, domain: timeDomain, start: plotArea.x, length: plotArea.width })}px)`,
-        transitionDuration: `${TRAFFIC_UPDATE_DURATION_MS}ms`,
-      }}
-    >
-      <line className="stroke-border/50" y1={plotArea.y} y2={plotArea.y + plotArea.height} />
-      <text className="fill-muted-foreground text-xs" y={plotArea.y + plotArea.height + TRAFFIC_X_LABEL_OFFSET} textAnchor="middle">
-        {formatTrafficTimestamp(value)}
-      </text>
-    </g>)}
-    {yTicks.map((value) => <g
-      key={value}
-      data-traffic-value-tick={value}
-      className={tickMotionClass}
-      style={{
-        transform: `translateY(${scaleCoordinate({ value, domain: valueDomain, start: plotArea.y, length: plotArea.height, invert: true })}px)`,
-        transitionDuration: `${TRAFFIC_UPDATE_DURATION_MS}ms`,
-      }}
-    >
-      <line className="stroke-border/50" x1={plotArea.x} x2={plotArea.x + plotArea.width} />
-      <text className="fill-muted-foreground text-xs" x={plotArea.x - TRAFFIC_Y_LABEL_OFFSET} dominantBaseline="middle" textAnchor="end">
-        {formatter(value)}
-      </text>
-    </g>)}
+    {xTicks.map((value) => {
+      const x = scaleCoordinate({ value, domain: timeDomain, start: plotArea.x, length: plotArea.width })
+      return <g key={value} data-traffic-time-tick={value}>
+        <line className="stroke-border/50" x1={x} x2={x} y1={plotArea.y} y2={plotArea.y + plotArea.height} />
+        <text className="fill-muted-foreground text-xs" x={x} y={plotArea.y + plotArea.height + TRAFFIC_X_LABEL_OFFSET} textAnchor="middle">
+          {formatTrafficTimestamp(value)}
+        </text>
+      </g>
+    })}
+    {yTicks.map((value) => {
+      const y = scaleCoordinate({ value, domain: valueDomain, start: plotArea.y, length: plotArea.height, invert: true })
+      return <g key={value} data-traffic-value-tick={value}>
+        <line className="stroke-border/50" x1={plotArea.x} x2={plotArea.x + plotArea.width} y1={y} y2={y} />
+        <text className="fill-muted-foreground text-xs" x={plotArea.x - TRAFFIC_Y_LABEL_OFFSET} y={y} dominantBaseline="middle" textAnchor="end">
+          {formatter(value)}
+        </text>
+      </g>
+    })}
   </g>
 }
 

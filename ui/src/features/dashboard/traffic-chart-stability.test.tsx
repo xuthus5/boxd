@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react"
-import { screen } from "@testing-library/react"
+import { screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -135,7 +135,8 @@ describe("TrafficChart stability", () => {
     const stableTick = document.querySelector(`[data-traffic-time-tick="${stableTickValue}"]`)
     expect(stableTick).not.toBeNull()
     expect(stableTick).not.toHaveClass("transition-transform")
-    const initialTickTransform = (stableTick as SVGGElement).style.transform
+    const stableTickLine = stableTick?.querySelector("line")
+    const initialTickX = stableTickLine?.getAttribute("x1")
     expect(recharts.xAxis).toHaveBeenCalled()
     const initialXAxis = recharts.xAxis.mock.calls.at(-1)?.[0] as Record<string, unknown>
     expect(initialXAxis).toMatchObject({
@@ -181,8 +182,10 @@ describe("TrafficChart stability", () => {
     expect(document.querySelector('g[data-traffic-series="upload_rate"]')).toBe(uploadSeries)
     const updatedTick = document.querySelector(`[data-traffic-time-tick="${stableTickValue}"]`)
     expect(updatedTick).toBe(stableTick)
-    expect(updatedTick).toHaveClass("transition-transform")
-    expect((updatedTick as SVGGElement).style.transform).not.toBe(initialTickTransform)
+    expect(updatedTick).not.toHaveClass("transition-transform")
+    const updatedTickLine = updatedTick?.querySelector("line")
+    expect(updatedTickLine).toBe(stableTickLine)
+    expect(updatedTickLine?.getAttribute("x1")).not.toBe(initialTickX)
   })
 
   it("keeps the last curve while chart layout is temporarily unavailable", async () => {
@@ -250,13 +253,14 @@ describe("TrafficChart stability", () => {
     const initialSegment = document.querySelector<SVGPathElement>(selector)
     const initialGeometry = initialSegment?.getAttribute("d")
     const motion = initialSegment?.parentElement
-    const initialTransform = motion?.style.transform
+    expect(motion).not.toBeNull()
+    const initialTransform = motion?.getAttribute("transform")
 
     await user.click(screen.getByRole("button", { name: "increase scale" }))
 
     expect(document.querySelector<SVGPathElement>(selector)).toBe(initialSegment)
     expect(initialSegment?.getAttribute("d")).toBe(initialGeometry)
-    expect(motion?.style.transform).not.toBe(initialTransform)
+    await waitFor(() => expect(motion?.getAttribute("transform")).not.toBe(initialTransform))
   })
 
   it("keeps retained rate segments stable when the source seed rolls", async () => {

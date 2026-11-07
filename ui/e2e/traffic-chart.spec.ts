@@ -85,8 +85,11 @@ test("live traffic curve rolls the full window without redrawing history", async
 
   const uploadSegments = page.locator('path.traffic-chart-curve[data-series="upload_rate"]')
   const firstSegment = uploadSegments.first()
+  const motion = firstSegment.locator("..")
   await expect(firstSegment).toBeVisible()
-  await expect(firstSegment.locator("..")).toHaveClass(/transition-transform/)
+  await expect(motion).not.toHaveClass(/transition-transform|will-change/)
+  await expect(motion).toHaveAttribute("transform", /^matrix\(/)
+  await expect(motion).toHaveAttribute("data-traffic-transform-target", /^matrix\(/)
   const chart = page.locator('[data-slot="chart"]').first()
   await chart.scrollIntoViewIfNeeded()
   const chartBox = await chart.boundingBox()
@@ -105,17 +108,18 @@ test("live traffic curve rolls the full window without redrawing history", async
     const path = document.querySelector('path.traffic-chart-curve[data-series="upload_rate"]')
     const motion = path?.parentElement
     if (!motion) return false
-    const targetX = new DOMMatrix(motion.style.transform).m41
-    const computedX = new DOMMatrix(getComputedStyle(motion).transform).m41
-    return Math.abs(targetX - computedX) < 0.5
+    const target = motion.getAttribute("data-traffic-transform-target")
+    const current = motion.getAttribute("transform")
+    if (!target || !current) return false
+    return Math.abs(new DOMMatrix(target).m41 - new DOMMatrix(current).m41) < 0.5
   })
   const initial = await firstSegment.evaluate((path) => {
     const motion = path.parentElement as SVGGElement
     return {
       count: document.querySelectorAll('path.traffic-chart-curve[data-series="upload_rate"]').length,
       opacity: getComputedStyle(path).opacity,
-      targetX: new DOMMatrix(motion.style.transform).m41,
-      transform: motion.style.transform,
+      targetX: new DOMMatrix(motion.getAttribute("data-traffic-transform-target") ?? "").m41,
+      transform: motion.getAttribute("data-traffic-transform-target"),
     }
   })
   await page.evaluate(() => {
@@ -150,14 +154,13 @@ test("live traffic curve rolls the full window without redrawing history", async
   }, livePoints[61])
   await page.waitForFunction((transform) => {
     const path = document.querySelector('path.traffic-chart-curve[data-series="upload_rate"]')
-    return path?.parentElement?.style.transform !== transform
+    return path?.parentElement?.getAttribute("data-traffic-transform-target") !== transform
   }, initial.transform)
   await expect(uploadSegments).toHaveCount(initial.count)
   await page.waitForTimeout(100)
 
   const updated = await firstSegment.evaluate((path) => {
     const motion = path.parentElement as SVGGElement
-    const style = getComputedStyle(motion)
     const scope = window as typeof window & {
       __trafficSegments?: {
         d: Array<string | null>
@@ -168,16 +171,15 @@ test("live traffic curve rolls the full window without redrawing history", async
     }
     const state = scope.__trafficSegments
     return {
-      computedX: new DOMMatrix(style.transform).m41,
+      computedX: new DOMMatrix(motion.getAttribute("transform") ?? "").m41,
       dMutations: state?.dMutations,
-      duration: style.transitionDuration,
       historicalGeometryStable: state?.segments.every((segment, index) => (
         segment.isConnected && segment.getAttribute("d") === state.d[index]
       )),
       opacity: getComputedStyle(path).opacity,
       rechartsLineReplacements: state?.rechartsLineReplacements,
-      targetX: new DOMMatrix(motion.style.transform).m41,
-      transitionProperty: style.transitionProperty,
+      targetX: new DOMMatrix(motion.getAttribute("data-traffic-transform-target") ?? "").m41,
+      willChange: getComputedStyle(motion).willChange,
     }
   })
   const lowerBound = Math.min(initial.targetX, updated.targetX)
@@ -187,8 +189,7 @@ test("live traffic curve rolls the full window without redrawing history", async
   expect(updated.dMutations).toBe(0)
   expect(updated.opacity).toBe(initial.opacity)
   expect(updated.rechartsLineReplacements).toBe(0)
-  expect(updated.transitionProperty).toContain("transform")
-  expect(updated.duration).toBe("1s")
+  expect(updated.willChange).toBe("auto")
   expect(updated.targetX).not.toBe(initial.targetX)
   expect(updated.computedX).toBeGreaterThan(lowerBound)
   expect(updated.computedX).toBeLessThan(upperBound)
