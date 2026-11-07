@@ -46,11 +46,11 @@ export function LoginPage() {
       <div className="login-aurora pointer-events-none absolute inset-0 opacity-70 dark:opacity-40" aria-hidden="true" />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,transparent,var(--background))] opacity-40" aria-hidden="true" />
 
-      <div className="relative grid w-full max-w-5xl overflow-hidden rounded-3xl border border-border/70 bg-card/80 shadow-[0_32px_100px_-40px_oklch(0.2_0.03_260/0.38)] backdrop-blur-xl lg:grid-cols-[1.05fr_0.95fr]">
-        <section className="relative hidden flex-col justify-between overflow-hidden bg-[oklch(0.18_0.035_264)] p-10 text-white lg:flex">
+      <div className="relative grid w-full max-w-5xl overflow-hidden rounded-3xl border border-border/70 bg-card/80 shadow-[0_32px_100px_-40px_oklch(0.18_0.04_140/0.34)] backdrop-blur-xl lg:grid-cols-[1.05fr_0.95fr]">
+        <section className="relative hidden flex-col justify-between overflow-hidden bg-[oklch(0.16_0.04_140)] p-10 text-white lg:flex">
           <div className="login-aurora pointer-events-none absolute inset-0 opacity-80" aria-hidden="true" />
           <div className="relative flex items-center gap-3">
-            <span className="flex size-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[oklch(0.72_0.18_267)] to-[oklch(0.62_0.22_300)] text-[oklch(0.16_0.03_264)] shadow-[0_14px_34px_-14px_oklch(0.72_0.18_267)]">
+            <span className="flex size-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[oklch(0.84_0.19_132)] to-[oklch(0.64_0.16_166)] text-[oklch(0.15_0.04_140)] shadow-[0_14px_34px_-14px_oklch(0.84_0.19_132)]">
               <BoxIcon className="size-5" />
             </span>
             <div>

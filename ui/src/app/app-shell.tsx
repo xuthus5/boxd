@@ -89,7 +89,7 @@ function AppSidebar() {
               render={<NavLink to="/dashboard" aria-label="boxd" />}
               tooltip="boxd"
             >
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sidebar-primary to-[oklch(0.62_0.22_300)] text-sidebar-primary-foreground shadow-[0_8px_24px_-10px_var(--sidebar-primary)]">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-sidebar-primary to-[oklch(0.64_0.16_166)] text-sidebar-primary-foreground shadow-[0_8px_24px_-10px_var(--sidebar-primary)]">
                 <BoxIcon />
               </span>
               <span className="flex min-w-0 flex-col items-start group-data-[collapsible=icon]:hidden">
@@ -140,7 +140,7 @@ export function AppShell() {
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset className="min-w-0 overflow-hidden">
-        <header className="sticky top-0 z-10 flex h-16 items-center gap-3 border-b border-border/70 bg-background/75 px-4 shadow-[0_1px_0_oklch(0.2_0.03_260/0.02)] backdrop-blur-xl md:px-6">
+        <header className="sticky top-0 z-10 flex h-16 items-center gap-3 border-b border-border/70 bg-background/75 px-4 shadow-[0_1px_0_oklch(0.18_0.04_140/0.03)] backdrop-blur-xl md:px-6">
           <SidebarTrigger className="rounded-lg"><PanelLeftIcon /></SidebarTrigger>
           <Separator orientation="vertical" className="h-6 bg-border/70" />
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
