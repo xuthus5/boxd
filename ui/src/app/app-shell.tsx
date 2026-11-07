@@ -139,11 +139,11 @@ export function AppShell() {
   const desktop = isDesktop()
   const context = navigationContext(pathname)
   return (
-    <SidebarProvider>
+    <SidebarProvider className="h-svh overflow-hidden">
       <AppSidebar />
-      <SidebarInset className="min-w-0 overflow-hidden">
+      <SidebarInset className="h-svh min-h-0 min-w-0 overflow-hidden">
         <header
-          className="window-drag sticky top-0 z-10 flex h-16 items-center gap-3 border-b border-border/70 bg-background/75 px-4 shadow-[0_1px_0_oklch(0.18_0.04_140/0.03)] backdrop-blur-xl md:px-6"
+          className="window-drag relative z-10 flex h-16 shrink-0 items-center gap-3 border-b border-border/70 bg-background/75 px-4 shadow-[0_1px_0_oklch(0.18_0.04_140/0.03)] backdrop-blur-xl md:px-6"
           onDoubleClick={desktop ? handleDesktopTitleBarDoubleClick : undefined}
         >
           <SidebarTrigger className="window-no-drag rounded-lg"><PanelLeftIcon /></SidebarTrigger>
@@ -165,9 +165,11 @@ export function AppShell() {
             </>
           ) : null}
         </header>
-        <main className="app-shell-main mx-auto flex min-w-0 w-full max-w-[1600px] flex-1 flex-col gap-4 p-4 md:gap-5 md:p-6 lg:p-8">
-          {desktop ? <Outlet /> : <DefaultPasswordGate><Outlet /></DefaultPasswordGate>}
-        </main>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <main className="app-shell-main mx-auto flex min-h-full min-w-0 w-full max-w-[1600px] flex-col gap-4 p-4 md:gap-5 md:p-6 lg:p-8">
+            {desktop ? <Outlet /> : <DefaultPasswordGate><Outlet /></DefaultPasswordGate>}
+          </main>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   )
