@@ -24,7 +24,8 @@ export function useStreamBuffer<T>(path: string, token: string, limit = 500) {
   }, [])
 
   useEffect(() => {
-    if (!token || paused) return
+    const desktop = isDesktop()
+    if (paused || (!desktop && !token)) return
     const append = (item: T) => {
       setError("")
       setItems((current) => [...current, item].slice(-limit))
@@ -35,7 +36,7 @@ export function useStreamBuffer<T>(path: string, token: string, limit = 500) {
       if (next === "open") setError("")
     }
 
-    if (isDesktop()) {
+    if (desktop) {
       let disposed = false
       let cleanup: (() => void) | undefined
       const start = async () => {

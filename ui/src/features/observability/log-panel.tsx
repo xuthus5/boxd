@@ -46,7 +46,7 @@ const MOBILE_CARD_HEIGHT = 132
 export function LogPanel({ path, title }: { path: string; title: string }) {
   const { t } = useTranslation()
   const preferences = usePreferences()
-  const stream = useStreamBuffer<LogEvent>(path, useAuth().session!.token)
+  const stream = useStreamBuffer<LogEvent>(path, useAuth().session?.token ?? "")
   const [searchParams, setSearchParams] = useSearchParams()
   const filters = useMemo(() => parseLogSearchParams(searchParams), [searchParams])
   const seed = resolveLogSeed(filters)

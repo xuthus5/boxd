@@ -17,9 +17,9 @@ Control plane for [sing-box](https://github.com/SagerNet/sing-box). Manage kerne
 - **Nodes & subscriptions**: Clash YAML + base64 subscriptions, immediate first fetch and URL-change refresh, visible per-subscription refresh schedule, background refresh using per-subscription intervals, 16 MiB download guard, public HTTP(S)-only sources with private/local target and redirect protection, traffic/expiry, failed-first + retry with refresh/config-sync diagnostics, subscription deep-links to nodes/logs, denser mobile toolbars/cards, node search, latency color bands + history sparkline/detail chart, copyable probe errors with error-code hints, runtime groups, probes
 - **Observability**: kernel/app logs with timestamps, copy/export, proxy-safe SSE heartbeats, and manual reconnect; TCP/UDP connections with source/network/inbound/process, live upload/download rates, search/sort/export, optimistic close, grouped views, and close-error diagnostics
 - **Advanced** (grouped navigation: endpoints & services, certificates, shared resources, kernel options, configuration management): Endpoints with visual WireGuard peer editing, X.509 certificate trust stores and providers, sing-box CCM/OCM/DERP/Resolved/SSM API services, shared network namespaces and HTTP clients, kernel logging, NTP time sync, Experimental, full kernel JSON with path-level diff, local JSON import/export, read-only Tag/outbound/DNS/rule-set and DNS/outbound bootstrap-topology preflight, and searchable config-history audit/restore; dry-run validate on raw/endpoints/certificate/services/log/NTP/experimental; sticky save-error jump
-- **Auth**: densified login failures with error codes/hints and copyable diagnostics
+- **Auth (web deployments)**: densified login failures with error codes/hints and copyable diagnostics
 - **Page load diagnostics**: shared densified query-load failures (code/hint/copy/retry) across dashboard, proxy, policy, nodes/subs, settings, and advanced pages
-- **Settings**: theme, language, and log level persisted in DB; password/JWT rotation, dirty-state save gates, probe URLs, global URLTest defaults, redacted support-bundle export, and panel backup export
+- **Settings**: theme, language, and log level persisted in DB; web deployments also expose password/JWT rotation; dirty-state save gates, probe URLs, global URLTest defaults, redacted support-bundle export, and panel backup export
 - **Terminal helper**: copy http_proxy/https_proxy export commands for Bash/Zsh, Fish, PowerShell, and CMD, using the address from the detected mixed/HTTP/SOCKS inbound
 
 ## Stack
@@ -397,7 +397,7 @@ Package the desktop app into a binary, deb/rpm/AppImage plus a `.desktop` entry
 
 The desktop app runs the sing-box core in-process (embedded mode, data in `~/.local/share/boxd`), or connects to a remote boxd service (`BOXD_DESKTOP_MODE=remote`). It exposes a system tray, native windows, file dialogs, autostart, and URL scheme deep links; the React frontend auto-detects the desktop runtime and uses Wails bindings and events instead of HTTP/SSE. When launched by autostart, the app stays hidden in the tray (`--hidden`) instead of opening a window.
 
-**First launch password reset**: On first launch, the desktop app uses the default password `admin123`. The UI will force a password change before allowing access. After resetting, log in with username `admin` and your new password.
+The desktop UI has no login screen, logout action, or account password/JWT settings. Embedded mode opens the panel directly, while web deployments keep the existing authentication and security controls.
 
 Formal release builds disable WebView developer tools (Wails `production` tag); nightly builds keep them enabled for debugging.
 

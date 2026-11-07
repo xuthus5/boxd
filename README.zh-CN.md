@@ -17,9 +17,9 @@ sing-box 控制平面（control plane）。提供 Web 面板管理内核配置�
 - **节点与订阅**：按订阅间隔后台自动刷新、Clash YAML / base64 订阅、16 MiB 下载上限、仅允许公网 HTTP(S) 订阅源并拦截本机/私网地址与不安全重定向、失败优先与重试、刷新/配置同步诊断、流量/到期、订阅卡片 deep-link 到节点/日志、移动端更紧凑的工具栏/卡片、节点搜索、延迟色阶、运行时分组、测速（错误码提示与可复制诊断）
 - **运行观测**：内核/应用日志带时间戳、复制/导出、代理友好的 SSE 心跳与手动重连；活跃连接支持实时上下行速率、搜索/排序/导出、乐观关闭、分组视图与关闭错误诊断
 - **高级配置**：Endpoints（含 WireGuard Peer 可视化编辑）、X.509 证书信任库、sing-box CCM/OCM/DERP/Resolved/SSM API 服务、内核日志配置、NTP 时间同步、Experimental、完整内核 JSON（路径级 diff）、本地 JSON 导入/导出、只读引用与 DNS/出站自举拓扑预检、配置历史审计/恢复；raw/endpoints/certificate/services/log/NTP/experimental dry-run 校验；保存错误跳转
-- **认证**：登录失败展示错误码/可操作提示与一键复制诊断
+- **认证（Web 部署）**：登录失败展示错误码/可操作提示与一键复制诊断；桌面端免登录
 - **页面加载诊断**：仪表盘/代理/策略/节点订阅/设置/高级配置等页面的查询失败统一展示错误码、可操作提示、复制诊断与重试
-- **应用设置**：主题、中英文与日志级别入库持久化；账号密码与 JWT 轮换、脏状态保存门禁、测速地址、URLTest 全局默认、脱敏诊断支持包与面板备份导出
+- **应用设置**：主题、中英文与日志级别入库持久化；Web 部署额外提供账号密码与 JWT 轮换；桌面端隐藏这类安全配置，仅保留本地运行设置与测速地址、URLTest 全局默认、脱敏诊断支持包、面板备份导出
 - **终端助手**：按平台一键复制 http_proxy / https_proxy 环境变量命令（Bash/Zsh、Fish、PowerShell、CMD），代理地址取自检测到的 mixed/HTTP/SOCKS 入站
 
 ## 技术栈
@@ -195,9 +195,9 @@ ICMP 测速会打开原始套接字，需要 `CAP_NET_RAW` 能力。
 - **桌面手动安装 / AppImage**：运行 `sudo ./scripts/grant-desktop-icmp.sh`（自动解析桌面用户 GID），或 `sudo ./scripts/grant-desktop-icmp.sh $USER setcap`。
 - **不使用 systemd 直接运行**：以 root 运行，或为服务用户授予该能力。否则 ICMP 测速会报 `icmp raw socket requires CAP_NET_RAW`（TCP/HTTP 测速不受影响）。
 
-### 桌面首次启动密码重置
+### 桌面免登录
 
-桌面应用首次启动时使用默认密码 `admin123`。UI 会强制要求修改密码后才能继续使用。重置完毕后，使用用户名 `admin` 和新设置的密码登录。
+桌面端不展示登录页、退出登录或账号密码/JWT 设置。内嵌模式启动后直接进入面板；Web 部署仍保留原有登录与安全配置。
 
 ### 桌面 UI 稳定性
 

@@ -18,6 +18,19 @@ afterEach(() => {
 })
 
 describe("useStreamBuffer desktop mode", () => {
+  it("subscribes without a session token", async () => {
+    vi.mocked(isDesktop).mockReturnValue(true)
+    vi.mocked(desktopGet).mockResolvedValue({ entries: [] })
+    vi.mocked(subscribeDesktopStream).mockResolvedValue(() => {})
+    renderHook(() => useStreamBuffer<{ level: string }>("/api/stats/logs", "", 10))
+    await waitFor(() => {
+      expect(subscribeDesktopStream).toHaveBeenCalledWith(
+        "/api/stats/logs",
+        expect.objectContaining({ onEvent: expect.any(Function) }),
+      )
+    })
+  })
+
   it("uses event subscription instead of SSE in desktop mode", async () => {
     vi.mocked(isDesktop).mockReturnValue(true)
     vi.mocked(desktopGet).mockResolvedValue({ entries: [] })

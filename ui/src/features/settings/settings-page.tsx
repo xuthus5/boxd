@@ -209,14 +209,15 @@ export function GeneralSettingsCard({
 export function SettingsPage() {
   const { t } = useTranslation()
   const preferences = usePreferences()
+  const desktop = isDesktop()
   const [password, jwt, testURL, autostart, urlTestDefaults, ruleSetAuto, appAutostart] = useQueries({ queries: [
-    { queryKey: ["settings", "password"], queryFn: api.settings.password },
-    { queryKey: ["settings", "jwt"], queryFn: api.settings.jwt },
+    { queryKey: ["settings", "password"], queryFn: api.settings.password, enabled: !desktop },
+    { queryKey: ["settings", "jwt"], queryFn: api.settings.jwt, enabled: !desktop },
     { queryKey: ["settings", "url"], queryFn: api.settings.testURL },
     { queryKey: ["settings", "autostart"], queryFn: api.settings.autostart },
     { queryKey: ["settings", "urltest-defaults"], queryFn: api.settings.urlTestDefaults },
     { queryKey: ["settings", "ruleset-auto-update"], queryFn: api.config.ruleSetsAutoUpdate },
-    { queryKey: ["desktop", "autostart"], queryFn: api.desktop.autostart, enabled: isDesktop() },
+    { queryKey: ["desktop", "autostart"], queryFn: api.desktop.autostart, enabled: desktop },
   ] })
   const queries = [password, jwt, testURL, autostart, urlTestDefaults, ruleSetAuto, appAutostart]
   if (queries.some((query) => query.isLoading)) return <Skeleton className="h-64 w-full" />
@@ -239,7 +240,7 @@ export function SettingsPage() {
       <h1 className="text-2xl font-semibold">{t("settings.title")}</h1>
       <div className="columns-1 gap-3 lg:columns-2 [&>*]:mb-3 [&>*]:break-inside-avoid">
         <GeneralSettingsCard url={testURL.data!.url} enabled={autostart.data!.enabled} appAutostart={appAutostart.data?.enabled ?? false} preferences={preferences} />
-        <AccountSecurityCard defaultPassword={password.data!.defaultPassword} jwt={jwt.data!} />
+        {!desktop && password.data && jwt.data ? <AccountSecurityCard defaultPassword={password.data.defaultPassword} jwt={jwt.data} /> : null}
         <URLTestDefaultsCard defaults={urlTestDefaults.data!} />
         <RuleSetAutoUpdateCard defaults={ruleSetAuto.data!} />
         <SupportBundleCard preferences={{ theme: preferences.theme, language: preferences.language, minimumLogLevel: preferences.minimumLogLevel }} />

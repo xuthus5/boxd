@@ -26,6 +26,7 @@ import { useAuth } from "@/features/auth/auth-context"
 import { KernelStatusBadge } from "@/features/dashboard/kernel-status-badge"
 import { AppearanceMenu } from "@/features/preferences/appearance-menu"
 import { DefaultPasswordGate } from "@/features/settings/default-password-gate"
+import { isDesktop } from "@/lib/api/desktop"
 
 function navigationContext(pathname: string) {
   const primary = primaryItems.find((item) => isNavigationItemActive(item, pathname))
@@ -110,20 +111,22 @@ function AppSidebar() {
       </SidebarContent>
       <SidebarFooter className="gap-2 border-t border-sidebar-border/70 p-3">
         <NavItems items={footerItems} />
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              disabled={loggingOut}
-              tooltip={t("nav.logout")}
-              aria-label={t("nav.logout")}
-              className="h-9 rounded-xl px-2.5 text-sidebar-foreground/60 hover:text-sidebar-foreground"
-              onClick={() => { void logout() }}
-            >
-              {loggingOut ? <Spinner aria-hidden="true" /> : <LogOutIcon />}
-              <span className="group-data-[collapsible=icon]:hidden">{t("nav.logout")}</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        {isDesktop() ? null : (
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                disabled={loggingOut}
+                tooltip={t("nav.logout")}
+                aria-label={t("nav.logout")}
+                className="h-9 rounded-xl px-2.5 text-sidebar-foreground/60 hover:text-sidebar-foreground"
+                onClick={() => { void logout() }}
+              >
+                {loggingOut ? <Spinner aria-hidden="true" /> : <LogOutIcon />}
+                <span className="group-data-[collapsible=icon]:hidden">{t("nav.logout")}</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        )}
       </SidebarFooter>
     </Sidebar>
   )
@@ -151,7 +154,9 @@ export function AppShell() {
           <Separator orientation="vertical" className="hidden h-6 bg-border/70 sm:block" />
           <AppearanceMenu />
         </header>
-        <main className="app-shell-main mx-auto flex min-w-0 w-full max-w-[1600px] flex-1 flex-col gap-4 p-4 md:gap-5 md:p-6 lg:p-8"><DefaultPasswordGate><Outlet /></DefaultPasswordGate></main>
+        <main className="app-shell-main mx-auto flex min-w-0 w-full max-w-[1600px] flex-1 flex-col gap-4 p-4 md:gap-5 md:p-6 lg:p-8">
+          {isDesktop() ? <Outlet /> : <DefaultPasswordGate><Outlet /></DefaultPasswordGate>}
+        </main>
       </SidebarInset>
     </SidebarProvider>
   )

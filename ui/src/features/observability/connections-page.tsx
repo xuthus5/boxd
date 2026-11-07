@@ -55,7 +55,7 @@ import type { ConnectionEvent } from "@/lib/api/types"
 
 export function ConnectionsPage() {
   const { t } = useTranslation()
-  const token = useAuth().session!.token
+  const token = useAuth().session?.token ?? ""
   const [searchParams, setSearchParams] = useSearchParams()
   const stream = useStreamBuffer<ConnectionEvent>(api.stats.paths.connections, token, 2)
   const filters = useMemo(() => parseConnectionSearchParams(searchParams), [searchParams])

@@ -62,7 +62,7 @@ function DashboardHeader({ status }: { status?: ServiceStatus }) {
 export function DashboardPage() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const token = useAuth().session!.token
+  const token = useAuth().session?.token ?? ""
   const [pendingAction, setPendingAction] = useState("")
   const traffic = useStreamBuffer<TrafficEvent>(api.stats.paths.traffic, token, TRAFFIC_CHART_SOURCE_LIMIT)
   const connections = useStreamBuffer<ConnectionEvent>(api.stats.paths.connections, token, 2)

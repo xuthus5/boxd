@@ -6,6 +6,7 @@ import { ProtectedRoute } from "@/app/protected-route"
 import { AdvancedSectionLayout } from "@/features/advanced/advanced-section-layout"
 import { LoginPage } from "@/features/auth/login-page"
 import { Skeleton } from "@/components/ui/skeleton"
+import { isDesktop } from "@/lib/api/desktop"
 
 const DashboardPage = lazy(() => import("@/features/dashboard/dashboard-page").then((module) => ({ default: module.DashboardPage })))
 const InboundsPage = lazy(() => import("@/features/proxy/inbounds-page").then((module) => ({ default: module.InboundsPage })))
@@ -35,7 +36,7 @@ function RouteLoading() {
 export function AppRoutes() {
   return (
     <Suspense fallback={<RouteLoading />}><Routes>
-      <Route path="/login" element={<LoginPage />} />
+      <Route path="/login" element={isDesktop() ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
           <Route path="/dashboard" element={<DashboardPage />} />
