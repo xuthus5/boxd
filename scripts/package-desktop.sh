@@ -54,7 +54,7 @@ go build \
 
 echo "==> Preparing build assets"
 mkdir -p build build/linux/appimage build/linux/nfpm
-# 应用图标：沿用 web 版 logo（favicon.svg）生成的统一图标，位于 build/appicon.png。
+# 应用图标：沿用侧边栏顶部品牌徽标生成的统一图标，位于 build/appicon.png。
 
 echo "==> Generating .desktop entry"
 wails3 generate .desktop \
