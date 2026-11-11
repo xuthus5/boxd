@@ -153,6 +153,17 @@ automation screenshot "$evidence/screenshots/config-item-added.png" > "$evidence
 automation press "key=section-reset-inbounds" --settle --timeout 15s > "$evidence/logs/config-item-reset.txt"
 automation wait --text "e2e-inbound" --gone --settle --timeout 15s > "$evidence/logs/config-item-reset-wait.txt"
 
+automation press 'key="/policy/route"' --settle --timeout 15s > "$evidence/logs/config-route-items-open.txt"
+automation wait --text "Route rules" --settle --timeout 15s > "$evidence/logs/config-route-items-card.txt"
+automation press "key=config-item-add-route-rules" --settle --timeout 15s > "$evidence/logs/config-route-item-add-open.txt"
+automation wait --text "Add rule" --settle --timeout 15s > "$evidence/logs/config-route-item-add-dialog.txt"
+automation fill "key=config-item-editor-route" '{"action":"route","outbound":"e2e-rule-outbound"}' --settle --timeout 15s > "$evidence/logs/config-route-item-add-fill.txt"
+automation press "key=config-item-save-route-rules" --settle --timeout 15s > "$evidence/logs/config-route-item-add-save.txt"
+automation wait --text "e2e-rule-outbound" --settle --timeout 15s > "$evidence/logs/config-route-item-add-visible.txt"
+automation screenshot "$evidence/screenshots/config-route-item-added.png" > "$evidence/logs/config-route-item-screenshot.txt"
+automation press "key=section-reset-route" --settle --timeout 15s > "$evidence/logs/config-route-item-reset.txt"
+automation wait --text "e2e-rule-outbound" --gone --settle --timeout 15s > "$evidence/logs/config-route-item-reset-wait.txt"
+
 node_link='vless://00000000-0000-0000-0000-000000000001@edge.example.com:443?security=tls&type=tcp#e2e-node'
 automation press 'key="/nodes"' --settle --timeout 15s > "$evidence/logs/manage-nodes-open.txt"
 automation press "key=node-import" --settle --timeout 15s > "$evidence/logs/manage-node-dialog.txt"

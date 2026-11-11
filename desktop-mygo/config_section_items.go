@@ -5,24 +5,29 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/egoist/mygo/ui"
 )
 
 const configItemEditorHeight = 300
 
-func (a *application) configSectionItemsCard(c *ui.Context, state *configSectionState) {
-	items, ok := configSectionObjectItems(state)
+func (a *application) configSectionItemsCards(c *ui.Context, state *configSectionState) {
+	for _, itemPath := range configSectionItemPaths(state.spec.Key) {
+		a.configSectionItemsCard(c, state, itemPath)
+	}
+}
+
+func (a *application) configSectionItemsCard(c *ui.Context, state *configSectionState, itemPath configItemPath) {
+	items, ok := configSectionObjectItems(state, itemPath.Path)
 	if !ok {
 		return
 	}
 	card(c, func() {
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Children(func() {
-			sectionHeading(c, state.spec.Title+" items", fmt.Sprintf("%d configured item(s)", len(items)))
+			sectionHeading(c, configItemCardTitle(state, itemPath), fmt.Sprintf("%d configured item(s)", len(items)))
 			ui.Spacer(c)
-			if ui.PrimaryButton(c, "Add item").Key("config-item-add-" + state.spec.Key).Clicked() {
-				a.openConfigSectionItemEditor(state, -1)
+			if ui.PrimaryButton(c, "Add item").Key(configItemKey(state, itemPath.Path, "add", -1)).Clicked() {
+				a.openConfigSectionItemEditor(state, itemPath, -1)
 			}
 		})
 		if len(items) == 0 {
@@ -30,35 +35,35 @@ func (a *application) configSectionItemsCard(c *ui.Context, state *configSection
 			return
 		}
 		for index, item := range items {
-			a.configSectionItemRow(c, state, index, item)
+			a.configSectionItemRow(c, state, itemPath, index, item)
 		}
 	})
 }
 
-func (a *application) configSectionItemRow(c *ui.Context, state *configSectionState, index int, item map[string]any) {
-	tag := firstText(jsonPathString(item, "tag"), "(untagged)")
-	typ := firstText(jsonPathString(item, "type"), "unknown type")
+func (a *application) configSectionItemRow(c *ui.Context, state *configSectionState, itemPath configItemPath,
+	index int, item map[string]any) {
 	ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
 		ui.Column(c).Grow(1).Gap(2).Children(func() {
-			ui.Text(c, tag).FontSize(12).Bold()
-			ui.Text(c, typ+" · "+configItemDetail(item)).FontSize(11).TextColor(c.Theme().TextMuted)
+			ui.Text(c, configItemLabel(item)).FontSize(12).Bold()
+			ui.Text(c, configItemDetail(item)).FontSize(11).TextColor(c.Theme().TextMuted)
 		})
-		if ui.Button(c, "Edit").Key(fmt.Sprintf("config-item-edit-%s-%d", state.spec.Key, index)).Clicked() {
-			a.openConfigSectionItemEditor(state, index)
+		if ui.Button(c, "Edit").Key(configItemKey(state, itemPath.Path, "edit", index)).Clicked() {
+			a.openConfigSectionItemEditor(state, itemPath, index)
 		}
-		if ui.Button(c, "Delete").Key(fmt.Sprintf("config-item-delete-%s-%d", state.spec.Key, index)).Clicked() {
-			a.askDeleteConfigSectionItem(state, index, tag)
+		if ui.Button(c, "Delete").Key(configItemKey(state, itemPath.Path, "delete", index)).Clicked() {
+			a.askDeleteConfigSectionItem(state, itemPath.Path, index, configItemLabel(item))
 		}
 	})
 }
 
-func (a *application) openConfigSectionItemEditor(state *configSectionState, index int) {
-	items, ok := configSectionObjectItems(state)
+func (a *application) openConfigSectionItemEditor(state *configSectionState, itemPath configItemPath, index int) {
+	items, ok := configSectionObjectItems(state, itemPath.Path)
 	if !ok {
 		return
 	}
-	state.itemErr = ""
+	state.itemPath = itemPath.Path
 	state.itemEditIndex = index
+	state.itemErr = ""
 	if index >= 0 && index < len(items) {
 		body, err := json.MarshalIndent(items[index], "", "  ")
 		if err != nil {
@@ -68,10 +73,9 @@ func (a *application) openConfigSectionItemEditor(state *configSectionState, ind
 		}
 		state.itemDraft = string(body) + "\n"
 	} else {
-		state.itemDraft = "{\n  \"tag\": \"\",\n  \"type\": \"\"\n}\n"
+		state.itemDraft = itemPath.Default
 	}
 	state.itemEditOpen = true
-	state.itemErr = ""
 	a.invalidate()
 }
 
@@ -86,9 +90,9 @@ func (a *application) configSectionItemDialog(c *ui.Context) {
 
 func configSectionItemDialog(c *ui.Context, app *application, state *configSectionState) {
 	ui.Modal(c, &state.itemEditOpen, func() {
-		title := "Add " + strings.TrimSuffix(state.spec.Title, "s") + " item"
+		title := "Add " + configItemDialogLabel(state, state.itemPath)
 		if state.itemEditIndex >= 0 {
-			title = "Edit " + strings.TrimSuffix(state.spec.Title, "s") + " item"
+			title = "Edit " + configItemDialogLabel(state, state.itemPath)
 		}
 		dialogPanel(c, title, "Edit this item as native JSON. Unknown fields are preserved when saved.", func() {
 			ui.TextArea(c.Key("config-item-editor-"+state.spec.Key), &state.itemDraft).
@@ -97,10 +101,10 @@ func configSectionItemDialog(c *ui.Context, app *application, state *configSecti
 				ui.Text(c, state.itemErr).FontSize(12).TextColor(c.Theme().Danger)
 			}
 			ui.Row(c).Gap(8).Justify(ui.End).Children(func() {
-				if ui.Button(c, "Cancel").Key("config-item-cancel-" + state.spec.Key).Clicked() {
+				if ui.Button(c, "Cancel").Key(configItemKey(state, state.itemPath, "cancel", -1)).Clicked() {
 					state.itemEditOpen = false
 				}
-				if ui.PrimaryButton(c, "Save item").Key("config-item-save-" + state.spec.Key).Clicked() {
+				if ui.PrimaryButton(c, "Save item").Key(configItemKey(state, state.itemPath, "save", -1)).Clicked() {
 					app.saveConfigSectionItem(state)
 				}
 			})
@@ -115,7 +119,7 @@ func (a *application) saveConfigSectionItem(state *configSectionState) {
 		a.invalidate()
 		return
 	}
-	items, ok := configSectionObjectItems(state)
+	items, ok := configSectionObjectItems(state, state.itemPath)
 	if !ok {
 		state.itemErr = "current section is not an array of objects"
 		a.invalidate()
@@ -126,7 +130,7 @@ func (a *application) saveConfigSectionItem(state *configSectionState) {
 	} else {
 		items = append(items, item)
 	}
-	if err := state.replaceConfigItems(items); err != nil {
+	if err := state.replaceConfigItems(state.itemPath, items); err != nil {
 		state.itemErr = err.Error()
 		a.invalidate()
 		return
@@ -138,16 +142,16 @@ func (a *application) saveConfigSectionItem(state *configSectionState) {
 	a.invalidate()
 }
 
-func (a *application) askDeleteConfigSectionItem(state *configSectionState, index int, tag string) {
+func (a *application) askDeleteConfigSectionItem(state *configSectionState, path string, index int, label string) {
 	a.deleteForm = deleteFormState{
 		open: true, kind: "config-section-item", id: state.spec.Key,
-		ids: []string{strconv.Itoa(index)}, title: "Delete configuration item",
-		message: "Remove " + tag + " from " + state.spec.Title + "? The change is only saved when you Apply the section.",
+		ids: []string{strconv.Itoa(index), path}, title: "Delete configuration item",
+		message: "Remove " + label + " from " + state.spec.Title + "? The change is only saved when you Apply the section.",
 		confirm: "Delete",
 	}
 }
 
-func (a *application) deleteConfigSectionItem(section string, indexText string) {
+func (a *application) deleteConfigSectionItem(section string, indexText, path string) {
 	state := a.configSections[section]
 	if state == nil {
 		return
@@ -158,14 +162,14 @@ func (a *application) deleteConfigSectionItem(section string, indexText string) 
 		a.invalidate()
 		return
 	}
-	items, ok := configSectionObjectItems(state)
+	items, ok := configSectionObjectItems(state, path)
 	if !ok || index < 0 || index >= len(items) {
 		a.model.setActionError(errors.New("configuration item does not exist"))
 		a.invalidate()
 		return
 	}
 	items = append(items[:index], items[index+1:]...)
-	if err := state.replaceConfigItems(items); err != nil {
+	if err := state.replaceConfigItems(path, items); err != nil {
 		a.model.setActionError(err)
 		a.invalidate()
 		return
@@ -175,13 +179,20 @@ func (a *application) deleteConfigSectionItem(section string, indexText string) 
 	a.invalidate()
 }
 
-func configSectionObjectItems(state *configSectionState) ([]map[string]any, bool) {
+func configSectionObjectItems(state *configSectionState, path string) ([]map[string]any, bool) {
 	if state == nil || !state.loaded {
 		return nil, false
 	}
 	value, err := decodeJSONValue(state.editorState().Buffer.String())
 	if err != nil {
 		return nil, false
+	}
+	if path != "" {
+		root, ok := value.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		value = jsonPathValue(root, path)
 	}
 	rawItems, ok := value.([]any)
 	if !ok {
@@ -198,8 +209,21 @@ func configSectionObjectItems(state *configSectionState) ([]map[string]any, bool
 	return items, true
 }
 
-func (s *configSectionState) replaceConfigItems(items []map[string]any) error {
-	body, err := json.MarshalIndent(items, "", "  ")
+func (s *configSectionState) replaceConfigItems(path string, items []map[string]any) error {
+	if path == "" {
+		body, err := json.MarshalIndent(items, "", "  ")
+		if err != nil {
+			return err
+		}
+		s.editorState().Buffer.Set(string(body) + "\n")
+		return nil
+	}
+	root, ok := decodeSectionObject(s.editorState().Buffer.String())
+	if !ok || root == nil {
+		return errors.New("current section is not a JSON object")
+	}
+	setJSONPath(root, path, items)
+	body, err := json.MarshalIndent(root, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -216,24 +240,5 @@ func parseConfigSectionItem(text string) (map[string]any, error) {
 	if !ok {
 		return nil, errors.New("configuration item must be a JSON object")
 	}
-	body, err := json.Marshal(item)
-	if err != nil {
-		return nil, err
-	}
-	var normalized map[string]any
-	decoder := json.NewDecoder(strings.NewReader(string(body)))
-	decoder.UseNumber()
-	if err := decoder.Decode(&normalized); err != nil {
-		return nil, err
-	}
-	return normalized, nil
-}
-
-func configItemDetail(item map[string]any) string {
-	for _, key := range []string{"listen", "server", "address", "path"} {
-		if value := strings.TrimSpace(jsonPathString(item, key)); value != "" {
-			return key + "=" + value
-		}
-	}
-	return fmt.Sprintf("%d field(s)", len(item))
+	return item, nil
 }

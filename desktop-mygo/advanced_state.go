@@ -48,6 +48,7 @@ type configSectionState struct {
 	attempted     bool
 	itemEditOpen  bool
 	itemEditIndex int
+	itemPath      string
 	itemDraft     string
 	itemErr       string
 }

@@ -27,14 +27,14 @@ func TestConfigSectionItemsEditAddAndDelete(t *testing.T) {
 		}
 	}
 
-	app.openConfigSectionItemEditor(state, -1)
+	app.openConfigSectionItemEditor(state, configSectionItemPaths(sectionInbounds)[0], -1)
 	settleTransitions(tt)
 	if !tt.HasText("Save item") {
 		t.Fatalf("item editor did not open: %v", tt.Texts())
 	}
 	state.itemDraft = `{"tag":"socks-in","type":"socks","listen":"127.0.0.1","listen_port":1081}`
 	app.saveConfigSectionItem(state)
-	items, ok := configSectionObjectItems(state)
+	items, ok := configSectionObjectItems(state, "")
 	if !ok || len(items) != 3 || jsonPathString(items[2], "tag") != "socks-in" {
 		t.Fatalf("items after add = %+v, ok=%v", items, ok)
 	}
@@ -42,20 +42,20 @@ func TestConfigSectionItemsEditAddAndDelete(t *testing.T) {
 		t.Fatalf("state after add = %+v", state)
 	}
 
-	app.openConfigSectionItemEditor(state, 0)
+	app.openConfigSectionItemEditor(state, configSectionItemPaths(sectionInbounds)[0], 0)
 	state.itemDraft = `{"tag":"mixed-in","type":"mixed","listen":"127.0.0.1","listen_port":1080,"x-keep":true}`
 	app.saveConfigSectionItem(state)
-	items, ok = configSectionObjectItems(state)
+	items, ok = configSectionObjectItems(state, "")
 	if !ok || jsonPathString(items[0], "listen") != "127.0.0.1" || !jsonPathBool(items[0], "x-keep") {
 		t.Fatalf("items after edit = %+v, ok=%v", items, ok)
 	}
 
-	app.askDeleteConfigSectionItem(state, 1, "http-in")
+	app.askDeleteConfigSectionItem(state, "", 1, "http-in")
 	if !app.deleteForm.open || app.deleteForm.kind != "config-section-item" {
 		t.Fatalf("delete form = %+v", app.deleteForm)
 	}
 	app.confirmDelete()
-	items, ok = configSectionObjectItems(state)
+	items, ok = configSectionObjectItems(state, "")
 	if !ok || len(items) != 2 {
 		t.Fatalf("items after delete = %+v, ok=%v", items, ok)
 	}
@@ -85,7 +85,46 @@ func TestConfigSectionItemsIgnoreNonArraySections(t *testing.T) {
 	app := newApplication(fake, testConfig(), nil, false)
 	state, _ := app.configSectionForRoute("/advanced/log")
 	app.loadConfigSection(state)
-	if _, ok := configSectionObjectItems(state); ok {
+	if _, ok := configSectionObjectItems(state, ""); ok {
 		t.Fatal("object section was treated as an item array")
+	}
+}
+
+func TestConfigSectionNestedItems(t *testing.T) {
+	fake := &fakeBackend{sectionText: `{
+  "final": "direct",
+  "rules": [{"action":"route","outbound":"direct","domain":["example.com"],"x-keep":true}],
+  "rule_set": []
+}`}
+	app := newApplication(fake, testConfig(), nil, false)
+	state, _ := app.configSectionForRoute("/policy/route")
+	app.loadConfigSection(state)
+	tt := ui.NewTester(app.view, 1440, 900)
+	app.router.Push("/policy/route")
+	settleTransitions(tt)
+	for _, text := range []string{"Route rules", "Route rule sets", "outbound=direct"} {
+		if !tt.HasText(text) {
+			t.Errorf("nested items are missing %q: %v", text, tt.Texts())
+		}
+	}
+	app.openConfigSectionItemEditor(state, configSectionItemPaths(sectionRoute)[0], -1)
+	state.itemDraft = `{"action":"reject"}`
+	app.saveConfigSectionItem(state)
+	rules, ok := configSectionObjectItems(state, "rules")
+	if !ok || len(rules) != 2 || jsonPathString(rules[1], "action") != "reject" {
+		t.Fatalf("rules after add = %+v, ok=%v", rules, ok)
+	}
+	if !jsonPathBool(rules[0], "x-keep") || jsonPathString(rules[0], "outbound") != "direct" {
+		t.Fatalf("existing rule was not preserved: %+v", rules[0])
+	}
+	app.askDeleteConfigSectionItem(state, "rules", 0, "route")
+	app.confirmDelete()
+	rules, ok = configSectionObjectItems(state, "rules")
+	if !ok || len(rules) != 1 {
+		t.Fatalf("rules after delete = %+v, ok=%v", rules, ok)
+	}
+	root, ok := decodeSectionObject(state.editorState().Buffer.String())
+	if !ok || jsonPathString(root, "final") != "direct" {
+		t.Fatalf("root fields were lost: %+v", root)
 	}
 }

@@ -27,7 +27,7 @@ func (a *application) configSectionView(c *ui.Context, route string) {
 			return
 		}
 		a.configSectionVisualForm(c, state)
-		a.configSectionItemsCard(c, state)
+		a.configSectionItemsCards(c, state)
 		renderConfigDiffCard(c, state.spec.Title+" diff", state.baseline,
 			state.editorState().Buffer.String(), state.loaded)
 		card(c, func() {

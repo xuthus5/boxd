@@ -25,9 +25,13 @@ func (a *application) confirmDelete() {
 		a.restoreConfigSnapshot(form.id)
 	case "config-section-item":
 		index := ""
+		path := ""
 		if len(form.ids) > 0 {
 			index = form.ids[0]
 		}
-		a.deleteConfigSectionItem(form.id, index)
+		if len(form.ids) > 1 {
+			path = form.ids[1]
+		}
+		a.deleteConfigSectionItem(form.id, index, path)
 	}
 }
