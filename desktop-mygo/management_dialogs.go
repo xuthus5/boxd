@@ -7,6 +7,7 @@ func (a *application) managementDialogs(c *ui.Context) {
 	a.subscriptionFormDialog(c)
 	a.selectorDialog(c)
 	a.deleteDialog(c)
+	a.setupDialog(c)
 }
 
 func dialogPanel(c *ui.Context, title, subtitle string, body func()) {

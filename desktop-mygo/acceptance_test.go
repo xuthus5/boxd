@@ -33,7 +33,22 @@ func TestAcceptanceScreenshots(t *testing.T) {
 	fake.history = []model.ConfigApplyEvent{{ID: "acceptance-1", Source: "desktop-mygo", Status: "applied", Restorable: true, Size: 42}}
 	fake.ruleSets = []model.RuleSetStatusItem{{Tag: "geosite", Type: "remote", Updatable: true}}
 	fake.ruleSetAuto = model.RuleSetAutoUpdate{Interval: "24h"}
-	fake.setupStatus = core.SetupStatus{Listeners: []core.SetupListener{{Type: "mixed", Listen: "0.0.0.0", ListenPort: 1080}}, ProxyReady: true}
+	fake.setupStatus = core.SetupStatus{
+		Capabilities: core.NetworkCapabilities{Platform: "linux", TUNAvailable: true, IPv6Available: true, DefaultListen: "127.0.0.1"},
+		Modules: []core.ConfigModuleStatus{
+			{ID: "outbounds", State: "ready", Count: 2},
+			{ID: "rule_sets", State: "ready", Count: 4},
+			{ID: "inbounds", State: "missing"},
+			{ID: "dns", State: "ready", Count: 1},
+			{ID: "route", State: "missing"},
+			{ID: "experimental", State: "ready", Count: 1},
+		},
+		Listeners: []core.SetupListener{{Type: "mixed", Listen: "0.0.0.0", ListenPort: 1080}}, ProxyReady: true,
+	}
+	fake.setupPlan = &core.SetupPlan{
+		SourceHash: "acceptance-preview", Modules: []string{"outbounds", "rule_sets", "inbounds", "dns", "route", "experimental"},
+		Warnings: []string{"proxy_nodes_required"}, WillRestart: false,
+	}
 	app.loadConfigSync()
 	tt := ui.NewTester(app.view, 1440, 900)
 	runID := acceptanceRunID()
@@ -72,8 +87,42 @@ func TestAcceptanceScreenshots(t *testing.T) {
 		writeScreenshot(t, filepath.Join(dir, page.name+".png"), img)
 	}
 
+	captureSetupDialog(t, app, tt, dir)
 	captureDarkDashboard(t, app, tt, dir, light)
 	t.Logf("acceptance screenshots: %s", dir)
+}
+
+func captureSetupDialog(t *testing.T, app *application, tt *ui.Tester, dir string) {
+	t.Helper()
+	app.router.Replace("/dashboard")
+	settleTransitions(tt)
+	if err := tt.Click("Configure modules"); err != nil {
+		t.Fatal(err)
+	}
+	settleTransitions(tt)
+	if !tt.HasText("Inbound mode") || !tt.HasText("Modules") {
+		t.Fatalf("setup dialog is incomplete: %v", tt.Texts())
+	}
+	img := tt.Image()
+	assertImage(t, img, 1440, 900)
+	writeScreenshot(t, filepath.Join(dir, "dashboard-setup-dialog.png"), img)
+	if err := tt.Click("Preview"); err != nil {
+		t.Fatal(err)
+	}
+	settleTransitions(tt)
+	if !tt.HasText("Preview ready") || !tt.HasText("No proxy outbound is ready") {
+		t.Fatalf("setup preview is incomplete: %v", tt.Texts())
+	}
+	img = tt.Image()
+	assertImage(t, img, 1440, 900)
+	writeScreenshot(t, filepath.Join(dir, "dashboard-setup-preview.png"), img)
+	if err := tt.Click("Cancel"); err != nil {
+		t.Fatal(err)
+	}
+	settleTransitions(tt)
+	if app.setup.dialogOpen {
+		t.Fatal("setup dialog did not close")
+	}
 }
 
 func captureDarkDashboard(t *testing.T, app *application, tt *ui.Tester, dir string, light *imageRGBA) {

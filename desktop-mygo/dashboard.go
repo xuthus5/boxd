@@ -17,6 +17,7 @@ func (a *application) dashboardView(c *ui.Context) {
 			})
 		}
 		a.dashboardMetrics(c)
+		a.dashboardSetup(c)
 		a.dashboardTraffic(c)
 		a.dashboardKernel(c)
 	})

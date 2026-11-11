@@ -25,6 +25,10 @@ type fakeBackend struct {
 	ruleSets         []model.RuleSetStatusItem
 	ruleSetAuto      model.RuleSetAutoUpdate
 	setupStatus      core.SetupStatus
+	setupPlan        *core.SetupPlan
+	setupPreviewErr  error
+	setupApplyResult service.SetupApplyResult
+	setupApplyErr    error
 	supportBundle    supportBundleCollection
 	supportBundleErr error
 	calls            []string
@@ -43,6 +47,8 @@ type fakeBackend struct {
 	lastPath         string
 	lastCurrent      string
 	lastNew          string
+	lastSetupPreview core.SetupRequest
+	lastSetupApply   core.SetupRequest
 }
 
 func (f *fakeBackend) ValidateConfigSection(_ context.Context, section, body string) error {
@@ -129,6 +135,22 @@ func (f *fakeBackend) RestoreConfigSnapshot(context.Context, string) error {
 func (f *fakeBackend) SetupStatus(context.Context) (core.SetupStatus, error) {
 	f.record("setup-status")
 	return f.setupStatus, f.actionErr
+}
+
+func (f *fakeBackend) PreviewSetup(_ context.Context, request core.SetupRequest) (*core.SetupPlan, error) {
+	f.record("setup-preview")
+	f.mu.Lock()
+	f.lastSetupPreview = request
+	f.mu.Unlock()
+	return f.setupPlan, f.setupPreviewErr
+}
+
+func (f *fakeBackend) ApplySetup(_ context.Context, request core.SetupRequest) (service.SetupApplyResult, error) {
+	f.record("setup-apply")
+	f.mu.Lock()
+	f.lastSetupApply = request
+	f.mu.Unlock()
+	return f.setupApplyResult, f.setupApplyErr
 }
 
 func (f *fakeBackend) RuleSetStatus(context.Context) ([]model.RuleSetStatusItem, error) {

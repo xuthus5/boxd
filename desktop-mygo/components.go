@@ -71,6 +71,10 @@ func warningBanner(c *ui.Context, message string) {
 }
 
 func successBanner(c *ui.Context, message string) {
+	successBannerLabel(c, "Saved", message)
+}
+
+func successBannerLabel(c *ui.Context, label, message string) {
 	if message == "" {
 		return
 	}
@@ -78,7 +82,7 @@ func successBanner(c *ui.Context, message string) {
 	ui.Row(c).FillWidth().Padding(10, 14).Gap(10).Radius(10).
 		Background(t.Success.Alpha(0.1)).Border(1, t.Success.Alpha(0.35)).
 		AlignItems(ui.Center).Children(func() {
-		ui.Text(c, "Saved").FontSize(12).Bold().TextColor(t.Success)
+		ui.Text(c, label).FontSize(12).Bold().TextColor(t.Success)
 		ui.Text(c, message).FontSize(12).Grow(1).TextColor(t.Text)
 	})
 }

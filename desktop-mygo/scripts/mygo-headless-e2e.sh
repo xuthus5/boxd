@@ -144,6 +144,36 @@ grep -q 'key=support-bundle-export' "$evidence/logs/support-bundle-tree.txt" || 
   exit 1
 }
 
+automation press 'key="/dashboard"' --settle --timeout 15s > "$evidence/logs/setup-dashboard-open.txt"
+automation wait --text "Configure modules" --settle --timeout 15s > "$evidence/logs/setup-dashboard-ready.txt"
+automation snapshot --full > "$evidence/logs/setup-dashboard-tree.txt"
+grep -q 'key=setup-open' "$evidence/logs/setup-dashboard-tree.txt" || {
+  printf 'setup control is missing from the dashboard\n' >&2
+  exit 1
+}
+automation press "key=setup-open" --settle --timeout 15s > "$evidence/logs/setup-dialog-open.txt"
+automation wait --text "Inbound mode" --settle --timeout 15s > "$evidence/logs/setup-dialog-ready.txt"
+automation snapshot --full > "$evidence/logs/setup-dialog-tree.txt"
+for text in "setup-preview" "setup-apply"; do
+  grep -q "key=$text" "$evidence/logs/setup-dialog-tree.txt" || {
+    printf 'setup control %q is missing\n' "$text" >&2
+    exit 1
+  }
+done
+automation screenshot "$evidence/screenshots/setup-dialog.png" > "$evidence/logs/setup-dialog-screenshot.txt"
+automation press "key=setup-preview" --settle --timeout 30s > "$evidence/logs/setup-preview.txt"
+automation wait --text "Preview ready" --settle --timeout 30s > "$evidence/logs/setup-preview-ready.txt"
+automation screenshot "$evidence/screenshots/setup-preview.png" > "$evidence/logs/setup-preview-screenshot.txt"
+automation press "key=setup-apply" --settle --timeout 60s > "$evidence/logs/setup-apply.txt"
+automation wait --text "Modules configured" --settle --timeout 60s > "$evidence/logs/setup-applied.txt"
+[ -s "$work/config/config.json" ] || { printf 'setup did not write a configuration\n' >&2; exit 1; }
+setup_backup=$(find "$work/data/config-backups" -maxdepth 1 -type f -name 'before-setup-*.json' -size +0c -print -quit 2>/dev/null || true)
+[ -n "$setup_backup" ] || {
+  printf 'setup did not create a configuration backup\n' >&2
+  exit 1
+}
+automation screenshot "$evidence/screenshots/setup-applied.png" > "$evidence/logs/setup-applied-screenshot.txt"
+
 automation press 'key="/config"' --settle --timeout 15s > "$evidence/logs/config-diff-open.txt"
 automation wait --text "Configuration diff" --settle --timeout 15s > "$evidence/logs/config-diff-panel.txt"
 automation fill "key=config-editor" '{"log":{"level":"debug"}}' --settle --timeout 15s > "$evidence/logs/config-diff-fill.txt"
@@ -261,7 +291,7 @@ cat > "$evidence/result.md" <<EOF
 - Status: passed
 - Commit: $(git rev-parse HEAD)
 - Window: native GTK3 content window titled "boxd"
-- Checked: seven primary pages, advanced configuration routes, Terminal, config item editor, node import/delete, subscription create/delete, connection controls, support bundle entry
+- Checked: seven primary pages, setup preview/apply, advanced configuration routes, Terminal, config item editor, node import/delete, subscription create/delete, connection controls, support bundle entry
 - Process tree: no WebKit, WebView or Wails process found
 - Evidence: environment.txt, commands.txt, logs/, screenshots/
 
