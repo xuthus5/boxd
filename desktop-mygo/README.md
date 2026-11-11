@@ -78,6 +78,15 @@ E2E 与 soak 脚本使用各自独立的 `mygo-automation --session`，可并行
 
 首次启动的内核自启可能涉及真实网络和配置；无显示验收默认设置 `BOXD_SKIP_KERNEL_AUTOSTART=1` 隔离桌面壳验证。
 
+在真实桌面执行 TS-026 自动采集与 30 分钟 soak：
+
+```bash
+cd desktop-mygo
+./scripts/mygo-desktop-acceptance.sh
+```
+
+脚本使用临时数据目录，记录显示会话、GPU、缩放和输入法信息，执行七页路由巡检并生成 `manual-checklist.md`。默认在自动采样后保留 5 分钟供人工检查托盘、HiDPI、多显示器、输入法和主观流畅度；可用 `MYGO_DESKTOP_HOLD_SECONDS` 调整。Xvfb 运行只能用于脚本自测，不能作为真实桌面验收结论。
+
 如果需要在服务器上人工查看，可先安装 `x11vnc`，再执行：
 
 ```bash
@@ -87,6 +96,8 @@ cd desktop-mygo
 ```
 
 脚本只监听 `127.0.0.1`，运行时生成临时密码并打印 SSH 隧道命令；`Ctrl-C` 会停止应用、Xvfb 和 x11vnc。不要将端口暴露到公网。
+
+若服务器不可安装 `x11vnc`，且本地工作站已有 X Server，可通过 `ssh -Y` 做临时可视检查；该方式仍受网络和远程 X11 渲染影响，不能替代本机 GPU/Wayland 验收。
 
 ## 已知限制
 
