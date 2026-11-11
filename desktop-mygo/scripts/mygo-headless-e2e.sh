@@ -103,8 +103,8 @@ automation snapshot --full > "$evidence/logs/dashboard-tree.txt"
 grep -q 'Kernel controls' "$evidence/logs/dashboard-tree.txt" || { printf 'dashboard heading is missing\n' >&2; exit 1; }
 automation screenshot "$evidence/screenshots/dashboard.png" > "$evidence/logs/dashboard-screenshot.txt"
 
-pages=(nodes subscriptions connections logs config settings dashboard)
-texts=("No nodes imported yet" "No subscriptions" "No active connections" "Recent activity" "Raw configuration" "Appearance" "Kernel controls")
+pages=(nodes subscriptions connections logs config terminal settings dashboard)
+texts=("No nodes imported yet" "No subscriptions" "No active connections" "Recent activity" "Raw configuration" "Proxy environment" "Appearance" "Kernel controls")
 for i in "${!pages[@]}"; do
   page=${pages[$i]}
   text=${texts[$i]}
@@ -114,12 +114,16 @@ for i in "${!pages[@]}"; do
   [ -s "$evidence/screenshots/$page.png" ] || { printf 'screenshot %s is empty\n' "$page" >&2; exit 1; }
 done
 
+automation press 'key="/terminal"' --settle --timeout 15s > "$evidence/logs/nav-terminal-ready.txt"
+automation wait --text "Bash / Zsh" --settle --timeout 15s > "$evidence/logs/wait-terminal-ready.txt"
+automation screenshot "$evidence/screenshots/terminal-ready.png" > "$evidence/logs/screenshot-terminal-ready.txt"
+
 automation snapshot --full > "$evidence/logs/advanced-sidebar-tree.txt"
 advanced_ref=$(awk '/\[treeItem\] "Advanced"/ { print $1; exit }' "$evidence/logs/advanced-sidebar-tree.txt")
 [ -n "$advanced_ref" ] || { printf 'Advanced sidebar section is missing\n' >&2; exit 1; }
 automation press "$advanced_ref" --settle --timeout 15s > "$evidence/logs/nav-advanced-open.txt"
-advanced_pages=(proxy/inbounds proxy/outbounds policy/route policy/dns advanced/endpoints advanced/services advanced/certificate advanced/network-namespaces advanced/http-clients advanced/certificate-providers advanced/log advanced/ntp advanced/experimental advanced/rule-sets advanced/history)
-advanced_texts=("Inbounds" "Outbounds" "Route" "DNS" "Endpoints" "Services" "Certificate" "Network namespaces" "HTTP clients" "Certificate providers" "Kernel log" "NTP" "Experimental" "Rule sets" "Config history")
+advanced_pages=(proxy/inbounds proxy/outbounds policy/route policy/dns advanced/endpoints advanced/services advanced/certificate advanced/network-namespaces advanced/http-clients advanced/certificate-providers advanced/log advanced/ntp advanced/experimental advanced/rule-sets advanced/history advanced/raw)
+advanced_texts=("Inbounds" "Outbounds" "Route" "DNS" "Endpoints" "Services" "Certificate" "Network namespaces" "HTTP clients" "Certificate providers" "Kernel log" "NTP" "Experimental" "Rule sets" "Config history" "Raw configuration")
 for i in "${!advanced_pages[@]}"; do
   page=${advanced_pages[$i]}
   text=${advanced_texts[$i]}

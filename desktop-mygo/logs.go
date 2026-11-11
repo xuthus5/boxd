@@ -18,6 +18,12 @@ func (a *application) logsView(c *ui.Context) {
 			ui.Row(c).FillWidth().AlignItems(ui.Center).Children(func() {
 				sectionHeading(c, "Recent activity", fmt.Sprintf("%d entries kept in memory", len(a.model.logs)))
 				ui.Spacer(c)
+				if ui.Button(c, "Copy").Key("logs-copy").Disabled(len(a.model.visibleLogs()) == 0).Clicked() {
+					a.copyLogs()
+				}
+				if ui.Button(c, "Export").Key("logs-export").Disabled(len(a.model.visibleLogs()) == 0).Clicked() {
+					a.exportLogs()
+				}
 				ui.Segmented(c.Key("log-filter"), &a.model.logFilter, logFilters...)
 			})
 			logs := a.model.visibleLogs()

@@ -20,6 +20,9 @@ func (a *application) configHistoryView(c *ui.Context) {
 			ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(8).Children(func() {
 				sectionHeading(c, "Apply timeline", fmt.Sprintf("%d recorded events", len(a.configHistory.events)))
 				ui.Spacer(c)
+				if ui.Button(c, "Export").Key("history-export").Disabled(len(a.configHistory.events) == 0).Clicked() {
+					a.exportConfigHistory()
+				}
 				if ui.Button(c, "Refresh").Key("history-refresh").Disabled(a.configHistory.loading || a.model.busy).Clicked() {
 					a.refreshConfigHistory()
 				}

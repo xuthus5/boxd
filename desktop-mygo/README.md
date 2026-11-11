@@ -13,8 +13,11 @@
 - Logs：应用与内核日志、级别过滤、固定容量缓冲和末尾跟随。
 - Config：JSON 编辑、格式化、校验、应用，以及原生文件导入导出。
 - Inbounds、Outbounds、Route、DNS 与高级配置段：原生分段 JSON 编辑、校验、应用、默认安装和配置诊断。
+- Log、NTP、Experimental、DNS、Route 和 Certificate 常用字段提供原生可视化表单，复杂字段仍可在原始 JSON 中编辑。
 - Config history：应用历史快照查看、校验后恢复；Rule sets：状态查看、更新和本地自动更新设置。
 - Settings：主题、语言、内核自启、桌面登录自启、测试 URL、运行时路径、管理员密码和备份导出。
+- Terminal：根据真实监听地址生成 Bash、Fish、PowerShell 和 CMD 代理环境变量命令，不执行 shell。
+- Logs 与 Config history 支持原生复制/导出；Raw configuration 路由兼容 Wails 的 `/advanced/raw`。
 - 后台刷新、错误/过期提示、固定流量与日志缓冲区。
 - 单实例、深链 `boxd://import?link=...`、关闭到托盘（托盘不可用时允许关闭退出）。
 
@@ -59,7 +62,7 @@ GOTOOLCHAIN=auto go run .
 GOTOOLCHAIN=auto go install github.com/egoist/mygo/plugins/automation/cmd/mygo-automation@v0.9.0
 ```
 
-执行 Xvfb 真实窗口验收（覆盖基础页面、全部高级配置路由、节点/订阅/连接管理）：
+执行 Xvfb 真实窗口验收（覆盖基础页面、Terminal、全部高级配置路由、节点/订阅/连接管理）：
 
 ```bash
 cd desktop-mygo

@@ -221,6 +221,14 @@ func (b *runtimeBackend) RestoreConfigSnapshot(ctx context.Context, id string) e
 	return err
 }
 
+func (b *runtimeBackend) SetupStatus(ctx context.Context) (core.SetupStatus, error) {
+	svc, err := b.serviceSet()
+	if err != nil {
+		return core.SetupStatus{}, err
+	}
+	return svc.Config().GetSetup(ctx)
+}
+
 func (b *runtimeBackend) RuleSetStatus(ctx context.Context) ([]model.RuleSetStatusItem, error) {
 	svc, err := b.serviceSet()
 	if err != nil {

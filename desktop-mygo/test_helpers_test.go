@@ -26,6 +26,7 @@ type fakeBackend struct {
 	snapshotText string
 	ruleSets     []model.RuleSetStatusItem
 	ruleSetAuto  model.RuleSetAutoUpdate
+	setupStatus  core.SetupStatus
 	calls        []string
 	lastPrefs    model.UIPreferences
 	lastNode     service.NodeInput
@@ -122,6 +123,11 @@ func (f *fakeBackend) ConfigSnapshot(context.Context, string) (string, error) {
 func (f *fakeBackend) RestoreConfigSnapshot(context.Context, string) error {
 	f.record("restore-config")
 	return f.actionErr
+}
+
+func (f *fakeBackend) SetupStatus(context.Context) (core.SetupStatus, error) {
+	f.record("setup-status")
+	return f.setupStatus, f.actionErr
 }
 
 func (f *fakeBackend) RuleSetStatus(context.Context) ([]model.RuleSetStatusItem, error) {

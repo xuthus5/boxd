@@ -12,6 +12,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"github.com/xuthus5/boxd/internal/core"
 	"github.com/xuthus5/boxd/internal/model"
 )
 
@@ -32,6 +33,7 @@ func TestAcceptanceScreenshots(t *testing.T) {
 	fake.history = []model.ConfigApplyEvent{{ID: "acceptance-1", Source: "desktop-mygo", Status: "applied", Restorable: true, Size: 42}}
 	fake.ruleSets = []model.RuleSetStatusItem{{Tag: "geosite", Type: "remote", Updatable: true}}
 	fake.ruleSetAuto = model.RuleSetAutoUpdate{Interval: "24h"}
+	fake.setupStatus = core.SetupStatus{Listeners: []core.SetupListener{{Type: "mixed", Listen: "0.0.0.0", ListenPort: 1080}}, ProxyReady: true}
 	app.loadConfigSync()
 	tt := ui.NewTester(app.view, 1440, 900)
 	runID := acceptanceRunID()
@@ -51,6 +53,8 @@ func TestAcceptanceScreenshots(t *testing.T) {
 		{name: "kernel-log-config", path: "/advanced/log", text: "Kernel log"},
 		{name: "config-history", path: "/advanced/history", text: "Config history"},
 		{name: "rule-sets", path: "/advanced/rule-sets", text: "Rule sets"},
+		{name: "raw-config", path: "/advanced/raw", text: "Raw configuration"},
+		{name: "terminal", path: "/terminal", text: "Proxy environment"},
 		{name: "settings", path: "/settings", text: "Appearance"},
 	}
 	var light *imageRGBA

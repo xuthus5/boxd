@@ -20,16 +20,16 @@ func (a *application) configSectionView(c *ui.Context, route string) {
 	a.ensureConfigSection(route)
 	a.pageColumn(c, func() {
 		pageHeading(c, state.spec.Title, state.spec.Subtitle)
+		if state.loading {
+			card(c, func() {
+				loadingRow(c, "Loading "+strings.ToLower(state.spec.Title)+"…")
+			})
+			return
+		}
+		a.configSectionVisualForm(c, state)
 		card(c, func() {
 			a.configSectionToolbar(c, state)
 			ui.Divider(c)
-			if state.loading {
-				ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
-					ui.Spinner(c)
-					ui.Text(c, "Loading "+strings.ToLower(state.spec.Title)+"…").TextColor(c.Theme().TextMuted)
-				})
-				return
-			}
 			editor.View(c, state.editorState()).Key("section-editor-" + state.spec.Key).
 				FillWidth().Height(sectionEditorHeight)
 		})

@@ -43,9 +43,15 @@ func (a *application) view(c *ui.Context) {
 					case r.Match("/config"):
 						r.Title("Config")
 						a.configView(c)
+					case r.Match("/advanced/raw"):
+						r.Title("Raw configuration")
+						a.configView(c)
 					case r.Match("/settings"):
 						r.Title("Settings")
 						a.settingsView(c)
+					case r.Match("/terminal"):
+						r.Title("Terminal")
+						a.terminalView(c)
 					case r.Match("/proxy/inbounds"), r.Match("/proxy/outbounds"),
 						r.Match("/policy/route"), r.Match("/policy/dns"),
 						r.Match("/advanced/endpoints"), r.Match("/advanced/services"),
@@ -113,9 +119,11 @@ func (a *application) sidebar(c *ui.Context) {
 			ui.SidebarItem(c, "/advanced/experimental", iconSettings, "Experimental")
 			ui.SidebarItem(c, "/advanced/rule-sets", iconSubs, "Rule sets")
 			ui.SidebarItem(c, "/advanced/history", iconLogs, "Config history")
+			ui.SidebarItem(c, "/advanced/raw", iconConfig, "Raw configuration")
 		})
 		ui.SidebarSection(c, "System", nil, func() {
 			ui.SidebarItem(c, "/config", iconConfig, "Config")
+			ui.SidebarItem(c, "/terminal", iconConns, "Terminal")
 			ui.SidebarItem(c, "/settings", iconSettings, "Settings")
 		})
 	}).Width(sidebarWidth).FillHeight().Padding(14).Gap(8).
@@ -244,10 +252,14 @@ func routeTitle(path string) string {
 		return "Config"
 	case "/settings":
 		return "Settings"
+	case "/terminal":
+		return "Terminal"
 	case "/advanced/history":
 		return "Config history"
 	case "/advanced/rule-sets":
 		return "Rule sets"
+	case "/advanced/raw":
+		return "Raw configuration"
 	default:
 		return "Dashboard"
 	}
@@ -258,9 +270,9 @@ func (a *application) normalizeRoute() {
 		return
 	}
 	switch a.router.Path() {
-	case "/dashboard", "/nodes", "/subscriptions", "/connections", "/logs", "/config", "/settings":
+	case "/dashboard", "/nodes", "/subscriptions", "/connections", "/logs", "/config", "/terminal", "/settings":
 		return
-	case "/advanced/history", "/advanced/rule-sets":
+	case "/advanced/history", "/advanced/rule-sets", "/advanced/raw":
 		return
 	default:
 		a.router.Replace("/dashboard")

@@ -46,6 +46,7 @@ type application struct {
 	configSections map[string]*configSectionState
 	configHistory  configHistoryState
 	ruleSets       ruleSetPageState
+	terminal       terminalPageState
 	securityForm   securityFormState
 	nodeForm       nodeFormState
 	subForm        subscriptionFormState

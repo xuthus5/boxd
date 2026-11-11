@@ -28,6 +28,7 @@ type backend interface {
 	ConfigApplyHistory(context.Context) ([]model.ConfigApplyEvent, error)
 	ConfigSnapshot(context.Context, string) (string, error)
 	RestoreConfigSnapshot(context.Context, string) error
+	SetupStatus(context.Context) (core.SetupStatus, error)
 	RuleSetStatus(context.Context) ([]model.RuleSetStatusItem, error)
 	UpdateRuleSets(context.Context, core.RuleSetUpdateRequest) (model.RuleSetUpdateResponse, error)
 	RuleSetAutoUpdate(context.Context) (model.RuleSetAutoUpdate, error)
