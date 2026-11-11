@@ -56,6 +56,7 @@ type backend interface {
 	ChangePassword(context.Context, string, string) error
 	CreateBackup(context.Context, string) error
 	ImportLink(context.Context, string) error
+	SupportBundle(context.Context) (supportBundleCollection, error)
 }
 
 func (b *runtimeBackend) LoadConfig(ctx context.Context) (string, error) {

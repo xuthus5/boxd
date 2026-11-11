@@ -114,6 +114,14 @@ for i in "${!pages[@]}"; do
   [ -s "$evidence/screenshots/$page.png" ] || { printf 'screenshot %s is empty\n' "$page" >&2; exit 1; }
 done
 
+automation press 'key="/settings"' --settle --timeout 15s > "$evidence/logs/support-bundle-open.txt"
+automation wait --text "Export support bundle" --settle --timeout 15s > "$evidence/logs/support-bundle-visible.txt"
+automation snapshot --full > "$evidence/logs/support-bundle-tree.txt"
+grep -q 'key=support-bundle-export' "$evidence/logs/support-bundle-tree.txt" || {
+  printf 'support bundle export control is missing\n' >&2
+  exit 1
+}
+
 automation press 'key="/config"' --settle --timeout 15s > "$evidence/logs/config-diff-open.txt"
 automation wait --text "Configuration diff" --settle --timeout 15s > "$evidence/logs/config-diff-panel.txt"
 automation fill "key=config-editor" '{"log":{"level":"debug"}}' --settle --timeout 15s > "$evidence/logs/config-diff-fill.txt"

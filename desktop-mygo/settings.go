@@ -26,7 +26,7 @@ func (a *application) settingsView(c *ui.Context) {
 		})
 		ui.Row(c).FillWidth().Gap(12).Children(func() {
 			a.securitySettings(c)
-			a.backupSettings(c)
+			a.maintenanceSettings(c)
 		})
 	})
 }
@@ -115,12 +115,17 @@ func (a *application) securitySettings(c *ui.Context) {
 	}).Grow(1)
 }
 
-func (a *application) backupSettings(c *ui.Context) {
+func (a *application) maintenanceSettings(c *ui.Context) {
 	card(c, func() {
-		sectionHeading(c, "Backup", "Export the database and configuration as a portable tar.gz archive")
-		ui.Text(c, "The backup contains settings, nodes, subscriptions and the current configuration. Store it securely.").
+		sectionHeading(c, "Backup and support", "Redacted diagnostics or a portable data archive")
+		ui.Text(c, "The support bundle is an allowlisted JSON summary and excludes credentials, subscription URLs, node addresses, logs, configuration and filesystem paths.").
 			FontSize(12).TextColor(c.Theme().TextMuted)
-		ui.Row(c).Justify(ui.End).Children(func() {
+		ui.Text(c, "The backup archive contains settings, nodes, subscriptions and the current configuration. Store it securely.").
+			FontSize(12).TextColor(c.Theme().TextMuted)
+		ui.Row(c).Gap(8).Justify(ui.End).Children(func() {
+			if ui.Button(c, "Export support bundle").Key("support-bundle-export").Disabled(a.model.busy).Clicked() {
+				a.exportSupportBundle()
+			}
 			if ui.PrimaryButton(c, "Export backup").Key("backup-export").Disabled(a.model.busy).Clicked() {
 				a.exportBackup()
 			}

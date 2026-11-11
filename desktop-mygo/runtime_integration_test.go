@@ -58,4 +58,13 @@ func TestRuntimeBackendSnapshotWithTemporaryData(t *testing.T) {
 	if err := backend.ValidateConfig(context.Background(), text); err != nil {
 		t.Fatalf("validate config: %v", err)
 	}
+	bundle, err := backend.SupportBundle(context.Background())
+	if err != nil {
+		t.Fatalf("collect support bundle: %v", err)
+	}
+	for _, source := range []string{"version", "service", "memory", "config_diagnostics", "rule_sets", "subscriptions", "network"} {
+		if bundle.Requests[source].Status != "ok" {
+			t.Errorf("support bundle source %s = %+v", source, bundle.Requests[source])
+		}
+	}
 }

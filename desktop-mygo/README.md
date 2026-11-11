@@ -15,7 +15,7 @@
 - Inbounds、Outbounds、Route、DNS 与高级配置段：原生分段 JSON 编辑、校验、应用、默认安装和配置诊断。
 - Log、NTP、Experimental、DNS、Route 和 Certificate 常用字段提供原生可视化表单，复杂字段仍可在原始 JSON 中编辑。
 - Config history：应用历史快照查看、校验后恢复；Rule sets：状态查看、更新和本地自动更新设置。
-- Settings：主题、语言、内核自启、桌面登录自启、测试 URL、运行时路径、管理员密码和备份导出。
+- Settings：主题、语言、内核自启、桌面登录自启、测试 URL、运行时路径、管理员密码、脱敏支持包和备份导出。
 - Terminal：根据真实监听地址生成 Bash、Fish、PowerShell 和 CMD 代理环境变量命令，不执行 shell。
 - Logs 与 Config history 支持原生复制/导出；Raw configuration 路由兼容 Wails 的 `/advanced/raw`。
 - 后台刷新、错误/过期提示、固定流量与日志缓冲区。
@@ -79,7 +79,7 @@ E2E 与 soak 脚本使用各自独立的 `mygo-automation --session`，可并行
 
 ## 已知限制
 
-- 当前是快速原型，不包含全部高级字段的可视化、配置 Diff、完整终端仿真、远程模式、自动更新和正式发布签名。
+- 当前是快速原型，不包含全部高级字段的完整字段级编辑、完整终端仿真、远程模式、备份导入/恢复、自动更新和正式发布签名。
 - Xvfb 使用软件渲染，只验证 GTK3 窗口、布局、导航、截图和基础稳定性；真实 GPU、Wayland、输入法、HiDPI、多显示器、托盘体验和长时间主观流畅度仍需真实桌面确认。
 - 无托盘环境（例如当前服务器）会记录降级日志；关闭窗口时应用退出而不是隐藏。
 - 本轮不要求 90% 行覆盖率。

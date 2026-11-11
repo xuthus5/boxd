@@ -12,37 +12,39 @@ import (
 )
 
 type fakeBackend struct {
-	mu           sync.Mutex
-	snapshot     snapshot
-	snapshotErr  error
-	actionErr    error
-	configText   string
-	configErr    error
-	configBody   string
-	sectionText  string
-	sectionErr   error
-	diagnostics  model.ConfigDiagnostics
-	history      []model.ConfigApplyEvent
-	snapshotText string
-	ruleSets     []model.RuleSetStatusItem
-	ruleSetAuto  model.RuleSetAutoUpdate
-	setupStatus  core.SetupStatus
-	calls        []string
-	lastPrefs    model.UIPreferences
-	lastNode     service.NodeInput
-	lastOldTag   string
-	lastBatch    service.TestBatchRequest
-	lastSub      service.SubscriptionInput
-	lastSubID    string
-	lastSelect   string
-	lastFilters  service.ConnectionCloseFilters
-	lastSection  string
-	lastBody     string
-	lastRuleSet  core.RuleSetUpdateRequest
-	lastAuto     model.RuleSetAutoUpdate
-	lastPath     string
-	lastCurrent  string
-	lastNew      string
+	mu               sync.Mutex
+	snapshot         snapshot
+	snapshotErr      error
+	actionErr        error
+	configText       string
+	configErr        error
+	configBody       string
+	sectionText      string
+	sectionErr       error
+	diagnostics      model.ConfigDiagnostics
+	history          []model.ConfigApplyEvent
+	snapshotText     string
+	ruleSets         []model.RuleSetStatusItem
+	ruleSetAuto      model.RuleSetAutoUpdate
+	setupStatus      core.SetupStatus
+	supportBundle    supportBundleCollection
+	supportBundleErr error
+	calls            []string
+	lastPrefs        model.UIPreferences
+	lastNode         service.NodeInput
+	lastOldTag       string
+	lastBatch        service.TestBatchRequest
+	lastSub          service.SubscriptionInput
+	lastSubID        string
+	lastSelect       string
+	lastFilters      service.ConnectionCloseFilters
+	lastSection      string
+	lastBody         string
+	lastRuleSet      core.RuleSetUpdateRequest
+	lastAuto         model.RuleSetAutoUpdate
+	lastPath         string
+	lastCurrent      string
+	lastNew          string
 }
 
 func (f *fakeBackend) ValidateConfigSection(_ context.Context, section, body string) error {
@@ -306,6 +308,13 @@ func (f *fakeBackend) CreateBackup(_ context.Context, path string) error {
 func (f *fakeBackend) ImportLink(context.Context, string) error {
 	f.record("import-link")
 	return f.actionErr
+}
+
+func (f *fakeBackend) SupportBundle(context.Context) (supportBundleCollection, error) {
+	f.record("support-bundle")
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.supportBundle, f.supportBundleErr
 }
 
 func (f *fakeBackend) record(name string) {
