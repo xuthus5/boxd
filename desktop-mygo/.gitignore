@@ -1,5 +1,6 @@
 build/
 artifacts/
+.local/
 desktop-mygo
 *.test
 *.out

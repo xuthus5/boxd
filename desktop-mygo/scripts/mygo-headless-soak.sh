@@ -18,8 +18,9 @@ automation() {
 app_pid=
 xvfb_pid=
 
-mkdir -m 700 -p "$work/home" "$work/data" "$work/config" "$work/runtime" "$work/logs" "$evidence/logs" "$evidence/screenshots"
+mkdir -p "$work/home" "$work/data" "$work/config" "$work/runtime" "$work/logs" "$evidence/logs" "$evidence/screenshots"
 chmod 700 "$work" "$evidence"
+printf 'command=%s\nstarted=%s\n' "$0 $*" "$(date -Is)" > "$evidence/commands.txt"
 
 cleanup() {
   if [ -n "${automation_bin:-}" ]; then automation close >/dev/null 2>&1 || true; fi
@@ -28,12 +29,26 @@ cleanup() {
   for f in app.stdout xvfb.log soak.log; do
     if [ -f "$work/logs/$f" ]; then cp "$work/logs/$f" "$evidence/logs/$f" 2>/dev/null || true; fi
   done
-  rm -rf -- "$work"
+  rm -rf -- "$work" || true
 }
-trap cleanup EXIT
+on_exit() {
+  status=$?
+  cleanup
+  if [ -d "$evidence" ]; then
+    printf 'finished=%s\nexit=%d\n' "$(date -Is)" "$status" >> "$evidence/commands.txt" 2>/dev/null || true
+    if [ "$status" -ne 0 ] && [ ! -f "$evidence/result.md" ]; then
+      printf '# Soak acceptance\n\nStatus: failed (exit %d)\n' "$status" > "$evidence/result.md"
+    fi
+  fi
+}
+trap on_exit EXIT
 
 if ! command -v Xvfb >/dev/null 2>&1 || [ -z "$automation_bin" ] || [ ! -x "$automation_bin" ]; then
   printf 'Xvfb and mygo-automation are required\n' >&2
+  exit 2
+fi
+if [ -n "$(git -C "$root" status --porcelain)" ]; then
+  printf "commit or clean working tree changes before generating soak evidence\n" >&2
   exit 2
 fi
 
@@ -108,4 +123,67 @@ while :; do
 done
 
 automation screenshot "$evidence/screenshots/soak-end.png" > "$evidence/logs/soak-end-screenshot.txt"
+
+samples=$(awk 'END { print (NR > 1 ? NR - 1 : 0) }' "$evidence/soak.csv")
+ok_samples=$(awk -F, 'NR > 1 && $7 == "ok" { n++ } END { print n + 0 }' "$evidence/soak.csv")
+min_samples=$((duration / interval))
+[ "$min_samples" -gt 0 ] || min_samples=1
+p95=$(awk -F, 'NR > 1 && $7 == "ok" { print $5 }' "$evidence/soak.csv" | sort -n |
+  awk '{ values[NR] = $1 } END {
+    if (NR == 0) { print 0; exit }
+    idx = int((NR * 95 + 99) / 100)
+    if (idx < 1) idx = 1
+    if (idx > NR) idx = NR
+    print values[idx]
+  }')
+base_rss=$(awk -F, 'NR > 1 && $2 >= 300 { print $3; exit }' "$evidence/soak.csv")
+[ -n "$base_rss" ] || base_rss=$(awk -F, 'NR == 2 { print $3 }' "$evidence/soak.csv")
+final_rss=$(awk -F, 'NR > 1 { value = $3 } END { print value }' "$evidence/soak.csv")
+if [ -z "$base_rss" ] || [ -z "$final_rss" ]; then
+  printf "soak sampling did not produce usable RSS data\n" >&2
+  exit 1
+fi
+gpu_hint=$(DISPLAY="$display" glxinfo -B 2>/dev/null | awk '/OpenGL renderer string/ { print $0; exit }' || true)
+[ -n "$gpu_hint" ] || gpu_hint="not available under Xvfb"
+avg_cpu=$(awk -F, 'NR > 1 && $7 == "ok" { sum += $4; n++ } END { if (n > 0) printf "%.2f", sum / n; else print "0.00" }' "$evidence/soak.csv")
+growth=$((final_rss - base_rss))
+status=passed
+reason="all samples responsive; RSS and automation latency are within thresholds"
+if [ "$samples" -lt "$min_samples" ]; then
+  status=failed
+  reason="only $samples samples; expected at least $min_samples"
+elif [ "$ok_samples" -ne "$samples" ]; then
+  status=failed
+  reason="$((samples - ok_samples)) sample(s) failed"
+elif [ "$p95" -gt 2000 ]; then
+  status=failed
+  reason="automation p95 ${p95}ms exceeds 2000ms"
+elif [ "$growth" -gt 65536 ]; then
+  status=failed
+  reason="RSS grew ${growth}KiB, exceeding 65536KiB"
+fi
+
+cat > "$evidence/result.md" <<EOF
+# Soak acceptance
+
+- Status: $status
+- Reason: $reason
+- Commit: $(git rev-parse HEAD)
+- Samples: $ok_samples/$samples responsive
+- Duration: ${duration}s at ${interval}s interval
+- Average CPU: ${avg_cpu}%
+- Baseline RSS: ${base_rss}KiB
+- Final RSS: ${final_rss}KiB
+- RSS growth: ${growth}KiB (threshold 65536KiB)
+- Automation p95: ${p95}ms (threshold 2000ms)
+- Display: Xvfb (${gpu_hint})
+- Evidence: soak.csv, logs/soak.log, screenshots/soak-end.png
+
+Real GPU, Wayland, input method, HiDPI, multi-monitor, tray and subjective smoothness remain unverified until TS-026 on a real desktop.
+EOF
+
+if [ "$status" != "passed" ]; then
+  printf 'soak failed: %s (%s)\n' "$reason" "$evidence" >&2
+  exit 1
+fi
 printf 'soak passed: %s\n' "$evidence"

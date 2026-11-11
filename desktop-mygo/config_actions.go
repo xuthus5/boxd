@@ -81,12 +81,10 @@ func (a *application) validateConfig() {
 
 func (a *application) applyConfig() {
 	body := a.configEditorState().Buffer.String()
-	a.runAction("Applying configuration", func(ctx context.Context) error {
-		if err := a.backend.ApplyConfig(ctx, body); err != nil {
-			return err
-		}
+	a.runActionWithCallback("Applying configuration", func(ctx context.Context) error {
+		return a.backend.ApplyConfig(ctx, body)
+	}, "Configuration applied", func() {
 		a.configEditorState().Buffer.MarkSaved()
 		a.config.baseline = body
-		return nil
-	}, "Configuration applied")
+	})
 }

@@ -65,6 +65,29 @@ func TestConfigActions(t *testing.T) {
 	}
 }
 
+func TestConfigApplyFailureKeepsLoadedBaseline(t *testing.T) {
+	fake := &fakeBackend{actionErr: errors.New("apply failed")}
+	app := newApplication(fake, testConfig(), nil, false)
+	loaded := `{"log":{"level":"info"}}`
+	app.configEditorState().Buffer.Reset(loaded)
+	app.config.baseline = loaded
+	app.config.loaded = true
+	draft := `{"log":{"level":"debug"}}`
+	app.configEditorState().Buffer.Set(draft)
+
+	app.applyConfig()
+
+	if app.config.baseline != loaded {
+		t.Fatalf("baseline = %q, want loaded config", app.config.baseline)
+	}
+	if !app.configEditorState().Buffer.Modified() {
+		t.Fatal("failed apply discarded unsaved config")
+	}
+	if app.model.notice != "" || !strings.Contains(app.model.actionError, "apply failed") {
+		t.Fatalf("state = notice %q error %q", app.model.notice, app.model.actionError)
+	}
+}
+
 func TestConfigLoadFailureAndRetryGuard(t *testing.T) {
 	fake := &fakeBackend{configErr: errors.New("config read failed")}
 	app := newApplication(fake, testConfig(), nil, false)

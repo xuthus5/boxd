@@ -58,6 +58,22 @@ func TestItemActionsAndFailureRollback(t *testing.T) {
 	}
 }
 
+func TestSettingsIgnoreChangesWhileBusy(t *testing.T) {
+	fake := &fakeBackend{}
+	app := newApplication(fake, testConfig(), nil, false)
+	app.model.testURL = "https://old.example/"
+	app.model.kernelAutostart = false
+	app.model.busy = true
+	app.setTestURL("https://new.example/")
+	app.setKernelAutostart(true)
+	if app.model.testURL != "https://old.example/" || app.model.kernelAutostart {
+		t.Fatalf("busy settings changed: url=%q autostart=%v", app.model.testURL, app.model.kernelAutostart)
+	}
+	if fake.callCount("test-url") != 0 || fake.callCount("kernel-autostart") != 0 {
+		t.Fatalf("busy settings called backend: %#v", fake.calls)
+	}
+}
+
 func TestSubscriptionAndConnectionActions(t *testing.T) {
 	fake := &fakeBackend{}
 	app := newApplication(fake, testConfig(), nil, false)

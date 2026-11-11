@@ -18,8 +18,9 @@ automation() {
   "$automation_bin" "$@" --session "$session"
 }
 
-mkdir -m 700 -p "$work/home" "$work/data" "$work/config" "$work/runtime" "$work/logs" "$evidence/logs" "$evidence/screenshots"
+mkdir -p "$work/home" "$work/data" "$work/config" "$work/runtime" "$work/logs" "$evidence/logs" "$evidence/screenshots"
 chmod 700 "$work" "$evidence"
+printf 'command=%s\nstarted=%s\n' "$0 $*" "$(date -Is)" > "$evidence/commands.txt"
 
 cleanup() {
   if [ -n "${automation_bin:-}" ]; then
@@ -39,16 +40,30 @@ cleanup() {
   if [ -f "$work/logs/xvfb.log" ]; then
     cp "$work/logs/xvfb.log" "$evidence/logs/xvfb.log" 2>/dev/null || true
   fi
-  rm -rf -- "$work"
+  rm -rf -- "$work" || true
 }
-trap cleanup EXIT
+on_exit() {
+  status=$?
+  cleanup
+  if [ -d "$evidence" ]; then
+    printf 'finished=%s\nexit=%d\n' "$(date -Is)" "$status" >> "$evidence/commands.txt" 2>/dev/null || true
+    if [ "$status" -ne 0 ] && [ ! -f "$evidence/result.md" ]; then
+      printf '# Headless acceptance\n\nStatus: failed (exit %d)\n' "$status" > "$evidence/result.md"
+    fi
+  fi
+}
+trap on_exit EXIT
 
-if ! command -v Xvfb >/dev/null 2>&1; then
-  printf 'Xvfb is required for headless window acceptance\n' >&2
+if ! command -v Xvfb >/dev/null 2>&1 || ! command -v pstree >/dev/null 2>&1; then
+  printf 'Xvfb and pstree are required for headless window acceptance\n' >&2
   exit 2
 fi
 if [ -z "$automation_bin" ] || [ ! -x "$automation_bin" ]; then
   printf 'mygo-automation is required; install it with:\n  go install github.com/egoist/mygo/plugins/automation/cmd/mygo-automation@v0.9.0\n' >&2
+  exit 2
+fi
+if [ -n "$(git -C "$root" status --porcelain)" ]; then
+  printf "commit or clean working tree changes before generating acceptance evidence\n" >&2
   exit 2
 fi
 
@@ -76,6 +91,7 @@ for _ in $(seq 1 100); do
   sleep 0.1
 done
 
+printf 'build=GOTOOLCHAIN=auto go build -tags e2e -o boxd-e2e .\n' >> "$evidence/commands.txt"
 GOTOOLCHAIN=auto go build -tags e2e -o "$work/boxd-e2e" .
 
 HOME="$work/home" XDG_RUNTIME_DIR="$work/runtime" XDG_CACHE_HOME="$work/home/.cache" \
@@ -92,6 +108,12 @@ for _ in $(seq 1 200); do
   sleep 0.1
 done
 [ -S "$app_socket" ] || { printf 'automation socket did not appear\n' >&2; exit 1; }
+
+pstree -ap "$app_pid" > "$evidence/logs/process-tree.txt"
+if grep -Eqi 'webkit|webview|wails' "$evidence/logs/process-tree.txt"; then
+  printf 'webview or Wails process found in the native app process tree\n' >&2
+  exit 1
+fi
 
 automation open --socket "$app_socket" > "$evidence/logs/open.txt"
 windows=$(automation windows)
@@ -233,4 +255,16 @@ automation screenshot "$evidence/screenshots/connections-controls.png" > "$evide
 
 kill -0 "$app_pid"
 automation close >/dev/null 2>&1 || true
+cat > "$evidence/result.md" <<EOF
+# Headless acceptance
+
+- Status: passed
+- Commit: $(git rev-parse HEAD)
+- Window: native GTK3 content window titled "boxd"
+- Checked: seven primary pages, advanced configuration routes, Terminal, config item editor, node import/delete, subscription create/delete, connection controls, support bundle entry
+- Process tree: no WebKit, WebView or Wails process found
+- Evidence: environment.txt, commands.txt, logs/, screenshots/
+
+Real GPU, Wayland, input method, HiDPI, multi-monitor, tray behavior and subjective smoothness remain unverified until TS-026 on a real desktop.
+EOF
 printf 'headless acceptance passed: %s\n' "$evidence"

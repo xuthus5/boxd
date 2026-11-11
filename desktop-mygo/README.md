@@ -57,6 +57,8 @@ GOTOOLCHAIN=auto go run .
 
 ## 无显示服务器验收
 
+完整验收门禁、证据格式和任务级要求见 `docs/boxd/plans/2026-11-11-mygo-desktop-prototype-ears.md` 的 6.1 至 6.5、7 和 12 节。
+
 安装与当前 MyGo 版本匹配的 automation 客户端：
 
 ```bash
@@ -76,7 +78,15 @@ E2E 与 soak 脚本使用各自独立的 `mygo-automation --session`，可并行
 
 首次启动的内核自启可能涉及真实网络和配置；无显示验收默认设置 `BOXD_SKIP_KERNEL_AUTOSTART=1` 隔离桌面壳验证。
 
-如果需要在服务器上人工查看，只能临时使用绑定 `127.0.0.1` 的 x11vnc/noVNC，并通过 SSH 隧道访问；不要将端口暴露到公网。
+如果需要在服务器上人工查看，可先安装 `x11vnc`，再执行：
+
+```bash
+cd desktop-mygo
+./scripts/mygo-remote-view.sh --check   # 检查 Xvfb/x11vnc/go
+./scripts/mygo-remote-view.sh           # 启动临时会话
+```
+
+脚本只监听 `127.0.0.1`，运行时生成临时密码并打印 SSH 隧道命令；`Ctrl-C` 会停止应用、Xvfb 和 x11vnc。不要将端口暴露到公网。
 
 ## 已知限制
 

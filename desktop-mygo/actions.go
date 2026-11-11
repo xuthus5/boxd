@@ -42,6 +42,9 @@ func (a *application) closeConnection(id int64) {
 }
 
 func (a *application) setKernelAutostart(enabled bool) {
+	if a.model.busy {
+		return
+	}
 	previous := a.model.kernelAutostart
 	if previous == enabled {
 		return
@@ -75,6 +78,9 @@ func (a *application) updateUIPreferences(prefs model.UIPreferences) {
 }
 
 func (a *application) setTestURL(url string) {
+	if a.model.busy {
+		return
+	}
 	previous := a.model.testURL
 	if previous == url {
 		return
