@@ -2,7 +2,7 @@
 
 日期：2026-11-11
 
-状态：原型主体已实现；Dashboard Setup 配置闭环无显示自动验收和 30 分钟 soak 通过（提交 `fe1961d`，2026-11-12）；远程可视待安装 `x11vnc`，真实桌面最终验收待完成
+状态：原型主体已实现；Dashboard Setup 配置闭环无显示自动验收和 30 分钟 soak 通过（提交 `fe1961d`，2026-11-12）；真实桌面验收 runner 已就绪并完成 Xvfb 自测，真实桌面最终验收待完成；远程可视待安装 `x11vnc`
 
 关联设计：`docs/boxd/specs/2026-08-02-wails3-desktop-design.md`
 
@@ -1293,3 +1293,17 @@ TS-005、TS-012、TS-014 可以与 TS-008 并行；TS-019 和 TS-023 随各页�
 | 真实 GPU、Wayland、输入法、HiDPI、多显示器、托盘、主观流畅度及 Wails 同场景对比 | 未验证 | 需在用户真实桌面完成 TS-026；不得据 Xvfb 与 soak 结果宣称长时间卡顿已解决 |
 
 结论：**Dashboard Setup 配置闭环在无显示环境条件通过，真实桌面与真实内核/网络行为待确认**。当前结果支持继续投入 MyGo 原型，但不足以正式替代 Wails。
+
+### 12.7 真实桌面验收工具自测（07155de）
+
+验收日期：2026-11-12。自测提交：`07155de8da1ecde6907ec47a7327c5140d6bc0c7`。证据根目录：`desktop-mygo/artifacts/acceptance/20261112-07155de-desktop-selftest/`。
+
+| 验收项 | 状态 | 证据或限制 |
+| --- | --- | --- |
+| `mygo-desktop-acceptance.sh` 静态检查 | 自动通过 | `bash -n` 与 `shellcheck` 退出码均为 0 |
+| Xvfb 短时自测 | 自动通过（仅供脚本自测） | 120 秒、30 秒间隔，4/4 采样正常，RSS 增长 4532 KiB，automation p95 180 ms；`result.md` 明确标记 `Display kind: xvfb` |
+| Xvfb 伪装保护 | 自动通过 | 自测发现并修复服务器缺少 `xdpyinfo` 时误判真实桌面的问题；脚本现在同时检查 Xvfb 进程，并要求非真实显示显式设置 `MYGO_DESKTOP_ALLOW_XVFB=1` |
+| 七页巡检、截图和环境采集 | 自动通过（仅供脚本自测） | `environment.txt`、`logs/desktop-environment.txt`、`logs/wait-*.txt`、`screenshots/`；记录会话类型、显示、缩放、GPU、输入法探测结果 |
+| 真实桌面人工验收 | 未验证 | 必须在非 Xvfb 图形会话完成 `manual-checklist.md`，覆盖托盘、输入法、HiDPI、多显示器、主观流畅度和 Wails 同场景对比 |
+
+结论：**真实桌面验收工具可用，但 TS-026 仍未完成**。Xvfb 自测只能证明脚本流程可执行，不能证明真实桌面性能或卡顿问题已解决。
