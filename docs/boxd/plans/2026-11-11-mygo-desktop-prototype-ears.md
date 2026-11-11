@@ -2,7 +2,7 @@
 
 日期：2026-11-11
 
-状态：原型已实现；扩展能力无显示自动验收条件通过（提交 `5ec49a0`，2026-11-12）；soak 与真实桌面最终验收待完成
+状态：原型已实现；扩展能力无显示自动验收条件通过（提交 `5ec49a0`、`ca34d0d`、`65d6b79`，2026-11-12）；30 分钟 soak 与真实桌面最终验收待完成
 
 关联设计：`docs/boxd/specs/2026-08-02-wails3-desktop-design.md`
 
@@ -785,6 +785,13 @@
   - `ui.Tester` 断言 Settings 页面显示支持包入口和脱敏说明。
   - Xvfb E2E 断言 `key=support-bundle-export` 可见并生成当前提交证据。
   - 真实原生保存对话框若无法由 automation 操作，必须标记“未验证”并记录人工复现步骤；不得因单元测试通过而宣称已完成真实文件保存验收。
+- 验收记录：
+  - 状态：条件通过
+  - 提交：`65d6b796ce07bb0d380a12471173aca7ae114fe3`
+  - 命令：`go test ./...`、`go test -race ./...`、`go vet ./...`、`go tool mygo vet`、`go tool mygo build`、`golangci-lint run ./...`、`goimports-reviser` 和 `MYGO_ACCEPTANCE_RUN_ID=20261112-65d6b79-e2e ./scripts/mygo-headless-e2e.sh` 均退出码为 0。
+  - 证据：`desktop-mygo/artifacts/acceptance/20261112-65d6b79-e2e/commands.txt`、`logs/support-bundle-tree.txt`、`screenshots/settings.png`。
+  - 环境限制：Xvfb 只验证 GTK3 窗口和控件树；原生保存对话框未实际点击，真实文件写入未自动验证。
+  - 残留风险：部分采集源不可用时只记录错误码；真实桌面保存路径、权限和取消行为仍需人工复现，当前不得标记为完整文件导出闭环。
 
 ## 7. 验收要求
 
@@ -1109,4 +1116,20 @@ TS-005、TS-012、TS-014 可以与 TS-008 并行；TS-019 和 TS-023 随各页�
 | 真实桌面 30 分钟主观流畅度及与 Wails 的同场景对比 | 未验证 | 需用户在真实桌面完成 TS-026 |
 | MyGo 是否解决 Wails 长时间运行卡顿 | 未验证 | 服务器自动验收只能证明原型稳定运行，不能证明卡顿根因已消除 |
 | Terminal、Raw Config、可视化配置表单和导出能力 | 未验证 | 当前提交 `5ec49a0` 的新证据见 12.1；旧 `0005728` 证据不可复用 |
+
+### 12.4 脱敏支持包验收
+
+验收日期：2026-11-12。验收提交：`65d6b796ce07bb0d380a12471173aca7ae114fe3`。证据根目录：`desktop-mygo/artifacts/acceptance/20261112-65d6b79-e2e/`。
+
+| 验收项 | 状态 | 证据或限制 |
+| --- | --- | --- |
+| 构建、单测、race、vet、MyGo vet/build、lint 和格式化 | 自动通过 | `commands.txt`；全部命令退出码为 0，`go test -race ./...` 约 250 秒通过，`golangci-lint` 为 0 issues |
+| 支持包脱敏、摘要、部分源失败、空源、UTC 文件名和 JSON 输出 | 自动通过 | `TestBuildSupportBundleRedactsSensitiveSources`、`TestCollectSupportBundleRecordsUnavailableSources`、`TestSupportBundleOutputAndFilename` |
+| 临时运行时支持包采集 | 自动通过 | `TestRuntimeBackendSnapshotWithTemporaryData` 验证版本、服务、内存、诊断、规则集、订阅和网络等源可采集 |
+| Settings 原生入口与 Xvfb GTK3 控件树 | 自动通过 | `logs/support-bundle-visible.txt`、`logs/support-bundle-tree.txt`、`screenshots/settings.png`；`key=support-bundle-export` 可见 |
+| 原生保存对话框、取消和真实文件权限 | 未验证 | automation 仅验证入口可见；需在真实桌面点击保存并检查取消不落盘、文件权限为 `0600` |
+| 当前提交 30 分钟 soak | 未验证 | `65d6b79` 未重新执行 soak，旧 soak 数据不可复用 |
+| 真实桌面 GPU、Wayland、输入法、HiDPI、多显示器和 Wails 同场景对比 | 未验证 | 需在真实桌面完成 TS-026 |
+
+结论：**支持包逻辑与无显示窗口入口条件通过；真实保存对话框和长时间运行仍待确认**。
 
