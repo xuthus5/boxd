@@ -1,0 +1,12 @@
+{
+  "name": "boxd",
+  "slug": "boxd",
+  "identifier": "com.boxd.desktop.mygo",
+  "version": "0.1.0",
+  "out": "build",
+  "linux": {
+    "comment": "sing-box control plane desktop app",
+    "categories": ["Network", "Utility"],
+    "webview": false
+  }
+}

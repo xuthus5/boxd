@@ -2,7 +2,7 @@
 
 日期：2026-11-11
 
-状态：待评审
+状态：原型已实现；无显示自动验收条件通过（2026-11-12），真实桌面最终验收待完成
 
 关联设计：`docs/boxd/specs/2026-08-02-wails3-desktop-design.md`
 
@@ -516,6 +516,7 @@
   - 如果 automation 连接失败、窗口不存在、关键元素缺失或截图失败，系统应以非零状态退出。
 - 实施要点：
   - 新增 `scripts/mygo-headless-e2e.sh` 或等价脚本，统一管理 Xvfb、D-Bus、应用进程、automation Socket 和临时数据目录。
+  - 每轮验收使用独立 `mygo-automation --session`，避免并行 E2E/soak 互相覆盖默认会话。
   - 如果 `dbus-run-session` 可用，则使用它提供基础会话服务；如果不可用，则复用已有 session bus，并记录托盘和会话相关能力未验证。
   - 窗口管理器和托盘面板作为可选增强，不阻塞基础窗口验收；如需要更完整的焦点、最小化验收，可另行安装 `openbox`。
   - 使用 MyGo `v0.9.0` 对应版本的 `mygo-automation`。
@@ -670,7 +671,7 @@
   - `go tool mygo vet`
   - `go tool mygo build`
   - `golangci-lint run ./...`
-  - `goimports-reviser -project-name github.com/xuthus5/boxd/desktop-mygo ./...`
+  - `goimports-reviser -project-name github.com/xuthus5/boxd/desktop-mygo -company-prefixes github.com/xuthus5/boxd -imports-order std,general,company,project ./...`
 - 如果任一命令失败，验收应判定为失败；如果工具不可用或工具链无法执行，应记录“未验证”及原因，不得标记为通过。
 - 在并发相关代码变更后，如果环境支持 `go test -race ./...`，应执行并记录结果；不支持时应明确标记为未验证。
 - 覆盖率不作为本轮阻塞条件，但关键成功路径、错误路径、空状态和过期状态必须有测试或可复现 smoke 证据。
@@ -832,4 +833,21 @@ TS-005、TS-012、TS-014 可以与 TS-008 并行；TS-019 和 TS-023 随各页�
 - 局部混合：原生 Shell 和常用页面可行，但复杂配置编辑器仍需 WebView；需单独评审是否接受。
 - 暂停 MyGo：关键交互、托盘、GTK3 或长时间稳定性存在阻塞性问题，继续维护 Wails。
 - 条件通过：无显示自动验收通过，但真实桌面尚未验收；只能作为继续投入原型的依据，不能作为正式替换 Wails 的最终结论。
+
+## 12. 验收执行记录
+
+验收日期：2026-11-12。证据根目录：`desktop-mygo/artifacts/acceptance/`。
+
+| 验收项 | 状态 | 证据或限制 |
+| --- | --- | --- |
+| 构建、单测、race、vet、MyGo vet/build、lint、格式化 | 自动通过 | 最终门禁命令与退出码见最终证据包的 `commands.txt` |
+| `ui.Tester` 页面、深色/浅色主题和空状态截图 | 自动通过 | `20261112-ui-final/screenshots/` |
+| Xvfb 真实 GTK3 窗口、六页面导航和窗口截图 | 自动通过 | `20261112-002500-e2e-session/` |
+| 30 分钟 soak | 自动通过 | `20261112-002600-soak-final/soak.csv`；30 次采样全部成功，RSS 相比第 5 分钟增加约 3.2 MiB，automation p95 为 178 ms |
+| Wails 隔离和 WebView 依赖检查 | 自动通过 | 未修改 `desktop/`；验收进程列表中未发现 WebKit 进程 |
+| 真实 GPU、Wayland、输入法、HiDPI、多显示器、真实托盘体验 | 未验证 | 当前服务器无桌面显示环境，且托盘依赖缺失时按设计降级 |
+| 真实桌面 30 分钟主观流畅度及与 Wails 的同场景对比 | 未验证 | 需用户在真实桌面完成 TS-026 |
+| MyGo 是否解决 Wails 长时间运行卡顿 | 未验证 | 服务器自动验收只能证明原型稳定运行，不能证明卡顿根因已消除 |
+
+结论：**条件通过，继续投入原型**。在真实桌面完成 TS-025/TS-026 并由用户确认前，不得将本原型表述为 Wails 的正式替代品。
 
