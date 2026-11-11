@@ -32,6 +32,7 @@ func (a *application) configView(c *ui.Context) {
 	}
 	a.pageColumn(c, func() {
 		pageHeading(c, "Config", "Inspect, validate and apply the shared sing-box configuration.")
+		a.configDiffCard(c)
 		card(c, func() {
 			a.configToolbar(c)
 			ui.Divider(c)
@@ -46,7 +47,6 @@ func (a *application) configView(c *ui.Context) {
 				FillWidth().Height(configEditorHeight)
 		})
 		a.configDiagnosticsCard(c)
-		a.configDiffCard(c)
 	})
 }
 

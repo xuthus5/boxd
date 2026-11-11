@@ -47,6 +47,7 @@ func (a *application) applyLoadedConfigSection(state *configSectionState, text s
 	}
 	state.editorState().Buffer.Reset(text)
 	state.editorState().Buffer.MarkSaved()
+	state.baseline = text
 	state.loaded = true
 	a.model.actionError = ""
 }
@@ -64,6 +65,22 @@ func (a *application) formatConfigSection(state *configSectionState) {
 	a.invalidate()
 }
 
+func configSectionCanReset(state *configSectionState) bool {
+	return state != nil && state.loaded && state.baseline != "" &&
+		state.editorState().Buffer.String() != state.baseline
+}
+
+func (a *application) resetConfigSection(state *configSectionState) {
+	if !configSectionCanReset(state) {
+		return
+	}
+	state.editorState().Buffer.Reset(state.baseline)
+	state.editorState().Buffer.MarkSaved()
+	a.model.actionError = ""
+	a.model.notice = state.spec.Title + " reset to the loaded version"
+	a.invalidate()
+}
+
 func (a *application) validateConfigSection(state *configSectionState) {
 	body := state.editorState().Buffer.String()
 	a.runAction("Validating "+strings.ToLower(state.spec.Title), func(ctx context.Context) error {
@@ -77,6 +94,7 @@ func (a *application) applyConfigSection(state *configSectionState) {
 		return a.backend.ApplyConfigSection(ctx, state.spec.Key, body)
 	}, state.spec.Title+" applied", func() {
 		state.editorState().Buffer.MarkSaved()
+		state.baseline = body
 		state.loaded = true
 		a.requestRefresh()
 	})

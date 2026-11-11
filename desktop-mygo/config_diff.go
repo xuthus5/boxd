@@ -31,13 +31,18 @@ type configDiffItem struct {
 }
 
 func (a *application) configDiffCard(c *ui.Context) {
+	renderConfigDiffCard(c, "Configuration diff", a.config.baseline,
+		a.configEditorState().Buffer.String(), a.config.loaded)
+}
+
+func renderConfigDiffCard(c *ui.Context, title, baseline, draft string, loaded bool) {
 	card(c, func() {
-		sectionHeading(c, "Configuration diff", "Semantic changes compared with the loaded configuration")
-		if !a.config.loaded {
+		sectionHeading(c, title, "Semantic changes compared with the loaded configuration")
+		if !loaded {
 			ui.Text(c, "Load a configuration to inspect changes.").FontSize(12).TextColor(c.Theme().TextMuted)
 			return
 		}
-		items, err := compareConfigJSON(a.config.baseline, a.configEditorState().Buffer.String())
+		items, err := compareConfigJSON(baseline, draft)
 		if err != nil {
 			ui.Text(c, err.Error()).FontSize(12).TextColor(c.Theme().Danger)
 			return

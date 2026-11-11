@@ -27,6 +27,8 @@ func (a *application) configSectionView(c *ui.Context, route string) {
 			return
 		}
 		a.configSectionVisualForm(c, state)
+		renderConfigDiffCard(c, state.spec.Title+" diff", state.baseline,
+			state.editorState().Buffer.String(), state.loaded)
 		card(c, func() {
 			a.configSectionToolbar(c, state)
 			ui.Divider(c)
@@ -46,6 +48,9 @@ func (a *application) configSectionToolbar(c *ui.Context, state *configSectionSt
 		}
 		if ui.Button(c, "Reload").Key("section-reload-" + state.spec.Key).Disabled(state.loading || a.model.busy).Clicked() {
 			a.loadConfigSection(state)
+		}
+		if ui.Button(c, "Reset").Key("section-reset-" + state.spec.Key).Disabled(!configSectionCanReset(state)).Clicked() {
+			a.resetConfigSection(state)
 		}
 		if ui.Button(c, "Format").Key("section-format-" + state.spec.Key).Disabled(state.loading).Clicked() {
 			a.formatConfigSection(state)

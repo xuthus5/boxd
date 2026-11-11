@@ -65,3 +65,29 @@ func TestConfigDiffAndResetView(t *testing.T) {
 		t.Fatalf("reset buffer = %q modified=%v", app.configEditorState().Buffer.String(), app.configEditorState().Buffer.Modified())
 	}
 }
+
+func TestConfigSectionDiffAndReset(t *testing.T) {
+	fake := &fakeBackend{sectionText: "{\n  \"level\": \"info\"\n}\n"}
+	app := newApplication(fake, testConfig(), nil, false)
+	state, ok := app.configSectionForRoute("/advanced/log")
+	if !ok {
+		t.Fatal("log route was not registered")
+	}
+	app.loadConfigSection(state)
+	tt := ui.NewTester(app.view, 1440, 900)
+	app.router.Push("/advanced/log")
+	settleTransitions(tt)
+	if !tt.HasText("Log diff") || !tt.HasText("No changes compared with the loaded configuration.") {
+		t.Fatalf("section diff is missing: %v", tt.Texts())
+	}
+	state.editorState().Buffer.Set(`{"level":"debug"}`)
+	app.invalidate()
+	settleTransitions(tt)
+	if !tt.HasText("level") || !tt.HasText("CHANGED") || !configSectionCanReset(state) {
+		t.Fatalf("section change is missing: %v", tt.Texts())
+	}
+	app.resetConfigSection(state)
+	if state.editorState().Buffer.String() != state.baseline || state.editorState().Buffer.Modified() {
+		t.Fatalf("section reset = %q modified=%v", state.editorState().Buffer.String(), state.editorState().Buffer.Modified())
+	}
+}

@@ -42,6 +42,7 @@ func configSectionSpecForRoute(route string) (configSectionSpec, bool) {
 type configSectionState struct {
 	spec      configSectionSpec
 	editor    *editor.State
+	baseline  string
 	loaded    bool
 	loading   bool
 	attempted bool
