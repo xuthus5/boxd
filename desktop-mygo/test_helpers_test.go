@@ -17,6 +17,9 @@ type fakeBackend struct {
 	snapshot    snapshot
 	snapshotErr error
 	actionErr   error
+	configText  string
+	configErr   error
+	configBody  string
 	calls       []string
 	lastPrefs   model.UIPreferences
 }
@@ -25,6 +28,29 @@ func (f *fakeBackend) Snapshot(context.Context) (snapshot, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.snapshot, f.snapshotErr
+}
+
+func (f *fakeBackend) LoadConfig(context.Context) (string, error) {
+	f.record("load-config")
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.configText, f.configErr
+}
+
+func (f *fakeBackend) ValidateConfig(_ context.Context, body string) error {
+	f.record("validate-config")
+	f.mu.Lock()
+	f.configBody = body
+	f.mu.Unlock()
+	return f.actionErr
+}
+
+func (f *fakeBackend) ApplyConfig(_ context.Context, body string) error {
+	f.record("apply-config")
+	f.mu.Lock()
+	f.configBody = body
+	f.mu.Unlock()
+	return f.actionErr
 }
 
 func (f *fakeBackend) StartKernel(context.Context) error {

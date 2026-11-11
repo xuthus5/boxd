@@ -37,6 +37,7 @@ func TestSidebarNavigation(t *testing.T) {
 		{label: "Subscriptions", path: "/subscriptions", text: "Healthy"},
 		{label: "Connections", path: "/connections", text: "Active"},
 		{label: "Logs", path: "/logs", text: "Recent activity"},
+		{label: "Config", path: "/config", text: "Raw configuration"},
 		{label: "Settings", path: "/settings", text: "Appearance"},
 		{label: "Dashboard", path: "/dashboard", text: "Kernel controls"},
 	}

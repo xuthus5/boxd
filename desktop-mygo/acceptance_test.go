@@ -21,6 +21,12 @@ type acceptancePage struct {
 
 func TestAcceptanceScreenshots(t *testing.T) {
 	app := newTestApplication(seededModel(themeLight))
+	fake, ok := app.backend.(*fakeBackend)
+	if !ok {
+		t.Fatal("acceptance backend is not a fake backend")
+	}
+	fake.configText = "{\n  \"log\": {\"level\": \"info\"},\n  \"inbounds\": []\n}\n"
+	app.loadConfigSync()
 	tt := ui.NewTester(app.view, 1440, 900)
 	runID := acceptanceRunID()
 	dir := filepath.Join(acceptanceRoot(), runID, "screenshots")
@@ -33,6 +39,7 @@ func TestAcceptanceScreenshots(t *testing.T) {
 		{name: "subscriptions", path: "/subscriptions", text: "Healthy"},
 		{name: "connections", path: "/connections", text: "Active"},
 		{name: "logs", path: "/logs", text: "Recent activity"},
+		{name: "config", path: "/config", text: "Raw configuration"},
 		{name: "settings", path: "/settings", text: "Appearance"},
 	}
 	var light *imageRGBA

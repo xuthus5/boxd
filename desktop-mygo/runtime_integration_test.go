@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/xuthus5/boxd/desktop-mygo/internal/runtime"
@@ -46,5 +47,15 @@ func TestRuntimeBackendSnapshotWithTemporaryData(t *testing.T) {
 	}
 	if snap.Status == nil || !snap.LogsLoaded || !snap.PreferencesLoaded {
 		t.Fatalf("snapshot = %+v", snap)
+	}
+	text, err := backend.LoadConfig(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if text == "" || !strings.Contains(text, `"log"`) {
+		t.Fatalf("loaded config = %q", text)
+	}
+	if err := backend.ValidateConfig(context.Background(), text); err != nil {
+		t.Fatalf("validate config: %v", err)
 	}
 }

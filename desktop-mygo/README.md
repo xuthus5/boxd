@@ -8,6 +8,7 @@
 
 - Dashboard：内核状态、流量图表、开始/停止/重启。
 - Nodes、Subscriptions、Connections、Logs：只读列表和基础操作。
+- Config：JSON 编辑、格式化、校验、应用，以及原生文件导入导出。
 - Settings：主题、语言、内核自启、桌面登录自启、测试 URL 和运行时路径。
 - 后台刷新、错误/过期提示、固定流量与日志缓冲区。
 - 单实例、深链 `boxd://import?link=...`、关闭到托盘（托盘不可用时允许关闭退出）。
@@ -60,7 +61,7 @@ cd desktop-mygo
 ./scripts/mygo-headless-e2e.sh
 ```
 
-脚本使用临时数据目录，构建带 `e2e` 标签的应用，通过 automation socket 验证 `content` 窗口、Dashboard 和六个页面导航，并将日志、环境信息和真实窗口截图写入 `artifacts/acceptance/<run-id>/`。脚本只清理本轮自己启动的应用和 Xvfb。
+脚本使用临时数据目录，构建带 `e2e` 标签的应用，通过 automation socket 验证 `content` 窗口、Dashboard 和七个页面导航，并将日志、环境信息和真实窗口截图写入 `artifacts/acceptance/<run-id>/`。脚本只清理本轮自己启动的应用和 Xvfb。
 
 E2E 与 soak 脚本使用各自独立的 `mygo-automation --session`，可并行运行而不会覆盖彼此的默认会话。
 

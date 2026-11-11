@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"sort"
 	"strconv"
@@ -19,6 +20,9 @@ var errRuntimeUnavailable = errors.New("runtime is not available")
 
 type backend interface {
 	Snapshot(context.Context) (snapshot, error)
+	LoadConfig(context.Context) (string, error)
+	ValidateConfig(context.Context, string) error
+	ApplyConfig(context.Context, string) error
 	StartKernel(context.Context) error
 	StopKernel(context.Context) error
 	RestartKernel(context.Context) error
@@ -28,6 +32,39 @@ type backend interface {
 	SetUIPreferences(context.Context, model.UIPreferences) error
 	SetTestURL(context.Context, string) error
 	ImportLink(context.Context, string) error
+}
+
+func (b *runtimeBackend) LoadConfig(ctx context.Context) (string, error) {
+	svc, err := b.serviceSet()
+	if err != nil {
+		return "", err
+	}
+	config, err := svc.Config().GetConfig(ctx)
+	if err != nil {
+		return "", err
+	}
+	body, err := json.MarshalIndent(config, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return string(body) + "\n", nil
+}
+
+func (b *runtimeBackend) ValidateConfig(ctx context.Context, body string) error {
+	svc, err := b.serviceSet()
+	if err != nil {
+		return err
+	}
+	return svc.Config().ValidateConfig(ctx, []byte(body), "desktop-mygo")
+}
+
+func (b *runtimeBackend) ApplyConfig(ctx context.Context, body string) error {
+	svc, err := b.serviceSet()
+	if err != nil {
+		return err
+	}
+	_, err = svc.Config().ApplyConfig(ctx, []byte(body), "desktop-mygo")
+	return err
 }
 
 type runtimeBackend struct {

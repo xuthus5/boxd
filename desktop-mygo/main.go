@@ -38,7 +38,10 @@ func run() error {
 	}
 	app := newApplication(source, cfg, openErr, autostart)
 	mygo.App.OnSecondInstance(func([]string, string) { app.focusExisting() })
-	mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) { app.quitting = true })
+	mygo.App.OnBeforeQuit(func(*mygo.QuitEvent) {
+		app.quitting = true
+		app.clearGlobalShortcut()
+	})
 	mygo.App.OnActivate(func(hasVisibleWindows bool) {
 		if !hasVisibleWindows {
 			app.showWindow()

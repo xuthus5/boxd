@@ -40,6 +40,9 @@ func (a *application) view(c *ui.Context) {
 					case r.Match("/logs"):
 						r.Title("Logs")
 						a.logsView(c)
+					case r.Match("/config"):
+						r.Title("Config")
+						a.configView(c)
 					case r.Match("/settings"):
 						r.Title("Settings")
 						a.settingsView(c)
@@ -75,6 +78,7 @@ func (a *application) sidebar(c *ui.Context) {
 			ui.SidebarItem(c, "/logs", iconLogs, "Logs")
 		})
 		ui.SidebarSection(c, "System", nil, func() {
+			ui.SidebarItem(c, "/config", iconConfig, "Config")
 			ui.SidebarItem(c, "/settings", iconSettings, "Settings")
 		})
 	}).Width(sidebarWidth).FillHeight().Padding(14).Gap(8).
@@ -196,6 +200,8 @@ func routeTitle(path string) string {
 		return "Connections"
 	case "/logs":
 		return "Logs"
+	case "/config":
+		return "Config"
 	case "/settings":
 		return "Settings"
 	default:
@@ -205,7 +211,7 @@ func routeTitle(path string) string {
 
 func (a *application) normalizeRoute() {
 	switch a.router.Path() {
-	case "/dashboard", "/nodes", "/subscriptions", "/connections", "/logs", "/settings":
+	case "/dashboard", "/nodes", "/subscriptions", "/connections", "/logs", "/config", "/settings":
 		return
 	default:
 		a.router.Replace("/dashboard")

@@ -28,6 +28,7 @@ type application struct {
 	systemDark      bool
 	quitting        bool
 	autostartKernel bool
+	shortcutReady   bool
 
 	nodesList ui.ListState
 	subsList  ui.ListState
@@ -38,6 +39,7 @@ type application struct {
 	refreshDone   chan struct{}
 	refreshNow    chan struct{}
 	refreshOnce   sync.Once
+	config        configPageState
 }
 
 func newApplication(source backend, cfg runtime.Config, startupErr error, autostart bool) *application {
@@ -88,6 +90,7 @@ func (a *application) whenReady() {
 		a.win.Hide()
 	})
 	a.setupTray()
+	a.setupGlobalShortcut()
 	if !startHidden || a.tray == nil {
 		a.win.Show()
 		a.win.Focus()
@@ -98,6 +101,7 @@ func (a *application) whenReady() {
 		return
 	}
 	a.startRefresh()
+	a.loadConfig()
 	if a.autostartKernel {
 		a.startKernelAction("Autostart")
 	}
@@ -224,6 +228,7 @@ func (a *application) finishAction(err error, success string, rollback func()) {
 			return
 		}
 		a.model.notice = success
+		a.notifyAction(success)
 	}
 	if a.win == nil {
 		apply()

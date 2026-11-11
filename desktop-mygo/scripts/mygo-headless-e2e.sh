@@ -103,8 +103,8 @@ automation snapshot --full > "$evidence/logs/dashboard-tree.txt"
 grep -q 'Kernel controls' "$evidence/logs/dashboard-tree.txt" || { printf 'dashboard heading is missing\n' >&2; exit 1; }
 automation screenshot "$evidence/screenshots/dashboard.png" > "$evidence/logs/dashboard-screenshot.txt"
 
-pages=(nodes subscriptions connections logs settings dashboard)
-texts=("No nodes imported yet" "No subscriptions" "No active connections" "Recent activity" "Appearance" "Kernel controls")
+pages=(nodes subscriptions connections logs config settings dashboard)
+texts=("No nodes imported yet" "No subscriptions" "No active connections" "Recent activity" "Raw configuration" "Appearance" "Kernel controls")
 for i in "${!pages[@]}"; do
   page=${pages[$i]}
   text=${texts[$i]}
