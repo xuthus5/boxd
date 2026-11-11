@@ -14,6 +14,7 @@
 - Config：JSON 编辑、语义 Diff、恢复到已加载版本、格式化、校验、应用，以及原生文件导入导出。
 - Inbounds、Outbounds、Route、DNS 与高级配置段：原生分段 JSON 编辑、校验、应用、默认安装和配置诊断。
 - Log、NTP、Experimental、DNS、Route 和 Certificate 常用字段提供原生可视化表单，复杂字段仍可在原始 JSON 中编辑。
+- Route 规则、Route rule set、DNS 服务器和 DNS 规则的条目弹窗提供常用字段编辑，高级字段仍通过原始 JSON 编辑。
 - Config history：应用历史快照查看、校验后恢复；Rule sets：状态查看、更新和本地自动更新设置。
 - Settings：主题、语言、内核自启、桌面登录自启、测试 URL、运行时路径、管理员密码、脱敏支持包和备份导出。
 - Terminal：根据真实监听地址生成 Bash、Fish、PowerShell 和 CMD 代理环境变量命令，不执行 shell。

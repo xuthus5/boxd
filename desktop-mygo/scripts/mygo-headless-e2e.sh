@@ -165,6 +165,13 @@ automation press 'key="/policy/route"' --settle --timeout 15s > "$evidence/logs/
 automation wait --text "Route rules" --settle --timeout 15s > "$evidence/logs/config-route-items-card.txt"
 automation press "key=config-item-add-route-rules" --settle --timeout 15s > "$evidence/logs/config-route-item-add-open.txt"
 automation wait --text "Add rule" --settle --timeout 15s > "$evidence/logs/config-route-item-add-dialog.txt"
+automation wait --text "Common fields" --settle --timeout 15s > "$evidence/logs/config-route-item-visual.txt"
+automation wait --text "Destination ports" --settle --timeout 15s > "$evidence/logs/config-route-item-visual-ports.txt"
+automation snapshot --full > "$evidence/logs/config-route-item-visual-tree.txt"
+grep -q 'key=config-item-visual-route-rules-action' "$evidence/logs/config-route-item-visual-tree.txt" || {
+  printf 'route rule visual action control is missing\n' >&2
+  exit 1
+}
 automation fill "key=config-item-editor-route" '{"action":"route","outbound":"e2e-rule-outbound"}' --settle --timeout 15s > "$evidence/logs/config-route-item-add-fill.txt"
 automation press "key=config-item-save-route-rules" --settle --timeout 15s > "$evidence/logs/config-route-item-add-save.txt"
 automation wait --text "e2e-rule-outbound" --settle --timeout 15s > "$evidence/logs/config-route-item-add-visible.txt"

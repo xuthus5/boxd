@@ -8,6 +8,8 @@ const (
 	configVisualNumber
 	configVisualSelect
 	configVisualSecret
+	configVisualStringList
+	configVisualNumberList
 )
 
 type configVisualField struct {

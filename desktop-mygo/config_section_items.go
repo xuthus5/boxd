@@ -95,6 +95,9 @@ func configSectionItemDialog(c *ui.Context, app *application, state *configSecti
 			title = "Edit " + configItemDialogLabel(state, state.itemPath)
 		}
 		dialogPanel(c, title, "Edit this item as native JSON. Unknown fields are preserved when saved.", func() {
+			if item, err := parseConfigSectionItem(state.itemDraft); err == nil {
+				app.configItemVisualForm(c, state, item)
+			}
 			ui.TextArea(c.Key("config-item-editor-"+state.spec.Key), &state.itemDraft).
 				Height(configItemEditorHeight).AutoFocus()
 			if state.itemErr != "" {
