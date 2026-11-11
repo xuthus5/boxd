@@ -2,7 +2,7 @@
 
 日期：2026-11-11
 
-状态：原型已实现；扩展能力无显示自动验收条件通过（提交 `5ec49a0`、`ca34d0d`、`65d6b79`，2026-11-12）；30 分钟 soak 与真实桌面最终验收待完成
+状态：原型已实现；无显示自动验收和 30 分钟 soak 通过（提交 `32da670`，2026-11-12）；远程可视待安装 `x11vnc`，真实桌面最终验收待完成
 
 关联设计：`docs/boxd/specs/2026-08-02-wails3-desktop-design.md`
 
@@ -857,6 +857,14 @@
   - Xvfb E2E 打开 Route 规则新增弹窗，断言 `key=config-item-visual-route-rules-action` 存在并保存条目。
   - 字段级表单未覆盖全部 sing-box 高级字段时，原始 JSON 编辑入口必须保持可用，并在验收记录中标记“条件通过”。
 
+- 验收记录：
+  - 状态：条件通过
+  - 提交：`32da6701a2db27b3cf7d10730a433ccb440348d7`
+  - 命令：`go test -count=1 ./...`、`go test -race -count=1 ./...`、`go vet ./...`、`go tool mygo vet`、`go tool mygo build`、`golangci-lint run ./...`、`goimports-reviser ...` 和 `MYGO_ACCEPTANCE_RUN_ID=20261112-32da670-e2e ./scripts/mygo-headless-e2e.sh` 均退出码为 0。
+  - 证据：`desktop-mygo/artifacts/acceptance/20261112-32da670-e2e/logs/config-route-item-visual-tree.txt`、`screenshots/config-route-item-added.png`。
+  - 环境限制：Xvfb 只验证 GTK3 窗口与控件树；全部高级字段仍以原始 JSON 为权威来源。
+  - 残留风险：真实 GPU、Wayland、输入法、HiDPI、多显示器、托盘和主观流畅度仍需 TS-026 确认。
+
 ## 7. 验收要求
 
 本节是原型进入评审的最低验收基线。任何未执行、未记录或无法复现的项目都必须标记为“未验证”，不得用推断代替证据；只有通过本节验收并完成真实桌面确认后，才能形成“替代 Wails”的最终结论。
@@ -1198,3 +1206,21 @@ TS-005、TS-012、TS-014 可以与 TS-008 并行；TS-019 和 TS-023 随各页�
 
 结论：**支持包逻辑与无显示窗口入口条件通过；真实保存对话框和长时间运行仍待确认**。
 
+
+### 12.5 最终无显示验收（32da670）
+
+验收日期：2026-11-12。验收提交：`32da6701a2db27b3cf7d10730a433ccb440348d7`。证据根目录：`desktop-mygo/artifacts/acceptance/20261112-32da670-e2e/`、`desktop-mygo/artifacts/acceptance/20261112-32da670-soak/`。
+
+| 验收项 | 状态 | 证据或限制 |
+| --- | --- | --- |
+| 构建、单测、race、vet、MyGo vet/build、lint、导入格式化和 shell 检查 | 自动通过 | `go test -count=1 ./...`、`go test -race -count=1 ./...`、`go vet ./...`、`go tool mygo vet`、`go tool mygo build`、`golangci-lint run ./...`、`goimports-reviser ...`、`gofmt -l .`、`shellcheck scripts/*.sh` 和 `bash -n scripts/*.sh` 退出码均为 0；race 约 254 秒 |
+| Xvfb 真实 GTK3 窗口、七页导航、高级配置路由、Terminal、节点/订阅/连接管理和支持包入口 | 自动通过 | `environment.txt`、`commands.txt`、`logs/`、`screenshots/`；`result.md` 状态为 passed，退出码为 0 |
+| 原生进程树不含 WebView/WebKit/Wails | 自动通过 | `logs/process-tree.txt`；进程树仅包含 `boxd-e2e` 及线程 |
+| TS-034 Route/DNS 条目常用字段编辑 | 条件通过 | `logs/config-route-item-visual-tree.txt` 包含 `key=config-item-visual-route-rules-action`，`screenshots/config-route-item-added.png` 非空；高级字段仍以原始 JSON 为准 |
+| 30 分钟 soak | 自动通过 | `soak.csv`、`logs/soak.log`、`screenshots/soak-end.png`；30/30 采样正常，1800 秒，平均 CPU 0.73%，RSS 增长 1816 KiB，automation p95 180 ms |
+| 脏工作树证据保护 | 自动通过 | E2E 和 soak 脚本在检测到未提交改动时退出 2；本轮两项证据均来自干净提交 `32da670` |
+| 远程可视验收 | 未验证 | `scripts/mygo-remote-view.sh --check` 返回 2，服务器缺少 `x11vnc`；脚本已限制回环地址、临时密码和 SSH 隧道 |
+| 真实剪贴板、原生保存/取消对话框、真实网络和真实内核 | 未验证 | automation 未实际操作系统剪贴板或原生对话框；fake 后端结果不能替代真实网络/内核结论 |
+| 真实 GPU、Wayland、输入法、HiDPI、多显示器、托盘、主观流畅度及 Wails 同场景对比 | 未验证 | 需在用户真实桌面完成 TS-026；不得据 Xvfb 结果宣称长时间卡顿已解决 |
+
+结论：**无显示环境自动验收通过，真实桌面待确认**。当前结果支持继续投入 MyGo 原型，但不足以正式替代 Wails。
