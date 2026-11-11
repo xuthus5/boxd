@@ -34,10 +34,10 @@ func (a *application) view(c *ui.Context) {
 					case r.Match("/subscriptions"):
 						r.Title("Subscriptions")
 						a.subscriptionsView(c)
-					case r.Match("/connections"):
+					case r.Match("/connections"), r.Match("/observability/connections"):
 						r.Title("Connections")
 						a.connectionsView(c)
-					case r.Match("/logs"):
+					case r.Match("/logs"), r.Match("/observability/logs"):
 						r.Title("Logs")
 						a.logsView(c)
 					case r.Match("/config"):
@@ -245,9 +245,9 @@ func routeTitle(path string) string {
 		return "Nodes"
 	case "/subscriptions":
 		return "Subscriptions"
-	case "/connections":
+	case "/connections", "/observability/connections":
 		return "Connections"
-	case "/logs":
+	case "/logs", "/observability/logs":
 		return "Logs"
 	case "/config":
 		return "Config"
@@ -271,7 +271,8 @@ func (a *application) normalizeRoute() {
 		return
 	}
 	switch a.router.Path() {
-	case "/dashboard", "/nodes", "/subscriptions", "/connections", "/logs", "/config", "/terminal", "/settings":
+	case "/dashboard", "/nodes", "/subscriptions", "/connections", "/observability/connections",
+		"/logs", "/observability/logs", "/config", "/terminal", "/settings":
 		return
 	case "/advanced/history", "/advanced/rule-sets", "/advanced/raw":
 		return

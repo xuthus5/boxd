@@ -92,6 +92,27 @@ func TestInvalidRouteFallsBackToDashboard(t *testing.T) {
 	}
 }
 
+func TestWailsObservabilityRouteAliases(t *testing.T) {
+	app := newTestApplication(seededModel(themeLight))
+	tt := ui.NewTester(app.view, 1440, 900)
+	for _, page := range []struct {
+		path string
+		text string
+	}{
+		{path: "/observability/connections", text: "Active"},
+		{path: "/observability/logs", text: "Recent activity"},
+	} {
+		app.router.Push(page.path)
+		settleTransitions(tt)
+		if got := app.router.Path(); got != page.path {
+			t.Fatalf("alias route = %q, want %q", got, page.path)
+		}
+		if !tt.HasText(page.text) {
+			t.Fatalf("alias page %s is missing %q: %v", page.path, page.text, tt.Texts())
+		}
+	}
+}
+
 func TestNodesAreVirtualized(t *testing.T) {
 	app := newTestApplication(seededModel(themeLight))
 	tt := ui.NewTester(app.view, 1440, 900)
