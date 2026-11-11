@@ -43,6 +43,7 @@ func (a *application) applyLoadedConfig(text string, err error) {
 	}
 	a.configEditorState().Buffer.Reset(text)
 	a.configEditorState().Buffer.MarkSaved()
+	a.config.baseline = text
 	a.config.loaded = true
 	a.model.actionError = ""
 }
@@ -60,6 +61,17 @@ func (a *application) formatConfig() {
 	a.invalidate()
 }
 
+func (a *application) resetConfigDraft() {
+	if !a.configCanReset() {
+		return
+	}
+	a.configEditorState().Buffer.Reset(a.config.baseline)
+	a.configEditorState().Buffer.MarkSaved()
+	a.model.actionError = ""
+	a.model.notice = "Configuration reset to the loaded version"
+	a.invalidate()
+}
+
 func (a *application) validateConfig() {
 	body := a.configEditorState().Buffer.String()
 	a.runAction("Validating configuration", func(ctx context.Context) error {
@@ -74,6 +86,7 @@ func (a *application) applyConfig() {
 			return err
 		}
 		a.configEditorState().Buffer.MarkSaved()
+		a.config.baseline = body
 		return nil
 	}, "Configuration applied")
 }

@@ -11,7 +11,7 @@
 - Subscriptions：新增、编辑、删除、单个/全部刷新、URL Test 覆盖和 selector 出口选择。
 - Connections：按目标/出口/规则筛选、关闭单个连接、关闭筛选结果和关闭全部。
 - Logs：应用与内核日志、级别过滤、固定容量缓冲和末尾跟随。
-- Config：JSON 编辑、格式化、校验、应用，以及原生文件导入导出。
+- Config：JSON 编辑、语义 Diff、恢复到已加载版本、格式化、校验、应用，以及原生文件导入导出。
 - Inbounds、Outbounds、Route、DNS 与高级配置段：原生分段 JSON 编辑、校验、应用、默认安装和配置诊断。
 - Log、NTP、Experimental、DNS、Route 和 Certificate 常用字段提供原生可视化表单，复杂字段仍可在原始 JSON 中编辑。
 - Config history：应用历史快照查看、校验后恢复；Rule sets：状态查看、更新和本地自动更新设置。

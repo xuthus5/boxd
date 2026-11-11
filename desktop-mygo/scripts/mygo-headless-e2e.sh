@@ -114,6 +114,14 @@ for i in "${!pages[@]}"; do
   [ -s "$evidence/screenshots/$page.png" ] || { printf 'screenshot %s is empty\n' "$page" >&2; exit 1; }
 done
 
+automation press 'key="/config"' --settle --timeout 15s > "$evidence/logs/config-diff-open.txt"
+automation wait --text "Configuration diff" --settle --timeout 15s > "$evidence/logs/config-diff-panel.txt"
+automation fill "key=config-editor" '{"log":{"level":"debug"}}' --settle --timeout 15s > "$evidence/logs/config-diff-fill.txt"
+automation wait --text "log.level" --settle --timeout 15s > "$evidence/logs/config-diff-changed.txt"
+automation screenshot "$evidence/screenshots/config-diff-changed.png" > "$evidence/logs/config-diff-screenshot.txt"
+automation press "key=config-reset" --settle --timeout 15s > "$evidence/logs/config-diff-reset.txt"
+automation wait --text "No changes compared with the loaded configuration." --settle --timeout 15s > "$evidence/logs/config-diff-reset-wait.txt"
+
 automation press 'key="/terminal"' --settle --timeout 15s > "$evidence/logs/nav-terminal-ready.txt"
 automation wait --text "Bash / Zsh" --settle --timeout 15s > "$evidence/logs/wait-terminal-ready.txt"
 automation screenshot "$evidence/screenshots/terminal-ready.png" > "$evidence/logs/screenshot-terminal-ready.txt"

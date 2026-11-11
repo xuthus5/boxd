@@ -16,6 +16,7 @@ const configEditorHeight = 520
 
 type configPageState struct {
 	editor             *editor.State
+	baseline           string
 	loaded             bool
 	loading            bool
 	attempted          bool
@@ -45,6 +46,7 @@ func (a *application) configView(c *ui.Context) {
 				FillWidth().Height(configEditorHeight)
 		})
 		a.configDiagnosticsCard(c)
+		a.configDiffCard(c)
 	})
 }
 
@@ -56,6 +58,9 @@ func (a *application) configToolbar(c *ui.Context) {
 		dirty := a.configEditorState().Buffer.Modified()
 		if dirty {
 			ui.Badge(c, "Unsaved").Background(t.Warning.Alpha(0.2)).TextColor(t.Warning)
+		}
+		if ui.Button(c, "Reset").Key("config-reset").Disabled(!a.configCanReset()).Clicked() {
+			a.resetConfigDraft()
 		}
 		if ui.Button(c, "Import").Key("config-import").Disabled(a.config.loading || a.model.busy).Clicked() {
 			a.importConfig()
@@ -76,6 +81,10 @@ func (a *application) configToolbar(c *ui.Context) {
 			a.applyConfig()
 		}
 	})
+}
+
+func (a *application) configCanReset() bool {
+	return a.config.loaded && a.config.baseline != "" && a.configEditorState().Buffer.String() != a.config.baseline
 }
 
 func (a *application) configEditorState() *editor.State {
