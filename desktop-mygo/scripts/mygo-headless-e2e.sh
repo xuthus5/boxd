@@ -142,6 +142,17 @@ for i in "${!advanced_pages[@]}"; do
   [ -s "$evidence/screenshots/$file.png" ] || { printf 'screenshot %s is empty\n' "$file" >&2; exit 1; }
 done
 
+automation press 'key="/proxy/inbounds"' --settle --timeout 15s > "$evidence/logs/config-item-inbounds-open.txt"
+automation wait --text "Inbounds items" --settle --timeout 15s > "$evidence/logs/config-item-inbounds-card.txt"
+automation press "key=config-item-add-inbounds" --settle --timeout 15s > "$evidence/logs/config-item-add-open.txt"
+automation wait --text "Add Inbound item" --settle --timeout 15s > "$evidence/logs/config-item-add-dialog.txt"
+automation fill "key=config-item-editor-inbounds" '{"tag":"e2e-inbound","type":"mixed","listen":"127.0.0.1","listen_port":18080}' --settle --timeout 15s > "$evidence/logs/config-item-add-fill.txt"
+automation press "key=config-item-save-inbounds" --settle --timeout 15s > "$evidence/logs/config-item-add-save.txt"
+automation wait --text "e2e-inbound" --settle --timeout 15s > "$evidence/logs/config-item-add-visible.txt"
+automation screenshot "$evidence/screenshots/config-item-added.png" > "$evidence/logs/config-item-added-screenshot.txt"
+automation press "key=section-reset-inbounds" --settle --timeout 15s > "$evidence/logs/config-item-reset.txt"
+automation wait --text "e2e-inbound" --gone --settle --timeout 15s > "$evidence/logs/config-item-reset-wait.txt"
+
 node_link='vless://00000000-0000-0000-0000-000000000001@edge.example.com:443?security=tls&type=tcp#e2e-node'
 automation press 'key="/nodes"' --settle --timeout 15s > "$evidence/logs/manage-nodes-open.txt"
 automation press "key=node-import" --settle --timeout 15s > "$evidence/logs/manage-node-dialog.txt"

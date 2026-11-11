@@ -23,5 +23,11 @@ func (a *application) confirmDelete() {
 		a.closeConnections(filters)
 	case "config-restore":
 		a.restoreConfigSnapshot(form.id)
+	case "config-section-item":
+		index := ""
+		if len(form.ids) > 0 {
+			index = form.ids[0]
+		}
+		a.deleteConfigSectionItem(form.id, index)
 	}
 }

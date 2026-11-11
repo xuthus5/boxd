@@ -78,6 +78,7 @@ func (a *application) view(c *ui.Context) {
 	})
 	a.managementDialogs(c)
 	a.configHistoryDialog(c)
+	a.configSectionItemDialog(c)
 }
 
 func (a *application) sidebar(c *ui.Context) {

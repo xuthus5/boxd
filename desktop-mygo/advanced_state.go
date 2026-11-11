@@ -40,12 +40,16 @@ func configSectionSpecForRoute(route string) (configSectionSpec, bool) {
 }
 
 type configSectionState struct {
-	spec      configSectionSpec
-	editor    *editor.State
-	baseline  string
-	loaded    bool
-	loading   bool
-	attempted bool
+	spec          configSectionSpec
+	editor        *editor.State
+	baseline      string
+	loaded        bool
+	loading       bool
+	attempted     bool
+	itemEditOpen  bool
+	itemEditIndex int
+	itemDraft     string
+	itemErr       string
 }
 
 func newConfigSectionState(spec configSectionSpec) *configSectionState {
