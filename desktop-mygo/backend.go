@@ -5,11 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"sort"
-	"strconv"
-	"strings"
-	"time"
 
-	"github.com/xuthus5/boxd/internal/core"
 	"github.com/xuthus5/boxd/internal/model"
 	"github.com/xuthus5/boxd/internal/service"
 
@@ -27,7 +23,19 @@ type backend interface {
 	StopKernel(context.Context) error
 	RestartKernel(context.Context) error
 	CloseConnection(context.Context, int64) error
+	CloseConnections(context.Context, service.ConnectionCloseFilters) (map[string]any, error)
 	RefreshSubscription(context.Context, string) error
+	RefreshAllSubscriptions(context.Context) (service.RefreshAllResult, error)
+	CreateSubscription(context.Context, service.SubscriptionInput) (*model.Subscription, error)
+	UpdateSubscription(context.Context, string, service.SubscriptionInput) error
+	DeleteSubscription(context.Context, string) error
+	SelectSubscription(context.Context, string, string) error
+	ImportNode(context.Context, string) (model.ImportResult, error)
+	SaveNode(context.Context, service.NodeInput) error
+	UpdateNode(context.Context, string, service.NodeInput) error
+	DeleteNode(context.Context, string) error
+	TestNode(context.Context, service.TestRequest) (model.TestResult, error)
+	TestNodes(context.Context, service.TestBatchRequest) ([]model.TestResult, error)
 	SetKernelAutostart(context.Context, bool) error
 	SetUIPreferences(context.Context, model.UIPreferences) error
 	SetTestURL(context.Context, string) error
@@ -86,8 +94,8 @@ func (b *runtimeBackend) Snapshot(ctx context.Context) (snapshot, error) {
 	snap := snapshot{}
 	b.collectStatus(ctx, svc, &snap)
 	b.collectStats(ctx, svc, &snap)
-	b.collectNodes(svc, &snap)
 	b.collectSettings(ctx, svc, &snap)
+	b.collectNodes(svc, &snap)
 	snap.Logs = sortedLogs(b.rt.Logs())
 	snap.LogsLoaded = true
 	return snap, nil
@@ -116,13 +124,6 @@ func (b *runtimeBackend) collectStats(ctx context.Context, svc *service.ServiceS
 	}
 }
 
-func (b *runtimeBackend) collectNodes(svc *service.ServiceSet, snap *snapshot) {
-	if svc.Deps.NodeManager != nil {
-		snap.Nodes = nodeViewsFrom(svc.Deps.NodeManager.List(), b.rt.NodeTestResults())
-		snap.NodesLoaded = true
-	}
-}
-
 func (b *runtimeBackend) collectSettings(ctx context.Context, svc *service.ServiceSet, snap *snapshot) {
 	if subs, err := svc.Subscriptions().List(ctx); err != nil {
 		snap.addWarning("subscriptions", err)
@@ -148,6 +149,33 @@ func (b *runtimeBackend) collectSettings(ctx context.Context, svc *service.Servi
 		snap.TestURL = testURL["url"]
 		snap.TestURLLoaded = true
 	}
+}
+
+func (b *runtimeBackend) collectNodes(svc *service.ServiceSet, snap *snapshot) {
+	if svc.Deps.NodeManager == nil {
+		return
+	}
+	nodes := make([]nodeView, 0, len(svc.Deps.NodeManager.List()))
+	results := b.rt.NodeTestResults()
+	for _, node := range svc.Deps.NodeManager.List() {
+		nodes = append(nodes, nodeViewFrom(node, "import", "", results))
+	}
+	for _, sub := range snap.Subscriptions {
+		for _, outbound := range sub.Outbounds {
+			nodes = append(nodes, nodeViewFrom(outbound, "subscription", sub.Name, results))
+		}
+	}
+	sort.SliceStable(nodes, func(i, j int) bool {
+		if nodes[i].Source != nodes[j].Source {
+			return nodes[i].Source < nodes[j].Source
+		}
+		if nodes[i].SourceName != nodes[j].SourceName {
+			return nodes[i].SourceName < nodes[j].SourceName
+		}
+		return nodes[i].Tag < nodes[j].Tag
+	})
+	snap.Nodes = nodes
+	snap.NodesLoaded = true
 }
 
 func (b *runtimeBackend) StartKernel(context.Context) error {
@@ -218,11 +246,7 @@ func (b *runtimeBackend) SetTestURL(ctx context.Context, url string) error {
 }
 
 func (b *runtimeBackend) ImportLink(ctx context.Context, link string) error {
-	svc, err := b.serviceSet()
-	if err != nil {
-		return err
-	}
-	_, err = svc.Import().ParseLink(ctx, link)
+	_, err := b.ImportNode(ctx, link)
 	return err
 }
 
@@ -238,87 +262,4 @@ func (s *snapshot) addWarning(section string, err error) {
 		return
 	}
 	s.Warnings = append(s.Warnings, section+": "+shortError(err))
-}
-
-func trafficTotalsFrom(values map[string]any) *trafficTotals {
-	total := &trafficTotals{}
-	switch value := values["upload_bytes"].(type) {
-	case int64:
-		total.Up = value
-	case int:
-		total.Up = int64(value)
-	case float64:
-		total.Up = int64(value)
-	}
-	switch value := values["download_bytes"].(type) {
-	case int64:
-		total.Down = value
-	case int:
-		total.Down = int64(value)
-	case float64:
-		total.Down = int64(value)
-	}
-	return total
-}
-
-func connectionViewsFrom(values map[string]any) []connectionView {
-	list, _ := values["list"].([]core.TrafficConn)
-	out := make([]connectionView, 0, len(list))
-	now := time.Now()
-	for _, conn := range list {
-		out = append(out, connectionView{
-			ID:       conn.ID,
-			Target:   conn.Target,
-			Outbound: conn.Outbound,
-			Rule:     conn.Rule,
-			Upload:   conn.Upload,
-			Download: conn.Download,
-			Duration: max(0, now.Sub(conn.Start)).Round(time.Second).String(),
-		})
-	}
-	sort.SliceStable(out, func(i, j int) bool { return out[i].ID < out[j].ID })
-	return out
-}
-
-func nodeViewsFrom(nodes []model.Outbound, results map[string]map[string]model.TestResult) []nodeView {
-	out := make([]nodeView, 0, len(nodes))
-	for _, node := range nodes {
-		out = append(out, nodeView{
-			Tag:    node.Tag,
-			Type:   node.Type,
-			Server: node.Server,
-			Port:   node.Port,
-			Test:   nodeTestSummary(results, node.Tag),
-		})
-	}
-	sort.SliceStable(out, func(i, j int) bool { return out[i].Tag < out[j].Tag })
-	return out
-}
-
-func nodeTestSummary(results map[string]map[string]model.TestResult, tag string) string {
-	var latest model.TestResult
-	found := false
-	for key, byType := range results {
-		if key != tag && !strings.HasPrefix(key, tag+"_") {
-			continue
-		}
-		for _, result := range byType {
-			if !found || result.Timestamp.After(latest.Timestamp) {
-				latest, found = result, true
-			}
-		}
-	}
-	if !found {
-		return "Not tested"
-	}
-	if !latest.Success {
-		return "Failed"
-	}
-	return strconv.FormatFloat(latest.LatencyMs, 'f', 0, 64) + " ms"
-}
-
-func sortedLogs(entries []core.LogEntry) []core.LogEntry {
-	out := append([]core.LogEntry(nil), entries...)
-	sort.SliceStable(out, func(i, j int) bool { return out[i].Timestamp.Before(out[j].Timestamp) })
-	return out
 }

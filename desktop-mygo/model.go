@@ -33,11 +33,14 @@ type trafficSample struct {
 }
 
 type nodeView struct {
-	Tag    string
-	Type   string
-	Server string
-	Port   int
-	Test   string
+	Tag        string
+	Type       string
+	Server     string
+	Port       int
+	Test       string
+	Source     string
+	SourceName string
+	Config     any
 }
 
 type connectionView struct {

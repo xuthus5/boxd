@@ -114,6 +114,58 @@ for i in "${!pages[@]}"; do
   [ -s "$evidence/screenshots/$page.png" ] || { printf 'screenshot %s is empty\n' "$page" >&2; exit 1; }
 done
 
+node_link='vless://00000000-0000-0000-0000-000000000001@edge.example.com:443?security=tls&type=tcp#e2e-node'
+automation press 'key="/nodes"' --settle --timeout 15s > "$evidence/logs/manage-nodes-open.txt"
+automation press "key=node-import" --settle --timeout 15s > "$evidence/logs/manage-node-dialog.txt"
+automation wait --text "Import proxy link" --settle --timeout 15s > "$evidence/logs/manage-node-dialog-wait.txt"
+automation fill "key=node-link" "$node_link" --settle --timeout 15s > "$evidence/logs/manage-node-link.txt"
+automation screenshot "$evidence/screenshots/node-import-dialog.png" > "$evidence/logs/manage-node-dialog-screenshot.txt"
+automation press "key=node-save" --settle --timeout 30s > "$evidence/logs/manage-node-save.txt"
+automation wait --text "e2e-node" --settle --timeout 30s > "$evidence/logs/manage-node-created.txt"
+automation snapshot --full > "$evidence/logs/nodes-managed-tree.txt"
+grep -q 'key=delete-node-e2e-node' "$evidence/logs/nodes-managed-tree.txt" || {
+  printf 'imported node actions are missing\n' >&2
+  exit 1
+}
+automation screenshot "$evidence/screenshots/nodes-managed.png" > "$evidence/logs/manage-nodes-screenshot.txt"
+automation press "key=delete-node-e2e-node" --settle --timeout 15s > "$evidence/logs/manage-node-delete-dialog.txt"
+automation wait --text "Delete node" --settle --timeout 15s > "$evidence/logs/manage-node-delete-wait.txt"
+automation key Enter --settle --timeout 30s > "$evidence/logs/manage-node-delete-confirm.txt"
+automation wait --text "e2e-node" --gone --settle --timeout 30s > "$evidence/logs/manage-node-deleted.txt"
+
+automation press 'key="/subscriptions"' --settle --timeout 15s > "$evidence/logs/manage-subscriptions-open.txt"
+automation press "key=sub-add" --settle --timeout 15s > "$evidence/logs/manage-subscription-dialog.txt"
+automation wait --text "Subscription URL" --settle --timeout 15s > "$evidence/logs/manage-subscription-dialog-wait.txt"
+automation snapshot --full > "$evidence/logs/subscription-dialog-tree.txt"
+grep -q 'URL-test policy' "$evidence/logs/subscription-dialog-tree.txt" || {
+  printf 'subscription URL-test policy control is missing\n' >&2
+  exit 1
+}
+automation fill "key=sub-name" "E2E subscription" --settle --timeout 15s > "$evidence/logs/manage-subscription-name.txt"
+automation fill "key=sub-url" "https://example.com/subscription" --settle --timeout 15s > "$evidence/logs/manage-subscription-url.txt"
+automation screenshot "$evidence/screenshots/subscription-create-dialog.png" > "$evidence/logs/manage-subscription-dialog-screenshot.txt"
+automation press "key=sub-save" --settle --timeout 30s > "$evidence/logs/manage-subscription-save.txt"
+automation wait --text "E2E subscription" --settle --timeout 30s > "$evidence/logs/manage-subscription-created.txt"
+automation snapshot --full > "$evidence/logs/subscriptions-managed-tree.txt"
+delete_sub_key=$(grep -o 'key=delete-sub-[0-9][0-9]*' "$evidence/logs/subscriptions-managed-tree.txt" | head -n 1 || true)
+[ -n "$delete_sub_key" ] || { printf 'created subscription actions are missing\n' >&2; exit 1; }
+automation screenshot "$evidence/screenshots/subscriptions-managed.png" > "$evidence/logs/manage-subscriptions-screenshot.txt"
+automation press "$delete_sub_key" --settle --timeout 15s > "$evidence/logs/manage-subscription-delete-dialog.txt"
+automation wait --text "Delete subscription" --settle --timeout 15s > "$evidence/logs/manage-subscription-delete-wait.txt"
+automation key Enter --settle --timeout 30s > "$evidence/logs/manage-subscription-delete-confirm.txt"
+automation wait --text "E2E subscription" --gone --settle --timeout 30s > "$evidence/logs/manage-subscription-deleted.txt"
+
+automation press 'key="/connections"' --settle --timeout 15s > "$evidence/logs/manage-connections-open.txt"
+automation wait --text "No active connections" --settle --timeout 15s > "$evidence/logs/manage-connections-empty.txt"
+automation snapshot --full > "$evidence/logs/connections-controls-tree.txt"
+for text in "Filter connections" "Close filtered" "Close all"; do
+  grep -q "$text" "$evidence/logs/connections-controls-tree.txt" || {
+    printf 'connections control %q is missing\n' "$text" >&2
+    exit 1
+  }
+done
+automation screenshot "$evidence/screenshots/connections-controls.png" > "$evidence/logs/manage-connections-screenshot.txt"
+
 kill -0 "$app_pid"
 automation close >/dev/null 2>&1 || true
 printf 'headless acceptance passed: %s\n' "$evidence"

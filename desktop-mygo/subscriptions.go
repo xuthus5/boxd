@@ -11,7 +11,15 @@ import (
 
 func (a *application) subscriptionsView(c *ui.Context) {
 	a.pageColumn(c, func() {
-		pageHeading(c, "Subscriptions", "Monitor shared subscriptions and trigger a single refresh without leaving the native app.")
+		pageHeading(c, "Subscriptions", "Create, edit, refresh and select subscription exits without leaving the native app.")
+		ui.Row(c).Gap(8).Children(func() {
+			if ui.PrimaryButton(c, "Add subscription").Key("sub-add").Disabled(a.model.busy).Clicked() {
+				a.openAddSubscription()
+			}
+			if ui.Button(c, "Refresh all").Key("sub-refresh-all").Disabled(a.model.busy || len(a.model.subs) == 0).Clicked() {
+				a.refreshAllSubscriptions()
+			}
+		})
 		ui.Row(c).Gap(12).Children(func() {
 			metricCard(c, "Subscriptions", fmt.Sprint(len(a.model.subs)), "Configured in the shared database", c.Theme().Accent)
 			metricCard(c, "Healthy", fmt.Sprint(countHealthySubs(a.model.subs)), "No recorded refresh error", c.Theme().Success)
@@ -19,7 +27,10 @@ func (a *application) subscriptionsView(c *ui.Context) {
 		})
 		if len(a.model.subs) == 0 {
 			card(c, func() {
-				emptyState(c, "No subscriptions", "Add a subscription in the existing app; the native prototype will read it from the same data directory.")
+				emptyState(c, "No subscriptions", "Add a subscription to import its nodes into the managed outbound configuration.")
+				if ui.PrimaryButton(c, "Add subscription").Key("sub-empty-add").Clicked() {
+					a.openAddSubscription()
+				}
 			})
 			return
 		}
@@ -29,11 +40,12 @@ func (a *application) subscriptionsView(c *ui.Context) {
 
 func (a *application) subscriptionsTable(c *ui.Context) {
 	columns := []ui.TableColumn{
-		{Title: "Name", MinWidth: 180},
-		{Title: "Status", Width: 110},
-		{Title: "Traffic", Width: 160},
-		{Title: "Last updated", Width: 170},
-		{Title: "Action", Width: 110},
+		{Title: "Name", MinWidth: 190},
+		{Title: "Status", Width: 100},
+		{Title: "Traffic", Width: 150},
+		{Title: "Last updated", Width: 135},
+		{Title: "Exit", Width: 130},
+		{Title: "Actions", Width: 260},
 	}
 	ui.Table(c, &a.subsList, columns, len(a.model.subs), func(row, col int) {
 		if row < 0 || row >= len(a.model.subs) {
@@ -53,11 +65,29 @@ func (a *application) subscriptionsTable(c *ui.Context) {
 		case 3:
 			ui.Text(c, formatRelative(sub.LastUpdated, time.Now())).NoWrap().TextColor(c.Theme().TextMuted)
 		case 4:
-			if ui.Button(c, "Refresh").Key("refresh-sub-" + sub.ID).Disabled(a.model.busy).Clicked() {
-				a.refreshSubscription(sub.ID)
-			}
+			ui.Text(c, firstText(sub.Selected, "Auto")).NoWrap().TextColor(c.Theme().TextMuted)
+		case 5:
+			a.subscriptionRowActions(c, sub)
 		}
 	}).FillWidth().Height(500).Label("Subscription list")
+}
+
+func (a *application) subscriptionRowActions(c *ui.Context, sub model.Subscription) {
+	ui.Row(c).Gap(4).Children(func() {
+		if ui.Button(c, "Refresh").Key("refresh-sub-" + sub.ID).Disabled(a.model.busy).Clicked() {
+			a.refreshSubscription(sub.ID)
+		}
+		if ui.Button(c, "Select").Key("select-sub-" + sub.ID).
+			Disabled(a.model.busy || len(sub.Outbounds) == 0).Clicked() {
+			a.openSubscriptionSelector(sub)
+		}
+		if ui.Button(c, "Edit").Key("edit-sub-" + sub.ID).Disabled(a.model.busy).Clicked() {
+			a.openEditSubscription(sub)
+		}
+		if ui.Button(c, "Delete").Key("delete-sub-" + sub.ID).Disabled(a.model.busy).Clicked() {
+			a.askDeleteSubscription(sub)
+		}
+	})
 }
 
 func subscriptionStatus(sub model.Subscription) string {

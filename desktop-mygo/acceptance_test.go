@@ -35,7 +35,7 @@ func TestAcceptanceScreenshots(t *testing.T) {
 	}
 	pages := []acceptancePage{
 		{name: "dashboard-light", path: "/dashboard", text: "Kernel controls"},
-		{name: "nodes", path: "/nodes", text: "Node editing"},
+		{name: "nodes", path: "/nodes", text: "Import node"},
 		{name: "subscriptions", path: "/subscriptions", text: "Healthy"},
 		{name: "connections", path: "/connections", text: "Active"},
 		{name: "logs", path: "/logs", text: "Recent activity"},
@@ -57,6 +57,12 @@ func TestAcceptanceScreenshots(t *testing.T) {
 		writeScreenshot(t, filepath.Join(dir, page.name+".png"), img)
 	}
 
+	captureDarkDashboard(t, app, tt, dir, light)
+	t.Logf("acceptance screenshots: %s", dir)
+}
+
+func captureDarkDashboard(t *testing.T, app *application, tt *ui.Tester, dir string, light *imageRGBA) {
+	t.Helper()
 	app.model.prefs.Theme = themeDark
 	app.router.Replace("/dashboard")
 	settleTransitions(tt)
@@ -69,7 +75,6 @@ func TestAcceptanceScreenshots(t *testing.T) {
 		t.Fatal("light and dark dashboard screenshots are identical")
 	}
 	writeScreenshot(t, filepath.Join(dir, "dashboard-dark.png"), dark)
-	t.Logf("acceptance screenshots: %s", dir)
 }
 
 func TestAcceptanceEmptyStates(t *testing.T) {

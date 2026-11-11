@@ -33,7 +33,7 @@ func TestSidebarNavigation(t *testing.T) {
 		path  string
 		text  string
 	}{
-		{label: "Nodes", path: "/nodes", text: "Node editing"},
+		{label: "Nodes", path: "/nodes", text: "Import node"},
 		{label: "Subscriptions", path: "/subscriptions", text: "Healthy"},
 		{label: "Connections", path: "/connections", text: "Active"},
 		{label: "Logs", path: "/logs", text: "Recent activity"},

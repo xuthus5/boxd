@@ -40,6 +40,11 @@ type application struct {
 	refreshNow    chan struct{}
 	refreshOnce   sync.Once
 	config        configPageState
+	nodeForm      nodeFormState
+	subForm       subscriptionFormState
+	selectorForm  selectorFormState
+	deleteForm    deleteFormState
+	connFilter    string
 }
 
 func newApplication(source backend, cfg runtime.Config, startupErr error, autostart bool) *application {
@@ -107,100 +112,36 @@ func (a *application) whenReady() {
 	}
 }
 
-func (a *application) startRefresh() {
-	if a.backend == nil {
-		return
-	}
-	a.refreshOnce.Do(func() {
-		ctx, cancel := context.WithCancel(context.Background())
-		a.refreshCancel = cancel
-		a.refreshDone = make(chan struct{})
-		go a.refreshLoop(ctx)
-	})
-}
-
-func (a *application) refreshLoop(ctx context.Context) {
-	defer close(a.refreshDone)
-	ticker := time.NewTicker(refreshInterval)
-	defer ticker.Stop()
-	a.refresh(ctx)
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			a.refresh(ctx)
-		case <-a.refreshNow:
-			a.refresh(ctx)
-		}
-	}
-}
-
-func (a *application) refresh(parent context.Context) {
-	if a.backend == nil || parent.Err() != nil {
-		return
-	}
-	ctx, cancel := context.WithTimeout(parent, actionTimeout)
-	snap, err := a.backend.Snapshot(ctx)
-	cancel()
-	if parent.Err() != nil {
-		return
-	}
-	if a.win == nil {
-		return
-	}
-	a.win.Update(func() {
-		a.applyRefresh(snap, err, time.Now())
-	})
-}
-
-func (a *application) applyRefresh(snap snapshot, err error, now time.Time) {
-	if err != nil {
-		a.model.stale = a.model.loaded
-		a.model.warnings = []string{shortError(err)}
-		return
-	}
-	a.model.applySnapshot(snap, now)
-}
-
-func (a *application) requestRefresh() {
-	select {
-	case a.refreshNow <- struct{}{}:
-	default:
-	}
-}
-
-func (a *application) stopRefresh() {
-	if a.refreshCancel != nil {
-		a.refreshCancel()
-	}
-	if a.refreshDone != nil {
-		<-a.refreshDone
-	}
-}
-
 func (a *application) runAction(label string, action func(context.Context) error, success string) {
-	a.runActionWithRollback(label, action, success, nil)
+	a.runActionWithCallbacks(label, action, success, nil, nil)
 }
 
 func (a *application) runActionWithRollback(label string, action func(context.Context) error, success string, rollback func()) {
+	a.runActionWithCallbacks(label, action, success, rollback, nil)
+}
+
+func (a *application) runActionWithCallback(label string, action func(context.Context) error, success string, onSuccess func()) {
+	a.runActionWithCallbacks(label, action, success, nil, onSuccess)
+}
+
+func (a *application) runActionWithCallbacks(label string, action func(context.Context) error, success string, rollback, onSuccess func()) {
 	if !a.beginAction(label) {
 		return
 	}
 	if a.win == nil {
-		a.executeAction(action, success, rollback)
+		a.executeAction(action, success, rollback, onSuccess)
 		return
 	}
 	go func() {
-		a.executeAction(action, success, rollback)
+		a.executeAction(action, success, rollback, onSuccess)
 	}()
 }
 
-func (a *application) executeAction(action func(context.Context) error, success string, rollback func()) {
+func (a *application) executeAction(action func(context.Context) error, success string, rollback, onSuccess func()) {
 	ctx, cancel := context.WithTimeout(context.Background(), actionTimeout)
 	err := action(ctx)
 	cancel()
-	a.finishAction(err, success, rollback)
+	a.finishActionWithCallback(err, success, rollback, onSuccess)
 	a.requestRefresh()
 }
 
@@ -217,6 +158,10 @@ func (a *application) beginAction(label string) bool {
 }
 
 func (a *application) finishAction(err error, success string, rollback func()) {
+	a.finishActionWithCallback(err, success, rollback, nil)
+}
+
+func (a *application) finishActionWithCallback(err error, success string, rollback, onSuccess func()) {
 	apply := func() {
 		a.model.busy = false
 		a.model.busyLabel = ""
@@ -228,6 +173,9 @@ func (a *application) finishAction(err error, success string, rollback func()) {
 			return
 		}
 		a.model.notice = success
+		if onSuccess != nil {
+			onSuccess()
+		}
 		a.notifyAction(success)
 	}
 	if a.win == nil {
