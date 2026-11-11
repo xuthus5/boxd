@@ -2,7 +2,7 @@
 
 日期：2026-11-11
 
-状态：原型主体已实现；无显示自动验收和 30 分钟 soak 通过（提交 `32da670`，2026-11-12）；Dashboard Setup 配置闭环待完成验收；远程可视待安装 `x11vnc`，真实桌面最终验收待完成
+状态：原型主体已实现；Dashboard Setup 配置闭环无显示自动验收和 30 分钟 soak 通过（提交 `fe1961d`，2026-11-12）；远程可视待安装 `x11vnc`，真实桌面最终验收待完成
 
 关联设计：`docs/boxd/specs/2026-08-02-wails3-desktop-design.md`
 
@@ -895,6 +895,13 @@
   - Xvfb E2E 打开 Dashboard，断言 Setup 卡片和两个稳定 key 可见，打开 Configure modules 对话框，并验证退出后无临时文件或进程残留。
   - `go test -race ./...` 通过；如果有意跳过真实内核、真实网络或真实配置应用，必须在验收记录中标记“未验证”及人工复现步骤。
   - 验收证据归档到 `desktop-mygo/artifacts/acceptance/<run-id>/`，不得包含真实配置、凭据、订阅 URL 或节点地址。
+- 验收记录：
+  - 状态：条件通过
+  - 提交：`fe1961de061d5b798976b9d2fec99451cee23ac8`
+  - 命令：`go test -count=1 ./...`、`go test -race -count=1 ./...`、`go vet ./...`、`go tool mygo vet`、`go tool mygo build`、`golangci-lint run ./...`、`goimports-reviser ...`、`MYGO_ACCEPTANCE_RUN_ID=20261112-fe1961d-e2e ./scripts/mygo-headless-e2e.sh` 和 `MYGO_ACCEPTANCE_RUN_ID=20261112-fe1961d-soak ./scripts/mygo-headless-soak.sh` 均退出码为 0。
+  - 证据：`desktop-mygo/artifacts/acceptance/20261112-fe1961d-e2e/result.md`、`logs/setup-*.txt`、`screenshots/setup-dialog.png`、`screenshots/setup-preview.png`、`screenshots/setup-applied.png`、`desktop-mygo/artifacts/acceptance/20261112-fe1961d-soak/result.md`、`soak.csv` 和 `screenshots/soak-end.png`。
+  - 环境限制：Xvfb 使用临时数据目录并设置 `BOXD_SKIP_KERNEL_AUTOSTART=1`；已验证预览不写盘、应用写入配置和备份、失败/回滚路径及 GTK3 控件树，未启动真实内核或连接真实网络。
+  - 残留风险：真实 GPU、Wayland、输入法、HiDPI、多显示器、托盘、主观流畅度、真实内核/网络行为和 Wails 同场景对比仍需 TS-026 确认。
 
 ## 7. 验收要求
 
@@ -1267,3 +1274,21 @@ TS-005、TS-012、TS-014 可以与 TS-008 并行；TS-019 和 TS-023 随各页�
 | 真实 GPU、Wayland、输入法、HiDPI、多显示器、托盘、主观流畅度及 Wails 同场景对比 | 未验证 | 需在用户真实桌面完成 TS-026；不得据 Xvfb 结果宣称长时间卡顿已解决 |
 
 结论：**无显示环境自动验收通过，真实桌面待确认**。当前结果支持继续投入 MyGo 原型，但不足以正式替代 Wails。
+
+### 12.6 Dashboard Setup 配置闭环验收（fe1961d）
+
+验收日期：2026-11-12。验收提交：`fe1961de061d5b798976b9d2fec99451cee23ac8`。证据根目录：`desktop-mygo/artifacts/acceptance/20261112-fe1961d-e2e/`、`desktop-mygo/artifacts/acceptance/20261112-fe1961d-soak/`。
+
+| 验收项 | 状态 | 证据或限制 |
+| --- | --- | --- |
+| 构建、单测、race、vet、MyGo vet/build、lint 和格式化 | 自动通过 | `go test -count=1 ./...`、`go test -race -count=1 ./...`、`go vet ./...`、`go tool mygo vet`、`go tool mygo build`、`golangci-lint run ./...`、`goimports-reviser ...` 退出码均为 0；lint 为 0 issues，race 约 295 秒 |
+| TS-035 Setup 状态、草稿、预览、应用和错误路径 | 自动通过 | `setup_state_test.go` 覆盖加载/刷新保留旧状态、空模块、非法配置重置、预览、`SourceHash`、应用失败/回滚和缓存失效；`runtime_integration_test.go` 使用临时数据目录验证预览不写盘、应用持久化和失败保留旧配置 |
+| `ui.Tester` Setup 卡片和对话框 | 自动通过 | `acceptance_test.go` 断言加载/已加载/配置错误状态、`setup-refresh`、`setup-open` 和 Configure modules 关键文本 |
+| Xvfb 真实 GTK3 Setup 闭环 | 自动通过 | `result.md` 状态为 passed；`logs/setup-dashboard-tree.txt`、`logs/setup-dialog-tree.txt`、`logs/setup-preview.txt`、`logs/setup-apply.txt` 和 `screenshots/setup-dialog.png`、`screenshots/setup-preview.png`、`screenshots/setup-applied.png` 证明打开、预览、应用和配置备份流程 |
+| 原生进程依赖 | 自动通过 | E2E `result.md` 记录进程树未发现 WebKit、WebView 或 Wails 进程；桌面端仍为 MyGo 原生 GTK3 |
+| 30 分钟 soak | 自动通过 | `soak.csv`、`logs/soak.log`、`screenshots/soak-end.png`；30/30 采样正常，1800 秒，平均 CPU 0.79%，RSS 增长 7784 KiB，automation p95 181 ms |
+| 脏工作树证据保护 | 自动通过 | E2E 和 soak 脚本均在未提交改动时退出；本轮两项证据均来自干净提交 `fe1961d` |
+| 真实内核、真实网络和实际运行态切换 | 未验证 | Xvfb 验收设置 `BOXD_SKIP_KERNEL_AUTOSTART=1` 并使用临时数据；未执行真实内核连接、真实订阅刷新或 selector 运行态切换 |
+| 真实 GPU、Wayland、输入法、HiDPI、多显示器、托盘、主观流畅度及 Wails 同场景对比 | 未验证 | 需在用户真实桌面完成 TS-026；不得据 Xvfb 与 soak 结果宣称长时间卡顿已解决 |
+
+结论：**Dashboard Setup 配置闭环在无显示环境条件通过，真实桌面与真实内核/网络行为待确认**。当前结果支持继续投入 MyGo 原型，但不足以正式替代 Wails。
