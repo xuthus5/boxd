@@ -94,27 +94,27 @@ if [ -n "$(git -C "$root" status --porcelain)" ]; then
   printf 'commit or clean working tree changes before generating desktop evidence\n' >&2
   exit 2
 fi
-
 display_kind=real
-if command -v xdpyinfo >/dev/null 2>&1 && xdpyinfo -display "$DISPLAY" 2>/dev/null | grep -qi 'Xvfb'; then
+if { command -v xdpyinfo >/dev/null 2>&1 && xdpyinfo -display "$DISPLAY" 2>/dev/null | grep -qi 'Xvfb'; } ||
+  ps -eo args= | awk -v d="$DISPLAY" '$1 == "Xvfb" && $2 == d { found = 1 } END { exit !found }'; then
   display_kind=xvfb
 fi
-if [ "$display_kind" = xvfb ] && [ "${MYGO_DESKTOP_ALLOW_XVFB:-0}" != 1 ]; then
-  printf 'DISPLAY is Xvfb; set MYGO_DESKTOP_ALLOW_XVFB=1 only for script self-testing\n' >&2
+if [ "$display_kind" = real ] && [ "${XDG_SESSION_TYPE:-tty}" = tty ] && [ -z "${XDG_CURRENT_DESKTOP:-}" ]; then
+  display_kind=non-desktop
+fi
+if [ "$display_kind" != real ] && [ "${MYGO_DESKTOP_ALLOW_XVFB:-0}" != 1 ]; then
+  printf 'DISPLAY is %s; set MYGO_DESKTOP_ALLOW_XVFB=1 only for script self-testing\n' "$display_kind" >&2
   exit 2
 fi
-if [ "$display_kind" = xvfb ]; then
-  printf 'WARNING: Xvfb self-test is not TS-026 evidence\n' >&2
+if [ "$display_kind" != real ]; then
+  printf 'WARNING: %s self-test is not TS-026 evidence\n' "$display_kind" >&2
 fi
-
 mkdir -p "$work/home" "$work/data" "$work/config" "$work/runtime" "$work/logs" "$evidence/logs" "$evidence/screenshots"
 chmod 700 "$work" "$evidence"
 printf 'command=%s\nstarted=%s\n' "$0 $*" "$(date -Is)" > "$evidence/commands.txt"
 
-session_type=${XDG_SESSION_TYPE:-unknown}
-current_desktop=${XDG_CURRENT_DESKTOP:-unknown}
-gdk_backend=${GDK_BACKEND:-default}
-scale=${GDK_SCALE:-1}
+session_type=${XDG_SESSION_TYPE:-unknown}; current_desktop=${XDG_CURRENT_DESKTOP:-unknown}
+gdk_backend=${GDK_BACKEND:-default}; scale=${GDK_SCALE:-1}
 {
   printf 'run_id=%s\n' "$run_id"
   printf 'commit=%s\n' "$(git rev-parse HEAD 2>/dev/null || printf unknown)"
@@ -255,6 +255,7 @@ if [ -z "$base_rss" ] || [ -z "$final_rss" ]; then
   exit 1
 fi
 gpu_hint=$(glxinfo -B 2>/dev/null | awk '/OpenGL renderer string/ { print $0; exit }' || true)
+[ -n "$gpu_hint" ] || gpu_hint=$(lspci 2>/dev/null | awk '/VGA|3D|Display/ { sub(/^[^:]+: /, ""); print; exit }' || true)
 [ -n "$gpu_hint" ] || gpu_hint="unknown"
 avg_cpu=$(awk -F, 'NR > 1 && $7 == "ok" { sum += $4; n++ } END { if (n > 0) printf "%.2f", sum / n; else print "0.00" }' "$evidence/soak.csv")
 growth=$((final_rss - base_rss))
