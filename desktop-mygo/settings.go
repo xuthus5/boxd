@@ -24,6 +24,10 @@ func (a *application) settingsView(c *ui.Context) {
 			a.networkSettings(c)
 			a.runtimeInfo(c)
 		})
+		ui.Row(c).FillWidth().Gap(12).Children(func() {
+			a.securitySettings(c)
+			a.backupSettings(c)
+		})
 	})
 }
 
@@ -86,6 +90,41 @@ func (a *application) runtimeInfo(c *ui.Context) {
 		keyValue(c, "Config", a.cfg.ConfigPath)
 		keyValue(c, "Remote mode", remoteModeText(a.cfg.Mode))
 		keyValue(c, "Warnings", fmt.Sprint(len(a.model.warnings)))
+	}).Grow(1)
+}
+
+func (a *application) securitySettings(c *ui.Context) {
+	card(c, func() {
+		sectionHeading(c, "Account security", "The administrator password protects remote and browser access")
+		ui.Field(c, "Current password", func() {
+			ui.TextInput(c.Key("password-current"), &a.securityForm.current).Password().Disabled(a.model.busy)
+		})
+		ui.Row(c).Gap(10).Children(func() {
+			ui.Field(c, "New password", func() {
+				ui.TextInput(c.Key("password-next"), &a.securityForm.next).Password().Disabled(a.model.busy)
+			}).Grow(1)
+			ui.Field(c, "Confirm password", func() {
+				ui.TextInput(c.Key("password-confirm"), &a.securityForm.confirm).Password().Disabled(a.model.busy)
+			}).Grow(1)
+		})
+		ui.Row(c).Justify(ui.End).Children(func() {
+			if ui.PrimaryButton(c, "Change password").Key("password-save").Disabled(a.model.busy).Clicked() {
+				a.savePassword()
+			}
+		})
+	}).Grow(1)
+}
+
+func (a *application) backupSettings(c *ui.Context) {
+	card(c, func() {
+		sectionHeading(c, "Backup", "Export the database and configuration as a portable tar.gz archive")
+		ui.Text(c, "The backup contains settings, nodes, subscriptions and the current configuration. Store it securely.").
+			FontSize(12).TextColor(c.Theme().TextMuted)
+		ui.Row(c).Justify(ui.End).Children(func() {
+			if ui.PrimaryButton(c, "Export backup").Key("backup-export").Disabled(a.model.busy).Clicked() {
+				a.exportBackup()
+			}
+		})
 	}).Grow(1)
 }
 

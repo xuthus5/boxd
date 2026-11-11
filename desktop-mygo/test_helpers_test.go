@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/xuthus5/boxd/internal/core"
 	"github.com/xuthus5/boxd/internal/model"
 	"github.com/xuthus5/boxd/internal/service"
 
@@ -11,22 +12,45 @@ import (
 )
 
 type fakeBackend struct {
-	mu          sync.Mutex
-	snapshot    snapshot
-	snapshotErr error
-	actionErr   error
-	configText  string
-	configErr   error
-	configBody  string
-	calls       []string
-	lastPrefs   model.UIPreferences
-	lastNode    service.NodeInput
-	lastOldTag  string
-	lastBatch   service.TestBatchRequest
-	lastSub     service.SubscriptionInput
-	lastSubID   string
-	lastSelect  string
-	lastFilters service.ConnectionCloseFilters
+	mu           sync.Mutex
+	snapshot     snapshot
+	snapshotErr  error
+	actionErr    error
+	configText   string
+	configErr    error
+	configBody   string
+	sectionText  string
+	sectionErr   error
+	diagnostics  model.ConfigDiagnostics
+	history      []model.ConfigApplyEvent
+	snapshotText string
+	ruleSets     []model.RuleSetStatusItem
+	ruleSetAuto  model.RuleSetAutoUpdate
+	calls        []string
+	lastPrefs    model.UIPreferences
+	lastNode     service.NodeInput
+	lastOldTag   string
+	lastBatch    service.TestBatchRequest
+	lastSub      service.SubscriptionInput
+	lastSubID    string
+	lastSelect   string
+	lastFilters  service.ConnectionCloseFilters
+	lastSection  string
+	lastBody     string
+	lastRuleSet  core.RuleSetUpdateRequest
+	lastAuto     model.RuleSetAutoUpdate
+	lastPath     string
+	lastCurrent  string
+	lastNew      string
+}
+
+func (f *fakeBackend) ValidateConfigSection(_ context.Context, section, body string) error {
+	f.record("validate-config-section")
+	f.mu.Lock()
+	f.lastSection = section
+	f.lastBody = body
+	f.mu.Unlock()
+	return f.actionErr
 }
 
 func (f *fakeBackend) Snapshot(context.Context) (snapshot, error) {
@@ -42,6 +66,14 @@ func (f *fakeBackend) LoadConfig(context.Context) (string, error) {
 	return f.configText, f.configErr
 }
 
+func (f *fakeBackend) LoadConfigSection(_ context.Context, section string) (string, error) {
+	f.record("load-config-section")
+	f.mu.Lock()
+	f.lastSection = section
+	f.mu.Unlock()
+	return f.sectionText, f.sectionErr
+}
+
 func (f *fakeBackend) ValidateConfig(_ context.Context, body string) error {
 	f.record("validate-config")
 	f.mu.Lock()
@@ -54,6 +86,66 @@ func (f *fakeBackend) ApplyConfig(_ context.Context, body string) error {
 	f.record("apply-config")
 	f.mu.Lock()
 	f.configBody = body
+	f.mu.Unlock()
+	return f.actionErr
+}
+
+func (f *fakeBackend) ApplyConfigSection(_ context.Context, section, body string) error {
+	f.record("apply-config-section")
+	f.mu.Lock()
+	f.lastSection = section
+	f.lastBody = body
+	f.mu.Unlock()
+	return f.actionErr
+}
+
+func (f *fakeBackend) InstallDefaultConfigSection(context.Context, string) error {
+	f.record("install-config-defaults")
+	return f.actionErr
+}
+
+func (f *fakeBackend) ConfigDiagnostics(context.Context) (model.ConfigDiagnostics, error) {
+	f.record("config-diagnostics")
+	return f.diagnostics, f.actionErr
+}
+
+func (f *fakeBackend) ConfigApplyHistory(context.Context) ([]model.ConfigApplyEvent, error) {
+	f.record("config-history")
+	return f.history, f.actionErr
+}
+
+func (f *fakeBackend) ConfigSnapshot(context.Context, string) (string, error) {
+	f.record("config-snapshot")
+	return f.snapshotText, f.actionErr
+}
+
+func (f *fakeBackend) RestoreConfigSnapshot(context.Context, string) error {
+	f.record("restore-config")
+	return f.actionErr
+}
+
+func (f *fakeBackend) RuleSetStatus(context.Context) ([]model.RuleSetStatusItem, error) {
+	f.record("ruleset-status")
+	return f.ruleSets, f.actionErr
+}
+
+func (f *fakeBackend) UpdateRuleSets(_ context.Context, req core.RuleSetUpdateRequest) (model.RuleSetUpdateResponse, error) {
+	f.record("ruleset-update")
+	f.mu.Lock()
+	f.lastRuleSet = req
+	f.mu.Unlock()
+	return model.RuleSetUpdateResponse{UpdatedCount: 1}, f.actionErr
+}
+
+func (f *fakeBackend) RuleSetAutoUpdate(context.Context) (model.RuleSetAutoUpdate, error) {
+	f.record("ruleset-auto")
+	return f.ruleSetAuto, f.actionErr
+}
+
+func (f *fakeBackend) SetRuleSetAutoUpdate(_ context.Context, cfg model.RuleSetAutoUpdate) error {
+	f.record("set-ruleset-auto")
+	f.mu.Lock()
+	f.lastAuto = cfg
 	f.mu.Unlock()
 	return f.actionErr
 }
@@ -185,6 +277,23 @@ func (f *fakeBackend) SetUIPreferences(_ context.Context, prefs model.UIPreferen
 
 func (f *fakeBackend) SetTestURL(context.Context, string) error {
 	f.record("test-url")
+	return f.actionErr
+}
+
+func (f *fakeBackend) ChangePassword(_ context.Context, currentPassword, newPassword string) error {
+	f.record("change-password")
+	f.mu.Lock()
+	f.lastCurrent = currentPassword
+	f.lastNew = newPassword
+	f.mu.Unlock()
+	return f.actionErr
+}
+
+func (f *fakeBackend) CreateBackup(_ context.Context, path string) error {
+	f.record("create-backup")
+	f.mu.Lock()
+	f.lastPath = path
+	f.mu.Unlock()
 	return f.actionErr
 }
 

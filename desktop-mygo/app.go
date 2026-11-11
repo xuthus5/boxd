@@ -29,22 +29,29 @@ type application struct {
 	quitting        bool
 	autostartKernel bool
 	shortcutReady   bool
+	advancedOpen    bool
 
-	nodesList ui.ListState
-	subsList  ui.ListState
-	connsList ui.ListState
-	logsList  ui.ListState
+	nodesList    ui.ListState
+	subsList     ui.ListState
+	connsList    ui.ListState
+	logsList     ui.ListState
+	historyList  ui.ListState
+	ruleSetsList ui.ListState
 
-	refreshCancel context.CancelFunc
-	refreshDone   chan struct{}
-	refreshNow    chan struct{}
-	refreshOnce   sync.Once
-	config        configPageState
-	nodeForm      nodeFormState
-	subForm       subscriptionFormState
-	selectorForm  selectorFormState
-	deleteForm    deleteFormState
-	connFilter    string
+	refreshCancel  context.CancelFunc
+	refreshDone    chan struct{}
+	refreshNow     chan struct{}
+	refreshOnce    sync.Once
+	config         configPageState
+	configSections map[string]*configSectionState
+	configHistory  configHistoryState
+	ruleSets       ruleSetPageState
+	securityForm   securityFormState
+	nodeForm       nodeFormState
+	subForm        subscriptionFormState
+	selectorForm   selectorFormState
+	deleteForm     deleteFormState
+	connFilter     string
 }
 
 func newApplication(source backend, cfg runtime.Config, startupErr error, autostart bool) *application {

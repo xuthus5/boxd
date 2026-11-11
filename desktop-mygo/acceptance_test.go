@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+
+	"github.com/xuthus5/boxd/internal/model"
 )
 
 type acceptancePage struct {
@@ -26,6 +28,10 @@ func TestAcceptanceScreenshots(t *testing.T) {
 		t.Fatal("acceptance backend is not a fake backend")
 	}
 	fake.configText = "{\n  \"log\": {\"level\": \"info\"},\n  \"inbounds\": []\n}\n"
+	fake.sectionText = "{\n  \"level\": \"info\"\n}\n"
+	fake.history = []model.ConfigApplyEvent{{ID: "acceptance-1", Source: "desktop-mygo", Status: "applied", Restorable: true, Size: 42}}
+	fake.ruleSets = []model.RuleSetStatusItem{{Tag: "geosite", Type: "remote", Updatable: true}}
+	fake.ruleSetAuto = model.RuleSetAutoUpdate{Interval: "24h"}
 	app.loadConfigSync()
 	tt := ui.NewTester(app.view, 1440, 900)
 	runID := acceptanceRunID()
@@ -40,6 +46,11 @@ func TestAcceptanceScreenshots(t *testing.T) {
 		{name: "connections", path: "/connections", text: "Active"},
 		{name: "logs", path: "/logs", text: "Recent activity"},
 		{name: "config", path: "/config", text: "Raw configuration"},
+		{name: "inbounds", path: "/proxy/inbounds", text: "Inbounds"},
+		{name: "route", path: "/policy/route", text: "Route"},
+		{name: "kernel-log-config", path: "/advanced/log", text: "Kernel log"},
+		{name: "config-history", path: "/advanced/history", text: "Config history"},
+		{name: "rule-sets", path: "/advanced/rule-sets", text: "Rule sets"},
 		{name: "settings", path: "/settings", text: "Appearance"},
 	}
 	var light *imageRGBA

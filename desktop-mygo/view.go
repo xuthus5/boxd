@@ -46,6 +46,22 @@ func (a *application) view(c *ui.Context) {
 					case r.Match("/settings"):
 						r.Title("Settings")
 						a.settingsView(c)
+					case r.Match("/proxy/inbounds"), r.Match("/proxy/outbounds"),
+						r.Match("/policy/route"), r.Match("/policy/dns"),
+						r.Match("/advanced/endpoints"), r.Match("/advanced/services"),
+						r.Match("/advanced/certificate"), r.Match("/advanced/log"),
+						r.Match("/advanced/ntp"), r.Match("/advanced/experimental"),
+						r.Match("/advanced/network-namespaces"), r.Match("/advanced/http-clients"),
+						r.Match("/advanced/certificate-providers"):
+						path := a.router.Path()
+						r.Title(routeTitle(path))
+						a.configSectionView(c, path)
+					case r.Match("/advanced/history"):
+						r.Title("Config history")
+						a.configHistoryView(c)
+					case r.Match("/advanced/rule-sets"):
+						r.Title("Rule sets")
+						a.ruleSetsView(c)
 					default:
 						r.Title("Dashboard")
 						a.dashboardView(c)
@@ -55,6 +71,7 @@ func (a *application) view(c *ui.Context) {
 		})
 	})
 	a.managementDialogs(c)
+	a.configHistoryDialog(c)
 }
 
 func (a *application) sidebar(c *ui.Context) {
@@ -70,6 +87,12 @@ func (a *application) sidebar(c *ui.Context) {
 		ui.SidebarSection(c, "Overview", nil, func() {
 			ui.SidebarItem(c, "/dashboard", iconDashboard, "Dashboard")
 		})
+		ui.SidebarSection(c, "Proxy & policy", nil, func() {
+			ui.SidebarItem(c, "/proxy/inbounds", iconConns, "Inbounds")
+			ui.SidebarItem(c, "/proxy/outbounds", iconNodes, "Outbounds")
+			ui.SidebarItem(c, "/policy/route", iconSubs, "Route")
+			ui.SidebarItem(c, "/policy/dns", iconDashboard, "DNS")
+		})
 		ui.SidebarSection(c, "Resources", nil, func() {
 			ui.SidebarItem(c, "/nodes", iconNodes, "Nodes")
 			ui.SidebarItem(c, "/subscriptions", iconSubs, "Subscriptions")
@@ -77,6 +100,19 @@ func (a *application) sidebar(c *ui.Context) {
 		ui.SidebarSection(c, "Observability", nil, func() {
 			ui.SidebarItem(c, "/connections", iconConns, "Connections")
 			ui.SidebarItem(c, "/logs", iconLogs, "Logs")
+		})
+		ui.SidebarSection(c, "Advanced", &a.advancedOpen, func() {
+			ui.SidebarItem(c, "/advanced/endpoints", iconConns, "Endpoints")
+			ui.SidebarItem(c, "/advanced/services", iconNodes, "Services")
+			ui.SidebarItem(c, "/advanced/certificate", iconConfig, "Certificate")
+			ui.SidebarItem(c, "/advanced/network-namespaces", iconConns, "Network namespaces")
+			ui.SidebarItem(c, "/advanced/http-clients", iconSubs, "HTTP clients")
+			ui.SidebarItem(c, "/advanced/certificate-providers", iconConfig, "Certificate providers")
+			ui.SidebarItem(c, "/advanced/log", iconLogs, "Kernel log")
+			ui.SidebarItem(c, "/advanced/ntp", iconDashboard, "NTP")
+			ui.SidebarItem(c, "/advanced/experimental", iconSettings, "Experimental")
+			ui.SidebarItem(c, "/advanced/rule-sets", iconSubs, "Rule sets")
+			ui.SidebarItem(c, "/advanced/history", iconLogs, "Config history")
 		})
 		ui.SidebarSection(c, "System", nil, func() {
 			ui.SidebarItem(c, "/config", iconConfig, "Config")
@@ -192,6 +228,9 @@ func themeButtonLabel(theme string) string {
 }
 
 func routeTitle(path string) string {
+	if spec, ok := configSectionSpecForRoute(path); ok {
+		return spec.Title
+	}
 	switch path {
 	case "/nodes":
 		return "Nodes"
@@ -205,14 +244,23 @@ func routeTitle(path string) string {
 		return "Config"
 	case "/settings":
 		return "Settings"
+	case "/advanced/history":
+		return "Config history"
+	case "/advanced/rule-sets":
+		return "Rule sets"
 	default:
 		return "Dashboard"
 	}
 }
 
 func (a *application) normalizeRoute() {
+	if _, ok := configSectionSpecForRoute(a.router.Path()); ok {
+		return
+	}
 	switch a.router.Path() {
 	case "/dashboard", "/nodes", "/subscriptions", "/connections", "/logs", "/config", "/settings":
+		return
+	case "/advanced/history", "/advanced/rule-sets":
 		return
 	default:
 		a.router.Replace("/dashboard")

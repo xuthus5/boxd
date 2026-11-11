@@ -114,6 +114,22 @@ for i in "${!pages[@]}"; do
   [ -s "$evidence/screenshots/$page.png" ] || { printf 'screenshot %s is empty\n' "$page" >&2; exit 1; }
 done
 
+automation snapshot --full > "$evidence/logs/advanced-sidebar-tree.txt"
+advanced_ref=$(awk '/\[treeItem\] "Advanced"/ { print $1; exit }' "$evidence/logs/advanced-sidebar-tree.txt")
+[ -n "$advanced_ref" ] || { printf 'Advanced sidebar section is missing\n' >&2; exit 1; }
+automation press "$advanced_ref" --settle --timeout 15s > "$evidence/logs/nav-advanced-open.txt"
+advanced_pages=(proxy/inbounds proxy/outbounds policy/route policy/dns advanced/endpoints advanced/services advanced/certificate advanced/network-namespaces advanced/http-clients advanced/certificate-providers advanced/log advanced/ntp advanced/experimental advanced/rule-sets advanced/history)
+advanced_texts=("Inbounds" "Outbounds" "Route" "DNS" "Endpoints" "Services" "Certificate" "Network namespaces" "HTTP clients" "Certificate providers" "Kernel log" "NTP" "Experimental" "Rule sets" "Config history")
+for i in "${!advanced_pages[@]}"; do
+  page=${advanced_pages[$i]}
+  text=${advanced_texts[$i]}
+  file=${page//\//-}
+  automation press "key=\"/$page\"" --settle --timeout 15s > "$evidence/logs/nav-$file.txt"
+  automation wait --text "$text" --settle --timeout 15s > "$evidence/logs/wait-$file.txt"
+  automation screenshot "$evidence/screenshots/$file.png" > "$evidence/logs/screenshot-$file.txt"
+  [ -s "$evidence/screenshots/$file.png" ] || { printf 'screenshot %s is empty\n' "$file" >&2; exit 1; }
+done
+
 node_link='vless://00000000-0000-0000-0000-000000000001@edge.example.com:443?security=tls&type=tcp#e2e-node'
 automation press 'key="/nodes"' --settle --timeout 15s > "$evidence/logs/manage-nodes-open.txt"
 automation press "key=node-import" --settle --timeout 15s > "$evidence/logs/manage-node-dialog.txt"

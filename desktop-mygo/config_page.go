@@ -8,15 +8,21 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
+
+	"github.com/xuthus5/boxd/internal/model"
 )
 
 const configEditorHeight = 520
 
 type configPageState struct {
-	editor    *editor.State
-	loaded    bool
-	loading   bool
-	attempted bool
+	editor             *editor.State
+	loaded             bool
+	loading            bool
+	attempted          bool
+	diagnostics        model.ConfigDiagnostics
+	diagnosticsLoaded  bool
+	diagnosticsLoading bool
+	diagnosticsTried   bool
 }
 
 func (a *application) configView(c *ui.Context) {
@@ -38,6 +44,7 @@ func (a *application) configView(c *ui.Context) {
 			editor.View(c, a.configEditorState()).Key("config-editor").
 				FillWidth().Height(configEditorHeight)
 		})
+		a.configDiagnosticsCard(c)
 	})
 }
 

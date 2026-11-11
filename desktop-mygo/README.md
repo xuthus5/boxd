@@ -12,7 +12,9 @@
 - Connections：按目标/出口/规则筛选、关闭单个连接、关闭筛选结果和关闭全部。
 - Logs：应用与内核日志、级别过滤、固定容量缓冲和末尾跟随。
 - Config：JSON 编辑、格式化、校验、应用，以及原生文件导入导出。
-- Settings：主题、语言、内核自启、桌面登录自启、测试 URL 和运行时路径。
+- Inbounds、Outbounds、Route、DNS 与高级配置段：原生分段 JSON 编辑、校验、应用、默认安装和配置诊断。
+- Config history：应用历史快照查看、校验后恢复；Rule sets：状态查看、更新和本地自动更新设置。
+- Settings：主题、语言、内核自启、桌面登录自启、测试 URL、运行时路径、管理员密码和备份导出。
 - 后台刷新、错误/过期提示、固定流量与日志缓冲区。
 - 单实例、深链 `boxd://import?link=...`、关闭到托盘（托盘不可用时允许关闭退出）。
 
@@ -57,14 +59,14 @@ GOTOOLCHAIN=auto go run .
 GOTOOLCHAIN=auto go install github.com/egoist/mygo/plugins/automation/cmd/mygo-automation@v0.9.0
 ```
 
-执行 Xvfb 真实窗口验收：
+执行 Xvfb 真实窗口验收（覆盖基础页面、全部高级配置路由、节点/订阅/连接管理）：
 
 ```bash
 cd desktop-mygo
 ./scripts/mygo-headless-e2e.sh
 ```
 
-脚本使用临时数据目录，构建带 `e2e` 标签的应用，通过 automation socket 验证 `content` 窗口、七个页面导航，以及节点导入/删除、订阅创建/删除和连接管理入口。日志、环境信息和真实窗口截图写入 `artifacts/acceptance/<run-id>/`。脚本只清理本轮自己启动的应用和 Xvfb。
+脚本使用临时数据目录，构建带 `e2e` 标签的应用，通过 automation socket 验证 `content` 窗口、基础与高级页面导航，以及节点导入/删除、订阅创建/删除和连接管理入口。日志、环境信息和真实窗口截图写入 `artifacts/acceptance/<run-id>/`。脚本只清理本轮自己启动的应用和 Xvfb。
 
 E2E 与 soak 脚本使用各自独立的 `mygo-automation --session`，可并行运行而不会覆盖彼此的默认会话。
 

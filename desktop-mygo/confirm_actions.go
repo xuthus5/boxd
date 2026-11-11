@@ -21,5 +21,7 @@ func (a *application) confirmDelete() {
 	case "connections":
 		filters := service.ConnectionCloseFilters{IDs: form.ids}
 		a.closeConnections(filters)
+	case "config-restore":
+		a.restoreConfigSnapshot(form.id)
 	}
 }

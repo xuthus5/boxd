@@ -6,6 +6,7 @@ import (
 	"errors"
 	"sort"
 
+	"github.com/xuthus5/boxd/internal/core"
 	"github.com/xuthus5/boxd/internal/model"
 	"github.com/xuthus5/boxd/internal/service"
 
@@ -17,8 +18,20 @@ var errRuntimeUnavailable = errors.New("runtime is not available")
 type backend interface {
 	Snapshot(context.Context) (snapshot, error)
 	LoadConfig(context.Context) (string, error)
+	LoadConfigSection(context.Context, string) (string, error)
 	ValidateConfig(context.Context, string) error
+	ValidateConfigSection(context.Context, string, string) error
 	ApplyConfig(context.Context, string) error
+	ApplyConfigSection(context.Context, string, string) error
+	InstallDefaultConfigSection(context.Context, string) error
+	ConfigDiagnostics(context.Context) (model.ConfigDiagnostics, error)
+	ConfigApplyHistory(context.Context) ([]model.ConfigApplyEvent, error)
+	ConfigSnapshot(context.Context, string) (string, error)
+	RestoreConfigSnapshot(context.Context, string) error
+	RuleSetStatus(context.Context) ([]model.RuleSetStatusItem, error)
+	UpdateRuleSets(context.Context, core.RuleSetUpdateRequest) (model.RuleSetUpdateResponse, error)
+	RuleSetAutoUpdate(context.Context) (model.RuleSetAutoUpdate, error)
+	SetRuleSetAutoUpdate(context.Context, model.RuleSetAutoUpdate) error
 	StartKernel(context.Context) error
 	StopKernel(context.Context) error
 	RestartKernel(context.Context) error
@@ -39,6 +52,8 @@ type backend interface {
 	SetKernelAutostart(context.Context, bool) error
 	SetUIPreferences(context.Context, model.UIPreferences) error
 	SetTestURL(context.Context, string) error
+	ChangePassword(context.Context, string, string) error
+	CreateBackup(context.Context, string) error
 	ImportLink(context.Context, string) error
 }
 
