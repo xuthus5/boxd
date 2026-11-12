@@ -2,7 +2,7 @@
 
 日期：2026-11-11
 
-状态：原型主体已实现；Dashboard Setup 配置闭环无显示自动验收和 30 分钟 soak 通过（提交 `fe1961d`，2026-11-12）；真实桌面验收 runner 已就绪并完成 Xvfb 自测，真实桌面最终验收待完成；远程可视待安装 `x11vnc`
+状态：原型主体已实现；Dashboard Setup 配置闭环无显示自动验收和 30 分钟 soak 通过（提交 `fe1961d`，2026-11-12）；GitHub 实验构建已加入且本地矩阵构建通过，首次远程运行待验证；真实桌面验收 runner 已就绪并完成 Xvfb 自测，真实桌面最终验收待完成；远程可视待安装 `x11vnc`
 
 关联设计：`docs/boxd/specs/2026-08-02-wails3-desktop-design.md`
 
@@ -214,6 +214,7 @@
 | TS-033 | 支持包脱敏、字段摘要、部分源失败、空源、稳定错误码、UTC 文件名和 `0600` 权限均有测试；Settings 入口在 Xvfb 中可见；原生保存对话框未自动验证时明确标记“未验证”。 |
 | TS-034 | Route 规则、Route rule set、DNS 服务器和 DNS 规则 schema 有单测；`ui.Tester` 断言常用字段；列表、数字、布尔和文本写入均保留未知字段；非法输入不改变草稿；Xvfb 打开 Route 弹窗并断言 `key=config-item-visual-route-rules-action`；高级字段未覆盖时保留原始 JSON 入口并标记“条件通过”。 |
 | TS-035 | Setup 状态加载、刷新、模块选择、非法配置确认、预览和应用均有成功与错误路径测试；预览不得写盘；应用必须携带预览返回的 `SourceHash`，失败或回滚后保留旧配置并显示可读错误；成功后刷新 Setup、Config 和 Dashboard；`ui.Tester`、Xvfb、临时数据目录和 race 证据齐全；真实内核/网络未验证时明确标记。 |
+| TS-036 | 实验工作流通过 `actionlint`；仅使用 `contents: read`；测试、vet 和脚本检查通过；本地同命令能构建 Linux amd64/arm64 deb/rpm/tar.gz、Windows amd64 exe 和 macOS arm64 app；缺少产物时失败；不上传 Release、不修改现有 Wails 发布流程；首次 GitHub Actions 远程运行未验证时明确标记。 |
 
 ### TS-001 创建隔离子模块
 
@@ -903,6 +904,27 @@
   - 证据：`desktop-mygo/artifacts/acceptance/20261112-fe1961d-e2e/result.md`、`logs/setup-*.txt`、`screenshots/setup-dialog.png`、`screenshots/setup-preview.png`、`screenshots/setup-applied.png`、`desktop-mygo/artifacts/acceptance/20261112-fe1961d-soak/result.md`、`soak.csv` 和 `screenshots/soak-end.png`。
   - 环境限制：Xvfb 使用临时数据目录并设置 `BOXD_SKIP_KERNEL_AUTOSTART=1`；已验证预览不写盘、应用写入配置和备份、失败/回滚路径及 GTK3 控件树，未启动真实内核或连接真实网络。
   - 残留风险：真实 GPU、Wayland、输入法、HiDPI、多显示器、托盘、主观流畅度、真实内核/网络行为和 Wails 同场景对比仍需 TS-026 确认。
+
+### TS-036 提供 GitHub 实验构建任务
+
+- 优先级：P1
+- 依赖：TS-001、TS-020、TS-035
+- EARS：
+  - 当维护者手动触发、或 `desktop-mygo/` 与实验工作流发生 push/PR 变更时，系统应运行独立实验构建工作流。
+  - 当执行实验工作流时，系统应先运行 MyGo 模块测试、`go vet`、`go tool mygo vet` 和验收脚本语法检查。
+  - 系统应构建 Linux amd64/arm64 的 deb、rpm 和 tar.gz，Windows amd64 exe，以及 macOS arm64 app。
+  - 如果任一目标缺少预期产物，系统应使构建失败，不应上传空产物。
+  - 系统应将实验产物作为 GitHub Actions artifacts 保存，不应上传 GitHub Release、签名或修改现有 Wails 发布流程。
+- 实施要点：
+  - 新增 `.github/workflows/desktop-mygo-experimental.yml`，使用 `desktop-mygo/go.mod` 固定 Go 与 MyGo 工具版本。
+  - Linux 使用 `go tool mygo build -platform linux/amd64` 和 `linux/arm64`，保留 deb/rpm/tar.gz。
+  - Windows 使用 Linux 交叉构建并设置 `-skip-installer`；macOS 使用 `darwin/arm64 -skip-dmg -skip-notarize -sign -`，仅产出可验证 app。
+  - 工作流权限保持 `contents: read`，artifact 保留 14 天。
+- 验收标准：
+  - `actionlint`、YAML 解析和 `git diff --check` 通过。
+  - 本地使用与工作流相同的 MyGo 命令构建并验证四类目标产物。
+  - 首次 GitHub Actions 实际运行必须检查日志和 artifact；未运行时只能标记“条件通过”。
+  - 不修改 `release.yml`、现有 Wails 构建入口或正式发布产物。
 
 ## 7. 验收要求
 

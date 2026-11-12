@@ -44,6 +44,16 @@ GOTOOLCHAIN=auto go tool mygo build
 
 构建产物位于 `desktop-mygo/build/`。`ui.Tester` 截图验收位于 `desktop-mygo/artifacts/acceptance/<run-id>/screenshots/`。
 
+## GitHub 实验构建
+
+`.github/workflows/desktop-mygo-experimental.yml` 在手动触发、`desktop-mygo/` 相关 push 或 PR 时运行。它执行测试、`go vet`、`go tool mygo vet` 和脚本语法检查，并构建可下载的产物：
+
+- Linux amd64/arm64：可执行文件、`.deb`、`.rpm`、`.tar.gz`
+- Windows amd64：`.exe`
+- macOS arm64：`.app`
+
+该工作流仅用于实验验证，权限为 `contents: read`，不上传 GitHub Release，不接入现有 Wails 发布流程；Windows 安装器和 macOS 签名/公证不在本轮范围内。
+
 ## 本地运行
 
 ```bash

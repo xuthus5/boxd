@@ -1,0 +1,136 @@
+name: desktop-mygo-experimental
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "desktop-mygo/**"
+      - ".github/workflows/desktop-mygo-experimental.yml"
+  pull_request:
+    paths:
+      - "desktop-mygo/**"
+      - ".github/workflows/desktop-mygo-experimental.yml"
+
+concurrency:
+  group: desktop-mygo-experimental-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: desktop-mygo/go.mod
+          cache: true
+          cache-dependency-path: desktop-mygo/go.sum
+      - name: Install GTK3 test runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libgtk-3-dev
+      - name: Run MyGo tests and vet
+        working-directory: desktop-mygo
+        env:
+          GOTOOLCHAIN: auto
+        run: |
+          go test -count=1 ./...
+          go vet ./...
+          go tool mygo vet
+      - name: Check acceptance scripts
+        working-directory: desktop-mygo
+        run: |
+          bash -n scripts/mygo-desktop-acceptance.sh
+          bash -n scripts/mygo-headless-e2e.sh
+          bash -n scripts/mygo-headless-soak.sh
+
+  build:
+    needs: quality
+    name: build-${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-amd64
+            os: ubuntu-24.04
+            platform: linux/amd64
+            args: ""
+          - name: linux-arm64
+            os: ubuntu-24.04
+            platform: linux/arm64
+            args: ""
+          - name: windows-amd64
+            os: ubuntu-24.04
+            platform: windows/amd64
+            args: "-skip-installer"
+          - name: darwin-arm64
+            os: macos-15
+            platform: darwin/arm64
+            args: "-skip-dmg -skip-notarize -sign -"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: desktop-mygo/go.mod
+          cache: true
+          cache-dependency-path: desktop-mygo/go.sum
+      - name: Build experimental app
+        working-directory: desktop-mygo
+        env:
+          GOTOOLCHAIN: auto
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/desktop-mygo-${{ matrix.name }}"
+          go tool mygo build -o "$out" -platform "${{ matrix.platform }}" ${{ matrix.args }}
+          echo "DESKTOP_MYGO_OUT=$out" >> "$GITHUB_ENV"
+      - name: Verify app bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$DESKTOP_MYGO_OUT"
+          case "${{ matrix.platform }}" in
+            linux/*)
+              bin=$(find "$out" -maxdepth 2 -type f -name boxd -print -quit)
+              test -n "$bin"
+              test -x "$bin"
+              file "$bin" | grep -q ELF
+              test -n "$(find "$out" -maxdepth 2 -type f -name '*.deb' -print -quit)"
+              test -n "$(find "$out" -maxdepth 2 -type f -name '*.rpm' -print -quit)"
+              test -n "$(find "$out" -maxdepth 2 -type f -name '*.tar.gz' -print -quit)"
+              ;;
+            windows/*)
+              test -f "$out/windows-amd64/boxd.exe"
+              file "$out/windows-amd64/boxd.exe" | grep -q 'PE32+'
+              ;;
+            darwin/*)
+              app="$out/darwin-arm64/boxd.app"
+              test -d "$app"
+              test -f "$app/Contents/MacOS/boxd"
+              file "$app/Contents/MacOS/boxd" | grep -q 'Mach-O'
+              ;;
+            *)
+              echo "unexpected platform: ${{ matrix.platform }}" >&2
+              exit 1
+              ;;
+          esac
+      - name: Upload experimental app
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-mygo-${{ matrix.name }}
+          path: ${{ env.DESKTOP_MYGO_OUT }}
+          if-no-files-found: error
+          retention-days: 14
+      - name: Write build summary
+        shell: bash
+        run: |
+          {
+            echo "### desktop-mygo ${{ matrix.name }}"
+            echo
+            echo "- Platform: \`${{ matrix.platform }}\`"
+            echo "- Experimental only; unsigned and not wired into the release workflow."
+          } >> "$GITHUB_STEP_SUMMARY"
