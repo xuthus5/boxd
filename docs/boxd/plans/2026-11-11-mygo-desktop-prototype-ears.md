@@ -2,7 +2,7 @@
 
 日期：2026-11-11
 
-状态：原型主体已实现；Dashboard Setup 配置闭环无显示自动验收和 30 分钟 soak 通过（提交 `fe1961d`，2026-11-12）；GitHub 实验构建已加入且本地矩阵构建通过，首次远程运行待验证；真实桌面验收 runner 已就绪并完成 Xvfb 自测，真实桌面最终验收待完成；远程可视待安装 `x11vnc`
+状态：原型主体已实现；Dashboard Setup 配置闭环无显示自动验收和 30 分钟 soak 通过（提交 `fe1961d`，2026-11-12）；GitHub 实验构建远程运行通过（run `43146231665`，2026-11-12）；真实桌面验收 runner 已就绪并完成 Xvfb 自测，真实桌面最终验收待完成；远程可视待安装 `x11vnc`
 
 关联设计：`docs/boxd/specs/2026-08-02-wails3-desktop-design.md`
 
@@ -214,7 +214,7 @@
 | TS-033 | 支持包脱敏、字段摘要、部分源失败、空源、稳定错误码、UTC 文件名和 `0600` 权限均有测试；Settings 入口在 Xvfb 中可见；原生保存对话框未自动验证时明确标记“未验证”。 |
 | TS-034 | Route 规则、Route rule set、DNS 服务器和 DNS 规则 schema 有单测；`ui.Tester` 断言常用字段；列表、数字、布尔和文本写入均保留未知字段；非法输入不改变草稿；Xvfb 打开 Route 弹窗并断言 `key=config-item-visual-route-rules-action`；高级字段未覆盖时保留原始 JSON 入口并标记“条件通过”。 |
 | TS-035 | Setup 状态加载、刷新、模块选择、非法配置确认、预览和应用均有成功与错误路径测试；预览不得写盘；应用必须携带预览返回的 `SourceHash`，失败或回滚后保留旧配置并显示可读错误；成功后刷新 Setup、Config 和 Dashboard；`ui.Tester`、Xvfb、临时数据目录和 race 证据齐全；真实内核/网络未验证时明确标记。 |
-| TS-036 | 实验工作流通过 `actionlint`；仅使用 `contents: read`；测试、vet 和脚本检查通过；本地同命令能构建 Linux amd64/arm64 deb/rpm/tar.gz、Windows amd64 exe 和 macOS arm64 app；缺少产物时失败；不上传 Release、不修改现有 Wails 发布流程；首次 GitHub Actions 远程运行未验证时明确标记。 |
+| TS-036 | 实验工作流通过 `actionlint`；仅使用 `contents: read`；测试、vet 和脚本检查通过；本地和 GitHub Actions 均能构建 Linux amd64/arm64 deb/rpm/tar.gz、Windows amd64 exe 和 macOS arm64 app；缺少产物时失败；不上传 Release、不修改现有 Wails 发布流程；远程运行通过且 artifacts 存在。 |
 
 ### TS-001 创建隔离子模块
 
@@ -923,15 +923,15 @@
 - 验收标准：
   - `actionlint`、YAML 解析和 `git diff --check` 通过。
   - 本地使用与工作流相同的 MyGo 命令构建并验证四类目标产物。
-  - 首次 GitHub Actions 实际运行必须检查日志和 artifact；未运行时只能标记“条件通过”。
+  - GitHub Actions 实际运行必须成功，且四类目标 artifact 均存在。
   - 不修改 `release.yml`、现有 Wails 构建入口或正式发布产物。
 - 验收记录：
-  - 状态：条件通过
-  - 提交：`44ddc30`
+  - 状态：通过
+  - 提交：`44ddc30`、`05e2c41`
   - 命令：`actionlint .github/workflows/desktop-mygo-experimental.yml`、YAML 解析、`go test -count=1 ./...`、`go vet ./...`、`go tool mygo vet`、三个验收脚本 `bash -n`，以及工作流同参数的 Linux amd64/arm64、Windows amd64、macOS arm64 `go tool mygo build` 均退出码为 0。
-  - 证据：`.github/workflows/desktop-mygo-experimental.yml`、`desktop-mygo/README.md` 和第 12.8 节；本地构建产物仅用于验证，未提交二进制、deb、rpm、tar.gz 或 app。
-  - 环境限制：未推送远程，因此 GitHub Actions 首次真实运行尚未验证；Windows 安装器和 macOS 签名/公证不在实验范围内。
-  - 残留风险：远程 runner 的 Go 1.27.4、GTK3 测试依赖或 macOS 工具链差异可能导致首次运行失败，需要在首个 workflow run 中确认。
+  - 证据：`.github/workflows/desktop-mygo-experimental.yml`、`desktop-mygo/README.md`、第 12.8 节和 GitHub Actions run `43146231665`；quality 通过，四个构建 job 通过，四类 artifact 均已上传。
+  - 环境限制：Windows 安装器和 macOS 签名/公证不在实验范围内。
+  - 残留风险：action 依赖存在 Node.js 20 弃用警告；后续需升级到目标 action 版本。
 
 ## 7. 验收要求
 
@@ -1337,9 +1337,9 @@ TS-005、TS-012、TS-014 可以与 TS-008 并行；TS-019 和 TS-023 随各页�
 
 结论：**真实桌面验收工具可用，但 TS-026 仍未完成**。Xvfb 自测只能证明脚本流程可执行，不能证明真实桌面性能或卡顿问题已解决。
 
-### 12.8 GitHub 实验构建本地验证（44ddc30）
+### 12.8 GitHub 实验构建验证（05e2c41）
 
-验收日期：2026-11-12。验证提交：`44ddc30`。工作流：`.github/workflows/desktop-mygo-experimental.yml`。
+验收日期：2026-11-12。验证提交：`05e2c41`。工作流：`.github/workflows/desktop-mygo-experimental.yml`。远程运行：`43146231665`。
 
 | 验收项 | 状态 | 证据或限制 |
 | --- | --- | --- |
@@ -1349,6 +1349,8 @@ TS-005、TS-012、TS-014 可以与 TS-008 并行；TS-019 和 TS-023 随各页�
 | Linux arm64 | 自动通过（本地） | 生成 `boxd`、`.deb`、`.rpm`、`.tar.gz`，并验证 ELF 可执行文件与三类包存在 |
 | Windows amd64 | 自动通过（本地） | 使用 `-skip-installer` 生成 `boxd.exe`，验证为 PE32+ |
 | macOS arm64 | 自动通过（本地） | 使用 `-skip-dmg -skip-notarize -sign -` 生成 `boxd.app`，验证 `Contents/MacOS/boxd` 为 Mach-O |
-| GitHub Actions 远程运行 | 未验证 | 尚未 push，无法确认 runner 镜像、缓存和 artifact 上传行为；首次远程运行后需补记录 |
+| GitHub Actions 远程运行 | 自动通过 | quality 用时 3m18s；Linux amd64/arm64、Windows amd64、macOS arm64 构建均通过 |
+| GitHub Actions artifacts | 自动通过 | `desktop-mygo-linux-amd64`、`desktop-mygo-linux-arm64`、`desktop-mygo-windows-amd64`、`desktop-mygo-darwin-arm64` 均存在 |
+| 无关 CI 观察 | 失败 | 同一 push 的原有 `ci` 因 Go 1.26.10 标准库漏洞 `GO-2026-6859` 失败，与实验工作流无关 |
 
-结论：**实验构建工作流已就绪并通过本地矩阵验证，首次 GitHub Actions 运行仍待确认**。该工作流不会发布 Release，也不改变正式 Wails 桌面发布流程。
+结论：**实验工作流已在 GitHub Actions 完成远程构建并上传四类 artifact**。该工作流不会发布 Release，也不改变正式 Wails 桌面发布流程。
