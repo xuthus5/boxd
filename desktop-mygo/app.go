@@ -88,11 +88,9 @@ func newApplication(source backend, cfg runtime.Config, startupErr error, autost
 func (a *application) whenReady() {
 	a.systemDark = mygo.Theme.IsDark()
 	startHidden := mygo.App.WasOpenedAtLogin() || os.Getenv("BOXD_START_HIDDEN") == "1"
-	a.win = mygo.NewWindow(mygo.WindowOptions{
-		Title: "boxd", Width: 1280, Height: 820, MinWidth: 960, MinHeight: 640,
-		StateKey: "mygo-main", Hidden: startHidden, BackgroundColor: "#fafafa",
-		Content: ui.View(a.view),
-	})
+	options := mainWindowOptions(startHidden)
+	options.Content = ui.View(a.view)
+	a.win = mygo.NewWindow(options)
 	a.win.OnClose(func(e *mygo.CloseEvent) {
 		if a.quitting {
 			return
@@ -118,6 +116,14 @@ func (a *application) whenReady() {
 	a.loadConfig()
 	if a.autostartKernel {
 		a.startKernelAction("Autostart")
+	}
+}
+
+func mainWindowOptions(hidden bool) mygo.WindowOptions {
+	return mygo.WindowOptions{
+		Title: "boxd", Width: 1280, Height: 820, MinWidth: 960, MinHeight: 640,
+		StateKey: "mygo-main", Hidden: hidden, BackgroundColor: "#fafafa",
+		TitleBarStyle: mygo.TitleBarHidden, HideWindowButtons: true,
 	}
 }
 

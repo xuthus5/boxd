@@ -142,7 +142,7 @@ func (a *application) topbar(c *ui.Context) {
 	if running {
 		color = t.Success
 	}
-	ui.Row(c).FillWidth().Height(64).Padding(0, pagePadding).Gap(12).
+	ui.Row(c).FillWidth().Height(64).Padding(0, pagePadding).Gap(12).DragWindow().
 		AlignItems(ui.Center).BorderWidth(0, 0, 1, 0).BorderColor(t.Border).
 		Background(t.Background).Children(func() {
 		ui.Column(c).Gap(2).Children(func() {
@@ -166,6 +166,8 @@ func (a *application) topbar(c *ui.Context) {
 		if ui.Button(c, themeButtonLabel(a.model.prefs.Theme)).Key("theme-toggle").Clicked() {
 			a.cycleTheme()
 		}
+		ui.Divider(c).Height(24)
+		a.windowControls(c)
 	})
 }
 
@@ -196,15 +198,21 @@ func (a *application) pageColumn(c *ui.Context, fn func()) {
 
 func (a *application) startupErrorView(c *ui.Context) {
 	t := c.Theme()
-	ui.Column(c).Fill().Center().Gap(14).Padding(40).Background(t.Background).Children(func() {
-		ui.Text(c, "boxd could not start").FontSize(26).Bold()
-		ui.Text(c, shortError(a.startupErr)).FontSize(13).TextColor(t.Danger).MaxWidth(680)
-		ui.Textf(c, "Data directory: %s", a.cfg.DataDir).FontSize(12).TextColor(t.TextMuted)
-		ui.Textf(c, "Config path: %s", a.cfg.ConfigPath).FontSize(12).TextColor(t.TextMuted)
-		ui.Row(c).Gap(8).Children(func() {
-			if ui.Button(c, "Quit").Clicked() {
-				mygo.App.Quit()
-			}
+	ui.Column(c).Fill().Background(t.Background).Children(func() {
+		ui.Row(c).FillWidth().Height(48).Padding(0, 16).AlignItems(ui.Center).DragWindow().Children(func() {
+			ui.Spacer(c)
+			a.windowControls(c)
+		})
+		ui.Column(c).Grow(1).Center().Gap(14).Padding(40).Children(func() {
+			ui.Text(c, "boxd could not start").FontSize(26).Bold()
+			ui.Text(c, shortError(a.startupErr)).FontSize(13).TextColor(t.Danger).MaxWidth(680)
+			ui.Textf(c, "Data directory: %s", a.cfg.DataDir).FontSize(12).TextColor(t.TextMuted)
+			ui.Textf(c, "Config path: %s", a.cfg.ConfigPath).FontSize(12).TextColor(t.TextMuted)
+			ui.Row(c).Gap(8).Children(func() {
+				if ui.Button(c, "Quit").Clicked() {
+					mygo.App.Quit()
+				}
+			})
 		})
 	})
 }
