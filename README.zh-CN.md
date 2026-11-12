@@ -36,7 +36,7 @@ sing-box 控制平面（control plane）。提供 Web 面板管理内核配置�
 
 ### 要求
 
-- Go 1.26+
+- Go 1.27.4+
 - Node.js 20+
 - Linux（生产推荐）；本地开发可用当前环境
 

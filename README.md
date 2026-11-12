@@ -37,7 +37,7 @@ The embedded kernel targets **sing-box 1.14.4**. Editors support DNS response ev
 
 ### Requirements
 
-- Go 1.26+
+- Go 1.27.4+
 - Node.js 20+
 - Linux recommended for production
 
