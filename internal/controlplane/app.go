@@ -15,6 +15,7 @@ type App struct {
 	inbounds      control.InboundAPI
 	egress        control.EgressAPI
 	subscriptions control.SubscriptionAPI
+	scheduler     control.SchedulerAPI
 	nodes         control.NodeAPI
 	policies      control.PolicyAPI
 	routes        control.RouteAPI
@@ -22,8 +23,8 @@ type App struct {
 	ruleSets      control.RuleSetAPI
 	settings      control.SettingsAPI
 	observability control.ObservabilityAPI
-	backup        control.BackupAPI
 	security      control.SecurityAPI
+	audit         control.AuditAPI
 }
 
 var _ control.Application = (*App)(nil)
@@ -34,11 +35,11 @@ var _ control.Application = (*App)(nil)
 type Dependencies struct {
 	Downloader           control.Downloader
 	SubscriptionParser   control.SubscriptionParser
+	NodeCodec            control.NodeCodec
 	RuleSetRepository    control.RuleSetRepository
 	TestResultRepository control.TestResultRepository
-	BackupStore          control.BackupStore
-	BackupDir            string
 	SecurityRepository   control.SecurityRepository
+	AuditRepository      control.AuditRepository
 }
 
 // New constructs the application facade through constructor injection.
@@ -51,22 +52,41 @@ func New(kernelManager kernel.Manager, configStore kernel.ConfigStore, settingsR
 func NewWithDependencies(kernelManager kernel.Manager, configStore kernel.ConfigStore, settingsRepository control.SettingsRepository, profileService *ProfileService, dependencies Dependencies) *App {
 	routes := NewRouteService(profileService)
 	dns := NewDNSService(profileService, kernelManager)
+	subscriptions := NewSubscriptionService(profileService, dependencies.Downloader, dependencies.SubscriptionParser)
+	audit := NewAuditService(dependencies.AuditRepository)
+	if profileService != nil {
+		profileService.SetAuditor(audit)
+	}
+	security := NewSecurityService(dependencies.SecurityRepository)
+	security.SetAuditor(audit)
+	kernelService := NewKernelService(kernelManager)
+	kernelService.SetAuditor(audit)
+	configService := NewConfigService(kernelManager, configStore, profileService)
+	configService.SetAuditor(audit)
+	ruleSetService := NewRuleSetService(profileService, dependencies.RuleSetRepository, dependencies.Downloader)
+	ruleSetService.SetAuditor(audit)
+	settingsService := NewSettingsService(settingsRepository)
+	settingsService.SetAuditor(audit)
+	nodeService := NewNodeService(profileService, kernelManager, dependencies.TestResultRepository, dependencies.NodeCodec)
+	nodeService.SetAuditor(audit)
+	dns.SetAuditor(audit)
 	return &App{
-		kernel:        NewKernelService(kernelManager),
-		config:        NewConfigService(kernelManager, configStore, profileService),
+		kernel:        kernelService,
+		config:        configService,
 		setup:         NewSetupService(profileService, kernelManager),
 		inbounds:      NewInboundService(profileService),
 		egress:        NewEgressService(profileService, kernelManager),
-		subscriptions: NewSubscriptionService(profileService, dependencies.Downloader, dependencies.SubscriptionParser),
-		nodes:         NewNodeService(profileService, kernelManager, dependencies.TestResultRepository),
+		subscriptions: subscriptions,
+		scheduler:     NewSchedulerService(subscriptions, SchedulerOptions{}),
+		nodes:         nodeService,
 		policies:      NewPolicyService(routes, dns),
 		routes:        routes,
 		dns:           dns,
-		ruleSets:      NewRuleSetService(profileService, dependencies.RuleSetRepository, dependencies.Downloader),
-		settings:      NewSettingsService(settingsRepository),
+		ruleSets:      ruleSetService,
+		settings:      settingsService,
 		observability: NewObservabilityService(kernelManager),
-		backup:        NewBackupService(dependencies.BackupStore, dependencies.BackupDir),
-		security:      NewSecurityService(dependencies.SecurityRepository),
+		security:      security,
+		audit:         audit,
 	}
 }
 
@@ -76,6 +96,7 @@ func (a *App) Setup() control.SetupAPI                 { return a.setup }
 func (a *App) Inbounds() control.InboundAPI            { return a.inbounds }
 func (a *App) Egress() control.EgressAPI               { return a.egress }
 func (a *App) Subscriptions() control.SubscriptionAPI  { return a.subscriptions }
+func (a *App) Scheduler() control.SchedulerAPI         { return a.scheduler }
 func (a *App) Nodes() control.NodeAPI                  { return a.nodes }
 func (a *App) Policies() control.PolicyAPI             { return a.policies }
 func (a *App) Routes() control.RouteAPI                { return a.routes }
@@ -83,5 +104,5 @@ func (a *App) DNS() control.DNSAPI                     { return a.dns }
 func (a *App) RuleSets() control.RuleSetAPI            { return a.ruleSets }
 func (a *App) Settings() control.SettingsAPI           { return a.settings }
 func (a *App) Observability() control.ObservabilityAPI { return a.observability }
-func (a *App) Backup() control.BackupAPI               { return a.backup }
 func (a *App) Security() control.SecurityAPI           { return a.security }
+func (a *App) Audit() control.AuditAPI                 { return a.audit }

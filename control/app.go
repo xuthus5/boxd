@@ -16,6 +16,7 @@ type Application interface {
 	Inbounds() InboundAPI
 	Egress() EgressAPI
 	Subscriptions() SubscriptionAPI
+	Scheduler() SchedulerAPI
 	Nodes() NodeAPI
 	Policies() PolicyAPI
 	Routes() RouteAPI
@@ -23,8 +24,8 @@ type Application interface {
 	RuleSets() RuleSetAPI
 	Settings() SettingsAPI
 	Observability() ObservabilityAPI
-	Backup() BackupAPI
 	Security() SecurityAPI
+	Audit() AuditAPI
 }
 
 // KernelAPI exposes lifecycle commands and a status query.
@@ -39,6 +40,7 @@ type KernelAPI interface {
 type ConfigAPI interface {
 	Read(ctx context.Context) (kernel.ConfigDocument, error)
 	Validate(ctx context.Context, document kernel.ConfigDocument) (kernel.ValidationResult, error)
+	Diagnose(ctx context.Context, document kernel.ConfigDocument) ([]kernel.Diagnostic, error)
 	Apply(ctx context.Context, document kernel.ConfigDocument, options kernel.ApplyOptions) (kernel.ApplyResult, error)
 	Reconcile(ctx context.Context, options kernel.ApplyOptions) (kernel.ApplyResult, error)
 	History(ctx context.Context, limit int) ([]kernel.ConfigRevision, error)

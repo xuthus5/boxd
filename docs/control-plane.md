@@ -11,7 +11,8 @@
             v
 control.Application
   Kernel / Config / Setup / Inbounds / Egress / Subscriptions / Nodes
-  Policies / Routes / DNS / RuleSets / Settings / Observability / Backup / Security
+  Scheduler / Policies / Routes / DNS / RuleSets / Settings / Observability
+  Security / Audit
             |
             v
 internal/controlplane
@@ -30,20 +31,21 @@ kernel.Manager
 | 模块 | 职责 |
 | --- | --- |
 | `Kernel()` | 启动、停止、重启、状态查询 |
-| `Config()` | 原始配置读取、校验、应用、历史、按期望状态重编译 |
+| `Config()` | 原始配置读取、校验、诊断、应用、历史、按期望状态重编译 |
 | `Setup()` | 幂等初始化默认状态、读取引擎能力 |
 | `Inbounds()` | Mixed/TUN 入口 CRUD |
 | `Egress()` | Node、Group、Chain CRUD 和 Selector 运行时切换 |
 | `Subscriptions()` | 订阅 CRUD、条件刷新，以及订阅节点的原子替换 |
-| `Nodes()` | 节点列表、筛选、批量导入、保存、删除、延迟测试和测试历史 |
+| `Scheduler()` | 订阅按周期自动刷新、立即执行、运行状态与启停 |
+| `Nodes()` | 节点列表、筛选、批量导入、分享链接导入导出、保存、删除、延迟测试和测试历史 |
 | `Policies()` | 路由与 DNS 策略的聚合读取，并复用各自用例入口 |
 | `Routes()` | 一键模式、默认出口、预设、规则 CRUD 和排序替换 |
 | `DNS()` | 国内、国外、默认三槽位 DNS 配置和刷写 |
 | `RuleSets()` | 内置/自定义规则集定义、刷新状态和预设依赖 |
 | `Settings()` | 通用偏好键值 |
 | `Observability()` | 最近日志、流量、连接、关闭连接、事件订阅 |
-| `Backup()` | 一致性 SQLite 快照创建、校验和列表 |
 | `Security()` | 本地管理员口令、PBKDF2 摘要和内存会话 |
+| `Audit()` | 自动记录控制面变更，并提供按动作、操作者、来源和时间查询 |
 
 ## 3. 期望状态与原子应用
 
@@ -77,6 +79,7 @@ kernel.Manager
 - Chain 跳只能是 Node 或 Group，不能是 `direct`、`reject` 或另一个 Chain。
 - 同一 Chain 禁止重复跳。
 - Group 不能为空；Selector 的 `selected` 必须是成员。
+- Selector 切换会写回期望状态并应用配置，重启后保持上次选择。
 - Mixed 开启 UDP 时，所有 Chain 中的 Node 都必须支持 UDP。
 - Node 的协议扩展字段放在 `options` 中；`type/tag/server/server_port/detour` 由系统管理，禁止覆盖。
 
@@ -127,6 +130,7 @@ kernel.Manager
 - `rule_set_status` 保存 ETag、Last-Modified、SHA-256、刷新时间和错误，不触发配置重新应用。
 - `test_results` 按稳定 node ID 保存测速历史，不依赖旧的规范化 `nodes` 表。
 - `security_credential` 只保存盐、PBKDF2 摘要、迭代次数和更新时间，不保存明文口令。
+- `audit_events` 保存动作、操作者、来源、JSON 详情和 UTC 时间，支持按动作、操作者、来源和时间范围查询。
 
 ## 7. 订阅、节点与规则集
 
@@ -145,7 +149,26 @@ kernel.Manager
 
 - 测速调用内核 `OutboundDelay`，使用稳定 outbound tag 而不是显示名称。
 - 结果写入 `test_results`，URL、延迟、错误和测试时间均可查询。
-- 内核未运行或 Driver 未实现延迟测量时，API 返回稳定错误，不会伪造成功结果。
+- 测速通过 sing-box URLTest 实际发起请求；内核未运行或 outbound 不存在时返回稳定错误，不会伪造成功结果。
+
+### 内核运行时
+
+- `Observability().Connections/CloseConnection/CloseConnections` 直接读取和关闭 sing-box 连接管理器中的连接。
+- `DNS().Flush` 同时清理 sing-box 运行态 DNS 缓存和持久化 DNS 缓存。
+- `OutboundDelay` 使用 sing-box URLTest 进行真实测速，并写入 urltest 历史。
+- Clash 兼容模式通过 sing-box clashmode 管理器读取和切换，不暴露 Clash HTTP API。
+
+### 节点分享链接
+
+- `NodeCodec` 端口把分享链接与引擎无关的 `control.Node` 互转，适配器位于 `internal/adapters/outbound/nodelink`。
+- 支持 Shadowsocks、VMess、VLESS、Trojan、Hysteria2、SOCKS5 和 HTTP 链接。
+- 导入链接与对象导入复用同一套 ID 稳定化、领域校验和原子落库流程。
+
+### 订阅调度
+
+- `SchedulerService` 按订阅的 `interval_seconds` 扫描到期订阅，并复用 `SubscriptionAPI.Refresh` 的条件请求与原子替换。
+- 调度器由组合根随应用启动，在关闭应用时先停止；`RunOnce` 可触发一次手动扫描。
+- 扫描间隔、运行状态、最近一次执行时间和错误通过 `SchedulerAPI` 查询。
 
 ### 规则集
 
@@ -153,32 +176,25 @@ kernel.Manager
 - `RuleSetStatus` 属于独立状态数据，刷新不会触发配置重载。
 - 内置规则集不可修改或删除；自定义规则集使用同一编译和校验路径。
 - 中国直连和广告拦截预设会校验其依赖规则集存在且启用。
+- 当前由 sing-box remote rule-set 在引擎内维护下载缓存；控制面保存 ETag、Last-Modified、SHA-256、刷新时间和错误。
 
-## 8. 备份与安全
-
-### 备份
-
-- 备份先执行 WAL checkpoint，再通过 `VACUUM INTO` 生成一致性 SQLite 快照。
-- 快照以只读、immutable 模式打开，并执行 `PRAGMA quick_check`。
-- 返回文件大小、创建时间、已应用迁移数和当前 profile 修订号。
-- 备份包含认证摘要，应按敏感文件保护；目录权限为 `0700`，文件权限为 `0600`。
-
-### 安全
+## 8. 安全
 
 - 未初始化时模式为 `local`，适用于仅本机可信传输的嵌入式宿主。
 - 初始化后模式为 `password`，口令使用随机盐和 PBKDF2-HMAC-SHA256 派生。
 - 会话只保存在进程内，默认 24 小时过期；进程重启后需要重新登录。
+- 登出立即撤销会话；进程重启会天然清空全部会话令牌。
 - 未授权统一返回 `kernel_unauthorized`；错误信息不区分口令长度、摘要或存储细节。
 - HTTP/Wails/MyGo 入站适配器必须调用 `Security().ValidateSession`，不得自行读取凭据表。
+- 审计事件默认操作者为 `local`、来源为 `control-plane`；入站适配器可在认证后通过 `control.WithAuditIdentity` 注入真实操作者和来源。
 
 ## 9. 当前未覆盖
 
-以下模块尚未进入第一版实现，不应由入站适配器自行补业务：
+控制面及以下能力已经闭环，以下项目属于明确的范围外或引擎内实现，不应由入站适配器自行补业务：
 
-- 订阅定时调度器；当前提供手动刷新和条件请求，调度属于宿主生命周期的后续能力。
-- 备份的在线恢复、支持包导出和加密备份。
-- 规则集本地缓存预取；当前由 sing-box remote rule-set 自行获取。
-- 账号多用户、角色权限、令牌撤销列表和审计事件查询。
-- Kernel Driver 的连接观测、连接控制、Clash 模式、DNS 刷写和出站延迟测量；当前返回 `kernel_feature_disabled`。
+- 上层真实应用接入：HTTP/SSE、Wails、MyGo、Web UI 和桌面宿主，留待下层契约与模型稳定后实施。
+- 多用户、角色权限和多租户；当前设计是单本地管理员，符合第一阶段非目标。
+- 规则集本地预取；当前由 sing-box remote rule-set 在引擎内自动下载并缓存，控制面只维护刷新元数据。
+- 持久化令牌撤销列表；当前会话为进程内短期令牌，登出和进程重启都会使令牌失效。
 
 新增模块必须沿用同样的边界：公开接口放在 `control`，用例放在 `internal/controlplane`，外部能力通过端口注入，存储和引擎实现放在 outbound adapter。

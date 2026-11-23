@@ -2,13 +2,44 @@ package singbox
 
 import (
 	"context"
+	"encoding/binary"
 	"fmt"
+	"math"
+	"strings"
 	"time"
 
 	"github.com/sagernet/sing-box/adapter"
+	"github.com/sagernet/sing-box/common/trafficcontrol"
+	"github.com/sagernet/sing-box/common/urltest"
+	"github.com/sagernet/sing-box/experimental/clashmode"
+	"github.com/sagernet/sing/service"
 
 	"github.com/xuthus5/boxd/kernel"
 )
+
+const defaultDelayTimeout = 10 * time.Second
+
+type engineRuntime struct {
+	traffic *trafficcontrol.Manager
+	modes   *clashmode.Manager
+	dns     adapter.DNSRouter
+	cache   adapter.CacheFile
+	history *urltest.HistoryStorage
+
+	lastTrafficAt     time.Time
+	lastUploadTotal   int64
+	lastDownloadTotal int64
+}
+
+func bindEngineRuntime(ctx context.Context) engineRuntime {
+	return engineRuntime{
+		traffic: service.PtrFromContext[trafficcontrol.Manager](ctx),
+		modes:   service.PtrFromContext[clashmode.Manager](ctx),
+		dns:     service.FromContext[adapter.DNSRouter](ctx),
+		cache:   service.FromContext[adapter.CacheFile](ctx),
+		history: service.PtrFromContext[urltest.HistoryStorage](ctx),
+	}
+}
 
 func (e *Engine) OutboundGroups(context.Context) ([]kernel.OutboundGroup, error) {
 	e.mu.Lock()
@@ -59,38 +90,207 @@ func (e *Engine) SelectOutbound(_ context.Context, groupTag, outboundTag string)
 	return nil
 }
 
-func (e *Engine) OutboundDelay(context.Context, string, string) (time.Duration, error) {
-	return 0, featureUnavailable("outbound delay measurement")
+func (e *Engine) OutboundDelay(ctx context.Context, tag, url string) (time.Duration, error) {
+	e.mu.Lock()
+	if e.state != kernel.StateRunning || e.instance == nil {
+		e.mu.Unlock()
+		return 0, kernel.NewError(kernel.ErrCodeNotRunning, "driver.singbox.outbound_delay", "engine is not running")
+	}
+	outbound, found := e.instance.Outbound().Outbound(tag)
+	history := e.runtime.history
+	e.mu.Unlock()
+	if !found {
+		return 0, kernel.NewError(kernel.ErrCodeNotFound, "driver.singbox.outbound_delay", fmt.Sprintf("outbound %q was not found", tag))
+	}
+	operationContext := ctx
+	if _, hasDeadline := ctx.Deadline(); !hasDeadline {
+		var cancel context.CancelFunc
+		operationContext, cancel = context.WithTimeout(ctx, defaultDelayTimeout)
+		defer cancel()
+	}
+	delay, err := urltest.URLTest(operationContext, url, outbound)
+	if err != nil {
+		return 0, kernel.WrapError(kernel.ErrCodeInternal, "driver.singbox.outbound_delay", "measure outbound delay", err)
+	}
+	if history != nil {
+		history.StoreURLTestHistory(tag, &adapter.URLTestHistory{
+			Time:  time.Now().UTC(),
+			Delay: delay,
+		})
+	}
+	return time.Duration(delay) * time.Millisecond, nil
 }
 
 func (e *Engine) ClashMode(context.Context) (kernel.ClashMode, error) {
-	return kernel.ClashMode{}, featureUnavailable("clash mode control")
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.state != kernel.StateRunning || e.instance == nil {
+		return kernel.ClashMode{}, kernel.NewError(kernel.ErrCodeNotRunning, "driver.singbox.clash_mode", "engine is not running")
+	}
+	if e.runtime.modes == nil {
+		return kernel.ClashMode{}, featureUnavailable("clash mode control")
+	}
+	return kernel.ClashMode{
+		Current:   e.runtime.modes.Mode(),
+		Available: append([]string(nil), e.runtime.modes.ModeList()...),
+	}, nil
 }
 
-func (e *Engine) SetClashMode(context.Context, string) error {
-	return featureUnavailable("clash mode control")
+func (e *Engine) SetClashMode(_ context.Context, mode string) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.state != kernel.StateRunning || e.instance == nil {
+		return kernel.NewError(kernel.ErrCodeNotRunning, "driver.singbox.set_clash_mode", "engine is not running")
+	}
+	if e.runtime.modes == nil {
+		return featureUnavailable("clash mode control")
+	}
+	mode = strings.TrimSpace(mode)
+	canonical := ""
+	for _, candidate := range e.runtime.modes.ModeList() {
+		if candidate == mode || strings.EqualFold(candidate, mode) {
+			canonical = candidate
+			break
+		}
+	}
+	if canonical == "" {
+		return kernel.NewError(kernel.ErrCodeInvalidConfig, "driver.singbox.set_clash_mode", fmt.Sprintf("unsupported clash mode %q", mode)).
+			WithHint("use one of: " + strings.Join(e.runtime.modes.ModeList(), ", "))
+	}
+	e.runtime.modes.SetMode(canonical)
+	return nil
 }
 
 func (e *Engine) FlushDNS(context.Context) error {
-	return featureUnavailable("DNS flush")
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.state != kernel.StateRunning || e.instance == nil {
+		return kernel.NewError(kernel.ErrCodeNotRunning, "driver.singbox.flush_dns", "engine is not running")
+	}
+	flushed := false
+	if e.runtime.dns != nil {
+		e.runtime.dns.ClearCache()
+		flushed = true
+	}
+	if e.runtime.cache != nil {
+		if err := e.runtime.cache.ClearDNSCache(); err != nil {
+			return kernel.WrapError(kernel.ErrCodeInternal, "driver.singbox.flush_dns", "clear persisted DNS cache", err)
+		}
+		flushed = true
+	}
+	if !flushed {
+		return featureUnavailable("DNS flush")
+	}
+	return nil
 }
 
 func (e *Engine) ListConnections(context.Context) ([]kernel.Connection, error) {
-	return nil, featureUnavailable("connection observation")
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.state != kernel.StateRunning || e.instance == nil {
+		return nil, kernel.NewError(kernel.ErrCodeNotRunning, "driver.singbox.list_connections", "engine is not running")
+	}
+	if e.runtime.traffic == nil {
+		return nil, featureUnavailable("connection observation")
+	}
+	metadata := e.runtime.traffic.Connections()
+	connections := make([]kernel.Connection, 0, len(metadata))
+	for _, item := range metadata {
+		connections = append(connections, connectionView(item))
+	}
+	return connections, nil
 }
 
-func (e *Engine) CloseConnection(context.Context, int64) error {
-	return featureUnavailable("connection control")
+func (e *Engine) CloseConnection(_ context.Context, id int64) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.state != kernel.StateRunning || e.instance == nil {
+		return kernel.NewError(kernel.ErrCodeNotRunning, "driver.singbox.close_connection", "engine is not running")
+	}
+	if e.runtime.traffic == nil {
+		return featureUnavailable("connection control")
+	}
+	for _, metadata := range e.runtime.traffic.Connections() {
+		if connectionID(metadata.ID) != id {
+			continue
+		}
+		connection := e.runtime.traffic.Connection(metadata.ID)
+		if connection == nil {
+			break
+		}
+		if err := connection.Close(); err != nil {
+			return kernel.WrapError(kernel.ErrCodeInternal, "driver.singbox.close_connection", "close connection", err)
+		}
+		return nil
+	}
+	return kernel.NewError(kernel.ErrCodeNotFound, "driver.singbox.close_connection", fmt.Sprintf("connection %d was not found", id))
 }
 
-func (e *Engine) CloseConnections(context.Context, kernel.ConnectionFilter) (int, error) {
-	return 0, featureUnavailable("connection control")
+func (e *Engine) CloseConnections(_ context.Context, filter kernel.ConnectionFilter) (int, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.state != kernel.StateRunning || e.instance == nil {
+		return 0, kernel.NewError(kernel.ErrCodeNotRunning, "driver.singbox.close_connections", "engine is not running")
+	}
+	if e.runtime.traffic == nil {
+		return 0, featureUnavailable("connection control")
+	}
+	ids := make(map[int64]struct{}, len(filter.IDs))
+	for _, id := range filter.IDs {
+		ids[id] = struct{}{}
+	}
+	closed := 0
+	for _, metadata := range e.runtime.traffic.Connections() {
+		if !connectionMatches(metadata, filter, ids) {
+			continue
+		}
+		connection := e.runtime.traffic.Connection(metadata.ID)
+		if connection == nil {
+			continue
+		}
+		if err := connection.Close(); err != nil {
+			return closed, kernel.WrapError(kernel.ErrCodeInternal, "driver.singbox.close_connections", "close connection", err)
+		}
+		closed++
+	}
+	return closed, nil
 }
 
 func (e *Engine) RecentLogs(int) []kernel.LogEntry { return nil }
 
 func (e *Engine) TrafficSnapshot() kernel.TrafficSnapshot {
-	return kernel.TrafficSnapshot{At: time.Now().UTC()}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	now := time.Now().UTC()
+	if e.state != kernel.StateRunning || e.runtime.traffic == nil {
+		return kernel.TrafficSnapshot{At: now}
+	}
+	upload, download := e.runtime.traffic.Total()
+	uploadRate := int64(0)
+	downloadRate := int64(0)
+	if !e.runtime.lastTrafficAt.IsZero() {
+		elapsed := now.Sub(e.runtime.lastTrafficAt).Seconds()
+		if elapsed > 0 {
+			uploadRate = int64(float64(upload-e.runtime.lastUploadTotal) / elapsed)
+			downloadRate = int64(float64(download-e.runtime.lastDownloadTotal) / elapsed)
+			if uploadRate < 0 {
+				uploadRate = 0
+			}
+			if downloadRate < 0 {
+				downloadRate = 0
+			}
+		}
+	}
+	e.runtime.lastTrafficAt = now
+	e.runtime.lastUploadTotal = upload
+	e.runtime.lastDownloadTotal = download
+	return kernel.TrafficSnapshot{
+		UploadTotal:   upload,
+		DownloadTotal: download,
+		UploadRate:    uploadRate,
+		DownloadRate:  downloadRate,
+		At:            now,
+	}
 }
 
 func (e *Engine) Subscribe(ctx context.Context, _ ...kernel.EventType) (<-chan kernel.Event, error) {
@@ -106,6 +306,82 @@ func featureUnavailable(feature string) *kernel.Error {
 	return kernel.NewError(
 		kernel.ErrCodeFeatureDisabled,
 		"driver.singbox.feature",
-		feature+" is not implemented in the current sing-box driver",
-	).WithHint("implement the feature behind the kernel contract instead of exposing engine-specific APIs")
+		feature+" is unavailable in the current sing-box runtime",
+	).WithHint("enable the corresponding sing-box component or use a configuration that provides it")
+}
+
+func connectionView(metadata *trafficcontrol.TrackerMetadata) kernel.Connection {
+	process := ""
+	if metadata.Metadata.ProcessInfo != nil {
+		process = metadata.Metadata.ProcessInfo.ProcessPath
+		if process == "" && len(metadata.Metadata.ProcessInfo.AndroidPackageNames) > 0 {
+			process = metadata.Metadata.ProcessInfo.AndroidPackageNames[0]
+		}
+	}
+	inbound := metadata.Metadata.Inbound
+	if metadata.Metadata.InboundType != "" {
+		inbound = metadata.Metadata.InboundType
+		if metadata.Metadata.Inbound != "" {
+			inbound += "/" + metadata.Metadata.Inbound
+		}
+	}
+	target := metadata.Metadata.Domain
+	if target == "" {
+		target = metadata.Metadata.Destination.String()
+	}
+	rule := "final"
+	if metadata.Rule != nil {
+		rule = metadata.Rule.String()
+	}
+	return kernel.Connection{
+		ID:        connectionID(metadata.ID),
+		Inbound:   inbound,
+		Network:   metadata.Metadata.Network,
+		Source:    metadata.Metadata.Source.String(),
+		Target:    target,
+		Outbound:  metadata.Outbound,
+		Rule:      rule,
+		Process:   process,
+		Upload:    metadata.Upload.Load(),
+		Download:  metadata.Download.Load(),
+		StartedAt: metadata.CreatedAt.UTC(),
+	}
+}
+
+func connectionMatches(metadata *trafficcontrol.TrackerMetadata, filter kernel.ConnectionFilter, ids map[int64]struct{}) bool {
+	if len(ids) > 0 {
+		if _, exists := ids[connectionID(metadata.ID)]; !exists {
+			return false
+		}
+	}
+	if filter.Outbound != "" && metadata.Outbound != filter.Outbound {
+		return false
+	}
+	if filter.Rule != "" {
+		rule := "final"
+		if metadata.Rule != nil {
+			rule = metadata.Rule.String()
+		}
+		if rule != filter.Rule {
+			return false
+		}
+	}
+	if filter.Process != "" {
+		process := ""
+		if metadata.Metadata.ProcessInfo != nil {
+			process = metadata.Metadata.ProcessInfo.ProcessPath
+			if process == "" && len(metadata.Metadata.ProcessInfo.AndroidPackageNames) > 0 {
+				process = metadata.Metadata.ProcessInfo.AndroidPackageNames[0]
+			}
+		}
+		if process != filter.Process {
+			return false
+		}
+	}
+	return true
+}
+
+func connectionID(id [16]byte) int64 {
+	value := binary.BigEndian.Uint64(id[:8]) ^ binary.BigEndian.Uint64(id[8:])
+	return int64(value & math.MaxInt64)
 }

@@ -1,9 +1,11 @@
 # boxd v2 内核与控制面架构设计
 
 - 日期：2026-11-21
-- 状态：草案，等待评审
+- 状态：控制面与内核基础能力已实现；入站适配器阶段暂缓
 - 范围：全新实现，不迁移旧项目代码，不沿用旧项目目录结构
 - 目标：以 sing-box 为最底层引擎，建立稳定内核契约、控制面应用层和多客户端适配体系
+
+> 当前实施范围截至控制面与其下各层：内核运行时观测/控制、订阅调度、节点链接编解码、审计查询和安全会话均已完成。HTTP/SSE、Wails、MyGo、Web UI 等上层真实应用接入留待下层库与模型稳定后再实施。
 
 ## 1. 核心结论
 
@@ -112,7 +114,7 @@ Hosts -> Inbound Adapters -> Control Plane -> Kernel Contract
 ┌──────────────────────────────▼────────────────────────────────────────┐
 │ L3 控制面应用层 Control Plane                                         │
 │ Kernel Use Cases │ Config │ Subscription │ Node │ Policy │ RuleSet   │
-│ Settings │ Observability │ Setup │ Backup │ Auth(optional)            │
+│ Settings │ Observability │ Setup │ Auth(optional)                    │
 └───────────────┬───────────────────────────────────┬───────────────────┘
                 │ Kernel Port                       │ Outbound Ports
 ┌───────────────▼──────────────────┐   ┌────────────▼──────────────────┐
@@ -181,7 +183,6 @@ boxd_v2/
 │   │   ├── settings/
 │   │   ├── observability/
 │   │   ├── setup/
-│   │   ├── backup/
 │   │   └── security/
 │   │
 │   ├── adapters/
@@ -604,7 +605,6 @@ type ConfigRevision struct {
 | Settings | 应用设置、运行偏好 | Repository |
 | Observability | 日志、流量、连接、事件查询 | Kernel Observer |
 | Setup | 首次安装、默认配置、环境能力探测 | Config、Platform |
-| Backup | 备份、恢复、支持包 | Repository、FileSystem |
 | Security | 凭据、会话、访问控制 | Repository、SecretProvider |
 
 ### 10.2 Application Facade
@@ -624,7 +624,6 @@ type Application interface {
     Settings() SettingsAPI
     Observability() ObservabilityAPI
     Setup() SetupAPI
-    Backup() BackupAPI
     Security() SecurityAPI
 }
 ```
@@ -1029,14 +1028,11 @@ type DNSServerConfig struct {
 - 禁止修改已发布的迁移文件；只新增迁移。
 - 迁移失败时停止服务启动，并返回可操作诊断。
 
-### 12.6 安全与备份
+### 12.6 数据安全
 
 - 数据目录权限 `0700`，数据库文件权限 `0600`。
 - WAL 和 SHM 文件同样按敏感数据处理。
 - 订阅 URL 等敏感信息在展示和日志中脱敏。
-- 备份前执行 WAL checkpoint，确保主数据库文件完整。
-- 备份文件默认加密或至少限制为当前用户可读。
-- 恢复流程必须先校验数据库完整性和 schema 版本。
 
 ## 13. 安全设计
 
@@ -1046,7 +1042,7 @@ type DNSServerConfig struct {
 - Web 模式启用认证、限速和会话过期。
 - 远程模式必须使用本地回环或 TLS。
 - 本地 IPC/RPC 使用短期令牌或操作系统用户边界。
-- 日志、支持包和备份默认脱敏。
+- 日志和诊断包默认脱敏。
 - 敏感文件创建权限 `0600`，目录 `0700`。
 - 不在 URL、命令行参数和环境变量中传递长期密钥。
 
@@ -1169,7 +1165,7 @@ type DNSServerConfig struct {
 - 订阅与节点。
 - 测速。
 - 策略与规则集。
-- 设置、备份、安装流程。
+- 设置、安装流程。
 
 ### 阶段 4：入站适配器
 
@@ -1177,6 +1173,8 @@ type DNSServerConfig struct {
 - CLI。
 - Wails。
 - MyGo。
+
+当前明确暂缓阶段 4，不在本轮实现真实应用接入。
 
 ### 阶段 5：宿主与加固
 
@@ -1244,4 +1242,4 @@ type DNSServerConfig struct {
 - 不让客户端直接依赖引擎实现。
 - 不为兼容旧行为而保留不清晰边界。
 
-只借鉴工程经验：配置回滚、错误诊断、事件推送、后台任务管理、安全权限、备份恢复和测试覆盖。
+只借鉴工程经验：配置回滚、错误诊断、事件推送、后台任务管理、安全权限和测试覆盖。

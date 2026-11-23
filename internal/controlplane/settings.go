@@ -12,8 +12,11 @@ import (
 // SettingsService implements preference reads and writes.
 type SettingsService struct {
 	repository control.SettingsRepository
+	audit      control.AuditRecorder
 	now        func() time.Time
 }
+
+func (s *SettingsService) SetAuditor(recorder control.AuditRecorder) { s.audit = recorder }
 
 var _ control.SettingsAPI = (*SettingsService)(nil)
 
@@ -43,5 +46,6 @@ func (s *SettingsService) Set(ctx context.Context, key, value string) (control.S
 	if err := s.repository.Upsert(ctx, setting); err != nil {
 		return control.Setting{}, err
 	}
+	recordAudit(ctx, s.audit, "settings.set", map[string]any{"key": setting.Key})
 	return setting, nil
 }

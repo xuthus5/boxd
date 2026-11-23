@@ -73,7 +73,7 @@ func (s *InboundService) Save(ctx context.Context, profile control.InboundProfil
 		}
 		profile.ID = id
 	}
-	state, err := s.profile.update(ctx, func(state *control.DesiredState) error {
+	state, err := s.profile.update(ctx, "inbounds.save", func(state *control.DesiredState) error {
 		for index := range state.Inbounds {
 			if state.Inbounds[index].ID == profile.ID {
 				state.Inbounds[index] = profile
@@ -95,7 +95,7 @@ func (s *InboundService) Save(ctx context.Context, profile control.InboundProfil
 }
 
 func (s *InboundService) Delete(ctx context.Context, id string) error {
-	_, err := s.profile.update(ctx, func(state *control.DesiredState) error {
+	_, err := s.profile.update(ctx, "inbounds.delete", func(state *control.DesiredState) error {
 		for index := range state.Inbounds {
 			if state.Inbounds[index].ID != id {
 				continue
@@ -139,7 +139,7 @@ func (s *EgressService) SaveNode(ctx context.Context, node control.Node) (contro
 		}
 		node.ID = id
 	}
-	state, err := s.profile.update(ctx, func(state *control.DesiredState) error {
+	state, err := s.profile.update(ctx, "egress.save_node", func(state *control.DesiredState) error {
 		for index := range state.Nodes {
 			if state.Nodes[index].ID == node.ID {
 				state.Nodes[index] = node
@@ -161,7 +161,7 @@ func (s *EgressService) SaveNode(ctx context.Context, node control.Node) (contro
 }
 
 func (s *EgressService) DeleteNode(ctx context.Context, id string) error {
-	_, err := s.profile.update(ctx, func(state *control.DesiredState) error {
+	_, err := s.profile.update(ctx, "egress.delete_node", func(state *control.DesiredState) error {
 		for index := range state.Nodes {
 			if state.Nodes[index].ID != id {
 				continue
@@ -182,7 +182,7 @@ func (s *EgressService) SaveGroup(ctx context.Context, group control.Group) (con
 		}
 		group.ID = id
 	}
-	state, err := s.profile.update(ctx, func(state *control.DesiredState) error {
+	state, err := s.profile.update(ctx, "egress.save_group", func(state *control.DesiredState) error {
 		for index := range state.Groups {
 			if state.Groups[index].ID == group.ID {
 				state.Groups[index] = group
@@ -204,7 +204,7 @@ func (s *EgressService) SaveGroup(ctx context.Context, group control.Group) (con
 }
 
 func (s *EgressService) DeleteGroup(ctx context.Context, id string) error {
-	_, err := s.profile.update(ctx, func(state *control.DesiredState) error {
+	_, err := s.profile.update(ctx, "egress.delete_group", func(state *control.DesiredState) error {
 		for index := range state.Groups {
 			if state.Groups[index].ID != id {
 				continue
@@ -225,7 +225,7 @@ func (s *EgressService) SaveChain(ctx context.Context, chain control.ProxyChain)
 		}
 		chain.ID = id
 	}
-	state, err := s.profile.update(ctx, func(state *control.DesiredState) error {
+	state, err := s.profile.update(ctx, "egress.save_chain", func(state *control.DesiredState) error {
 		for index := range state.Chains {
 			if state.Chains[index].ID == chain.ID {
 				state.Chains[index] = chain
@@ -247,7 +247,7 @@ func (s *EgressService) SaveChain(ctx context.Context, chain control.ProxyChain)
 }
 
 func (s *EgressService) DeleteChain(ctx context.Context, id string) error {
-	_, err := s.profile.update(ctx, func(state *control.DesiredState) error {
+	_, err := s.profile.update(ctx, "egress.delete_chain", func(state *control.DesiredState) error {
 		for index := range state.Chains {
 			if state.Chains[index].ID != id {
 				continue
@@ -261,35 +261,26 @@ func (s *EgressService) DeleteChain(ctx context.Context, id string) error {
 }
 
 func (s *EgressService) SelectGroupMember(ctx context.Context, groupID, nodeID string) error {
-	state, err := s.profile.Snapshot(ctx)
-	if err != nil {
-		return err
-	}
-	foundGroup := false
-	for _, group := range state.Groups {
-		if group.ID != groupID {
-			continue
-		}
-		foundGroup = true
-		if group.Kind != control.GroupKindSelector {
-			return kernel.NewError(kernel.ErrCodeInvalidConfig, "egress.select_group_member", fmt.Sprintf("group %q is not a selector", groupID))
-		}
-		member := false
-		for _, id := range group.Members {
-			if id == nodeID {
-				member = true
-				break
+	_, err := s.profile.update(ctx, "egress.select_group_member", func(state *control.DesiredState) error {
+		for index := range state.Groups {
+			group := &state.Groups[index]
+			if group.ID != groupID {
+				continue
 			}
-		}
-		if !member {
+			if group.Kind != control.GroupKindSelector {
+				return kernel.NewError(kernel.ErrCodeInvalidConfig, "egress.select_group_member", fmt.Sprintf("group %q is not a selector", groupID))
+			}
+			for _, id := range group.Members {
+				if id == nodeID {
+					group.Selected = nodeID
+					return nil
+				}
+			}
 			return kernel.NewError(kernel.ErrCodeNotFound, "egress.select_group_member", fmt.Sprintf("node %q is not a member of group %q", nodeID, groupID))
 		}
-		break
-	}
-	if !foundGroup {
 		return notFound("group", groupID)
-	}
-	return s.manager.SelectOutbound(ctx, control.GroupTag(groupID), control.NodeTag(nodeID))
+	})
+	return err
 }
 
 type RouteService struct {
@@ -311,7 +302,7 @@ func (s *RouteService) Get(ctx context.Context) (control.RouteProfile, error) {
 }
 
 func (s *RouteService) SetMode(ctx context.Context, mode control.RouteMode) (control.RouteProfile, error) {
-	state, err := s.profile.update(ctx, func(state *control.DesiredState) error {
+	state, err := s.profile.update(ctx, "routes.set_mode", func(state *control.DesiredState) error {
 		state.Routes.Mode = mode
 		return nil
 	})
@@ -322,7 +313,7 @@ func (s *RouteService) SetMode(ctx context.Context, mode control.RouteMode) (con
 }
 
 func (s *RouteService) SetDefaultEgress(ctx context.Context, egress control.EgressRef) (control.RouteProfile, error) {
-	state, err := s.profile.update(ctx, func(state *control.DesiredState) error {
+	state, err := s.profile.update(ctx, "routes.set_default_egress", func(state *control.DesiredState) error {
 		state.Routes.DefaultEgress = egress
 		return nil
 	})
@@ -333,7 +324,7 @@ func (s *RouteService) SetDefaultEgress(ctx context.Context, egress control.Egre
 }
 
 func (s *RouteService) SetPresets(ctx context.Context, presets control.RoutePresets) (control.RouteProfile, error) {
-	state, err := s.profile.update(ctx, func(state *control.DesiredState) error {
+	state, err := s.profile.update(ctx, "routes.set_presets", func(state *control.DesiredState) error {
 		state.Routes.Presets = presets
 		return nil
 	})
@@ -351,7 +342,7 @@ func (s *RouteService) SaveRule(ctx context.Context, rule control.RouteRule) (co
 		}
 		rule.ID = id
 	}
-	state, err := s.profile.update(ctx, func(state *control.DesiredState) error {
+	state, err := s.profile.update(ctx, "routes.save_rule", func(state *control.DesiredState) error {
 		for index := range state.Routes.Rules {
 			if state.Routes.Rules[index].ID == rule.ID {
 				state.Routes.Rules[index] = rule
@@ -373,7 +364,7 @@ func (s *RouteService) SaveRule(ctx context.Context, rule control.RouteRule) (co
 }
 
 func (s *RouteService) DeleteRule(ctx context.Context, id string) error {
-	_, err := s.profile.update(ctx, func(state *control.DesiredState) error {
+	_, err := s.profile.update(ctx, "routes.delete_rule", func(state *control.DesiredState) error {
 		for index := range state.Routes.Rules {
 			if state.Routes.Rules[index].ID != id {
 				continue
@@ -397,7 +388,7 @@ func (s *RouteService) ReplaceRules(ctx context.Context, rules []control.RouteRu
 		}
 		rules[index].ID = id
 	}
-	state, err := s.profile.update(ctx, func(state *control.DesiredState) error {
+	state, err := s.profile.update(ctx, "routes.replace_rules", func(state *control.DesiredState) error {
 		state.Routes.Rules = append([]control.RouteRule(nil), rules...)
 		return nil
 	})
@@ -410,7 +401,10 @@ func (s *RouteService) ReplaceRules(ctx context.Context, rules []control.RouteRu
 type DNSService struct {
 	profile *ProfileService
 	manager kernel.Manager
+	audit   control.AuditRecorder
 }
+
+func (s *DNSService) SetAuditor(recorder control.AuditRecorder) { s.audit = recorder }
 
 var _ control.DNSAPI = (*DNSService)(nil)
 
@@ -427,7 +421,7 @@ func (s *DNSService) Get(ctx context.Context) (control.DNSProfile, error) {
 }
 
 func (s *DNSService) Update(ctx context.Context, profile control.DNSProfile) (control.DNSProfile, error) {
-	state, err := s.profile.update(ctx, func(state *control.DesiredState) error {
+	state, err := s.profile.update(ctx, "dns.update", func(state *control.DesiredState) error {
 		state.DNS = profile
 		return nil
 	})
@@ -438,7 +432,11 @@ func (s *DNSService) Update(ctx context.Context, profile control.DNSProfile) (co
 }
 
 func (s *DNSService) Flush(ctx context.Context) error {
-	return s.manager.FlushDNS(ctx)
+	if err := s.manager.FlushDNS(ctx); err != nil {
+		return err
+	}
+	recordAudit(ctx, s.audit, "dns.flush", nil)
+	return nil
 }
 
 type ObservabilityService struct {

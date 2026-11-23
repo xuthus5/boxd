@@ -26,6 +26,7 @@ type Engine struct {
 	instance  *box.Box
 	cancel    context.CancelFunc
 	logWriter *platformLogWriter
+	runtime   engineRuntime
 
 	state     kernel.State
 	startedAt time.Time
@@ -35,6 +36,7 @@ type Engine struct {
 }
 
 var _ kernel.Engine = (*Engine)(nil)
+var _ kernel.ConfigDiagnosticsFeature = (*Engine)(nil)
 
 func newEngine(openOptions kernel.OpenOptions, options option.Options) *Engine {
 	return &Engine{
@@ -60,10 +62,10 @@ func (e *Engine) Version() string {
 func (e *Engine) Capabilities() kernel.Capabilities {
 	return kernel.Capabilities{
 		HotReload:          false,
-		ClashMode:          false,
-		DNSFlush:           false,
-		ConnectionControl:  false,
-		TrafficObservation: false,
+		ClashMode:          true,
+		DNSFlush:           true,
+		ConnectionControl:  true,
+		TrafficObservation: true,
 		ConfigDiagnostics:  true,
 	}
 }
@@ -102,6 +104,7 @@ func (e *Engine) startLocked(ctx context.Context) error {
 
 	e.instance = instance
 	e.cancel = cancel
+	e.runtime = bindEngineRuntime(lifecycleContext)
 	e.state = kernel.StateRunning
 	e.startedAt = time.Now().UTC()
 	return nil
@@ -125,6 +128,7 @@ func (e *Engine) stopLocked(ctx context.Context) error {
 	cancel := e.cancel
 	e.instance = nil
 	e.cancel = nil
+	e.runtime = engineRuntime{}
 
 	var closeErr error
 	if instance != nil {
@@ -190,6 +194,16 @@ func (e *Engine) ValidateConfig(ctx context.Context, document kernel.ConfigDocum
 		}, nil
 	}
 	return kernel.ValidationResult{Valid: true}, nil
+}
+
+// DiagnoseConfig implements kernel.ConfigDiagnosticsFeature without exposing
+// sing-box option types to the control plane.
+func (e *Engine) DiagnoseConfig(ctx context.Context, document kernel.ConfigDocument) ([]kernel.Diagnostic, error) {
+	result, err := e.ValidateConfig(ctx, document)
+	if err != nil {
+		return nil, err
+	}
+	return append([]kernel.Diagnostic(nil), result.Diagnostics...), nil
 }
 
 func (e *Engine) ApplyConfig(ctx context.Context, document kernel.ConfigDocument, _ kernel.ApplyOptions) (kernel.ApplyResult, error) {

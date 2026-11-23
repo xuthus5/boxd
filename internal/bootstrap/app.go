@@ -11,6 +11,7 @@ import (
 
 	"github.com/xuthus5/boxd/control"
 	"github.com/xuthus5/boxd/internal/adapters/outbound/httpdownload"
+	"github.com/xuthus5/boxd/internal/adapters/outbound/nodelink"
 	"github.com/xuthus5/boxd/internal/adapters/outbound/singboxconfig"
 	"github.com/xuthus5/boxd/internal/adapters/outbound/sqlite"
 	"github.com/xuthus5/boxd/internal/adapters/outbound/subscriptionjson"
@@ -24,11 +25,11 @@ const databaseName = "boxd.sqlite"
 // Options configures a host-neutral application instance.
 type Options struct {
 	DataDir            string
-	BackupDir          string
 	Factory            kernel.Factory
 	Compiler           control.ConfigCompiler
 	Downloader         control.Downloader
 	SubscriptionParser control.SubscriptionParser
+	NodeCodec          control.NodeCodec
 	Logger             *slog.Logger
 }
 
@@ -37,9 +38,10 @@ type App struct {
 	Control control.Application
 	Kernel  kernel.Manager
 
-	manager *manager.Manager
-	store   *sqlite.DB
-	logger  *slog.Logger
+	manager   *manager.Manager
+	store     *sqlite.DB
+	scheduler control.SchedulerAPI
+	logger    *slog.Logger
 }
 
 // New opens storage, applies migrations, and wires the control plane.
@@ -99,9 +101,9 @@ func New(ctx context.Context, opts Options) (*App, error) {
 	if subscriptionParser == nil {
 		subscriptionParser = subscriptionjson.New()
 	}
-	backupDir := opts.BackupDir
-	if backupDir == "" {
-		backupDir = filepath.Join(opts.DataDir, "backups")
+	nodeCodec := opts.NodeCodec
+	if nodeCodec == nil {
+		nodeCodec = nodelink.New()
 	}
 	application := controlplane.NewWithDependencies(
 		kernelManager,
@@ -111,11 +113,11 @@ func New(ctx context.Context, opts Options) (*App, error) {
 		controlplane.Dependencies{
 			Downloader:           downloader,
 			SubscriptionParser:   subscriptionParser,
+			NodeCodec:            nodeCodec,
 			RuleSetRepository:    store.RuleSets(),
 			TestResultRepository: store.TestResults(),
-			BackupStore:          store.Backups(),
-			BackupDir:            backupDir,
 			SecurityRepository:   store.Security(),
+			AuditRepository:      store.Audit(),
 		},
 	)
 	if _, err := application.Setup().EnsureDefaults(ctx); err != nil {
@@ -123,16 +125,23 @@ func New(ctx context.Context, opts Options) (*App, error) {
 		_ = store.Close()
 		return nil, fmt.Errorf("initialize default profile: %w", err)
 	}
+	scheduler := application.Scheduler()
+	if err := scheduler.Start(ctx); err != nil {
+		_ = kernelManager.Close()
+		_ = store.Close()
+		return nil, fmt.Errorf("start subscription scheduler: %w", err)
+	}
 	logger.Info("control plane initialized",
 		slog.String("database", databasePath),
 		slog.String("engine", string(opts.Factory.Kind())),
 	)
 	return &App{
-		Control: application,
-		Kernel:  kernelManager,
-		manager: kernelManager,
-		store:   store,
-		logger:  logger,
+		Control:   application,
+		Kernel:    kernelManager,
+		manager:   kernelManager,
+		store:     store,
+		scheduler: scheduler,
+		logger:    logger,
 	}, nil
 }
 
@@ -151,6 +160,11 @@ func (a *App) Close() error {
 	}
 	ctx := context.Background()
 	var closeErrors []error
+	if a.scheduler != nil {
+		if err := a.scheduler.Stop(ctx); err != nil {
+			closeErrors = append(closeErrors, err)
+		}
+	}
 	if a.manager != nil {
 		if err := a.manager.Close(); err != nil {
 			closeErrors = append(closeErrors, err)

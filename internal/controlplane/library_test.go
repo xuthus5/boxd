@@ -2,12 +2,11 @@ package controlplane_test
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/xuthus5/boxd/control"
+	"github.com/xuthus5/boxd/internal/adapters/outbound/nodelink"
 	"github.com/xuthus5/boxd/internal/controlplane"
 	"github.com/xuthus5/boxd/internal/kernel/fake"
 	"github.com/xuthus5/boxd/internal/kernel/manager"
@@ -129,6 +128,78 @@ func TestNodeImportSaveFilterAndDelay(t *testing.T) {
 	}
 }
 
+func TestSubscriptionSchedulerRefreshesDueSubscriptions(t *testing.T) {
+	ctx := context.Background()
+	downloader := &recordingDownloader{result: control.DownloadResult{Body: []byte(`{"outbounds":[]}`), ETag: `"scheduler-v1"`}}
+	parser := &staticSubscriptionParser{nodes: []control.Node{
+		{Name: "HK", Protocol: "shadowsocks", Server: "127.0.0.1", Port: 8388},
+	}}
+	application := newApplicationWithDependencies(t, controlplane.Dependencies{
+		Downloader:         downloader,
+		SubscriptionParser: parser,
+	})
+	subscription, err := application.Subscriptions().Save(ctx, control.Subscription{
+		Name: "Scheduled", URL: "https://example.com/subscription", Enabled: true, IntervalSeconds: 3600,
+	})
+	if err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+	status, err := application.Scheduler().Status(ctx)
+	if err != nil || status.Running || status.IntervalSeconds <= 0 {
+		t.Fatalf("initial Status() = %+v, %v", status, err)
+	}
+	results, err := application.Scheduler().RunOnce(ctx)
+	if err != nil {
+		t.Fatalf("RunOnce() error = %v", err)
+	}
+	if len(results) != 1 || results[0].Subscription.ID != subscription.ID || results[0].Added != 1 {
+		t.Fatalf("first RunOnce() = %+v", results)
+	}
+	results, err = application.Scheduler().RunOnce(ctx)
+	if err != nil || len(results) != 0 {
+		t.Fatalf("second RunOnce() = %+v, %v, want no due subscriptions", results, err)
+	}
+	status, err = application.Scheduler().Status(ctx)
+	if err != nil || status.LastRunAt.IsZero() || status.LastError != "" {
+		t.Fatalf("final Status() = %+v, %v", status, err)
+	}
+	if err := application.Scheduler().Start(ctx); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	if status, err := application.Scheduler().Status(ctx); err != nil || !status.Running || status.NextRunAt.IsZero() {
+		t.Fatalf("running Status() = %+v, %v", status, err)
+	}
+	if err := application.Scheduler().Stop(ctx); err != nil {
+		t.Fatalf("Stop() error = %v", err)
+	}
+	if status, err := application.Scheduler().Status(ctx); err != nil || status.Running {
+		t.Fatalf("stopped Status() = %+v, %v", status, err)
+	}
+}
+
+func TestNodeLinkImportAndExport(t *testing.T) {
+	ctx := context.Background()
+	application := newApplicationWithDependencies(t, controlplane.Dependencies{NodeCodec: nodelink.New()})
+	result, err := application.Nodes().ImportLinks(ctx, []string{
+		"ss://YWVzLTEyOC1nY206c2VjcmV0@127.0.0.1:8388#SS%20Node",
+		"trojan://secret@127.0.0.2:443?sni=example.com#Trojan",
+	})
+	if err != nil {
+		t.Fatalf("ImportLinks() error = %v", err)
+	}
+	if result.Added != 2 || len(result.Nodes) != 2 {
+		t.Fatalf("ImportLinks() = %+v", result)
+	}
+	link, err := application.Nodes().EncodeLink(ctx, result.Nodes[0])
+	if err != nil || link == "" {
+		t.Fatalf("EncodeLink() = %q, %v", link, err)
+	}
+	decoded, err := application.Nodes().DecodeLink(ctx, link)
+	if err != nil || decoded.Protocol != result.Nodes[0].Protocol || decoded.Server != result.Nodes[0].Server {
+		t.Fatalf("DecodeLink() = %+v, %v", decoded, err)
+	}
+}
+
 func TestRuleSetDefinitionAndRefreshStatusAreSeparated(t *testing.T) {
 	ctx := context.Background()
 	downloader := &recordingDownloader{result: control.DownloadResult{Body: []byte("rule-set"), ETag: `"rules-v1"`}}
@@ -169,26 +240,15 @@ func TestRuleSetDefinitionAndRefreshStatusAreSeparated(t *testing.T) {
 	}
 }
 
-func TestPolicyAggregateAndBackupFacade(t *testing.T) {
+func TestPolicyAggregateFacade(t *testing.T) {
 	ctx := context.Background()
-	backups := &memoryBackups{}
-	application := newApplicationWithDependencies(t, controlplane.Dependencies{
-		BackupStore: backups,
-		BackupDir:   `C:\backups`,
-	})
+	application := newApplicationWithDependencies(t, controlplane.Dependencies{})
 	policies, err := application.Policies().Get(ctx)
 	if err != nil {
 		t.Fatalf("Policies().Get() error = %v", err)
 	}
 	if policies.Routes.Mode != control.RouteModeRules || policies.DNS.Strategy == "" || application.Policies().Routes() == nil || application.Policies().DNS() == nil {
 		t.Fatalf("policy snapshot = %+v", policies)
-	}
-	info, err := application.Backup().Create(ctx, control.BackupCreateOptions{})
-	if err != nil {
-		t.Fatalf("Backup().Create() error = %v", err)
-	}
-	if info.Path == "" || backups.directory != `C:\backups` {
-		t.Fatalf("backup info = %+v, directory = %q", info, backups.directory)
 	}
 }
 
@@ -353,10 +413,6 @@ func (r *memoryTestResults) List(_ context.Context, nodeID string, limit int) ([
 	return result, nil
 }
 
-type memoryBackups struct {
-	directory string
-}
-
 type memorySecurityRepository struct {
 	credential  control.SecurityCredential
 	initialized bool
@@ -370,20 +426,4 @@ func (r *memorySecurityRepository) Save(_ context.Context, credential control.Se
 	r.credential = credential
 	r.initialized = true
 	return nil
-}
-
-func (b *memoryBackups) Create(_ context.Context, directory string, createdAt time.Time) (control.BackupInfo, error) {
-	b.directory = directory
-	return control.BackupInfo{Path: directory + `\snapshot.sqlite`, SizeBytes: 1, CreatedAt: createdAt}, nil
-}
-
-func (b *memoryBackups) Inspect(_ context.Context, path string) (control.BackupInfo, error) {
-	if path == "" {
-		return control.BackupInfo{}, errors.New("path is required")
-	}
-	return control.BackupInfo{Path: path}, nil
-}
-
-func (b *memoryBackups) List(context.Context, string) ([]control.BackupInfo, error) {
-	return nil, nil
 }

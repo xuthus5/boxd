@@ -29,6 +29,7 @@ const (
 // access sessions. Credentials are salted and hashed before persistence.
 type SecurityService struct {
 	repository control.SecurityRepository
+	audit      control.AuditRecorder
 	now        func() time.Time
 	random     func([]byte) (int, error)
 	iterations int
@@ -37,6 +38,15 @@ type SecurityService struct {
 	initMu   sync.Mutex
 	mu       sync.Mutex
 	sessions map[string]time.Time
+}
+
+// SetAuditor installs the optional audit recorder for credential and session
+// lifecycle events.
+func (s *SecurityService) SetAuditor(recorder control.AuditRecorder) {
+	if s == nil {
+		return
+	}
+	s.audit = recorder
 }
 
 var _ control.SecurityAPI = (*SecurityService)(nil)
@@ -108,6 +118,7 @@ func (s *SecurityService) Initialize(ctx context.Context, password string) (cont
 	if err := s.repository.Save(ctx, credential); err != nil {
 		return control.SecuritySession{}, wrapStoreError("security.initialize", "save security credential", err)
 	}
+	recordAudit(ctx, s.audit, "security.initialize", nil)
 	return s.createSession(now)
 }
 
@@ -136,10 +147,11 @@ func (s *SecurityService) Login(ctx context.Context, password string) (control.S
 	if subtle.ConstantTimeCompare(candidate, credential.Hash) != 1 {
 		return control.SecuritySession{}, unauthorized("security.login")
 	}
+	recordAudit(ctx, s.audit, "security.login", nil)
 	return s.createSession(s.now().UTC())
 }
 
-func (s *SecurityService) Logout(_ context.Context, token string) error {
+func (s *SecurityService) Logout(ctx context.Context, token string) error {
 	token = strings.TrimSpace(token)
 	if token == "" {
 		return nil
@@ -147,6 +159,7 @@ func (s *SecurityService) Logout(_ context.Context, token string) error {
 	s.mu.Lock()
 	delete(s.sessions, token)
 	s.mu.Unlock()
+	recordAudit(context.WithoutCancel(ctx), s.audit, "security.logout", nil)
 	return nil
 }
 

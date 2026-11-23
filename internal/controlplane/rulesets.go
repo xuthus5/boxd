@@ -19,8 +19,11 @@ type RuleSetService struct {
 	profile    *ProfileService
 	statuses   control.RuleSetRepository
 	downloader control.Downloader
+	audit      control.AuditRecorder
 	now        func() time.Time
 }
+
+func (s *RuleSetService) SetAuditor(recorder control.AuditRecorder) { s.audit = recorder }
 
 var _ control.RuleSetAPI = (*RuleSetService)(nil)
 
@@ -72,7 +75,7 @@ func (s *RuleSetService) Save(ctx context.Context, definition control.RuleSetDef
 		definition.Format = control.RuleSetFormatBinary
 	}
 	definition.Builtin = false
-	state, err := s.profile.update(ctx, func(state *control.DesiredState) error {
+	state, err := s.profile.update(ctx, "rulesets.save", func(state *control.DesiredState) error {
 		for index := range state.RuleSets {
 			if state.RuleSets[index].Name != definition.Name {
 				continue
@@ -111,7 +114,7 @@ func (s *RuleSetService) Save(ctx context.Context, definition control.RuleSetDef
 
 func (s *RuleSetService) Delete(ctx context.Context, name string) error {
 	name = strings.TrimSpace(name)
-	_, err := s.profile.update(ctx, func(state *control.DesiredState) error {
+	_, err := s.profile.update(ctx, "rulesets.delete", func(state *control.DesiredState) error {
 		for index := range state.RuleSets {
 			if state.RuleSets[index].Name != name {
 				continue
@@ -174,6 +177,7 @@ func (s *RuleSetService) Refresh(ctx context.Context, name string) (control.Rule
 		MaxBytes:     defaultDownloadBytes,
 	})
 	if err != nil {
+		recordAudit(ctx, s.audit, "rulesets.refresh_failed", map[string]any{"name": definition.Name})
 		return control.RuleSet{}, s.recordRefreshError(ctx, previous, err)
 	}
 	status := previous
@@ -195,6 +199,7 @@ func (s *RuleSetService) Refresh(ctx context.Context, name string) (control.Rule
 	if err := s.statuses.Upsert(ctx, status); err != nil {
 		return control.RuleSet{}, wrapStoreError("rulesets.refresh", "save rule set status", err)
 	}
+	recordAudit(ctx, s.audit, "rulesets.refresh", map[string]any{"name": definition.Name, "sha256": status.SHA256})
 	return ruleSetView(definition, status), nil
 }
 

@@ -83,7 +83,7 @@ func (db *DB) Ping(ctx context.Context) error {
 	return db.sql.PingContext(ctx)
 }
 
-// Checkpoint flushes the WAL before backup or shutdown.
+// Checkpoint flushes the WAL before shutdown.
 func (db *DB) Checkpoint(ctx context.Context) error {
 	_, err := db.sql.ExecContext(ctx, "PRAGMA wal_checkpoint(TRUNCATE)")
 	return err
@@ -114,12 +114,12 @@ func (db *DB) TestResults() *TestResultRepository {
 	return &TestResultRepository{db: db.sql}
 }
 
-// Backups returns the database snapshot adapter.
-func (db *DB) Backups() *BackupStore {
-	return &BackupStore{db: db.sql, path: db.path}
-}
-
 // Security returns the local administrator credential repository.
 func (db *DB) Security() *SecurityRepository {
 	return &SecurityRepository{db: db.sql}
+}
+
+// Audit returns the audit event repository.
+func (db *DB) Audit() *AuditRepository {
+	return &AuditRepository{db: db.sql}
 }

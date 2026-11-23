@@ -12,7 +12,10 @@ type ConfigService struct {
 	manager kernel.Manager
 	store   kernel.ConfigStore
 	profile *ProfileService
+	audit   control.AuditRecorder
 }
+
+func (s *ConfigService) SetAuditor(recorder control.AuditRecorder) { s.audit = recorder }
 
 var _ control.ConfigAPI = (*ConfigService)(nil)
 
@@ -29,8 +32,23 @@ func (s *ConfigService) Validate(ctx context.Context, document kernel.ConfigDocu
 	return s.manager.ValidateConfig(ctx, document)
 }
 
+func (s *ConfigService) Diagnose(ctx context.Context, document kernel.ConfigDocument) ([]kernel.Diagnostic, error) {
+	if diagnoser, ok := s.manager.(kernel.ConfigDiagnosticsFeature); ok {
+		return diagnoser.DiagnoseConfig(ctx, document)
+	}
+	result, err := s.manager.ValidateConfig(ctx, document)
+	if err != nil {
+		return nil, err
+	}
+	return append([]kernel.Diagnostic(nil), result.Diagnostics...), nil
+}
+
 func (s *ConfigService) Apply(ctx context.Context, document kernel.ConfigDocument, options kernel.ApplyOptions) (kernel.ApplyResult, error) {
-	return s.manager.ApplyConfig(ctx, document, options)
+	result, err := s.manager.ApplyConfig(ctx, document, options)
+	if err == nil {
+		recordAudit(ctx, s.audit, "config.apply", map[string]any{"revision": result.Revision, "source": options.Source})
+	}
+	return result, err
 }
 
 func (s *ConfigService) Reconcile(ctx context.Context, options kernel.ApplyOptions) (kernel.ApplyResult, error) {

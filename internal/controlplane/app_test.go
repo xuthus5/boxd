@@ -30,7 +30,10 @@ func TestApplicationFacadeAndSettings(t *testing.T) {
 
 	if application.Kernel() == nil || application.Config() == nil || application.Settings() == nil ||
 		application.Setup() == nil || application.Inbounds() == nil || application.Egress() == nil ||
-		application.Routes() == nil || application.DNS() == nil || application.Observability() == nil {
+		application.Subscriptions() == nil || application.Scheduler() == nil || application.Nodes() == nil ||
+		application.Policies() == nil || application.Routes() == nil || application.DNS() == nil ||
+		application.RuleSets() == nil || application.Observability() == nil ||
+		application.Security() == nil || application.Audit() == nil {
 		t.Fatal("application facade returned a nil module")
 	}
 	if _, err := application.Setup().EnsureDefaults(ctx); err != nil {
@@ -51,6 +54,9 @@ func TestApplicationFacadeAndSettings(t *testing.T) {
 
 	if _, err := application.Config().Validate(ctx, kernel.ConfigDocument{Format: "json", Body: []byte(`{}`)}); err != nil {
 		t.Fatalf("Validate() error = %v", err)
+	}
+	if diagnostics, err := application.Config().Diagnose(ctx, kernel.ConfigDocument{Format: "json", Body: []byte(`{}`)}); err != nil || len(diagnostics) != 0 {
+		t.Fatalf("Diagnose() = %+v, %v", diagnostics, err)
 	}
 	history, err := application.Config().History(ctx, 5)
 	if err != nil || len(history) != 1 || history[0].Revision != "profile-rev" {

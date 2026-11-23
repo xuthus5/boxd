@@ -167,6 +167,37 @@ func TestChainRejectsUDPDisabledNodeWhenMixedUsesUDP(t *testing.T) {
 	}
 }
 
+func TestSelectGroupMemberPersistsSelection(t *testing.T) {
+	ctx := context.Background()
+	application := newTestApplication(t)
+	for _, id := range []string{"hk", "jp"} {
+		if _, err := application.Egress().SaveNode(ctx, control.Node{
+			ID: id, Name: id, Protocol: "shadowsocks", Server: "127.0.0.1", Port: 8388,
+			Options: map[string]any{"method": "aes-128-gcm", "password": "secret"},
+		}); err != nil {
+			t.Fatalf("SaveNode(%s) error = %v", id, err)
+		}
+	}
+	if _, err := application.Egress().SaveGroup(ctx, control.Group{
+		ID: "smart", Name: "Smart", Kind: control.GroupKindSelector, Members: []string{"hk", "jp"},
+	}); err != nil {
+		t.Fatalf("SaveGroup() error = %v", err)
+	}
+	if err := application.Egress().SelectGroupMember(ctx, "smart", "jp"); err != nil {
+		t.Fatalf("SelectGroupMember() error = %v", err)
+	}
+	catalog, err := application.Egress().Catalog(ctx)
+	if err != nil {
+		t.Fatalf("Catalog() error = %v", err)
+	}
+	if len(catalog.Groups) != 1 || catalog.Groups[0].Selected != "jp" {
+		t.Fatalf("persisted selection = %+v", catalog.Groups)
+	}
+	if err := application.Egress().SelectGroupMember(ctx, "smart", "missing"); !hasCode(err, kernel.ErrCodeNotFound) {
+		t.Fatalf("SelectGroupMember(missing) error = %v, want not found", err)
+	}
+}
+
 func TestProfileRollsBackWhenConfigCompilationFails(t *testing.T) {
 	ctx := context.Background()
 	store := &memstore.ConfigStore{}

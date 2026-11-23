@@ -32,6 +32,16 @@ func (m *Manager) ValidateConfig(ctx context.Context, document kernel.ConfigDocu
 	return m.validateLocked(operationCtx, document)
 }
 
+// DiagnoseConfig implements kernel.ConfigDiagnosticsFeature using the same
+// validation path as ApplyConfig, without persisting or applying the document.
+func (m *Manager) DiagnoseConfig(ctx context.Context, document kernel.ConfigDocument) ([]kernel.Diagnostic, error) {
+	result, err := m.ValidateConfig(ctx, document)
+	if err != nil {
+		return nil, err
+	}
+	return append([]kernel.Diagnostic(nil), result.Diagnostics...), nil
+}
+
 // ApplyConfig validates, persists, and applies a candidate configuration. A
 // failed live apply restores both the store and the last running configuration.
 func (m *Manager) ApplyConfig(ctx context.Context, document kernel.ConfigDocument, opts kernel.ApplyOptions) (kernel.ApplyResult, error) {

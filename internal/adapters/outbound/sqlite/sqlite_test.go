@@ -209,33 +209,6 @@ func TestTestResultRepositoryRoundTrip(t *testing.T) {
 	}
 }
 
-func TestBackupStoreCreatesAndInspectsSnapshot(t *testing.T) {
-	ctx := context.Background()
-	db := openTestDB(t)
-	state := control.DefaultDesiredState()
-	state.Revision = "profile:backup"
-	if err := db.Profiles().Save(ctx, state); err != nil {
-		t.Fatalf("save profile: %v", err)
-	}
-	createdAt := time.Date(2026, 11, 22, 10, 30, 0, 0, time.UTC)
-	directory := filepath.Join(t.TempDir(), "backups")
-	info, err := db.Backups().Create(ctx, directory, createdAt)
-	if err != nil {
-		t.Fatalf("Create() error = %v", err)
-	}
-	if info.SchemaVersion != 4 || info.Revision != state.Revision || info.SizeBytes == 0 || !info.CreatedAt.Equal(createdAt) {
-		t.Fatalf("backup info = %+v", info)
-	}
-	inspected, err := db.Backups().Inspect(ctx, info.Path)
-	if err != nil || inspected.SizeBytes != info.SizeBytes || inspected.Revision != state.Revision {
-		t.Fatalf("Inspect() = %+v, %v", inspected, err)
-	}
-	all, err := db.Backups().List(ctx, directory)
-	if err != nil || len(all) != 1 || all[0].Path != info.Path {
-		t.Fatalf("List() = %+v, %v", all, err)
-	}
-}
-
 func TestSecurityRepositoryRoundTrip(t *testing.T) {
 	ctx := context.Background()
 	db := openTestDB(t)
@@ -255,6 +228,33 @@ func TestSecurityRepositoryRoundTrip(t *testing.T) {
 	got, found, err := repository.Load(ctx)
 	if err != nil || !found || string(got.Salt) != "salt" || string(got.Hash) != "hash" || got.Iterations != credential.Iterations {
 		t.Fatalf("Load() = %+v, found %v, err %v", got, found, err)
+	}
+}
+
+func TestAuditRepositoryRoundTripAndFilters(t *testing.T) {
+	ctx := context.Background()
+	db := openTestDB(t)
+	repository := db.Audit()
+	now := time.Now().UTC().Truncate(time.Millisecond)
+	events := []control.AuditEvent{
+		{Action: "egress.save_node", Actor: "alice", Source: "http", Detail: map[string]any{"revision": "r1"}, CreatedAt: now.Add(-time.Second)},
+		{Action: "routes.set_mode", Actor: "bob", Source: "cli", Detail: map[string]any{"mode": "rules"}, CreatedAt: now},
+	}
+	for _, event := range events {
+		if _, err := repository.Append(ctx, event); err != nil {
+			t.Fatalf("Append() error = %v", err)
+		}
+	}
+	all, err := repository.List(ctx, control.AuditFilter{Limit: 10})
+	if err != nil || len(all) != 2 || all[0].Action != "routes.set_mode" {
+		t.Fatalf("List() = %+v, %v", all, err)
+	}
+	if all[0].Detail["mode"] != "rules" || all[0].CreatedAt.IsZero() {
+		t.Fatalf("decoded event = %+v", all[0])
+	}
+	filtered, err := repository.List(ctx, control.AuditFilter{Actor: "alice", Since: now.Add(-2 * time.Second), Limit: 10})
+	if err != nil || len(filtered) != 1 || filtered[0].Action != "egress.save_node" {
+		t.Fatalf("filtered List() = %+v, %v", filtered, err)
 	}
 }
 

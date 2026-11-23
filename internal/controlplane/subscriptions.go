@@ -57,7 +57,7 @@ func (s *SubscriptionService) Save(ctx context.Context, subscription control.Sub
 		}
 		subscription.ID = id
 	}
-	state, err := s.profile.update(ctx, func(state *control.DesiredState) error {
+	state, err := s.profile.update(ctx, "subscriptions.save", func(state *control.DesiredState) error {
 		for index := range state.Subscriptions {
 			if state.Subscriptions[index].ID == subscription.ID {
 				state.Subscriptions[index] = subscription
@@ -79,7 +79,7 @@ func (s *SubscriptionService) Save(ctx context.Context, subscription control.Sub
 }
 
 func (s *SubscriptionService) Delete(ctx context.Context, id string) error {
-	_, err := s.profile.update(ctx, func(state *control.DesiredState) error {
+	_, err := s.profile.update(ctx, "subscriptions.delete", func(state *control.DesiredState) error {
 		subscriptionIndex := -1
 		for index := range state.Subscriptions {
 			if state.Subscriptions[index].ID == id {
@@ -155,7 +155,7 @@ func (s *SubscriptionService) Refresh(ctx context.Context, id string) (control.S
 	}
 
 	now := s.now().UTC()
-	_, err = s.profile.update(ctx, func(state *control.DesiredState) error {
+	_, err = s.profile.update(ctx, "subscriptions.refresh", func(state *control.DesiredState) error {
 		subscriptionIndex := -1
 		for index := range state.Subscriptions {
 			if state.Subscriptions[index].ID == id {

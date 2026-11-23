@@ -22,13 +22,17 @@ type NodeService struct {
 	profile *ProfileService
 	manager kernel.Manager
 	results control.TestResultRepository
+	codec   control.NodeCodec
+	audit   control.AuditRecorder
 	now     func() time.Time
 }
 
+func (s *NodeService) SetAuditor(recorder control.AuditRecorder) { s.audit = recorder }
+
 var _ control.NodeAPI = (*NodeService)(nil)
 
-func NewNodeService(profile *ProfileService, manager kernel.Manager, results control.TestResultRepository) *NodeService {
-	return &NodeService{profile: profile, manager: manager, results: results, now: time.Now}
+func NewNodeService(profile *ProfileService, manager kernel.Manager, results control.TestResultRepository, codec control.NodeCodec) *NodeService {
+	return &NodeService{profile: profile, manager: manager, results: results, codec: codec, now: time.Now}
 }
 
 func (s *NodeService) List(ctx context.Context, subscriptionID string) ([]control.Node, error) {
@@ -79,7 +83,7 @@ func (s *NodeService) Import(ctx context.Context, nodes []control.Node) (control
 	}
 
 	result := control.NodeImportResult{}
-	state, err := s.profile.update(ctx, func(state *control.DesiredState) error {
+	state, err := s.profile.update(ctx, "nodes.import", func(state *control.DesiredState) error {
 		indexByID := make(map[string]int, len(state.Nodes))
 		for index, node := range state.Nodes {
 			indexByID[node.ID] = index
@@ -107,6 +111,38 @@ func (s *NodeService) Import(ctx context.Context, nodes []control.Node) (control
 	return result, nil
 }
 
+func (s *NodeService) ImportLinks(ctx context.Context, links []string) (control.NodeImportResult, error) {
+	if s.codec == nil {
+		return control.NodeImportResult{}, capabilityUnavailable("nodes.import_links", "node link codec")
+	}
+	if len(links) == 0 {
+		return control.NodeImportResult{}, kernel.NewError(kernel.ErrCodeInvalidConfig, "nodes.import_links", "at least one node link is required")
+	}
+	nodes := make([]control.Node, 0, len(links))
+	for _, link := range links {
+		node, err := s.codec.Decode(ctx, link)
+		if err != nil {
+			return control.NodeImportResult{}, err
+		}
+		nodes = append(nodes, node)
+	}
+	return s.Import(ctx, nodes)
+}
+
+func (s *NodeService) DecodeLink(ctx context.Context, link string) (control.Node, error) {
+	if s.codec == nil {
+		return control.Node{}, capabilityUnavailable("nodes.decode_link", "node link codec")
+	}
+	return s.codec.Decode(ctx, link)
+}
+
+func (s *NodeService) EncodeLink(ctx context.Context, node control.Node) (string, error) {
+	if s.codec == nil {
+		return "", capabilityUnavailable("nodes.encode_link", "node link codec")
+	}
+	return s.codec.Encode(ctx, node)
+}
+
 func (s *NodeService) Save(ctx context.Context, node control.Node) (control.Node, error) {
 	node.ID = strings.TrimSpace(node.ID)
 	if node.ID == "" {
@@ -116,7 +152,7 @@ func (s *NodeService) Save(ctx context.Context, node control.Node) (control.Node
 		}
 		node.ID = id
 	}
-	state, err := s.profile.update(ctx, func(state *control.DesiredState) error {
+	state, err := s.profile.update(ctx, "nodes.save", func(state *control.DesiredState) error {
 		for index := range state.Nodes {
 			if state.Nodes[index].ID == node.ID {
 				state.Nodes[index] = node
@@ -138,7 +174,7 @@ func (s *NodeService) Save(ctx context.Context, node control.Node) (control.Node
 }
 
 func (s *NodeService) Delete(ctx context.Context, id string) error {
-	_, err := s.profile.update(ctx, func(state *control.DesiredState) error {
+	_, err := s.profile.update(ctx, "nodes.delete", func(state *control.DesiredState) error {
 		for index := range state.Nodes {
 			if state.Nodes[index].ID != id {
 				continue
@@ -178,6 +214,7 @@ func (s *NodeService) Delay(ctx context.Context, id, url string) (control.NodeDe
 	if persistErr != nil {
 		return control.NodeDelay{}, persistErr
 	}
+	recordAudit(ctx, s.audit, "nodes.delay", map[string]any{"node_id": id, "url": url})
 	return control.NodeDelay{NodeID: id, URL: url, Latency: latency, TestedAt: testedAt}, nil
 }
 

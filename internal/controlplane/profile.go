@@ -22,8 +22,18 @@ type ProfileService struct {
 	manager  kernel.Manager
 	store    control.ProfileRepository
 	compiler control.ConfigCompiler
+	audit    control.AuditRecorder
 	now      func() time.Time
 	id       func(prefix string) (string, error)
+}
+
+// SetAuditor installs the optional audit recorder used for successful profile
+// mutations.
+func (s *ProfileService) SetAuditor(recorder control.AuditRecorder) {
+	if s == nil {
+		return
+	}
+	s.audit = recorder
 }
 
 // NewProfileService constructs the managed-state coordinator.
@@ -56,6 +66,7 @@ func (s *ProfileService) EnsureDefaults(ctx context.Context) (control.DesiredSta
 		if _, applyErr := s.persistAndApplyLocked(ctx, state, kernel.ApplyOptions{Source: "setup"}); applyErr != nil {
 			return control.DesiredState{}, applyErr
 		}
+		recordAudit(ctx, s.audit, "profile.ensure_defaults", map[string]any{"revision": state.Revision})
 		return cloneState(state)
 	}
 	if err != nil {
@@ -65,6 +76,7 @@ func (s *ProfileService) EnsureDefaults(ctx context.Context) (control.DesiredSta
 		if _, applyErr := s.applyLocked(ctx, state, kernel.ApplyOptions{Source: "setup"}); applyErr != nil {
 			return control.DesiredState{}, applyErr
 		}
+		recordAudit(ctx, s.audit, "profile.ensure_defaults", map[string]any{"revision": state.Revision})
 	} else if readErr != nil {
 		return control.DesiredState{}, readErr
 	}
@@ -82,7 +94,11 @@ func (s *ProfileService) Reconcile(ctx context.Context, options kernel.ApplyOpti
 	if options.Source == "" {
 		options.Source = "control"
 	}
-	return s.applyLocked(ctx, state, options)
+	result, err := s.applyLocked(ctx, state, options)
+	if err == nil {
+		recordAudit(ctx, s.audit, "profile.reconcile", map[string]any{"revision": result.Revision})
+	}
+	return result, err
 }
 
 // ApplyProfile is used by setup and tests to validate and persist a complete
@@ -93,10 +109,14 @@ func (s *ProfileService) ApplyProfile(ctx context.Context, candidate control.Des
 	if err := normalizeAndValidateState(&candidate); err != nil {
 		return control.DesiredState{}, err
 	}
-	return s.persistAndApplyLocked(ctx, candidate, kernel.ApplyOptions{Source: "control"})
+	applied, err := s.persistAndApplyLocked(ctx, candidate, kernel.ApplyOptions{Source: "control"})
+	if err == nil {
+		recordAudit(ctx, s.audit, "profile.apply", map[string]any{"revision": applied.Revision})
+	}
+	return applied, err
 }
 
-func (s *ProfileService) update(ctx context.Context, mutate func(*control.DesiredState) error) (control.DesiredState, error) {
+func (s *ProfileService) update(ctx context.Context, action string, mutate func(*control.DesiredState) error) (control.DesiredState, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -137,6 +157,9 @@ func (s *ProfileService) update(ctx context.Context, mutate func(*control.Desire
 		}
 		return control.DesiredState{}, err
 	}
+	recordAudit(ctx, s.audit, action, map[string]any{
+		"revision": next.Revision,
+	})
 	return cloneState(next)
 }
 

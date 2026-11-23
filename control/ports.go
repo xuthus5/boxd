@@ -56,6 +56,13 @@ type Downloader interface {
 	Get(ctx context.Context, request DownloadRequest) (DownloadResult, error)
 }
 
+// NodeCodec converts engine-neutral nodes to and from share links. Link
+// syntax is transport-neutral and must not leak engine configuration types.
+type NodeCodec interface {
+	Decode(ctx context.Context, link string) (Node, error)
+	Encode(ctx context.Context, node Node) (string, error)
+}
+
 // SubscriptionParser converts a downloaded body into engine-neutral nodes.
 type SubscriptionParser interface {
 	Parse(ctx context.Context, result DownloadResult) ([]Node, error)
@@ -76,13 +83,6 @@ type TestResultRepository interface {
 	List(ctx context.Context, nodeID string, limit int) ([]NodeTestResult, error)
 }
 
-// BackupStore creates and verifies consistent database snapshots.
-type BackupStore interface {
-	Create(ctx context.Context, destinationDir string, createdAt time.Time) (BackupInfo, error)
-	Inspect(ctx context.Context, path string) (BackupInfo, error)
-	List(ctx context.Context, destinationDir string) ([]BackupInfo, error)
-}
-
 // SecurityCredential is a salted password verifier. Plaintext passwords never
 // cross this port.
 type SecurityCredential struct {
@@ -96,4 +96,10 @@ type SecurityCredential struct {
 type SecurityRepository interface {
 	Load(ctx context.Context) (SecurityCredential, bool, error)
 	Save(ctx context.Context, credential SecurityCredential) error
+}
+
+// AuditRepository persists immutable control-plane audit events.
+type AuditRepository interface {
+	Append(ctx context.Context, event AuditEvent) (int64, error)
+	List(ctx context.Context, filter AuditFilter) ([]AuditEvent, error)
 }

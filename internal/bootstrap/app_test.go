@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/xuthus5/boxd/control"
 	"github.com/xuthus5/boxd/internal/bootstrap"
 	"github.com/xuthus5/boxd/internal/kernel/fake"
 	"github.com/xuthus5/boxd/kernel"
@@ -30,7 +29,7 @@ func TestApplicationAssemblyAndPersistence(t *testing.T) {
 		t.Fatalf("default inbounds = %+v, %v", inbounds, err)
 	}
 	if app.Control.Subscriptions() == nil || app.Control.Nodes() == nil || app.Control.Policies() == nil ||
-		app.Control.RuleSets() == nil || app.Control.Backup() == nil || app.Control.Security() == nil {
+		app.Control.RuleSets() == nil || app.Control.Security() == nil {
 		t.Fatal("full application facade returned a nil module")
 	}
 	if ruleSets, err := app.Control.RuleSets().List(ctx); err != nil || len(ruleSets) != 3 {
@@ -45,16 +44,6 @@ func TestApplicationAssemblyAndPersistence(t *testing.T) {
 
 	if _, err := app.Control.Settings().Set(ctx, "theme", "green"); err != nil {
 		t.Fatalf("Set() error = %v", err)
-	}
-	backup, err := app.Control.Backup().Create(ctx, control.BackupCreateOptions{})
-	if err != nil {
-		t.Fatalf("Backup().Create() error = %v", err)
-	}
-	if backup.SizeBytes == 0 || backup.SchemaVersion != 4 || backup.Path == "" {
-		t.Fatalf("backup info = %+v", backup)
-	}
-	if _, err := os.Stat(backup.Path); err != nil {
-		t.Fatalf("backup file: %v", err)
 	}
 	document := kernel.ConfigDocument{Format: "json", Body: []byte(`{"mixed":true}`), Revision: "rev-1"}
 	if _, err := app.Control.Config().Apply(ctx, document, kernel.ApplyOptions{Source: "test"}); err != nil {

@@ -5,6 +5,26 @@ import (
 	"time"
 )
 
+// SchedulerStatus reports the subscription refresh worker state without
+// exposing goroutines or transport details to host adapters.
+type SchedulerStatus struct {
+	Running         bool      `json:"running"`
+	IntervalSeconds int       `json:"interval_seconds"`
+	LastRunAt       time.Time `json:"last_run_at,omitempty"`
+	NextRunAt       time.Time `json:"next_run_at,omitempty"`
+	LastError       string    `json:"last_error,omitempty"`
+}
+
+// SchedulerAPI owns periodic subscription refreshes. Hosts only need to start
+// and stop it; individual subscriptions remain manually refreshable through
+// SubscriptionAPI.
+type SchedulerAPI interface {
+	Status(ctx context.Context) (SchedulerStatus, error)
+	Start(ctx context.Context) error
+	Stop(ctx context.Context) error
+	RunOnce(ctx context.Context) ([]SubscriptionRefreshResult, error)
+}
+
 // SubscriptionRefreshResult reports the atomic outcome of one subscription
 // download and node replacement.
 type SubscriptionRefreshResult struct {
@@ -56,10 +76,13 @@ type NodeAPI interface {
 	List(ctx context.Context, subscriptionID string) ([]Node, error)
 	Get(ctx context.Context, id string) (Node, error)
 	Import(ctx context.Context, nodes []Node) (NodeImportResult, error)
+	ImportLinks(ctx context.Context, links []string) (NodeImportResult, error)
 	Save(ctx context.Context, node Node) (Node, error)
 	Delete(ctx context.Context, id string) error
 	Delay(ctx context.Context, id, url string) (NodeDelay, error)
 	TestResults(ctx context.Context, nodeID string, limit int) ([]NodeTestResult, error)
+	DecodeLink(ctx context.Context, link string) (Node, error)
+	EncodeLink(ctx context.Context, node Node) (string, error)
 }
 
 // PolicySnapshot is the complete routing and DNS intent consumed by clients.
@@ -84,30 +107,4 @@ type RuleSetAPI interface {
 	Delete(ctx context.Context, name string) error
 	Refresh(ctx context.Context, name string) (RuleSet, error)
 	RefreshAll(ctx context.Context) ([]RuleSet, error)
-}
-
-// BackupCreateOptions selects where a consistent database snapshot is stored.
-type BackupCreateOptions struct {
-	DestinationDir string `json:"destination_dir,omitempty"`
-}
-
-// BackupListOptions selects the directory whose snapshots are inspected.
-type BackupListOptions struct {
-	DestinationDir string `json:"destination_dir,omitempty"`
-}
-
-// BackupInfo describes a verified SQLite snapshot.
-type BackupInfo struct {
-	Path          string    `json:"path"`
-	SizeBytes     int64     `json:"size_bytes"`
-	CreatedAt     time.Time `json:"created_at"`
-	SchemaVersion int       `json:"schema_version"`
-	Revision      string    `json:"revision,omitempty"`
-}
-
-// BackupAPI creates and inspects consistent application snapshots.
-type BackupAPI interface {
-	Create(ctx context.Context, options BackupCreateOptions) (BackupInfo, error)
-	Inspect(ctx context.Context, path string) (BackupInfo, error)
-	List(ctx context.Context, options BackupListOptions) ([]BackupInfo, error)
 }
