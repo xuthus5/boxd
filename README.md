@@ -86,6 +86,56 @@ go run -tags with_utls,with_quic ./cmd/boxd -data-dir ./tmp-data -web -listen [:
 
 本阶段只接入控制面及以下的 Web 管理能力，不接入 Wails、MyGo、桌面宿主等上层应用；也不包含备份/恢复能力和 Web 终端。远程访问时请优先使用 TLS 反向代理或可信内网，并在首次部署后立即完成管理员口令初始化。
 
+## 发布与部署
+
+GitHub Actions 提供以下流程：
+
+- `ci.yml`：对提交和 Pull Request 执行 `gofmt`、`go vet`、普通测试、竞态测试、构建验证和部署脚本 ShellCheck。
+- `release.yaml`：推送 `v*` 标签时构建并发布正式版本，例如 `v0.1.0`。
+- `nightly.yaml`：`main` 分支更新或手动触发时，滚动更新 `nightly` 预发布版本。
+- `container.yaml`：构建多架构容器镜像并推送到 GHCR；Pull Request 只构建验证，不推送。
+
+每次发布包含 Linux `amd64`、`arm64` 的 `boxd` 裸二进制、完整部署压缩包、`boxd-manifest.json` 和 `checksums.txt`。部署包内含 `boxd`、`boxd.service`、`install.sh`、`uninstall.sh` 与项目文档，Web 控制台已通过 Go embed 内置，无需额外静态文件。
+
+在 systemd Linux 主机上解压对应架构的压缩包后执行：
+
+```bash
+tar -xzf boxd-linux-amd64.tar.gz
+cd boxd-*-linux-amd64
+sudo ./install.sh
+```
+
+安装脚本会创建 `/var/lib/boxd`、安装 `/usr/local/bin/boxd` 和 `/etc/systemd/system/boxd.service`，启用并启动服务。默认监听 `[::]:7662` 并在启动时拉起内核；使用 `sudo ./install.sh --no-start` 可只安装不启动。卸载时默认保留 `/var/lib/boxd`，仅在显式执行 `sudo ./uninstall.sh --purge` 时删除业务数据。
+
+### 容器镜像
+
+容器镜像推送到 GitHub Container Registry，地址固定为 `ghcr.io/<github-owner>/<github-repo>`。正式版本发布 `0.1.0`、`0.1`、`0`、`v0.1.0` 和稳定版 `latest`；`main` 分支发布 `nightly` 与 `nightly-<commit>`。发布 manifest 的 `container` 字段也会记录镜像地址和标签。
+
+```bash
+docker pull ghcr.io/<owner>/<repo>:latest
+docker run -d --name boxd --restart unless-stopped \
+  -p 7662:7662 \
+  -p 1080:1080 \
+  -v boxd-data:/var/lib/boxd \
+  ghcr.io/<owner>/<repo>:latest
+```
+
+容器默认同时启动 Web 控制台与 sing-box 内核。健康检查地址为 `GET /api/v1/health`。需要启用 TUN 时使用 host 网络，并授予网络与设备权限：
+
+```bash
+docker run -d --name boxd --restart unless-stopped \
+  --network host \
+  --cap-add NET_ADMIN \
+  --cap-add NET_RAW \
+  --device /dev/net/tun \
+  -v boxd-data:/var/lib/boxd \
+  ghcr.io/<owner>/<repo>:latest
+```
+
+镜像默认以 root 运行，这是 TUN 和系统路由管理所需；不使用 TUN 时仍应避免将 `7662` 直接暴露到不可信公网。首次发布后可在 GitHub Package 设置中调整镜像可见性。
+
+发布工作流需要仓库的 **Settings → Actions → General → Workflow permissions** 允许 `Read and write permissions`，以便通过 `GITHUB_TOKEN` 创建 Release。
+
 架构设计见 `docs/superpowers/specs/2026-11-21-boxd-v2-design.md`。
 
 控制面 API、领域约束和配置映射见 `docs/control-plane.md`。

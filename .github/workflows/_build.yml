@@ -1,0 +1,81 @@
+name: Build release assets
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Version embedded in the binary and release manifest
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Linux ${{ matrix.arch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - amd64
+          - arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build and package
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          archive_version="${VERSION#v}"
+          if [[ ! "${archive_version}" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            echo "unsupported release version for archive name: ${VERSION}" >&2
+            exit 1
+          fi
+
+          commit="${GITHUB_SHA:0:12}"
+          build_date="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          ldflags="-s -w -X github.com/xuthus5/boxd/internal/version.Version=${VERSION} -X github.com/xuthus5/boxd/internal/version.Commit=${commit} -X github.com/xuthus5/boxd/internal/version.Date=${build_date}"
+          package_name="boxd-${archive_version}-linux-${TARGET_ARCH}"
+
+          mkdir -p dist staging "package/${package_name}/docs"
+          CGO_ENABLED=0 GOOS=linux GOARCH="${TARGET_ARCH}" \
+            go build -trimpath -tags "with_utls,with_quic" -ldflags "${ldflags}" \
+            -o staging/boxd ./cmd/boxd
+
+          file staging/boxd
+          go version -m staging/boxd
+          if [[ "${TARGET_ARCH}" == "amd64" ]]; then
+            ./staging/boxd -version
+          fi
+
+          install -m 0755 staging/boxd "dist/boxd-linux-${TARGET_ARCH}"
+          install -m 0755 staging/boxd "package/${package_name}/boxd"
+          install -m 0755 deploy/install.sh "package/${package_name}/install.sh"
+          install -m 0755 deploy/uninstall.sh "package/${package_name}/uninstall.sh"
+          install -m 0644 deploy/boxd.service "package/${package_name}/boxd.service"
+          install -m 0644 README.md "package/${package_name}/README.md"
+          install -m 0644 docs/control-plane.md "package/${package_name}/docs/control-plane.md"
+          install -m 0644 docs/sing-box-versioning.md "package/${package_name}/docs/sing-box-versioning.md"
+
+          tar -czf "dist/boxd-linux-${TARGET_ARCH}.tar.gz" -C package "${package_name}"
+          tar -tzf "dist/boxd-linux-${TARGET_ARCH}.tar.gz"
+
+      - name: Upload release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: boxd-linux-${{ matrix.arch }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 3

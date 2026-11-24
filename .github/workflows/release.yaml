@@ -1,0 +1,68 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build release assets
+    uses: ./.github/workflows/_build.yml
+    with:
+      version: ${{ github.ref_name }}
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Linux assets
+        uses: actions/download-artifact@v4
+        with:
+          pattern: boxd-linux-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Generate manifest and checksums
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          published_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          .github/scripts/generate-release-manifest.sh \
+            release-assets "$GITHUB_REPOSITORY" "$TAG" "$TAG" "$GITHUB_SHA" "$published_at"
+          (
+            cd release-assets
+            sha256sum \
+              boxd-linux-amd64 \
+              boxd-linux-amd64.tar.gz \
+              boxd-linux-arm64 \
+              boxd-linux-arm64.tar.gz \
+              boxd-manifest.json > checksums.txt
+            cat checksums.txt
+          )
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" release-assets/* --clobber
+          else
+            gh release create "$TAG" \
+              --verify-tag \
+              --latest \
+              --generate-notes \
+              --title "$TAG" \
+              release-assets/*
+          fi

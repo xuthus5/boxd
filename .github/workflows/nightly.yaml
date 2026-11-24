@@ -1,0 +1,73 @@
+name: Nightly
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nightly-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build nightly assets
+    uses: ./.github/workflows/_build.yml
+    with:
+      version: 0.0.0-nightly.${{ github.run_number }}
+
+  publish:
+    name: Publish nightly release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Linux assets
+        uses: actions/download-artifact@v4
+        with:
+          pattern: boxd-linux-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Generate manifest and checksums
+        run: |
+          set -euo pipefail
+          tag="nightly"
+          version="0.0.0-nightly.${GITHUB_RUN_NUMBER}"
+          published_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          .github/scripts/generate-release-manifest.sh \
+            release-assets "$GITHUB_REPOSITORY" "$tag" "$version" "$GITHUB_SHA" "$published_at"
+          (
+            cd release-assets
+            sha256sum \
+              boxd-linux-amd64 \
+              boxd-linux-amd64.tar.gz \
+              boxd-linux-arm64 \
+              boxd-linux-arm64.tar.gz \
+              boxd-manifest.json > checksums.txt
+            cat checksums.txt
+          )
+
+      - name: Publish nightly release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag="nightly"
+          notes="$(printf 'Temporary build from commit %s.\n\nRun: %s/%s/actions/runs/%s' \
+            "${GITHUB_SHA}" "${GITHUB_SERVER_URL}" "${GITHUB_REPOSITORY}" "${GITHUB_RUN_ID}")"
+
+          gh release delete "$tag" --cleanup-tag --yes >/dev/null 2>&1 || true
+          gh release create "$tag" \
+            --target "$GITHUB_SHA" \
+            --prerelease \
+            --title "Nightly" \
+            --notes "$notes" \
+            release-assets/*

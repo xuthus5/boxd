@@ -13,6 +13,7 @@ import (
 	"github.com/xuthus5/boxd/internal/adapters/inbound/httpapi"
 	"github.com/xuthus5/boxd/internal/bootstrap"
 	"github.com/xuthus5/boxd/internal/driver/singbox"
+	"github.com/xuthus5/boxd/internal/version"
 	"github.com/xuthus5/boxd/kernel"
 )
 
@@ -24,17 +25,28 @@ func main() {
 }
 
 func run() error {
+	showVersion := flag.Bool("version", false, "print build version and exit")
 	dataDir := flag.String("data-dir", "", "application data directory")
 	startKernel := flag.Bool("start", false, "start the kernel after initialization")
 	webEnabled := flag.Bool("web", false, "serve the browser console and HTTP API")
 	webListen := flag.String("listen", httpapi.DefaultAddress, "web console listen address")
 	flag.Parse()
 
+	if *showVersion {
+		fmt.Println(version.String())
+		return nil
+	}
+
 	resolvedDir, err := resolveDataDir(*dataDir)
 	if err != nil {
 		return err
 	}
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	logger.Info("boxd build resolved",
+		slog.String("version", version.Version),
+		slog.String("commit", version.Commit),
+		slog.String("built_at", version.Date),
+	)
 	engineVersion := singbox.CurrentVersion()
 	logger.Info("engine dependency resolved",
 		slog.String("engine", string(kernel.EngineSingBox)),

@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - "**"
+    tags-ignore:
+      - "v*"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Format, vet and test
+    runs-on: ubuntu-latest
+    env:
+      BUILD_TAGS: with_utls,with_quic
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Check Go formatting
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(git ls-files '*.go')
+          unformatted="$(gofmt -l "${files[@]}")"
+          if [[ -n "${unformatted}" ]]; then
+            echo "gofmt required for:"
+            echo "${unformatted}"
+            exit 1
+          fi
+
+      - name: Run go vet
+        run: go vet -tags "${BUILD_TAGS}" ./...
+
+      - name: Run tests
+        run: go test -tags "${BUILD_TAGS}" ./...
+
+      - name: Run race detector
+        run: go test -race -tags "${BUILD_TAGS}" ./...
+
+  build:
+    name: Build verification
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build boxd
+        run: make build
+
+      - name: Verify binary
+        run: |
+          set -euo pipefail
+          ./bin/boxd -version
+          file ./bin/boxd
+
+  scripts:
+    name: Validate deployment scripts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ShellCheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Run ShellCheck
+        run: shellcheck deploy/*.sh .github/scripts/*.sh
