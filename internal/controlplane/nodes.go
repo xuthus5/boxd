@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/xuthus5/boxd/control"
@@ -12,9 +14,12 @@ import (
 )
 
 const (
-	defaultDelayURL  = "https://www.gstatic.com/generate_204"
-	defaultTestLimit = 50
-	maxTestLimit     = 500
+	defaultDelayURL     = "https://www.gstatic.com/generate_204"
+	defaultTestLimit    = 50
+	maxTestLimit        = 500
+	maxBatchNodeTests   = 100
+	maxTestWorkers      = 8
+	defaultProbeTimeout = 10 * time.Second
 )
 
 // NodeService owns node CRUD, bulk import, and latency measurements.
@@ -23,6 +28,7 @@ type NodeService struct {
 	manager kernel.Manager
 	results control.TestResultRepository
 	codec   control.NodeCodec
+	prober  control.NodeProber
 	audit   control.AuditRecorder
 	now     func() time.Time
 }
@@ -31,8 +37,8 @@ func (s *NodeService) SetAuditor(recorder control.AuditRecorder) { s.audit = rec
 
 var _ control.NodeAPI = (*NodeService)(nil)
 
-func NewNodeService(profile *ProfileService, manager kernel.Manager, results control.TestResultRepository, codec control.NodeCodec) *NodeService {
-	return &NodeService{profile: profile, manager: manager, results: results, codec: codec, now: time.Now}
+func NewNodeService(profile *ProfileService, manager kernel.Manager, results control.TestResultRepository, codec control.NodeCodec, prober control.NodeProber) *NodeService {
+	return &NodeService{profile: profile, manager: manager, results: results, codec: codec, prober: prober, now: time.Now}
 }
 
 func (s *NodeService) List(ctx context.Context, subscriptionID string) ([]control.Node, error) {
@@ -216,6 +222,121 @@ func (s *NodeService) Delay(ctx context.Context, id, url string) (control.NodeDe
 	}
 	recordAudit(ctx, s.audit, "nodes.delay", map[string]any{"node_id": id, "url": url})
 	return control.NodeDelay{NodeID: id, URL: url, Latency: latency, TestedAt: testedAt}, nil
+}
+
+// Test measures one or more nodes with a selected probe. Individual probe
+// failures are returned per node so a batch can still report successful peers.
+func (s *NodeService) Test(ctx context.Context, request control.NodeTestRequest) ([]control.NodeTestOutcome, error) {
+	kind := control.NodeTestKind(strings.ToLower(strings.TrimSpace(string(request.Kind))))
+	if kind == "" {
+		kind = control.NodeTestKindURL
+	}
+	switch kind {
+	case control.NodeTestKindURL, control.NodeTestKindTCP, control.NodeTestKindICMP:
+	default:
+		return nil, kernel.NewError(kernel.ErrCodeInvalidConfig, "nodes.test", "unsupported node test method "+string(kind)).
+			WithHint("use url, tcp, or icmp")
+	}
+	if kind != control.NodeTestKindURL && s.prober == nil {
+		return nil, capabilityUnavailable("nodes.test", "host network prober")
+	}
+	ids := make([]string, 0, len(request.NodeIDs))
+	seen := make(map[string]struct{}, len(request.NodeIDs))
+	for _, id := range request.NodeIDs {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		ids = append(ids, id)
+	}
+	if len(ids) == 0 {
+		return nil, kernel.NewError(kernel.ErrCodeInvalidConfig, "nodes.test", "at least one node ID is required")
+	}
+	if len(ids) > maxBatchNodeTests {
+		return nil, kernel.NewError(kernel.ErrCodeInvalidConfig, "nodes.test", fmt.Sprintf("at most %d nodes can be tested at once", maxBatchNodeTests))
+	}
+
+	state, err := s.profile.Snapshot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	nodeByID := make(map[string]control.Node, len(state.Nodes))
+	for _, node := range state.Nodes {
+		nodeByID[node.ID] = node
+	}
+	nodes := make([]control.Node, 0, len(ids))
+	for _, id := range ids {
+		node, found := nodeByID[id]
+		if !found {
+			return nil, notFound("node", id)
+		}
+		nodes = append(nodes, node)
+	}
+
+	url := strings.TrimSpace(request.URL)
+	if kind == control.NodeTestKindURL && url == "" {
+		url = defaultDelayURL
+	}
+	outcomes := make([]control.NodeTestOutcome, len(nodes))
+	jobs := make(chan int)
+	var waitGroup sync.WaitGroup
+	workerCount := min(maxTestWorkers, len(nodes))
+	for worker := 0; worker < workerCount; worker++ {
+		waitGroup.Add(1)
+		go func() {
+			defer waitGroup.Done()
+			for index := range jobs {
+				outcomes[index] = s.testOne(ctx, nodes[index], kind, url)
+			}
+		}()
+	}
+	for index := range nodes {
+		jobs <- index
+	}
+	close(jobs)
+	waitGroup.Wait()
+
+	recordAudit(ctx, s.audit, "nodes.test", map[string]any{"kind": string(kind), "count": len(outcomes)})
+	return outcomes, nil
+}
+
+func (s *NodeService) testOne(ctx context.Context, node control.Node, kind control.NodeTestKind, url string) control.NodeTestOutcome {
+	probeContext, cancel := context.WithTimeout(ctx, defaultProbeTimeout)
+	defer cancel()
+
+	target := node.Server
+	switch kind {
+	case control.NodeTestKindURL:
+		target = url
+	case control.NodeTestKindTCP:
+		target = net.JoinHostPort(node.Server, fmt.Sprintf("%d", node.Port))
+	}
+	testedAt := s.now().UTC()
+	var latency time.Duration
+	var probeErr error
+	switch kind {
+	case control.NodeTestKindURL:
+		latency, probeErr = s.manager.OutboundDelay(probeContext, control.NodeTag(node.ID), target)
+	case control.NodeTestKindTCP:
+		latency, probeErr = s.prober.TCP(probeContext, node.Server, node.Port)
+	case control.NodeTestKindICMP:
+		latency, probeErr = s.prober.ICMP(probeContext, node.Server)
+	}
+
+	result := control.NodeTestOutcome{NodeID: node.ID, Kind: kind, Target: target, Latency: latency, TestedAt: testedAt}
+	history := control.NodeTestResult{NodeID: node.ID, Kind: string(kind), URL: target, Latency: latency, TestedAt: testedAt}
+	if probeErr != nil {
+		result.Error = probeErr.Error()
+		history.Error = result.Error
+	}
+	if persistErr := s.persistTestResult(ctx, history); persistErr != nil {
+		result.Error = errors.Join(probeErr, persistErr).Error()
+	}
+	return result
 }
 
 func (s *NodeService) TestResults(ctx context.Context, nodeID string, limit int) ([]control.NodeTestResult, error) {

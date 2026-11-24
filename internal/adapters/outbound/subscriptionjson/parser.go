@@ -1,5 +1,7 @@
-// Package subscriptionjson parses sing-box JSON subscriptions into the
-// engine-neutral node model. It never imports sing-box itself.
+// Package subscriptionjson parses common subscription payloads into the
+// engine-neutral node model. It supports sing-box JSON, base64-encoded JSON,
+// plain share-link lists, and base64-encoded share-link lists. It never imports
+// sing-box itself.
 package subscriptionjson
 
 import (
@@ -23,14 +25,23 @@ var nonProxyOutbounds = map[string]struct{}{
 	"urltest":  {},
 }
 
-// Parser implements control.SubscriptionParser for sing-box JSON documents and
-// base64-encoded JSON documents.
-type Parser struct{}
+// Parser implements control.SubscriptionParser for JSON documents and share
+// link lists. A NodeCodec is required for share-link subscriptions.
+type Parser struct {
+	codec control.NodeCodec
+}
 
 var _ control.SubscriptionParser = (*Parser)(nil)
 
-// New constructs a stateless parser.
-func New() *Parser { return &Parser{} }
+// New constructs a stateless parser. The optional codec enables plain and
+// base64-encoded share-link subscriptions.
+func New(codecs ...control.NodeCodec) *Parser {
+	var codec control.NodeCodec
+	if len(codecs) > 0 {
+		codec = codecs[0]
+	}
+	return &Parser{codec: codec}
+}
 
 // Parse implements control.SubscriptionParser.
 func (p *Parser) Parse(ctx context.Context, result control.DownloadResult) ([]control.Node, error) {
@@ -42,14 +53,75 @@ func (p *Parser) Parse(ctx context.Context, result control.DownloadResult) ([]co
 	if len(body) == 0 {
 		return nil, kernel.NewError(kernel.ErrCodeInvalidConfig, "subscription.parse", "subscription body is empty")
 	}
+	if isJSONDocument(body) {
+		return p.parseJSON(ctx, body)
+	}
+	if lines := linkLines(body); len(lines) > 0 {
+		return p.parseLinks(ctx, lines)
+	}
 	if body[0] != '{' && body[0] != '[' {
 		decoded, err := decodeBase64(body)
 		if err != nil {
-			return nil, kernel.NewError(kernel.ErrCodeInvalidConfig, "subscription.parse", "subscription is neither JSON nor base64-encoded JSON").
-				WithHint("first version supports sing-box JSON subscriptions")
+			return nil, kernel.NewError(kernel.ErrCodeInvalidConfig, "subscription.parse", "subscription is neither JSON, base64 JSON, nor a share-link list").
+				WithHint("supported subscription formats are sing-box JSON, base64 JSON, plain share links, and base64 share links")
 		}
 		body = bytes.TrimSpace(decoded)
+		if isJSONDocument(body) {
+			return p.parseJSON(ctx, body)
+		}
+		if lines := linkLines(body); len(lines) > 0 {
+			return p.parseLinks(ctx, lines)
+		}
+		return nil, kernel.NewError(kernel.ErrCodeInvalidConfig, "subscription.parse", "subscription contains no supported proxy entries").
+			WithHint("the decoded subscription must contain sing-box JSON or one share link per line")
 	}
+	return p.parseJSON(ctx, body)
+}
+
+func isJSONDocument(body []byte) bool {
+	body = bytes.TrimSpace(body)
+	return len(body) > 0 && (body[0] == '{' || body[0] == '[')
+}
+
+func linkLines(body []byte) []string {
+	text := strings.TrimSpace(string(bytes.TrimPrefix(body, []byte{0xef, 0xbb, 0xbf})))
+	if text == "" {
+		return nil
+	}
+	result := make([]string, 0)
+	for _, line := range strings.Split(text, "\n") {
+		line = strings.TrimSpace(strings.TrimSuffix(line, "\r"))
+		if line == "" || strings.HasPrefix(line, "#") || !strings.Contains(line, "://") {
+			continue
+		}
+		result = append(result, line)
+	}
+	return result
+}
+
+func (p *Parser) parseLinks(ctx context.Context, links []string) ([]control.Node, error) {
+	if p.codec == nil {
+		return nil, kernel.NewError(kernel.ErrCodeInvalidConfig, "subscription.parse", "share-link subscription support is not configured").
+			WithHint("configure a node link codec for this host")
+	}
+	nodes := make([]control.Node, 0, len(links))
+	for index, link := range links {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		node, err := p.codec.Decode(ctx, link)
+		if err != nil {
+			return nil, kernel.WrapError(kernel.ErrCodeInvalidConfig, "subscription.parse", "decode share link "+strconv.Itoa(index+1), err)
+		}
+		nodes = append(nodes, node)
+	}
+	if len(nodes) == 0 {
+		return nil, kernel.NewError(kernel.ErrCodeInvalidConfig, "subscription.parse", "subscription did not contain any share links")
+	}
+	return nodes, nil
+}
+
+func (p *Parser) parseJSON(ctx context.Context, body []byte) ([]control.Node, error) {
 	outbounds, err := decodeOutbounds(body)
 	if err != nil {
 		return nil, err

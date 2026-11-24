@@ -255,6 +255,7 @@ type RuleSetStatus struct {
 	ETag         string    `json:"etag,omitempty"`
 	LastModified string    `json:"last_modified,omitempty"`
 	SHA256       string    `json:"sha256,omitempty"`
+	SizeBytes    int64     `json:"size_bytes,omitempty"`
 	UpdatedAt    time.Time `json:"updated_at,omitempty"`
 	Error        string    `json:"error,omitempty"`
 }

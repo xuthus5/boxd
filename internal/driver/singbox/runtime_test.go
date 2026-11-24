@@ -110,12 +110,15 @@ func TestConnectionViewAndFilter(t *testing.T) {
 		Download:  download,
 		Outbound:  testDirectTag,
 	}
-	view := connectionView(metadata)
+	view := connectionView(metadata, nil)
 	if view.ID != connectionID(id) || view.Inbound != "mixed/inbound-mixed" || view.Target != "example.com" {
 		t.Fatalf("connectionView() = %+v", view)
 	}
 	if view.Process != "/usr/bin/example" || view.Upload != 12 || view.Download != 34 || view.Rule != "final" {
 		t.Fatalf("connectionView() = %+v", view)
+	}
+	if view.RuleIndex != -1 {
+		t.Fatalf("connectionView() rule index = %d, want -1", view.RuleIndex)
 	}
 	if !connectionMatches(metadata, kernel.ConnectionFilter{Outbound: testDirectTag, Process: "/usr/bin/example"}, nil) {
 		t.Fatal("connection did not match equivalent filter")

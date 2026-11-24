@@ -2,7 +2,6 @@
 /bin/
 /dist/
 /tmp*
-/prototype
 /coverage.out
 /boxd
 /boxd.exe

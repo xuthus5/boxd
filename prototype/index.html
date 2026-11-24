@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f7f8fd">
+  <title>Boxd Control · 控制平面</title>
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+  <link rel="stylesheet" href="./styles.css?v=overview-refresh-9">
+</head>
+<body>
+  <div id="icon-sprite" class="sprite-root"></div>
+  <div class="ambient ambient-a"></div>
+  <div class="ambient ambient-b"></div>
+  <div class="app-shell" hidden>
+    <div id="sidebar-backdrop" class="sidebar-backdrop" hidden></div>
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </div>
+        <div class="brand-copy">
+          <strong>BOXD</strong>
+          <span>CONTROL PLANE</span>
+        </div>
+        <span class="version-tag">v2</span>
+      </div>
+
+      <div class="runtime-chip" data-state="stopped" aria-label="内核运行时状态">
+        <span class="status-dot is-idle"></span>
+        <div>
+          <strong>内核运行时</strong>
+          <span>sing-box · 等待连接</span>
+        </div>
+        <span class="runtime-pill">已停止</span>
+      </div>
+
+      <nav class="nav" aria-label="主导航">
+        <div class="nav-group">
+          <div class="nav-label">核心配置</div>
+          <button class="nav-item is-active" data-view="overview"><span class="nav-icon" data-icon="dashboard"></span><span>总览</span><span class="nav-hint">G</span></button>
+          <button class="nav-item" data-view="inbounds"><span class="nav-icon" data-icon="inbound"></span><span>入口</span><span class="nav-count">0</span></button>
+          <button class="nav-item" data-view="egress"><span class="nav-icon" data-icon="nodes"></span><span>出口编排</span><span class="nav-count">0</span></button>
+          <button class="nav-item" data-view="routes"><span class="nav-icon" data-icon="route"></span><span>路由</span><span class="nav-count">0</span></button>
+        </div>
+        <div class="nav-group">
+          <div class="nav-label">资源</div>
+          <button class="nav-item" data-view="subscriptions"><span class="nav-icon" data-icon="rss"></span><span>订阅</span><span class="nav-count">0</span></button>
+          <button class="nav-item" data-view="rulesets"><span class="nav-icon" data-icon="rules"></span><span>规则集</span><span class="nav-count">0</span></button>
+        </div>
+        <div class="nav-group">
+          <div class="nav-label">运行态</div>
+          <button class="nav-item" data-view="observability"><span class="nav-icon" data-icon="activity"></span><span>观测</span><span class="live-indicator" title="实时"></span></button>
+          <button class="nav-item" data-view="logs"><span class="nav-icon" data-icon="terminal"></span><span>日志</span><span class="live-indicator" title="实时"></span></button>
+          <button class="nav-item" data-view="settings"><span class="nav-icon" data-icon="settings"></span><span>设置</span></button>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-meta">
+          <span class="sidebar-connection" data-sidebar-status title="控制面实时事件连接状态">
+            <span class="status-dot is-idle"></span>
+            <span data-sidebar-status-label>控制面 · 连接中</span>
+          </span>
+          <button class="icon-button subtle" data-action="about" aria-label="关于">?</button>
+        </div>
+      </div>
+    </aside>
+
+    <div class="workspace">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="icon-button mobile-menu" data-action="toggle-sidebar" aria-label="打开导航" data-icon="menu"></button>
+          <div class="breadcrumb"><span>控制平面</span><span class="crumb-sep">/</span><strong id="current-view-label">总览</strong></div>
+          <span class="prototype-badge">CONNECTING</span>
+        </div>
+        <div class="topbar-actions">
+          <button class="theme-toggle" id="theme-toggle" data-action="toggle-theme" aria-label="切换到深色模式" aria-pressed="false" title="切换到深色模式">
+            <span class="theme-toggle-icon" id="theme-icon" data-icon="moon"></span>
+            <span class="theme-toggle-label" id="theme-label">深色模式</span>
+          </button>
+          <div class="status-pair" aria-label="内核状态">
+            <span class="status-pill is-muted"><span class="status-dot is-idle"></span>Kernel · 连接中</span>
+            <span class="status-pill is-muted"><span data-icon="route"></span>—</span>
+          </div>
+          <button class="icon-button has-badge" data-action="notifications" aria-label="通知"><span data-icon="bell"></span><span class="badge-dot"></span></button>
+          <button class="avatar-button" data-action="profile" aria-label="本地管理员">LX</button>
+        </div>
+      </header>
+
+      <main class="main" id="app" tabindex="-1"></main>
+    </div>
+  </div>
+
+  <div class="toast-region" id="toast-region" aria-live="polite"></div>
+  <div class="modal-root" id="modal-root" hidden></div>
+
+  <script type="module" src="./app.js?v=overview-refresh-9"></script>
+</body>
+</html>

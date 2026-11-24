@@ -88,6 +88,8 @@ type DNSAPI interface {
 	Get(ctx context.Context) (DNSProfile, error)
 	Update(ctx context.Context, profile DNSProfile) (DNSProfile, error)
 	Flush(ctx context.Context) error
+	Test(ctx context.Context) ([]DNSProbeResult, error)
+	ProbeResults(ctx context.Context) ([]DNSProbeResult, error)
 }
 
 // SettingsAPI stores transport-neutral application preferences.
@@ -102,6 +104,7 @@ type ObservabilityAPI interface {
 	RecentLogs(limit int) []kernel.LogEntry
 	Traffic(ctx context.Context) (kernel.TrafficSnapshot, error)
 	Connections(ctx context.Context) ([]kernel.Connection, error)
+	ClosedConnections(ctx context.Context) ([]kernel.Connection, error)
 	CloseConnection(ctx context.Context, id int64) error
 	CloseConnections(ctx context.Context, filter kernel.ConnectionFilter) (int, error)
 	Subscribe(ctx context.Context, types ...kernel.EventType) (<-chan kernel.Event, error)

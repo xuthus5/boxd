@@ -1,13 +1,15 @@
 # boxd v2
 
-boxd v2 是围绕 sing-box 重新实现的控制面基础工程。当前仓库完成了内核契约、单写入者状态机、控制面业务、SQLite 存储和组合根；sing-box v1.14.4 Driver 已接入真实配置解析、实例生命周期与运行时能力。
+boxd v2 是围绕 sing-box 重新实现的控制面基础工程。当前仓库完成了内核契约、单写入者状态机、控制面业务、SQLite 存储、组合根，以及内置的 HTTP/SSE Web 控制台；sing-box v1.14.4 Driver 已接入真实配置解析、实例生命周期与运行时能力。
 
 ## 当前结构
 
 ```text
-cmd/boxd/                          headless 宿主入口
+cmd/boxd/                          headless / Web 宿主入口
 kernel/                            稳定内核契约
 control/                           稳定控制面契约
+prototype/                         内嵌 Web 控制台静态资源
+webfiles.go                        Web 资源 embed 入口
 internal/kernel/manager/           与引擎无关的状态机
 internal/kernel/fake/              契约测试用 Fake Engine
 internal/kernel/events/            有界非阻塞事件分发
@@ -16,8 +18,9 @@ internal/controlplane/             control 契约实现
 internal/adapters/outbound/singboxconfig/ 期望状态到 sing-box JSON 的编译器
 internal/adapters/outbound/sqlite/ SQLite、迁移与仓储
 internal/adapters/outbound/httpdownload/ 条件 HTTP 下载器
-internal/adapters/outbound/subscriptionjson/ 订阅 JSON 解析器
+internal/adapters/outbound/subscriptionjson/ 订阅解析器（JSON 与分享链接）
 internal/adapters/outbound/nodelink/ 节点分享链接编解码器
+internal/adapters/inbound/httpapi/ REST、SSE、认证与静态 Web 控制台
 internal/driver/singbox/           sing-box 唯一依赖边界与真实 Driver
 internal/bootstrap/                唯一组合根
 ```
@@ -45,11 +48,19 @@ internal/bootstrap/                唯一组合根
 - sing-box 日志桥接到内核日志缓冲区与事件总线。
 - Selector/URLTest 出站分组查询和 Selector 切换。
 - 连接观测、连接关闭、Clash 兼容模式、DNS 缓存刷写和真实出站延迟测量。
+- 节点与入口流量按当前连接的 sing-box 真实字节增量聚合，并将采样间隔内关闭的连接计入本次运行统计。
+- 路由规则命中数映射自 sing-box 实际匹配序号；DNS 槽位支持真实 UDP/DoH/DoT 往返探测。
 - 订阅条件刷新、后台定时调度、稳定节点 ID、原子节点替换和节点测速历史。
+- 订阅支持 sing-box JSON、Base64 JSON、明文分享链接列表和 Base64 分享链接列表。
+- 节点支持单个编辑，以及单节点/多节点 URL Test、TCP Ping 和 ICMP Ping 测速。
 - Shadowsocks、VMess、VLESS、Trojan、Hysteria2、SOCKS、HTTP 分享链接导入与导出。
-- 内置/自定义规则集定义、刷新状态和预设依赖校验。
+- 内置/自定义规则集定义、下载字节数、刷新状态和预设依赖校验。
 - 控制面变更、内核生命周期、认证和手动审计事件查询。
 - 本地管理员 PBKDF2 口令与短期会话契约。
+- 同源 Web 控制台、REST API 与 SSE 流式事件，默认监听 `[::]:7662`。
+- 应用日志与 sing-box 内核日志在同一个日志页中流式查看。
+- 首次初始化管理员口令；支持 `HttpOnly; SameSite=Strict` Cookie 和 Bearer Token 会话。
+- 订阅、节点列表、规则集和连接凭据在 Web 视图中脱敏；节点编辑器在管理员显式打开时才加载协议参数。不提供 Web 终端、Shell 或任意命令执行。
 
 ## 引擎版本策略
 
@@ -60,16 +71,20 @@ internal/bootstrap/                唯一组合根
 ## 快速验证
 
 ```text
-go test ./...
-go test -race ./...
+go test -tags with_utls,with_quic ./...
+go test -race -tags with_utls,with_quic ./...
 make engine-version
-go build -o bin/boxd ./cmd/boxd
-go run ./cmd/boxd -data-dir ./tmp-data
+go build -tags with_utls,with_quic -o bin/boxd ./cmd/boxd
+go run -tags with_utls,with_quic ./cmd/boxd -data-dir ./tmp-data -web -listen [::]:7662
 ```
+
+生产构建必须包含 `with_utls`，否则 VLESS Reality 等依赖 uTLS 的节点会在内核启动阶段失败；`with_quic` 用于 Hysteria2 等 QUIC 协议。`make build` 的默认构建标签为 `with_utls,with_quic`。
+
+启动后访问 `http://127.0.0.1:7662/`。首次访问需要设置管理员口令并登录；之后可通过账号设置页退出会话。`-web` 启用浏览器控制台和 HTTP API，`-listen` 指定监听地址，默认是 `[::]:7662`。如果只想运行控制面而不暴露端口，可省略 `-web`。
 
 首次启动会幂等写入默认 Mixed/TUN、路由和 DNS 期望状态，并生成保存在 SQLite 中的 sing-box 配置。`-start` 会启动真实 sing-box；如果默认 1080 端口已被其他代理客户端占用，启动会返回端口绑定错误。sing-box 会在数据目录创建内部 `cache.db`，它只用于引擎缓存，不是 boxd 的业务存储。
 
-控制面与内核能力均在进程内完成，不依赖 HTTP、Wails、MyGo 或 Web UI。本轮不包含上层真实应用接入；后续可在同一 `control.Application` 门面上叠加宿主适配器。
+本阶段只接入控制面及以下的 Web 管理能力，不接入 Wails、MyGo、桌面宿主等上层应用；也不包含备份/恢复能力和 Web 终端。远程访问时请优先使用 TLS 反向代理或可信内网，并在首次部署后立即完成管理员口令初始化。
 
 架构设计见 `docs/superpowers/specs/2026-11-21-boxd-v2-design.md`。
 

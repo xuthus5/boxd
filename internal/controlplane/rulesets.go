@@ -169,10 +169,18 @@ func (s *RuleSetService) Refresh(ctx context.Context, name string) (control.Rule
 	if !hasPrevious {
 		previous = control.RuleSetStatus{Name: name}
 	}
+	etag := previous.ETag
+	lastModified := previous.LastModified
+	if previous.SizeBytes <= 0 {
+		// Cached validators from older versions may not have a recorded size.
+		// Force one full download so the UI can display a measured byte size.
+		etag = ""
+		lastModified = ""
+	}
 	result, err := s.downloader.Get(ctx, control.DownloadRequest{
 		URL:          definition.URL,
-		ETag:         previous.ETag,
-		LastModified: previous.LastModified,
+		ETag:         etag,
+		LastModified: lastModified,
 		Timeout:      defaultDownloadTimeout * time.Second,
 		MaxBytes:     defaultDownloadBytes,
 	})
@@ -195,6 +203,7 @@ func (s *RuleSetService) Refresh(ctx context.Context, name string) (control.Rule
 		}
 		digest := sha256.Sum256(result.Body)
 		status.SHA256 = hex.EncodeToString(digest[:])
+		status.SizeBytes = int64(len(result.Body))
 	}
 	if err := s.statuses.Upsert(ctx, status); err != nil {
 		return control.RuleSet{}, wrapStoreError("rulesets.refresh", "save rule set status", err)

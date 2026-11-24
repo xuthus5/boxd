@@ -18,12 +18,13 @@ type Engine struct {
 	ValidateErr error
 	ApplyErr    error
 
-	Validation  kernel.ValidationResult
-	Apply       kernel.ApplyResult
-	Groups      []kernel.OutboundGroup
-	Mode        kernel.ClashMode
-	Connections []kernel.Connection
-	Traffic     kernel.TrafficSnapshot
+	Validation        kernel.ValidationResult
+	Apply             kernel.ApplyResult
+	Groups            []kernel.OutboundGroup
+	Mode              kernel.ClashMode
+	Connections       []kernel.Connection
+	ClosedConnections []kernel.Connection
+	Traffic           kernel.TrafficSnapshot
 
 	mu         sync.RWMutex
 	state      kernel.State
@@ -137,6 +138,9 @@ func (e *Engine) FlushDNS(context.Context) error                      { return n
 
 func (e *Engine) ListConnections(context.Context) ([]kernel.Connection, error) {
 	return append([]kernel.Connection(nil), e.Connections...), nil
+}
+func (e *Engine) ListClosedConnections(context.Context) ([]kernel.Connection, error) {
+	return append([]kernel.Connection(nil), e.ClosedConnections...), nil
 }
 func (e *Engine) CloseConnection(context.Context, int64) error { return nil }
 func (e *Engine) CloseConnections(context.Context, kernel.ConnectionFilter) (int, error) {

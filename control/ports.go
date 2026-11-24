@@ -68,6 +68,19 @@ type SubscriptionParser interface {
 	Parse(ctx context.Context, result DownloadResult) ([]Node, error)
 }
 
+// NodeProber performs host-level reachability checks that do not require the
+// proxy engine. Implementations live in the outbound adapter layer.
+type NodeProber interface {
+	ICMP(ctx context.Context, host string) (time.Duration, error)
+	TCP(ctx context.Context, host string, port uint16) (time.Duration, error)
+}
+
+// DNSProber measures a real DNS query round trip through the configured
+// transport. Implementations live in the outbound adapter layer.
+type DNSProber interface {
+	Probe(ctx context.Context, server DNSServerConfig) (time.Duration, error)
+}
+
 // RuleSetRepository persists refresh metadata independently from desired
 // state so status updates do not trigger configuration reapplication.
 type RuleSetRepository interface {

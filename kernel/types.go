@@ -102,6 +102,7 @@ type Connection struct {
 	Target    string
 	Outbound  string
 	Rule      string
+	RuleIndex int
 	Process   string
 	Upload    int64
 	Download  int64

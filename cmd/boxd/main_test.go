@@ -3,6 +3,8 @@ package main
 import (
 	"path/filepath"
 	"testing"
+
+	"github.com/xuthus5/boxd/internal/adapters/inbound/httpapi"
 )
 
 func TestResolveDataDirUsesAbsoluteConfiguredPath(t *testing.T) {
@@ -17,5 +19,11 @@ func TestResolveDataDirUsesAbsoluteConfiguredPath(t *testing.T) {
 	}
 	if resolved != want {
 		t.Fatalf("resolveDataDir() = %q, want %q", resolved, want)
+	}
+}
+
+func TestDefaultWebAddressUsesPort7662(t *testing.T) {
+	if httpapi.DefaultAddress != "[::]:7662" {
+		t.Fatalf("DefaultAddress = %q, want [::]:7662", httpapi.DefaultAddress)
 	}
 }

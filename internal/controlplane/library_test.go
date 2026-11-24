@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/xuthus5/boxd/control"
 	"github.com/xuthus5/boxd/internal/adapters/outbound/nodelink"
@@ -86,7 +87,8 @@ func TestSubscriptionRefreshAtomicallyReplacesNodes(t *testing.T) {
 func TestNodeImportSaveFilterAndDelay(t *testing.T) {
 	ctx := context.Background()
 	results := &memoryTestResults{}
-	application := newApplicationWithDependencies(t, controlplane.Dependencies{TestResultRepository: results})
+	prober := &recordingNodeProber{icmpDelay: 11 * time.Millisecond, tcpDelay: 17 * time.Millisecond}
+	application := newApplicationWithDependencies(t, controlplane.Dependencies{TestResultRepository: results, NodeProber: prober})
 	if err := application.Kernel().Start(ctx); err != nil {
 		t.Fatalf("Start() error = %v", err)
 	}
@@ -125,6 +127,24 @@ func TestNodeImportSaveFilterAndDelay(t *testing.T) {
 	history, err := application.Nodes().TestResults(ctx, nodes[0].ID, 10)
 	if err != nil || len(history) != 1 || history[0].Kind != "delay" {
 		t.Fatalf("TestResults() = %+v, %v", history, err)
+	}
+	outcomes, err := application.Nodes().Test(ctx, control.NodeTestRequest{
+		NodeIDs: []string{nodes[0].ID, nodes[1].ID, nodes[0].ID},
+		Kind:    control.NodeTestKindTCP,
+	})
+	if err != nil {
+		t.Fatalf("Test(tcp) error = %v", err)
+	}
+	if len(outcomes) != 2 || outcomes[0].Kind != control.NodeTestKindTCP || outcomes[0].Latency != 17*time.Millisecond {
+		t.Fatalf("Test(tcp) = %+v", outcomes)
+	}
+	outcomes, err = application.Nodes().Test(ctx, control.NodeTestRequest{NodeIDs: []string{nodes[0].ID}, Kind: control.NodeTestKindICMP})
+	if err != nil || len(outcomes) != 1 || outcomes[0].Latency != 11*time.Millisecond {
+		t.Fatalf("Test(icmp) = %+v, %v", outcomes, err)
+	}
+	history, err = application.Nodes().TestResults(ctx, nodes[0].ID, 10)
+	if err != nil || len(history) != 3 {
+		t.Fatalf("batch test history = %+v, %v", history, err)
 	}
 }
 
@@ -177,6 +197,79 @@ func TestSubscriptionSchedulerRefreshesDueSubscriptions(t *testing.T) {
 	}
 }
 
+func TestSubscriptionSchedulerHonorsAutoRefreshSetting(t *testing.T) {
+	ctx := context.Background()
+	downloader := &recordingDownloader{result: control.DownloadResult{Body: []byte(`{"outbounds":[]}`), ETag: `"scheduler-v1"`}}
+	parser := &staticSubscriptionParser{nodes: []control.Node{
+		{Name: "HK", Protocol: "shadowsocks", Server: "127.0.0.1", Port: 8388},
+	}}
+	application := newApplicationWithDependencies(t, controlplane.Dependencies{
+		Downloader:         downloader,
+		SubscriptionParser: parser,
+	})
+	if _, err := application.Subscriptions().Save(ctx, control.Subscription{
+		Name: "Scheduled", URL: "https://example.com/subscription", Enabled: true, IntervalSeconds: 3600,
+	}); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+	if _, err := application.Settings().Set(ctx, control.SettingAutoRefresh, "off"); err != nil {
+		t.Fatalf("Set(autoRefresh) error = %v", err)
+	}
+	results, err := application.Scheduler().RunOnce(ctx)
+	if err != nil || len(results) != 0 {
+		t.Fatalf("RunOnce(autoRefresh=off) = %+v, %v", results, err)
+	}
+	if _, err := application.Settings().Set(ctx, control.SettingAutoRefresh, "on"); err != nil {
+		t.Fatalf("Set(autoRefresh) error = %v", err)
+	}
+	results, err = application.Scheduler().RunOnce(ctx)
+	if err != nil || len(results) != 1 {
+		t.Fatalf("RunOnce(autoRefresh=on) = %+v, %v", results, err)
+	}
+}
+
+func TestSubscriptionConflictPolicyControlsRemoteRemoval(t *testing.T) {
+	ctx := context.Background()
+	downloader := &recordingDownloader{result: control.DownloadResult{Body: []byte(`{"outbounds":[]}`), ETag: `"v1"`}}
+	parser := &staticSubscriptionParser{nodes: []control.Node{
+		{Name: "HK", Protocol: "shadowsocks", Server: "127.0.0.1", Port: 8388},
+		{Name: "JP", Protocol: "trojan", Server: "127.0.0.2", Port: 443},
+	}}
+	application := newApplicationWithDependencies(t, controlplane.Dependencies{
+		Downloader:         downloader,
+		SubscriptionParser: parser,
+	})
+	subscription, err := application.Subscriptions().Save(ctx, control.Subscription{
+		Name: "Provider", URL: "https://example.com/subscription", Enabled: true, IntervalSeconds: 3600,
+	})
+	if err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+	if _, err := application.Subscriptions().Refresh(ctx, subscription.ID); err != nil {
+		t.Fatalf("first Refresh() error = %v", err)
+	}
+	parser.nodes = parser.nodes[:1]
+	refresh, err := application.Subscriptions().Refresh(ctx, subscription.ID)
+	if err != nil || refresh.Removed != 0 {
+		t.Fatalf("keep-local Refresh() = %+v, %v", refresh, err)
+	}
+	nodes, err := application.Nodes().List(ctx, subscription.ID)
+	if err != nil || len(nodes) != 2 {
+		t.Fatalf("keep-local nodes = %+v, %v", nodes, err)
+	}
+	if _, err := application.Settings().Set(ctx, control.SettingSubscriptionConflictPolicy, control.SubscriptionConflictFollowRemote); err != nil {
+		t.Fatalf("Set(conflict policy) error = %v", err)
+	}
+	refresh, err = application.Subscriptions().Refresh(ctx, subscription.ID)
+	if err != nil || refresh.Removed != 1 {
+		t.Fatalf("follow-remote Refresh() = %+v, %v", refresh, err)
+	}
+	nodes, err = application.Nodes().List(ctx, subscription.ID)
+	if err != nil || len(nodes) != 1 {
+		t.Fatalf("follow-remote nodes = %+v, %v", nodes, err)
+	}
+}
+
 func TestNodeLinkImportAndExport(t *testing.T) {
 	ctx := context.Background()
 	application := newApplicationWithDependencies(t, controlplane.Dependencies{NodeCodec: nodelink.New()})
@@ -226,8 +319,33 @@ func TestRuleSetDefinitionAndRefreshStatusAreSeparated(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Refresh() error = %v", err)
 	}
-	if refreshed.Status.SHA256 == "" || refreshed.Status.ETag != `"rules-v1"` || refreshed.Status.UpdatedAt.IsZero() {
+	if refreshed.Status.SHA256 == "" || refreshed.Status.ETag != `"rules-v1"` || refreshed.Status.UpdatedAt.IsZero() || refreshed.Status.SizeBytes != int64(len("rule-set")) {
 		t.Fatalf("refreshed status = %+v", refreshed.Status)
+	}
+	downloader.set(control.DownloadResult{NotModified: true, ETag: `"rules-v1"`})
+	notModified, err := application.RuleSets().Refresh(ctx, custom.Name)
+	if err != nil {
+		t.Fatalf("Refresh(304) error = %v", err)
+	}
+	if notModified.Status.SizeBytes != int64(len("rule-set")) {
+		t.Fatalf("304 refresh size = %d, want %d", notModified.Status.SizeBytes, len("rule-set"))
+	}
+	if downloader.lastRequest().ETag == "" {
+		t.Fatal("304 refresh did not send the cached ETag")
+	}
+	if err := statuses.Upsert(ctx, control.RuleSetStatus{Name: custom.Name, ETag: `"legacy"`}); err != nil {
+		t.Fatalf("seed legacy status: %v", err)
+	}
+	downloader.set(control.DownloadResult{Body: []byte("legacy-rule-set"), ETag: `"legacy"`})
+	recovered, err := application.RuleSets().Refresh(ctx, custom.Name)
+	if err != nil {
+		t.Fatalf("Refresh(legacy status) error = %v", err)
+	}
+	if downloader.lastRequest().ETag != "" || downloader.lastRequest().LastModified != "" {
+		t.Fatalf("legacy status should force full download, request = %+v", downloader.lastRequest())
+	}
+	if recovered.Status.SizeBytes != int64(len("legacy-rule-set")) {
+		t.Fatalf("recovered size = %d", recovered.Status.SizeBytes)
 	}
 	if err := application.RuleSets().Delete(ctx, "geosite-cn"); !hasCode(err, kernel.ErrCodeConflict) {
 		t.Fatalf("Delete(builtin) error = %v", err)
@@ -237,6 +355,31 @@ func TestRuleSetDefinitionAndRefreshStatusAreSeparated(t *testing.T) {
 	}
 	if _, found, err := statuses.Get(ctx, custom.Name); err != nil || found {
 		t.Fatalf("status after delete = found %v, err %v", found, err)
+	}
+}
+
+func TestDNSTestUsesActiveProbeResultsAndSkipsFollowForeign(t *testing.T) {
+	ctx := context.Background()
+	application := newApplicationWithDependencies(t, controlplane.Dependencies{DNSProber: staticDNSProber{latency: 17 * time.Millisecond}})
+	results, err := application.DNS().Test(ctx)
+	if err != nil {
+		t.Fatalf("DNS.Test() error = %v", err)
+	}
+	if len(results) != 3 {
+		t.Fatalf("DNS.Test() results = %+v", results)
+	}
+	if results[0].Key != "domestic" || results[0].Latency != 17*time.Millisecond || results[0].Error != "" {
+		t.Fatalf("domestic result = %+v", results[0])
+	}
+	if results[1].Key != "foreign" || results[1].Latency != 17*time.Millisecond {
+		t.Fatalf("foreign result = %+v", results[1])
+	}
+	if !results[2].Skipped || results[2].Reason != "沿用国外 DNS" {
+		t.Fatalf("default result = %+v", results[2])
+	}
+	cached, err := application.DNS().ProbeResults(ctx)
+	if err != nil || len(cached) != 3 || cached[0].Latency != 17*time.Millisecond {
+		t.Fatalf("ProbeResults() = %+v, %v", cached, err)
 	}
 }
 
@@ -354,6 +497,12 @@ type memoryRuleSetStatuses struct {
 	records map[string]control.RuleSetStatus
 }
 
+type staticDNSProber struct{ latency time.Duration }
+
+func (p staticDNSProber) Probe(context.Context, control.DNSServerConfig) (time.Duration, error) {
+	return p.latency, nil
+}
+
 func newMemoryRuleSetStatuses() *memoryRuleSetStatuses {
 	return &memoryRuleSetStatuses{records: make(map[string]control.RuleSetStatus)}
 }
@@ -392,6 +541,19 @@ func (r *memoryRuleSetStatuses) Delete(_ context.Context, name string) error {
 type memoryTestResults struct {
 	mu      sync.Mutex
 	records []control.NodeTestResult
+}
+
+type recordingNodeProber struct {
+	icmpDelay time.Duration
+	tcpDelay  time.Duration
+}
+
+func (p *recordingNodeProber) ICMP(context.Context, string) (time.Duration, error) {
+	return p.icmpDelay, nil
+}
+
+func (p *recordingNodeProber) TCP(context.Context, string, uint16) (time.Duration, error) {
+	return p.tcpDelay, nil
 }
 
 func (r *memoryTestResults) Save(_ context.Context, result control.NodeTestResult) error {

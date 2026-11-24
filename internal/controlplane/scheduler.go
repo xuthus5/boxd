@@ -4,19 +4,33 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/xuthus5/boxd/control"
 )
 
-const defaultSchedulerInterval = time.Minute
+const (
+	defaultSchedulerInterval      = time.Minute
+	defaultSubscriptionAttempts   = 3
+	maxSubscriptionAttempts       = 10
+	subscriptionRetryInitialDelay = time.Second
+)
 
 // SchedulerOptions tunes the subscription refresh worker. Tests may shorten
 // the interval; production uses the default one-minute scan cadence.
 type SchedulerOptions struct {
-	Interval time.Duration
-	Now      func() time.Time
+	Interval   time.Duration
+	Now        func() time.Time
+	Settings   control.SettingsAPI
+	RetryDelay time.Duration
+}
+
+type schedulerPolicy struct {
+	AutoRefresh bool
+	MaxAttempts int
 }
 
 // SchedulerService periodically refreshes subscriptions whose configured
@@ -24,8 +38,10 @@ type SchedulerOptions struct {
 type SchedulerService struct {
 	subscriptions *SubscriptionService
 
-	interval time.Duration
-	now      func() time.Time
+	interval   time.Duration
+	now        func() time.Time
+	settings   control.SettingsAPI
+	retryDelay time.Duration
 
 	runMu sync.Mutex
 	mu    sync.Mutex
@@ -50,10 +66,16 @@ func NewSchedulerService(subscriptions *SubscriptionService, options SchedulerOp
 	if now == nil {
 		now = time.Now
 	}
+	retryDelay := options.RetryDelay
+	if retryDelay <= 0 {
+		retryDelay = subscriptionRetryInitialDelay
+	}
 	return &SchedulerService{
 		subscriptions: subscriptions,
 		interval:      interval,
 		now:           now,
+		settings:      options.Settings,
+		retryDelay:    retryDelay,
 	}
 }
 
@@ -121,7 +143,12 @@ func (s *SchedulerService) RunOnce(ctx context.Context) ([]control.SubscriptionR
 	defer s.runMu.Unlock()
 
 	startedAt := s.now().UTC()
-	results, runErr := s.refreshDue(ctx, startedAt)
+	policy := s.loadPolicy(ctx)
+	var results []control.SubscriptionRefreshResult
+	var runErr error
+	if policy.AutoRefresh {
+		results, runErr = s.refreshDue(ctx, startedAt, policy)
+	}
 	s.mu.Lock()
 	s.lastRunAt = startedAt
 	if runErr != nil {
@@ -133,7 +160,7 @@ func (s *SchedulerService) RunOnce(ctx context.Context) ([]control.SubscriptionR
 	return results, runErr
 }
 
-func (s *SchedulerService) refreshDue(ctx context.Context, now time.Time) ([]control.SubscriptionRefreshResult, error) {
+func (s *SchedulerService) refreshDue(ctx context.Context, now time.Time, policy schedulerPolicy) ([]control.SubscriptionRefreshResult, error) {
 	subscriptions, err := s.subscriptions.List(ctx)
 	if err != nil {
 		return nil, err
@@ -144,7 +171,7 @@ func (s *SchedulerService) refreshDue(ctx context.Context, now time.Time) ([]con
 		if !dueForRefresh(subscription, now) {
 			continue
 		}
-		result, refreshErr := s.subscriptions.Refresh(ctx, subscription.ID)
+		result, refreshErr := s.refreshWithRetry(ctx, subscription.ID, policy.MaxAttempts)
 		if refreshErr != nil {
 			failures = append(failures, fmt.Errorf("%s: %w", subscription.ID, refreshErr))
 			continue
@@ -152,6 +179,65 @@ func (s *SchedulerService) refreshDue(ctx context.Context, now time.Time) ([]con
 		results = append(results, result)
 	}
 	return results, errors.Join(failures...)
+}
+
+func (s *SchedulerService) refreshWithRetry(ctx context.Context, subscriptionID string, maxAttempts int) (control.SubscriptionRefreshResult, error) {
+	if maxAttempts < 1 {
+		maxAttempts = 1
+	}
+	var lastErr error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		result, err := s.subscriptions.Refresh(ctx, subscriptionID)
+		if err == nil {
+			return result, nil
+		}
+		lastErr = err
+		if attempt == maxAttempts {
+			break
+		}
+		if err := waitForRetry(ctx, s.retryDelay<<uint(attempt-1)); err != nil {
+			return control.SubscriptionRefreshResult{}, errors.Join(lastErr, err)
+		}
+	}
+	return control.SubscriptionRefreshResult{}, lastErr
+}
+
+func waitForRetry(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
+func (s *SchedulerService) loadPolicy(ctx context.Context) schedulerPolicy {
+	policy := schedulerPolicy{AutoRefresh: true, MaxAttempts: defaultSubscriptionAttempts}
+	if s.settings == nil {
+		return policy
+	}
+	if setting, found, err := s.settings.Get(ctx, control.SettingAutoRefresh); err == nil && found {
+		policy.AutoRefresh = settingBool(setting.Value, true)
+	}
+	if setting, found, err := s.settings.Get(ctx, control.SettingSubscriptionMaxAttempts); err == nil && found {
+		if attempts, parseErr := strconv.Atoi(strings.TrimSpace(setting.Value)); parseErr == nil && attempts > 0 {
+			policy.MaxAttempts = min(attempts, maxSubscriptionAttempts)
+		}
+	}
+	return policy
+}
+
+func settingBool(value string, fallback bool) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "on", "true", "1", "yes", "enabled":
+		return true
+	case "off", "false", "0", "no", "disabled":
+		return false
+	default:
+		return fallback
+	}
 }
 
 func (s *SchedulerService) loop(ctx context.Context, done chan struct{}) {

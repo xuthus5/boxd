@@ -41,8 +41,8 @@ func TestOpenAppliesRequiredPragmasAndMigrations(t *testing.T) {
 	if err := db.sql.QueryRowContext(ctx, "SELECT COUNT(*) FROM schema_migrations").Scan(&migrations); err != nil {
 		t.Fatalf("count migrations: %v", err)
 	}
-	if migrations != 4 {
-		t.Fatalf("migrations = %d, want 4", migrations)
+	if migrations != 5 {
+		t.Fatalf("migrations = %d, want 5", migrations)
 	}
 	if err := db.Migrate(ctx); err != nil {
 		t.Fatalf("second Migrate() error = %v", err)
@@ -157,6 +157,7 @@ func TestRuleSetStatusRepositoryRoundTrip(t *testing.T) {
 		ETag:         `"v1"`,
 		LastModified: "Wed, 21 Oct 2015 07:28:00 GMT",
 		SHA256:       "abc",
+		SizeBytes:    4096,
 		UpdatedAt:    time.Now().UTC().Truncate(time.Millisecond),
 		Error:        "previous failure",
 	}
@@ -164,7 +165,7 @@ func TestRuleSetStatusRepositoryRoundTrip(t *testing.T) {
 		t.Fatalf("Upsert() error = %v", err)
 	}
 	got, found, err := repository.Get(ctx, status.Name)
-	if err != nil || !found || got.ETag != status.ETag || got.Error != status.Error || got.SHA256 != status.SHA256 {
+	if err != nil || !found || got.ETag != status.ETag || got.Error != status.Error || got.SHA256 != status.SHA256 || got.SizeBytes != status.SizeBytes {
 		t.Fatalf("Get() = %+v, found %v, err %v", got, found, err)
 	}
 	all, err := repository.List(ctx)

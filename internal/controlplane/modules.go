@@ -3,6 +3,8 @@ package controlplane
 import (
 	"context"
 	"fmt"
+	"sync"
+	"time"
 
 	"github.com/xuthus5/boxd/control"
 	"github.com/xuthus5/boxd/kernel"
@@ -401,15 +403,20 @@ func (s *RouteService) ReplaceRules(ctx context.Context, rules []control.RouteRu
 type DNSService struct {
 	profile *ProfileService
 	manager kernel.Manager
+	prober  control.DNSProber
 	audit   control.AuditRecorder
+	mu      sync.Mutex
+	probes  map[string]control.DNSProbeResult
 }
 
 func (s *DNSService) SetAuditor(recorder control.AuditRecorder) { s.audit = recorder }
 
+func (s *DNSService) SetProber(prober control.DNSProber) { s.prober = prober }
+
 var _ control.DNSAPI = (*DNSService)(nil)
 
 func NewDNSService(profile *ProfileService, manager kernel.Manager) *DNSService {
-	return &DNSService{profile: profile, manager: manager}
+	return &DNSService{profile: profile, manager: manager, probes: make(map[string]control.DNSProbeResult)}
 }
 
 func (s *DNSService) Get(ctx context.Context) (control.DNSProfile, error) {
@@ -428,6 +435,9 @@ func (s *DNSService) Update(ctx context.Context, profile control.DNSProfile) (co
 	if err != nil {
 		return control.DNSProfile{}, err
 	}
+	s.mu.Lock()
+	s.probes = make(map[string]control.DNSProbeResult)
+	s.mu.Unlock()
 	return state.DNS, nil
 }
 
@@ -437,6 +447,74 @@ func (s *DNSService) Flush(ctx context.Context) error {
 	}
 	recordAudit(ctx, s.audit, "dns.flush", nil)
 	return nil
+}
+
+func (s *DNSService) Test(ctx context.Context) ([]control.DNSProbeResult, error) {
+	if s.prober == nil {
+		return nil, capabilityUnavailable("dns.test", "DNS prober")
+	}
+	profile, err := s.Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+	slots := []struct {
+		key    string
+		server control.DNSServerConfig
+	}{
+		{key: "domestic", server: profile.Domestic},
+		{key: "foreign", server: profile.Foreign},
+		{key: "default", server: profile.Default},
+	}
+	results := make([]control.DNSProbeResult, len(slots))
+	var wait sync.WaitGroup
+	for index := range slots {
+		index := index
+		slot := slots[index]
+		results[index] = control.DNSProbeResult{Key: slot.key, TestedAt: time.Now().UTC()}
+		switch {
+		case !slot.server.Enabled:
+			results[index].Skipped = true
+			results[index].Reason = "槽位已停用"
+		case slot.key == "default" && slot.server.FollowForeign:
+			results[index].Skipped = true
+			results[index].Reason = "沿用国外 DNS"
+		case slot.server.Address == "":
+			results[index].Error = "DNS 地址未配置"
+		default:
+			wait.Add(1)
+			go func() {
+				defer wait.Done()
+				latency, probeErr := s.prober.Probe(ctx, slot.server)
+				if probeErr != nil {
+					results[index].Error = probeErr.Error()
+					return
+				}
+				results[index].Latency = latency
+			}()
+		}
+	}
+	wait.Wait()
+	s.mu.Lock()
+	s.probes = make(map[string]control.DNSProbeResult, len(results))
+	for _, result := range results {
+		s.probes[result.Key] = result
+	}
+	s.mu.Unlock()
+	recordAudit(ctx, s.audit, "dns.test", map[string]any{"slots": len(results)})
+	return append([]control.DNSProbeResult(nil), results...), nil
+}
+
+func (s *DNSService) ProbeResults(context.Context) ([]control.DNSProbeResult, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	order := []string{"domestic", "foreign", "default"}
+	results := make([]control.DNSProbeResult, 0, len(order))
+	for _, key := range order {
+		if result, exists := s.probes[key]; exists {
+			results = append(results, result)
+		}
+	}
+	return results, nil
 }
 
 type ObservabilityService struct {
@@ -459,6 +537,10 @@ func (s *ObservabilityService) Traffic(context.Context) (kernel.TrafficSnapshot,
 
 func (s *ObservabilityService) Connections(ctx context.Context) ([]kernel.Connection, error) {
 	return s.manager.ListConnections(ctx)
+}
+
+func (s *ObservabilityService) ClosedConnections(ctx context.Context) ([]kernel.Connection, error) {
+	return s.manager.ListClosedConnections(ctx)
 }
 
 func (s *ObservabilityService) CloseConnection(ctx context.Context, id int64) error {

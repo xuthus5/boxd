@@ -1,0 +1,1 @@
+ALTER TABLE rule_set_status ADD COLUMN size_bytes INTEGER NOT NULL DEFAULT 0;

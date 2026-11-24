@@ -18,7 +18,7 @@ var _ control.RuleSetRepository = (*RuleSetRepository)(nil)
 
 func (r *RuleSetRepository) List(ctx context.Context) ([]control.RuleSetStatus, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT name, etag, last_modified, sha256, updated_at, error
+		SELECT name, etag, last_modified, sha256, size_bytes, updated_at, error
 		FROM rule_set_status ORDER BY name`)
 	if err != nil {
 		return nil, err
@@ -40,7 +40,7 @@ func (r *RuleSetRepository) List(ctx context.Context) ([]control.RuleSetStatus, 
 
 func (r *RuleSetRepository) Get(ctx context.Context, name string) (control.RuleSetStatus, bool, error) {
 	row := r.db.QueryRowContext(ctx, `
-		SELECT name, etag, last_modified, sha256, updated_at, error
+		SELECT name, etag, last_modified, sha256, size_bytes, updated_at, error
 		FROM rule_set_status WHERE name = ?`, name)
 	status, err := scanRuleSetStatus(row)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -58,15 +58,16 @@ func (r *RuleSetRepository) Upsert(ctx context.Context, status control.RuleSetSt
 		updatedAt = time.Now().UTC()
 	}
 	_, err := r.db.ExecContext(ctx, `
-		INSERT INTO rule_set_status(name, source, etag, sha256, updated_at, last_modified, error)
-		VALUES(?, '', ?, ?, ?, ?, ?)
+		INSERT INTO rule_set_status(name, source, etag, sha256, size_bytes, updated_at, last_modified, error)
+		VALUES(?, '', ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(name) DO UPDATE SET
 			etag = excluded.etag,
 			sha256 = excluded.sha256,
+			size_bytes = excluded.size_bytes,
 			updated_at = excluded.updated_at,
 			last_modified = excluded.last_modified,
 			error = excluded.error`,
-		status.Name, status.ETag, status.SHA256, updatedAt.UTC().UnixMilli(), status.LastModified, status.Error,
+		status.Name, status.ETag, status.SHA256, status.SizeBytes, updatedAt.UTC().UnixMilli(), status.LastModified, status.Error,
 	)
 	return err
 }
@@ -79,7 +80,7 @@ func (r *RuleSetRepository) Delete(ctx context.Context, name string) error {
 func scanRuleSetStatus(row rowScanner) (control.RuleSetStatus, error) {
 	var status control.RuleSetStatus
 	var updatedAt int64
-	if err := row.Scan(&status.Name, &status.ETag, &status.LastModified, &status.SHA256, &updatedAt, &status.Error); err != nil {
+	if err := row.Scan(&status.Name, &status.ETag, &status.LastModified, &status.SHA256, &status.SizeBytes, &updatedAt, &status.Error); err != nil {
 		return control.RuleSetStatus{}, err
 	}
 	status.UpdatedAt = time.UnixMilli(updatedAt).UTC()

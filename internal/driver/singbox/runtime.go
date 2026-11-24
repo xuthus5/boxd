@@ -194,9 +194,27 @@ func (e *Engine) ListConnections(context.Context) ([]kernel.Connection, error) {
 		return nil, featureUnavailable("connection observation")
 	}
 	metadata := e.runtime.traffic.Connections()
+	routerRules := e.instance.Router().Rules()
 	connections := make([]kernel.Connection, 0, len(metadata))
 	for _, item := range metadata {
-		connections = append(connections, connectionView(item))
+		connections = append(connections, connectionView(item, routerRules))
+	}
+	return connections, nil
+}
+
+// ListClosedConnections returns only sing-box's real closed-connection archive.
+// The archive is bounded by the engine and is cleared with the engine runtime.
+func (e *Engine) ListClosedConnections(context.Context) ([]kernel.Connection, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.state != kernel.StateRunning || e.instance == nil || e.runtime.traffic == nil {
+		return nil, featureUnavailable("closed connection observation")
+	}
+	metadata := e.runtime.traffic.ClosedConnections()
+	routerRules := e.instance.Router().Rules()
+	connections := make([]kernel.Connection, 0, len(metadata))
+	for _, item := range metadata {
+		connections = append(connections, connectionView(item, routerRules))
 	}
 	return connections, nil
 }
@@ -310,7 +328,7 @@ func featureUnavailable(feature string) *kernel.Error {
 	).WithHint("enable the corresponding sing-box component or use a configuration that provides it")
 }
 
-func connectionView(metadata *trafficcontrol.TrackerMetadata) kernel.Connection {
+func connectionView(metadata *trafficcontrol.TrackerMetadata, routerRules []adapter.Rule) kernel.Connection {
 	process := ""
 	if metadata.Metadata.ProcessInfo != nil {
 		process = metadata.Metadata.ProcessInfo.ProcessPath
@@ -341,11 +359,24 @@ func connectionView(metadata *trafficcontrol.TrackerMetadata) kernel.Connection 
 		Target:    target,
 		Outbound:  metadata.Outbound,
 		Rule:      rule,
+		RuleIndex: matchedRuleIndex(metadata.Rule, routerRules),
 		Process:   process,
 		Upload:    metadata.Upload.Load(),
 		Download:  metadata.Download.Load(),
 		StartedAt: metadata.CreatedAt.UTC(),
 	}
+}
+
+func matchedRuleIndex(matched adapter.Rule, rules []adapter.Rule) int {
+	if matched == nil {
+		return -1
+	}
+	for index, rule := range rules {
+		if rule == matched {
+			return index
+		}
+	}
+	return -1
 }
 
 func connectionMatches(metadata *trafficcontrol.TrackerMetadata, filter kernel.ConnectionFilter, ids map[int64]struct{}) bool {

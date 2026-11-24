@@ -18,13 +18,14 @@ type SubscriptionService struct {
 	profile    *ProfileService
 	downloader control.Downloader
 	parser     control.SubscriptionParser
+	settings   control.SettingsAPI
 	now        func() time.Time
 }
 
 var _ control.SubscriptionAPI = (*SubscriptionService)(nil)
 
-func NewSubscriptionService(profile *ProfileService, downloader control.Downloader, parser control.SubscriptionParser) *SubscriptionService {
-	return &SubscriptionService{profile: profile, downloader: downloader, parser: parser, now: time.Now}
+func NewSubscriptionService(profile *ProfileService, downloader control.Downloader, parser control.SubscriptionParser, settings control.SettingsAPI) *SubscriptionService {
+	return &SubscriptionService{profile: profile, downloader: downloader, parser: parser, settings: settings, now: time.Now}
 }
 
 func (s *SubscriptionService) List(ctx context.Context) ([]control.Subscription, error) {
@@ -155,6 +156,7 @@ func (s *SubscriptionService) Refresh(ctx context.Context, id string) (control.S
 	}
 
 	now := s.now().UTC()
+	keepLocal := s.keepLocalNodes(ctx)
 	_, err = s.profile.update(ctx, "subscriptions.refresh", func(state *control.DesiredState) error {
 		subscriptionIndex := -1
 		for index := range state.Subscriptions {
@@ -197,7 +199,14 @@ func (s *SubscriptionService) Refresh(ctx context.Context, id string) (control.S
 			}
 			delete(previous, node.ID)
 		}
-		refresh.Removed = len(previous)
+		if keepLocal {
+			for _, node := range previous {
+				remaining = append(remaining, node)
+			}
+			refresh.Removed = 0
+		} else {
+			refresh.Removed = len(previous)
+		}
 		state.Nodes = append(remaining, parsed...)
 		return nil
 	})
@@ -205,6 +214,17 @@ func (s *SubscriptionService) Refresh(ctx context.Context, id string) (control.S
 		return control.SubscriptionRefreshResult{}, err
 	}
 	return refresh, nil
+}
+
+func (s *SubscriptionService) keepLocalNodes(ctx context.Context) bool {
+	if s.settings == nil {
+		return true
+	}
+	setting, found, err := s.settings.Get(ctx, control.SettingSubscriptionConflictPolicy)
+	if err != nil || !found {
+		return true
+	}
+	return !strings.EqualFold(strings.TrimSpace(setting.Value), control.SubscriptionConflictFollowRemote)
 }
 
 func (s *SubscriptionService) RefreshAll(ctx context.Context) ([]control.SubscriptionRefreshResult, error) {

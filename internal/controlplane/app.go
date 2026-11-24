@@ -36,6 +36,8 @@ type Dependencies struct {
 	Downloader           control.Downloader
 	SubscriptionParser   control.SubscriptionParser
 	NodeCodec            control.NodeCodec
+	NodeProber           control.NodeProber
+	DNSProber            control.DNSProber
 	RuleSetRepository    control.RuleSetRepository
 	TestResultRepository control.TestResultRepository
 	SecurityRepository   control.SecurityRepository
@@ -52,8 +54,10 @@ func New(kernelManager kernel.Manager, configStore kernel.ConfigStore, settingsR
 func NewWithDependencies(kernelManager kernel.Manager, configStore kernel.ConfigStore, settingsRepository control.SettingsRepository, profileService *ProfileService, dependencies Dependencies) *App {
 	routes := NewRouteService(profileService)
 	dns := NewDNSService(profileService, kernelManager)
-	subscriptions := NewSubscriptionService(profileService, dependencies.Downloader, dependencies.SubscriptionParser)
 	audit := NewAuditService(dependencies.AuditRepository)
+	settingsService := NewSettingsService(settingsRepository)
+	settingsService.SetAuditor(audit)
+	subscriptions := NewSubscriptionService(profileService, dependencies.Downloader, dependencies.SubscriptionParser, settingsService)
 	if profileService != nil {
 		profileService.SetAuditor(audit)
 	}
@@ -65,11 +69,10 @@ func NewWithDependencies(kernelManager kernel.Manager, configStore kernel.Config
 	configService.SetAuditor(audit)
 	ruleSetService := NewRuleSetService(profileService, dependencies.RuleSetRepository, dependencies.Downloader)
 	ruleSetService.SetAuditor(audit)
-	settingsService := NewSettingsService(settingsRepository)
-	settingsService.SetAuditor(audit)
-	nodeService := NewNodeService(profileService, kernelManager, dependencies.TestResultRepository, dependencies.NodeCodec)
+	nodeService := NewNodeService(profileService, kernelManager, dependencies.TestResultRepository, dependencies.NodeCodec, dependencies.NodeProber)
 	nodeService.SetAuditor(audit)
 	dns.SetAuditor(audit)
+	dns.SetProber(dependencies.DNSProber)
 	return &App{
 		kernel:        kernelService,
 		config:        configService,
@@ -77,7 +80,7 @@ func NewWithDependencies(kernelManager kernel.Manager, configStore kernel.Config
 		inbounds:      NewInboundService(profileService),
 		egress:        NewEgressService(profileService, kernelManager),
 		subscriptions: subscriptions,
-		scheduler:     NewSchedulerService(subscriptions, SchedulerOptions{}),
+		scheduler:     NewSchedulerService(subscriptions, SchedulerOptions{Settings: settingsService}),
 		nodes:         nodeService,
 		policies:      NewPolicyService(routes, dns),
 		routes:        routes,

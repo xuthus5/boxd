@@ -5,6 +5,15 @@ import (
 	"time"
 )
 
+// Global subscription synchronization setting keys.
+const (
+	SettingAutoRefresh                = "autoRefresh"
+	SettingSubscriptionMaxAttempts    = "subscriptionMaxAttempts"
+	SettingSubscriptionConflictPolicy = "subscriptionConflictPolicy"
+	SubscriptionConflictKeepLocal     = "keep_local"
+	SubscriptionConflictFollowRemote  = "follow_remote"
+)
+
 // SchedulerStatus reports the subscription refresh worker state without
 // exposing goroutines or transport details to host adapters.
 type SchedulerStatus struct {
@@ -61,6 +70,33 @@ type NodeDelay struct {
 	TestedAt time.Time     `json:"tested_at"`
 }
 
+// NodeTestKind selects how a node is reachability-tested.
+type NodeTestKind string
+
+const (
+	NodeTestKindURL  NodeTestKind = "url"
+	NodeTestKindTCP  NodeTestKind = "tcp"
+	NodeTestKindICMP NodeTestKind = "icmp"
+)
+
+// NodeTestRequest describes one batch of node reachability tests.
+type NodeTestRequest struct {
+	NodeIDs []string     `json:"node_ids"`
+	Kind    NodeTestKind `json:"kind"`
+	URL     string       `json:"url,omitempty"`
+}
+
+// NodeTestOutcome is the per-node result of a reachability test. A failed
+// probe is reported in Error without failing the rest of the batch.
+type NodeTestOutcome struct {
+	NodeID   string        `json:"node_id"`
+	Kind     NodeTestKind  `json:"kind"`
+	Target   string        `json:"target"`
+	Latency  time.Duration `json:"latency"`
+	Error    string        `json:"error,omitempty"`
+	TestedAt time.Time     `json:"tested_at"`
+}
+
 // NodeTestResult is persisted latency history for a node.
 type NodeTestResult struct {
 	NodeID   string        `json:"node_id"`
@@ -69,6 +105,16 @@ type NodeTestResult struct {
 	Latency  time.Duration `json:"latency"`
 	Error    string        `json:"error,omitempty"`
 	TestedAt time.Time     `json:"tested_at"`
+}
+
+// DNSProbeResult is the most recent active probe for one fixed DNS slot.
+type DNSProbeResult struct {
+	Key      string        `json:"key"`
+	Latency  time.Duration `json:"latency"`
+	TestedAt time.Time     `json:"tested_at,omitempty"`
+	Error    string        `json:"error,omitempty"`
+	Skipped  bool          `json:"skipped,omitempty"`
+	Reason   string        `json:"reason,omitempty"`
 }
 
 // NodeAPI owns node import, editing, filtering, and latency measurement.
@@ -80,6 +126,7 @@ type NodeAPI interface {
 	Save(ctx context.Context, node Node) (Node, error)
 	Delete(ctx context.Context, id string) error
 	Delay(ctx context.Context, id, url string) (NodeDelay, error)
+	Test(ctx context.Context, request NodeTestRequest) ([]NodeTestOutcome, error)
 	TestResults(ctx context.Context, nodeID string, limit int) ([]NodeTestResult, error)
 	DecodeLink(ctx context.Context, link string) (Node, error)
 	EncodeLink(ctx context.Context, node Node) (string, error)

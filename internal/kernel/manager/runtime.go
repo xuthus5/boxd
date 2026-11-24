@@ -98,6 +98,21 @@ func (m *Manager) ListConnections(ctx context.Context) ([]kernel.Connection, err
 	return result, mapOperationError(kernel.ErrCodeInternal, "runtime.list_connections", "list connections", callErr)
 }
 
+// ListClosedConnections returns the engine's bounded recent-connection archive.
+// Observation uses it to include connections that opened and closed between
+// periodic samples without exposing historical records as live connections.
+func (m *Manager) ListClosedConnections(ctx context.Context) ([]kernel.Connection, error) {
+	engine, err := m.runningEngine()
+	if err != nil {
+		return nil, err
+	}
+	result, callErr := engine.ListClosedConnections(ctx)
+	if callErr == nil {
+		return result, nil
+	}
+	return result, mapOperationError(kernel.ErrCodeInternal, "runtime.list_closed_connections", "list closed connections", callErr)
+}
+
 // CloseConnection implements kernel.ConnectionController.
 func (m *Manager) CloseConnection(ctx context.Context, id int64) error {
 	engine, err := m.runningEngine()

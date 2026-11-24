@@ -10,7 +10,9 @@ import (
 	"path/filepath"
 
 	"github.com/xuthus5/boxd/control"
+	"github.com/xuthus5/boxd/internal/adapters/outbound/dnsprobe"
 	"github.com/xuthus5/boxd/internal/adapters/outbound/httpdownload"
+	"github.com/xuthus5/boxd/internal/adapters/outbound/networkprobe"
 	"github.com/xuthus5/boxd/internal/adapters/outbound/nodelink"
 	"github.com/xuthus5/boxd/internal/adapters/outbound/singboxconfig"
 	"github.com/xuthus5/boxd/internal/adapters/outbound/sqlite"
@@ -30,6 +32,8 @@ type Options struct {
 	Downloader         control.Downloader
 	SubscriptionParser control.SubscriptionParser
 	NodeCodec          control.NodeCodec
+	NodeProber         control.NodeProber
+	DNSProber          control.DNSProber
 	Logger             *slog.Logger
 }
 
@@ -97,13 +101,21 @@ func New(ctx context.Context, opts Options) (*App, error) {
 	if downloader == nil {
 		downloader = httpdownload.New()
 	}
-	subscriptionParser := opts.SubscriptionParser
-	if subscriptionParser == nil {
-		subscriptionParser = subscriptionjson.New()
-	}
 	nodeCodec := opts.NodeCodec
 	if nodeCodec == nil {
 		nodeCodec = nodelink.New()
+	}
+	subscriptionParser := opts.SubscriptionParser
+	if subscriptionParser == nil {
+		subscriptionParser = subscriptionjson.New(nodeCodec)
+	}
+	nodeProber := opts.NodeProber
+	if nodeProber == nil {
+		nodeProber = networkprobe.New()
+	}
+	dnsProber := opts.DNSProber
+	if dnsProber == nil {
+		dnsProber = dnsprobe.New()
 	}
 	application := controlplane.NewWithDependencies(
 		kernelManager,
@@ -114,6 +126,8 @@ func New(ctx context.Context, opts Options) (*App, error) {
 			Downloader:           downloader,
 			SubscriptionParser:   subscriptionParser,
 			NodeCodec:            nodeCodec,
+			NodeProber:           nodeProber,
+			DNSProber:            dnsProber,
 			RuleSetRepository:    store.RuleSets(),
 			TestResultRepository: store.TestResults(),
 			SecurityRepository:   store.Security(),
