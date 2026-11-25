@@ -37,6 +37,7 @@ var (
 	iconChevronDown   = mustIcon("M6 9l6 6 6-6")
 	iconCheck         = mustIcon("M5 12l5 5L19 7")
 	iconArrowRight    = mustIcon("M5 12h14M14 7l5 5-5 5")
+	iconGrip          = mustIcon("M9 5h.01M9 12h.01M9 19h.01M15 5h.01M15 12h.01M15 19h.01")
 )
 
 func mustBitmap(path string) *ui.Bitmap {

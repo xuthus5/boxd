@@ -36,7 +36,22 @@ func (c *Controller) editorDialog(ctx *ui.Context) {
 					c.editorOpen = false
 				}
 			})
-			c.editorFields(ctx)
+			if c.editor.kind == editorGroup || c.editor.kind == editorChain {
+				_, height := ctx.Size()
+				limit := float32(520)
+				if c.editor.kind == editorChain {
+					limit = 420
+				}
+				bodyHeight := min(limit, max(float32(300), height-300))
+				ui.Scroll(ctx).Key("editor-body").FillWidth().Height(bodyHeight).Gap(14).Padding(0, 2, 8, 2).Children(func() {
+					c.editorFields(ctx)
+				})
+			} else {
+				c.editorFields(ctx)
+			}
+			if c.editorErr != "" {
+				c.editorErrorBanner(ctx, c.editorErr)
+			}
 			ui.Row(ctx).FillWidth().Justify(ui.End).Gap(8).Children(func() {
 				if c.labeledAction(ctx, nil, "取消", false).Clicked() {
 					c.editorOpen = false
@@ -57,6 +72,10 @@ func editorWidth(kind editorKind) float32 {
 		return 600
 	case editorInbound:
 		return 620
+	case editorGroup:
+		return 820
+	case editorChain:
+		return 780
 	default:
 		return 540
 	}
@@ -105,9 +124,9 @@ func editorHint(kind editorKind) string {
 	case editorImportLinks:
 		return "支持每行一个 VMess、VLESS、Trojan、Shadowsocks 等分享链接"
 	case editorGroup:
-		return "成员从上到下保留顺序；手动策略组可选择当前出口"
+		return "搜索并添加节点，拖拽或使用上下按钮调整成员顺序"
 	case editorChain:
-		return "每一行一个跳点，从上到下就是链路顺序"
+		return "按本地到目标的顺序选择跳点；支持拖拽与上下按钮排序"
 	case editorRouteRule:
 		return "规则按列表顺序求值，越靠前优先级越高"
 	case editorDNS:
@@ -239,48 +258,9 @@ func (c *Controller) editorFields(ctx *ui.Context) {
 			ui.TextArea(ctx, &e.links).Height(250).Font("monospace").Placeholder("vless://...\nss://...").AutoFocus().Label("节点分享链接")
 		})
 	case editorGroup:
-		ui.Field(ctx, "名称", func() { ui.TextInput(ctx, &e.name).AutoFocus().Label("名称") })
-		ui.Row(ctx).FillWidth().Gap(12).Children(func() {
-			ui.Column(ctx).Grow(1).Basis(0).Children(func() {
-				ui.Field(ctx, "类型", func() {
-					labels := []string{"手动选择", "自动测速"}
-					values := []string{string(control.GroupKindSelector), string(control.GroupKindURLTest)}
-					current := groupKindLabel(e.groupKind)
-					selector := ui.Select(ctx, &current, labels).Label("类型")
-					if selector.Changed() {
-						e.groupKind = optionValueByLabel(labels, values, current)
-					}
-				})
-			})
-			ui.Column(ctx).Width(130).Children(func() {
-				ui.Field(ctx, "测速间隔（秒）", func() { ui.TextInput(ctx, &e.interval).Label("测速间隔（秒）") })
-			})
-		})
-		ui.Field(ctx, "成员节点 ID（每行一个）", func() {
-			ui.TextArea(ctx, &e.members).Height(150).Font("monospace").Label("成员节点 ID")
-		})
-		ui.Row(ctx).FillWidth().Gap(12).Children(func() {
-			ui.Column(ctx).Grow(1).Basis(0).Children(func() {
-				ui.Field(ctx, "当前出口", func() {
-					names, values := groupMemberOptions(c.snapshot, e.members, e.selected)
-					selected := optionLabel(names, values, e.selected)
-					selector := ui.Select(ctx, &selected, names).Label("当前出口")
-					if selector.Changed() {
-						e.selected = optionValueByLabel(names, values, selected)
-					}
-				})
-			})
-			ui.Column(ctx).Grow(1).Basis(0).Children(func() {
-				ui.Field(ctx, "测速 URL（自动组）", func() { ui.TextInput(ctx, &e.url).Label("测速 URL") })
-			})
-		})
+		c.groupEditorFields(ctx, e)
 	case editorChain:
-		ui.Field(ctx, "名称", func() { ui.TextInput(ctx, &e.name).AutoFocus().Label("名称") })
-		ui.Field(ctx, "跳点（每行一个）", func() {
-			ui.TextArea(ctx, &e.hops).Height(220).Font("monospace").Label("跳点").Placeholder("node:<节点ID>\ngroup:<策略组ID>\nchain:<链路ID>")
-		})
-		ui.Text(ctx, "示例：node:n-1 → group:g-2。保存后会校验全部引用。").
-			FontSize(10.5).TextColor(c.colors().TextFaint).Wrap()
+		c.chainEditorFields(ctx, e)
 	case editorRouteRule:
 		ui.Row(ctx).FillWidth().Gap(12).Children(func() {
 			ui.Column(ctx).Grow(1).Basis(0).Children(func() {
@@ -436,16 +416,6 @@ func importGroupOptions(s snapshot, selected string) ([]string, []string) {
 	for _, group := range s.Catalog.Groups {
 		options = append(options, group.Name)
 		values = append(values, group.ID)
-	}
-	return options, values
-}
-
-func groupMemberOptions(s snapshot, raw, selected string) ([]string, []string) {
-	options := []string{"不指定（自动）"}
-	values := []string{""}
-	for _, id := range splitLines(raw) {
-		options = append(options, nodeName(s, id))
-		values = append(values, id)
 	}
 	return options, values
 }

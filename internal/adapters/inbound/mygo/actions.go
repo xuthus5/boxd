@@ -288,12 +288,40 @@ func (c *Controller) setLogFilter(value int) {
 }
 
 func (c *Controller) submitEditor() {
-	if c.runtime == nil || c.busy {
+	if c.runtime == nil || c.runtime.Control == nil || c.busy {
 		return
 	}
 	editor := c.editor
-	c.editorOpen = false
-	c.run("保存", func(ctx context.Context, app control.Application) error {
-		return c.saveEditor(ctx, app, editor)
-	})
+	if issues := editor.issues(c.snapshot); len(issues) > 0 {
+		c.editorErr = ""
+		c.window.Invalidate()
+		return
+	}
+	c.busy = true
+	c.editorErr = ""
+	c.notice = "保存中…"
+	c.noticeErr = false
+	c.window.Invalidate()
+	app := c.runtime.Control
+	go func() {
+		ctx, cancel := context.WithTimeout(c.ctx, 45*time.Second)
+		defer cancel()
+		err := c.saveEditor(ctx, app, editor)
+		c.window.Update(func() {
+			c.busy = false
+			if err != nil {
+				c.editorOpen = true
+				c.editorErr = err.Error()
+				c.notice = "保存失败：" + err.Error()
+				c.noticeErr = true
+				c.window.Invalidate()
+				return
+			}
+			c.editorOpen = false
+			c.editorErr = ""
+			c.notice = "保存完成"
+			c.noticeErr = false
+			c.refresh(false)
+		})
+	}()
 }

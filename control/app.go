@@ -75,8 +75,10 @@ type EgressAPI interface {
 	SaveNode(ctx context.Context, node Node) (Node, error)
 	DeleteNode(ctx context.Context, id string) error
 	SaveGroup(ctx context.Context, group Group) (Group, error)
+	ValidateGroup(ctx context.Context, group Group) ([]kernel.Diagnostic, error)
 	DeleteGroup(ctx context.Context, id string) error
 	SaveChain(ctx context.Context, chain ProxyChain) (ProxyChain, error)
+	ValidateChain(ctx context.Context, chain ProxyChain) ([]kernel.Diagnostic, error)
 	DeleteChain(ctx context.Context, id string) error
 	SelectGroupMember(ctx context.Context, groupID, nodeID string) error
 }

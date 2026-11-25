@@ -73,6 +73,7 @@ type Controller struct {
 
 	editorOpen bool
 	editor     editorState
+	editorErr  string
 	deleteOpen bool
 	deleteKind string
 	deleteID   string
@@ -131,11 +132,8 @@ type editorState struct {
 	udp            bool
 	subscriptionID string
 
-	members   string
-	groupKind string
-	selected  string
-
-	hops string
+	group groupDraft
+	chain chainDraft
 
 	rule          control.RouteRule
 	matchDomains  string
@@ -379,6 +377,7 @@ func (c *Controller) pageTitle() (string, string) {
 
 func (c *Controller) openEditor(kind editorKind, id string) {
 	e := editorState{kind: kind, id: id}
+	c.editorErr = ""
 	switch kind {
 	case editorInbound:
 		for _, inbound := range c.snapshot.Inbounds {
@@ -428,22 +427,17 @@ func (c *Controller) openEditor(kind editorKind, id string) {
 		}
 	case editorGroup:
 		if group, exists := c.snapshot.GroupsByID[id]; exists {
-			e.name, e.groupKind, e.selected = group.Name, string(group.Kind), group.Selected
-			e.members, e.url = strings.Join(group.Members, "\n"), group.URL
-			e.interval = strconv.Itoa(group.IntervalSeconds)
-			e.enabled = true
+			e.group = groupDraft{
+				ID: group.ID, Name: group.Name, Kind: group.Kind,
+				Members: append([]string(nil), group.Members...), Selected: group.Selected,
+				URL: group.URL, Interval: strconv.Itoa(group.IntervalSeconds),
+			}
 		} else {
-			e.groupKind, e.interval = string(control.GroupKindSelector), "300"
-			e.enabled = true
+			e.group = groupDraft{Kind: control.GroupKindSelector, Interval: "300"}
 		}
 	case editorChain:
 		if chain, exists := c.snapshot.ChainsByID[id]; exists {
-			e.name = chain.Name
-			lines := make([]string, 0, len(chain.Hops))
-			for _, hop := range chain.Hops {
-				lines = append(lines, string(hop.Kind)+":"+hop.ID)
-			}
-			e.hops = strings.Join(lines, "\n")
+			e.chain = chainDraft{ID: chain.ID, Name: chain.Name, Hops: append([]control.ProxyHop(nil), chain.Hops...)}
 		}
 	case editorRouteRule:
 		for _, rule := range c.snapshot.Routes.Rules {
@@ -601,22 +595,26 @@ func (c *Controller) saveEditor(ctx context.Context, app control.Application, e 
 		_, err := app.Nodes().ImportLinksIntoGroup(ctx, links, strings.TrimSpace(e.groupID))
 		return err
 	case editorGroup:
-		members := splitLines(e.members)
-		group := control.Group{ID: e.id, Name: e.name, Kind: control.GroupKind(e.groupKind), Members: members, Selected: e.selected, URL: e.url}
-		group.IntervalSeconds, _ = strconv.Atoi(strings.TrimSpace(e.interval))
-		_, err := app.Egress().SaveGroup(ctx, group)
+		group := e.group.controlGroup()
+		diagnostics, err := app.Egress().ValidateGroup(ctx, group)
+		if err != nil {
+			return err
+		}
+		if len(diagnostics) > 0 {
+			return validationDiagnosticsError(diagnostics)
+		}
+		_, err = app.Egress().SaveGroup(ctx, group)
 		return err
 	case editorChain:
-		lines := splitLines(e.hops)
-		hops := make([]control.ProxyHop, 0, len(lines))
-		for _, line := range lines {
-			kind, id, found := strings.Cut(line, ":")
-			if !found || strings.TrimSpace(kind) == "" || strings.TrimSpace(id) == "" {
-				return fmt.Errorf("链路节点格式应为 node:<id>、group:<id> 或 chain:<id>")
-			}
-			hops = append(hops, control.ProxyHop{Kind: control.EgressKind(strings.TrimSpace(kind)), ID: strings.TrimSpace(id)})
+		chain := e.chain.chain()
+		diagnostics, err := app.Egress().ValidateChain(ctx, chain)
+		if err != nil {
+			return err
 		}
-		_, err := app.Egress().SaveChain(ctx, control.ProxyChain{ID: e.id, Name: e.name, Hops: hops})
+		if len(diagnostics) > 0 {
+			return validationDiagnosticsError(diagnostics)
+		}
+		_, err = app.Egress().SaveChain(ctx, chain)
 		return err
 	case editorRouteRule:
 		rule := e.rule

@@ -158,5 +158,22 @@ func newViewTestController(options ControllerOptions) *Controller {
 			ID: 1, Time: time.Date(2026, 11, 25, 12, 0, 0, 0, time.UTC), Level: "info", Source: "desktop", Message: "control plane ready",
 		}},
 	}
+	controller.snapshot.SubscriptionsByID = map[string]control.Subscription{}
+	for _, subscription := range controller.snapshot.Subscriptions {
+		controller.snapshot.SubscriptionsByID[subscription.ID] = subscription
+	}
+	controller.snapshot.NodesByID = map[string]control.Node{}
+	for _, node := range controller.snapshot.Catalog.Nodes {
+		controller.snapshot.NodesByID[node.ID] = node
+	}
+	controller.snapshot.GroupsByID = map[string]control.Group{}
+	for _, group := range controller.snapshot.Catalog.Groups {
+		controller.snapshot.GroupsByID[group.ID] = group
+	}
+	controller.snapshot.ChainsByID = map[string]control.ProxyChain{}
+	for _, chain := range controller.snapshot.Catalog.Chains {
+		controller.snapshot.ChainsByID[chain.ID] = chain
+	}
+	controller.snapshot.SettingsByKey = map[string]string{}
 	return controller
 }

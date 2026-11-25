@@ -3,6 +3,7 @@ package controlplane
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -239,6 +240,39 @@ func (s *EgressService) SaveGroup(ctx context.Context, group control.Group) (con
 	return control.Group{}, notFound("group", group.ID)
 }
 
+// ValidateGroup runs the same desired-state validation as SaveGroup without
+// persisting or applying anything. Adapters use it to show actionable errors
+// before closing an editor.
+func (s *EgressService) ValidateGroup(ctx context.Context, group control.Group) ([]kernel.Diagnostic, error) {
+	state, err := s.profile.Snapshot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	originalID := group.ID
+	if group.ID == "" {
+		group.ID = draftID("group", func(id string) bool {
+			for _, existing := range state.Groups {
+				if existing.ID == id {
+					return true
+				}
+			}
+			return false
+		})
+	}
+	index := len(state.Groups)
+	for current := range state.Groups {
+		if state.Groups[current].ID == group.ID {
+			index = current
+			state.Groups[current] = group
+			break
+		}
+	}
+	if index == len(state.Groups) {
+		state.Groups = append(state.Groups, group)
+	}
+	return validateStateItem(state, fmt.Sprintf("groups[%d]", index), originalID == "", "invalid_id", "duplicate_id"), nil
+}
+
 func (s *EgressService) DeleteGroup(ctx context.Context, id string) error {
 	_, err := s.profile.update(ctx, "egress.delete_group", func(state *control.DesiredState) error {
 		for index := range state.Groups {
@@ -280,6 +314,70 @@ func (s *EgressService) SaveChain(ctx context.Context, chain control.ProxyChain)
 		}
 	}
 	return control.ProxyChain{}, notFound("chain", chain.ID)
+}
+
+// ValidateChain validates a candidate chain against the current desired state
+// without saving it.
+func (s *EgressService) ValidateChain(ctx context.Context, chain control.ProxyChain) ([]kernel.Diagnostic, error) {
+	state, err := s.profile.Snapshot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	originalID := chain.ID
+	if chain.ID == "" {
+		chain.ID = draftID("chain", func(id string) bool {
+			for _, existing := range state.Chains {
+				if existing.ID == id {
+					return true
+				}
+			}
+			return false
+		})
+	}
+	index := len(state.Chains)
+	for current := range state.Chains {
+		if state.Chains[current].ID == chain.ID {
+			index = current
+			state.Chains[current] = chain
+			break
+		}
+	}
+	if index == len(state.Chains) {
+		state.Chains = append(state.Chains, chain)
+	}
+	return validateStateItem(state, fmt.Sprintf("chains[%d]", index), originalID == "", "invalid_id", "duplicate_id"), nil
+}
+
+func validateStateItem(state control.DesiredState, prefix string, generatedID bool, idCodes ...string) []kernel.Diagnostic {
+	normalizeState(&state)
+	validator := &stateValidator{state: state}
+	validator.validate()
+	result := make([]kernel.Diagnostic, 0)
+	ignoredIDCode := make(map[string]struct{}, len(idCodes))
+	if generatedID {
+		for _, code := range idCodes {
+			ignoredIDCode[code] = struct{}{}
+		}
+	}
+	for _, diagnostic := range validator.diags {
+		if diagnostic.Path != prefix && !strings.HasPrefix(diagnostic.Path, prefix+".") {
+			continue
+		}
+		if _, ignored := ignoredIDCode[diagnostic.Code]; ignored && diagnostic.Path == prefix+".id" {
+			continue
+		}
+		result = append(result, diagnostic)
+	}
+	return result
+}
+
+func draftID(prefix string, exists func(string) bool) string {
+	for suffix := 0; ; suffix++ {
+		id := fmt.Sprintf("draft_%s_%d", prefix, suffix)
+		if !exists(id) {
+			return id
+		}
+	}
 }
 
 func (s *EgressService) DeleteChain(ctx context.Context, id string) error {
