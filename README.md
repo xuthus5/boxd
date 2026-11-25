@@ -9,16 +9,26 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/xuthus5/boxd/actions/workflows/ci.yml"><img src="https://github.com/xuthus5/boxd/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/xuthus5/boxd/releases"><img src="https://img.shields.io/github/v/release/xuthus5/boxd?display_name=tag" alt="Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/xuthus5/boxd" alt="Apache-2.0"></a>
+  <a href="https://github.com/xuthus5/boxd/pkgs/container/boxd"><img src="https://img.shields.io/badge/container-ghcr.io%2Fxuthus5%2Fboxd-2496ed" alt="GHCR"></a>
+</p>
+
+<p align="center">
   <a href="#项目简介">项目简介</a> ·
   <a href="#产品截图">产品截图</a> ·
   <a href="#架构设计">架构设计</a> ·
   <a href="#部署方式一二进制部署">二进制部署</a> ·
   <a href="#部署方式二systemd-部署">systemd 部署</a> ·
   <a href="#部署方式三容器化部署">容器化部署</a> ·
+  <a href="#rest-api-与事件流">API</a> ·
   <a href="#开发与测试">开发与测试</a>
 </p>
 
 > **项目状态**：当前版本聚焦控制平面、数据平面及其管理能力，不包含桌面/移动宿主接入、Web Shell、终端执行和备份恢复功能。
+
+> **商用发布基线**：当前 Web 控制台、控制平面、持久化、内核驱动和 API 均连接真实 `boxd` 实例，不包含前端 mock 数据。仓库已提供许可证、OpenAPI 契约、跨浏览器 E2E、无障碍门禁、兼容性矩阵、安全政策和发布检查清单。正式对外提供服务前，部署方仍应完成自身环境的安全审计、容量验证、合规评估和运维预案。
 
 ## 项目简介
 
@@ -75,6 +85,20 @@ boxd 是一个围绕 [sing-box](https://sing-box.sagernet.org/) 构建的代理�
 | 安全 | 本地管理员 PBKDF2 口令、24 小时会话、HttpOnly + SameSite=Strict Cookie、Bearer Token、同源写操作校验 |
 | 数据存储 | SQLite WAL、外键、版本化内嵌迁移、配置历史和期望状态快照 |
 
+## 商用发布与质量治理
+
+boxd 以“可部署、可验证、可维护”为发布基线，而不是只有界面原型的演示项目。每次变更需要同时通过 Go 单元/竞态测试、JavaScript/CSS 静态检查、OpenAPI 路由契约校验，以及真实二进制启动后的 Playwright 端到端测试。
+
+| 发布门禁 | 覆盖内容 |
+|---|---|
+| Go 质量门禁 | `gofmt`、`go vet`、单元测试、竞态测试、`govulncheck` 可达漏洞扫描和全量构建 |
+| API 契约 | OpenAPI 3.1 规范；CI 校验全部 Go 路由、Schema 引用、`operationId` 和响应定义 |
+| 浏览器 E2E | Chromium、Firefox、WebKit 桌面端与 Chromium 移动端；登录、导航、内核生命周期、订阅 CRUD、单节点导入、主题与响应式布局 |
+| 无障碍 | axe-core WCAG 2.1 A/AA 扫描；禁止 serious/critical 违规，并检查键盘可访问的日志滚动区 |
+| 发布治理 | Apache-2.0、变更日志、安全政策、兼容性矩阵、发布检查清单、本地文档链接校验、校验和与 GHCR 多架构镜像 |
+
+详细的支持边界见 [兼容性矩阵](docs/compatibility.md)，发布前步骤见 [发布检查清单](docs/release-checklist.md)。当前版本仍是单机单管理员控制面，不等同于多租户授权边界。
+
 ## 架构设计
 
 ```mermaid
@@ -130,12 +154,12 @@ docs/                              架构、控制面和版本兼容文档
 
 ### 1. 获取发布包
 
-从 GitHub Release 下载对应架构的二进制和校验文件。以下命令中的 `<github-owner>/<github-repo>` 替换为实际发布仓库：
+从 GitHub Release 下载对应架构的二进制和校验文件：
 
 ```bash
 VERSION=v0.1.0
 ARCH=amd64 # arm64 主机改为 arm64
-RELEASE_URL="https://github.com/<github-owner>/<github-repo>/releases/download/${VERSION}"
+RELEASE_URL="https://github.com/xuthus5/boxd/releases/download/${VERSION}"
 
 curl -fLO "${RELEASE_URL}/boxd-linux-${ARCH}"
 curl -fLO "${RELEASE_URL}/checksums.txt"
@@ -174,7 +198,7 @@ mkdir -p ./boxd-data
 ### 3. 从源码构建
 
 ```bash
-git clone ssh://git@codeberg.org/xdev/boxd.git
+git clone ssh://git@github.com/xuthus5/boxd.git
 cd boxd
 make build
 ./bin/boxd -version
@@ -280,13 +304,13 @@ sudo ./uninstall.sh --purge
 容器镜像由 GitHub Actions 构建并推送到 GitHub Container Registry：
 
 ```text
-ghcr.io/<github-owner>/<github-repo>
+ghcr.io/xuthus5/boxd
 ```
 
 镜像仓库名会自动转小写。正式版本发布语义版本标签和稳定版 `latest`；`main` 分支发布 `nightly` 与 `nightly-<commit>`。
 
 ```bash
-export BOXD_IMAGE=ghcr.io/<github-owner>/<github-repo>:latest
+export BOXD_IMAGE=ghcr.io/xuthus5/boxd:latest
 docker login ghcr.io
 docker pull "$BOXD_IMAGE"
 ```
@@ -330,7 +354,7 @@ docker run -d --name boxd --restart unless-stopped \
 ```yaml
 services:
   boxd:
-    image: ghcr.io/<github-owner>/<github-repo>:latest
+    image: ghcr.io/xuthus5/boxd:latest
     container_name: boxd
     restart: unless-stopped
     ports:
@@ -407,7 +431,7 @@ Web 控制台和 API 的配置事实来源是 SQLite。修改端口、入口、�
 
 除健康检查、认证状态、初始化和登录外，其余 API 均要求有效会话。Web 控制台使用同源 HttpOnly Cookie；自动化客户端可在登录后使用 `Authorization: Bearer <token>`。
 
-完整路由、领域约束和错误语义见 [docs/control-plane.md](docs/control-plane.md)。
+完整路由、领域约束和错误语义见 [控制面文档](docs/control-plane.md)；机器可读的 OpenAPI 3.1 契约见 [docs/openapi.yaml](docs/openapi.yaml)。
 
 ## 开发与测试
 
@@ -433,6 +457,25 @@ make engine-version
 
 Web 控制台静态资源位于 `prototype/`，通过 `webfiles.go` 与 Go embed 打包，不需要 Node.js 构建步骤。
 
+### 浏览器质量门禁
+
+Playwright 测试会构建并启动隔离的真实 `boxd` 实例，使用独立监听端口 `17662` 和独立数据目录，不使用 mock 后端。首次运行前安装依赖与浏览器：
+
+```bash
+npm ci
+npx playwright install --with-deps chromium firefox webkit
+npm run check
+npm run test:e2e
+```
+
+快速执行 Chromium 桌面端与移动端：
+
+```bash
+npm run test:e2e:chromium
+```
+
+测试报告写入 `playwright-report/`，失败时的截图、视频、Trace 和 axe 违规详情写入 `test-results/`。CI 在失败时自动上传这些诊断产物。
+
 ### 引擎版本
 
 当前锁定 `github.com/sagernet/sing-box v1.14.4`，兼容线为 `v1.14.x`。Driver 会从 Go build info 读取实际模块版本，并拒绝跨 minor 版本启动。
@@ -445,7 +488,7 @@ GitHub Actions 包含以下工作流：
 
 | 工作流 | 触发条件 | 产物 |
 |---|---|---|
-| [`ci.yml`](.github/workflows/ci.yml) | 分支推送、Pull Request | 格式、vet、测试、竞态测试、构建和脚本检查 |
+| [`ci.yml`](.github/workflows/ci.yml) | 分支推送、Pull Request | 格式化/vet/测试/竞态、OpenAPI 与前端检查、多浏览器 Playwright、构建和脚本检查 |
 | [`release.yaml`](.github/workflows/release.yaml) | `v*` 标签 | 正式版本 Release |
 | [`nightly.yaml`](.github/workflows/nightly.yaml) | `main` 更新或手动触发 | 滚动 `nightly` 预发布版本 |
 | [`container.yaml`](.github/workflows/container.yaml) | `main`、`v*` 标签、Pull Request | 多架构 GHCR 镜像；PR 只验证不推送 |
@@ -453,7 +496,7 @@ GitHub Actions 包含以下工作流：
 发布资产包括：
 
 - Linux `amd64`、`arm64` 裸二进制。
-- 包含二进制、systemd 单元、安装/卸载脚本和文档的部署压缩包。
+- 包含二进制、systemd 单元、安装/卸载脚本、许可证、变更日志、安全政策、OpenAPI 契约和运维文档的部署压缩包。
 - 记录版本、提交、资产大小、SHA-256、Release 下载地址和 GHCR 镜像信息的 `boxd-manifest.json`。
 - 覆盖全部资产的 `checksums.txt`。
 
@@ -519,15 +562,18 @@ systemd 部署需要保留 `CAP_NET_ADMIN`；容器部署需要 `--network host 
 ```bash
 make ci
 make race
+npm ci
+npm run check
+npm run test:e2e
 ```
 
 提交变更时应保持分层边界：公开契约不依赖 `internal`，sing-box 与 SQLite 驱动不得越过各自适配器。涉及控制面语义、API、配置映射或安全边界的变化，应同步更新文档和测试。
 
-发现安全问题时，请通过私有渠道联系维护者，不要在公开 Issue 中披露未修复漏洞。
+开发约定见 [CONTRIBUTING.md](CONTRIBUTING.md)，社区行为规范见 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)。发现安全问题时，请按照 [SECURITY.md](SECURITY.md) 通过私有渠道联系维护者，不要在公开 Issue 中披露未修复漏洞。用户可见变更需记录在 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 许可证
 
-当前仓库尚未包含 `LICENSE` 文件。正式对外开源前，项目所有者需要明确并补充许可证；在许可证补充前，不视为授予复制、分发或商业使用许可。
+本项目采用 [Apache License 2.0](LICENSE)。第三方组件及其归属说明见 [NOTICE](NOTICE)。Apache-2.0 允许商业使用、修改和再分发，并要求保留版权、许可证和 NOTICE 声明；部署方应自行确认其所在地区的合规要求。
 
 ## 致谢
 

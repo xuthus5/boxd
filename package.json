@@ -1,0 +1,30 @@
+{
+  "name": "boxd-web-quality",
+  "version": "0.1.0-dev",
+  "private": true,
+  "description": "Browser quality gates for the boxd control-plane console",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "check": "npm run lint:js && npm run lint:css && npm run check:openapi && npm run check:docs",
+    "check:docs": "node scripts/check-docs.mjs",
+    "check:openapi": "node scripts/check-openapi.mjs",
+    "lint:js": "eslint prototype/app.js prototype/assets e2e playwright.config.js eslint.config.js scripts",
+    "lint:css": "stylelint \"prototype/**/*.css\"",
+    "test:e2e": "playwright test",
+    "test:e2e:chromium": "playwright test --project=desktop-chromium --project=mobile-chromium",
+    "test:e2e:headed": "playwright test --headed --project=desktop-chromium"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.14.1",
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.65.1",
+    "eslint": "10.15.0",
+    "globals": "17.14.0",
+    "stylelint": "18.1.0",
+    "stylelint-config-standard": "41.1.0",
+    "yaml": "2.9.1"
+  }
+}

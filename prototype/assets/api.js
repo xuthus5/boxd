@@ -24,11 +24,11 @@ async function request(path, options = {}) {
   let response;
   try {
     response = await fetch(`${API_ROOT}${path}`, requestOptions);
-  } catch (cause) {
+  } catch {
     throw new APIError('无法连接控制面', { code: 'network_error', hint: '检查 boxd 服务是否正在运行' });
   }
   const contentType = response.headers.get('content-type') || '';
-  let payload = null;
+  let payload;
   if (contentType.includes('application/json')) {
     payload = await response.json().catch(() => null);
   } else {

@@ -1,5 +1,6 @@
 BUILD_TAGS ?= with_utls,with_quic
 MODULE := github.com/xuthus5/boxd
+GO_PACKAGES := $(shell go list ./... | grep -v '/node_modules/')
 VERSION ?= 0.1.0-dev
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -14,13 +15,13 @@ build:
 	go build -trimpath -tags "$(BUILD_TAGS)" -ldflags "$(LDFLAGS)" -o bin/boxd ./cmd/boxd
 
 test:
-	go test -tags "$(BUILD_TAGS)" ./...
+	go test -tags "$(BUILD_TAGS)" $(GO_PACKAGES)
 
 race:
-	go test -race -tags "$(BUILD_TAGS)" ./...
+	go test -race -tags "$(BUILD_TAGS)" $(GO_PACKAGES)
 
 vet:
-	go vet -tags "$(BUILD_TAGS)" ./...
+	go vet -tags "$(BUILD_TAGS)" $(GO_PACKAGES)
 
 fmt:
 	gofmt -w cmd control internal kernel

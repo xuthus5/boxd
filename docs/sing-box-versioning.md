@@ -22,23 +22,23 @@
 
 补丁升级不要求修改 Go 代码，按以下顺序执行：
 
-```powershell
+```bash
 go get github.com/sagernet/sing-box@v1.14.5
 go mod tidy
 go list -m -f '{{.Path}} {{.Version}}' github.com/sagernet/sing-box
 make engine-version
-go test ./...
-go test -race ./...
-go vet ./...
-go build -tags with_utls,with_quic -o bin/boxd.exe ./cmd/boxd
+make test
+make race
+make vet
+make build
 ```
 
 提交 `go.mod`、`go.sum` 和必要的适配代码。不要单独修改 `go.sum`，也不要手工编辑间接依赖版本。
 
 建议同时检查：
 
-```powershell
-go list -m all | Select-String -Pattern '^github.com/sagernet/'
+```bash
+go list -m all | grep '^github.com/sagernet/'
 ```
 
 如果补丁升级同时拉高了 `sing-tun`、`sing`、`quic-go` 等核心依赖，需要额外验证 TUN、Mixed 入站、DNS、路由和代理编排。
@@ -51,7 +51,7 @@ go list -m all | Select-String -Pattern '^github.com/sagernet/'
 2. 修改 `internal/driver/singbox/version.go` 中的 `SupportedMinor` 和 `SupportedSeries`。
 3. 审查 sing-box `option`、`include`、`adapter`、日志和运行控制 API 的破坏性变化。
 4. 补齐配置生成、诊断、入站、出站、路由、DNS、连接观测和生命周期回归测试。
-5. 在三个宿主形态上完成构建与冒烟验证后再合并。
+5. 在二进制、systemd 和容器三种部署形态上完成构建与冒烟验证后再合并。
 
 如果新旧版本需要并行过渡，可以把兼容线升级为显式版本区间，但必须保持公开 `kernel` 契约不变。
 

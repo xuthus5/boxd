@@ -84,6 +84,41 @@ const escapeHtml = (value) => String(value ?? '')
   .replaceAll('"', '&quot;')
   .replaceAll("'", '&#39;');
 
+async function copyTextToClipboard(text) {
+  if (window.isSecureContext && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Fall through for browsers that expose the API but deny the permission.
+    }
+  }
+
+  const activeElement = document.activeElement;
+  const selection = document.getSelection();
+  const ranges = selection ? Array.from({ length: selection.rangeCount }, (_, index) => selection.getRangeAt(index)) : [];
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', '');
+  textarea.setAttribute('aria-hidden', 'true');
+  textarea.style.position = 'fixed';
+  textarea.style.top = '0';
+  textarea.style.left = '-9999px';
+  textarea.style.opacity = '0';
+  document.body.append(textarea);
+  textarea.select();
+  let copied;
+  try {
+    copied = document.execCommand('copy');
+  } finally {
+    textarea.remove();
+    selection?.removeAllRanges();
+    ranges.forEach((range) => selection?.addRange(range));
+    activeElement?.focus?.({ preventScroll: true });
+  }
+  return copied;
+}
+
 const byId = (id) => state.nodes.find((item) => item.id === id);
 const groupById = (id) => state.groups.find((item) => item.id === id);
 const kernelVersionLabel = () => {
@@ -245,19 +280,6 @@ function scheduleSnapshotRefresh() {
   }, 180);
 }
 
-async function runAction(action, success) {
-  try {
-    const result = await action();
-    if (success) showToast(success.title, success.message || '', success.icon || 'check');
-    scheduleSnapshotRefresh();
-    return result;
-  } catch (error) {
-    if (error.status === 401) return null;
-    showToast('操作失败', error.hint || error.message, 'alert');
-    return null;
-  }
-}
-
 function syncChrome() {
   const running = state.kernel.state === 'running';
   const stateLabel = KERNEL_STATE_LABELS[state.kernel.state] || state.kernel.state;
@@ -363,7 +385,7 @@ function connectEvents() {
       try {
         const status = await api.authStatus();
         if (!status.authenticated) showAuthScreen(status.initialized ? 'login' : 'initialize');
-      } catch (_) {
+      } catch {
         // EventSource keeps retrying while the control plane is temporarily unavailable.
       }
     }, 1200);
@@ -894,8 +916,8 @@ function overviewView() {
 
   const recentRows = state.connections.slice(0, 5).map((item) => `
     <tr>
-      <td><div class="conn-target"><strong>${escapeHtml(item.target)}</strong><span>${escapeHtml(item.process || '—')}</span></div></td>
-      <td>${item.outbound === 'direct' || item.outbound === 'reject' ? `<span class="tag is-solid">${escapeHtml(item.outbound)}</span>` : escapeHtml(item.outbound)}</td>
+      <td><div class="conn-target" title="${escapeHtml(item.target)} · ${escapeHtml(item.process || '—')}"><strong>${escapeHtml(item.target)}</strong><span>${escapeHtml(item.process || '—')}</span></div></td>
+      <td title="${escapeHtml(item.outbound)}">${item.outbound === 'direct' || item.outbound === 'reject' ? `<span class="tag is-solid">${escapeHtml(item.outbound)}</span>` : escapeHtml(item.outbound)}</td>
       <td class="mono nowrap">${escapeHtml(item.upload)} / ${escapeHtml(item.download)}</td>
       <td class="mono nowrap muted">${escapeHtml(item.duration)}</td>
     </tr>
@@ -983,8 +1005,8 @@ function overviewView() {
             <div class="overview-card-actions"><span class="tag is-solid">${state.connections.length} 条</span><button class="link-button" data-view="observability">查看全部 ${icon('chevron-right')}</button></div>
           </div>
           ${recentRows ? `
-            <div class="table-wrap">
-              <table class="data-table">
+            <div class="table-wrap" role="region" aria-label="近期连接" tabindex="0">
+              <table class="data-table overview-connections-table">
                 <thead><tr><th>目标</th><th>出口</th><th>上下行</th><th>时长</th></tr></thead>
                 <tbody>${recentRows}</tbody>
               </table>
@@ -1185,12 +1207,12 @@ function nodeRows() {
     <tr class="${state.selectedNodeIDs.has(item.id) ? 'is-selected' : ''}">
       <td class="select-cell"><input class="check-input" type="checkbox" data-node-select="${escapeHtml(item.id)}" aria-label="选择 ${escapeHtml(item.name)}" ${state.selectedNodeIDs.has(item.id) ? 'checked' : ''}></td>
       <td>
-        <div class="node-name">
+        <div class="node-name" title="${escapeHtml(item.name)} · ${escapeHtml(item.server)}:${item.port}">
           <div class="cell-primary"><strong>${escapeHtml(item.name)}</strong><span>${escapeHtml(item.server)}:${item.port}</span></div>
         </div>
       </td>
-      <td><span class="tag is-solid">${escapeHtml(item.protocol)}</span></td>
-      <td class="muted">${escapeHtml(item.group)}</td>
+      <td title="${escapeHtml(item.protocol)}"><span class="tag is-solid">${escapeHtml(item.protocol)}</span></td>
+      <td class="muted" title="${escapeHtml(item.group)}">${escapeHtml(item.group)}</td>
       <td>${item.lastTestError ? `<span class="tag is-rose" title="${escapeHtml(item.lastTestError)}">测速失败</span>` : item.latency > 0 ? `<div class="latency-cell"><span class="latency-number ${latencyClass(item.latency)}">${item.latency} ms</span>${latencyBars(item.latency)}</div>` : '<span class="tag">未测速</span>'}</td>
       <td>${item.udp ? `<span class="tag is-mint">UDP</span>` : `<span class="tag">—</span>`}</td>
       <td class="mono nowrap" title="本次运行内由真实连接快照聚合；速率 ${escapeHtml(item.rate || '未采集')}">${escapeHtml(item.traffic)}</td>
@@ -1222,8 +1244,8 @@ function nodesPanel() {
           <button class="btn btn-sm" data-action="test-selected-nodes" ${selectedCount && !state.nodeTesting ? '' : 'disabled'}>${icon('zap')}${state.nodeTesting ? '测速中…' : '测速选中'}</button>
         </div>
       </div>
-      <div class="table-wrap">
-        <table class="data-table">
+      <div class="table-wrap" role="region" aria-label="节点列表" tabindex="0">
+        <table class="data-table nodes-table">
           <thead><tr><th class="select-cell"><input class="check-input" type="checkbox" data-node-select-all aria-label="选择当前列表全部节点" ${allSelected ? 'checked' : ''}></th><th>节点</th><th>协议</th><th>分组</th><th>延迟</th><th>UDP</th><th>流量</th><th>状态</th><th class="is-right">操作</th></tr></thead>
           <tbody id="nodes-body">${nodeRows()}</tbody>
         </table>
@@ -1342,10 +1364,10 @@ function routesView() {
   const rules = state.routeRules.map((rule, index) => `
     <tr>
       <td><div class="route-rule-order"><button class="order-button" data-action="move-rule" data-id="${escapeHtml(rule.id)}" data-direction="up" title="上移规则" aria-label="上移规则 ${escapeHtml(rule.name)}" ${index === 0 ? 'disabled' : ''}>${icon('chevron-up')}</button><span class="mono faint">${pad(index + 1)}</span><button class="order-button" data-action="move-rule" data-id="${escapeHtml(rule.id)}" data-direction="down" title="下移规则" aria-label="下移规则 ${escapeHtml(rule.name)}" ${index === state.routeRules.length - 1 ? 'disabled' : ''}>${icon('chevron-down')}</button></div></td>
-      <td><div class="cell-primary"><strong>${escapeHtml(rule.name)}</strong><span>${escapeHtml(rule.type)}</span></div></td>
+      <td><div class="cell-primary" title="${escapeHtml(rule.name)} · ${escapeHtml(rule.type)}"><strong>${escapeHtml(rule.name)}</strong><span>${escapeHtml(rule.type)}</span></div></td>
       <td><div class="condition-text" title="${escapeHtml(rule.condition)}">${escapeHtml(rule.condition)}</div></td>
       <td>${actionTag(rule.action)}</td>
-      <td class="muted nowrap">${escapeHtml(rule.target)}</td>
+      <td class="muted nowrap" title="${escapeHtml(rule.target)}">${escapeHtml(rule.target)}</td>
       <td class="mono nowrap">${escapeHtml(rule.hits)}</td>
       <td><button class="switch switch-sm ${rule.enabled ? 'is-on' : ''}" data-action="toggle-rule" data-id="${rule.id}" role="switch" aria-checked="${rule.enabled}" aria-label="切换 ${escapeHtml(rule.name)}"></button></td>
       <td><div class="cell-actions"><button class="btn btn-sm btn-icon-only" data-action="edit-rule" data-id="${rule.id}" title="编辑规则" aria-label="编辑规则 ${escapeHtml(rule.name)}">${icon('sliders')}</button><button class="btn btn-sm btn-danger" data-action="delete-rule" data-id="${rule.id}" title="删除规则" aria-label="删除规则 ${escapeHtml(rule.name)}">${icon('trash')}删除</button></div></td>
@@ -1380,8 +1402,8 @@ function routesView() {
             <div class="card-head-copy"><h2>规则表</h2><p>按优先级从高到低匹配 · ${state.routeMode === 'rules' ? '规则模式生效中' : '当前模式将覆盖规则表'}</p></div>
             <div class="card-actions"><button class="btn btn-sm" data-action="add-rule">${icon('plus')}添加</button></div>
           </div>
-          <div class="table-wrap">
-            <table class="data-table">
+          <div class="table-wrap" role="region" aria-label="路由规则列表" tabindex="0">
+            <table class="data-table routes-table">
               <thead><tr><th></th><th>规则</th><th>条件</th><th>动作</th><th>目标</th><th>命中统计</th><th>启用</th><th></th></tr></thead>
               <tbody>${rules || `<tr><td colspan="8"><div class="empty-state"><span class="empty-icon">${icon('route')}</span><strong>还没有路由规则</strong><span>新建规则后，流量会按列表顺序匹配</span><button class="btn btn-primary" data-action="add-rule">${icon('plus')}新建规则</button></div></td></tr>`}</tbody>
             </table>
@@ -1403,7 +1425,7 @@ function routesView() {
           <article class="card">
             <div class="card-head"><div class="card-head-copy"><h2>路由预设</h2><p>内置策略组合，提交后立即生成新配置</p></div></div>
             <div class="preset-list">
-              ${presets.map((preset) => `<button class="preset-card ${routePresets[preset.id] ? 'is-selected' : ''}" data-action="toggle-preset" data-key="${preset.id}"><span class="preset-icon">${icon(preset.icon)}</span><span class="preset-copy"><strong>${preset.name}</strong><span>${preset.desc}</span></span><span class="switch switch-sm ${routePresets[preset.id] ? 'is-on' : ''}" role="switch" aria-checked="${Boolean(routePresets[preset.id])}"></span></button>`).join('')}
+              ${presets.map((preset) => `<button class="preset-card ${routePresets[preset.id] ? 'is-selected' : ''}" data-action="toggle-preset" data-key="${preset.id}" role="switch" aria-checked="${Boolean(routePresets[preset.id])}"><span class="preset-icon">${icon(preset.icon)}</span><span class="preset-copy"><strong>${preset.name}</strong><span>${preset.desc}</span></span><span class="switch switch-sm ${routePresets[preset.id] ? 'is-on' : ''}" aria-hidden="true"></span></button>`).join('')}
             </div>
           </article>
           <article class="card card-tight">
@@ -1460,7 +1482,7 @@ function subscriptionCard(item) {
       </div>
       <div class="sub-footer">
         <span class="dot-word"><span class="status-dot ${stateMeta.dot}"></span><span class="muted" style="font-size:9px">${escapeHtml(footerText)}</span></span>
-        <div class="cell-actions"><button class="btn btn-sm" data-action="refresh-subscription" data-id="${item.id}" aria-label="刷新订阅 ${escapeHtml(item.name)}" ${paused ? 'disabled' : ''}>${icon('refresh')}立即刷新</button><button class="btn btn-sm" data-action="edit-subscription" data-id="${item.id}" aria-label="编辑订阅 ${escapeHtml(item.name)}">${icon('sliders')}编辑</button><button class="btn btn-sm btn-danger" data-action="delete-subscription" data-id="${item.id}" title="删除订阅" aria-label="删除订阅 ${escapeHtml(item.name)}">${icon('trash')}删除</button></div>
+        <div class="cell-actions"><button class="btn btn-sm" data-action="refresh-subscription" data-id="${item.id}" aria-label="立即刷新订阅 ${escapeHtml(item.name)}" ${paused ? 'disabled' : ''}>${icon('refresh')}立即刷新</button><button class="btn btn-sm" data-action="edit-subscription" data-id="${item.id}" aria-label="编辑订阅 ${escapeHtml(item.name)}">${icon('sliders')}编辑</button><button class="btn btn-sm btn-danger" data-action="delete-subscription" data-id="${item.id}" title="删除订阅" aria-label="删除订阅 ${escapeHtml(item.name)}">${icon('trash')}删除</button></div>
       </div>
     </article>
   `;
@@ -1513,12 +1535,12 @@ function rulesetRows() {
   if (!filtered.length) return `<tr><td colspan="8"><div class="empty-state"><span class="empty-icon">${icon('search')}</span><strong>没有匹配的规则集</strong><span>尝试其他名称或 SHA 前缀</span></div></td></tr>`;
   return filtered.map((item) => `
     <tr class="${item.builtin ? '' : 'custom-ruleset'}">
-      <td><div class="ruleset-name"><span class="ruleset-icon">${icon(item.builtin ? 'database' : 'sparkles')}</span><div class="cell-primary"><strong>${escapeHtml(item.name)}</strong><span>${escapeHtml(item.description)}</span></div></div></td>
+      <td><div class="ruleset-name" title="${escapeHtml(item.name)} · ${escapeHtml(item.description)}"><span class="ruleset-icon">${icon(item.builtin ? 'database' : 'sparkles')}</span><div class="cell-primary"><strong>${escapeHtml(item.name)}</strong><span>${escapeHtml(item.description)}</span></div></div></td>
       <td><span class="tag ${item.builtin ? 'is-sky' : 'is-violet'}">${item.builtin ? '内置' : '自定义'}</span></td>
       <td><span class="tag is-solid">${item.format}</span></td>
       <td class="mono nowrap">${escapeHtml(item.size)}</td>
       <td class="muted nowrap">${escapeHtml(item.updated)}</td>
-      <td class="mono faint nowrap">${escapeHtml(item.sha)}</td>
+      <td class="mono faint nowrap" title="${escapeHtml(item.sha)}">${escapeHtml(item.sha)}</td>
       <td><span class="dot-word"><span class="status-dot ${item.status === 'ready' && item.enabled ? 'is-online' : 'is-idle'}"></span>${item.enabled ? statusText(item.status) : '已停用'}</span></td>
       <td><div class="cell-actions"><button class="switch switch-sm ${item.enabled ? 'is-on' : ''}" data-action="toggle-ruleset" data-name="${escapeHtml(item.name)}" role="switch" aria-checked="${item.enabled}" aria-label="切换 ${escapeHtml(item.name)}" ${item.builtin ? 'disabled title="内置规则集不可修改"' : ''}></button><button class="btn btn-sm btn-icon-only" data-action="refresh-ruleset" data-name="${escapeHtml(item.name)}" title="刷新规则集" aria-label="刷新规则集 ${escapeHtml(item.name)}">${icon('refresh')}</button><button class="btn btn-sm btn-icon-only" data-action="ruleset-detail" data-name="${escapeHtml(item.name)}" title="查看详情" aria-label="查看规则集详情 ${escapeHtml(item.name)}">${icon('more')}</button>${item.builtin ? '' : `<button class="btn btn-sm btn-danger" data-action="delete-ruleset" data-name="${escapeHtml(item.name)}" title="删除规则集" aria-label="删除规则集 ${escapeHtml(item.name)}">${icon('trash')}删除</button>`}</div></td>
     </tr>
@@ -1557,7 +1579,7 @@ function rulesetsView() {
             <div class="toolbar-left"><label class="filter-input">${icon('search')}<input type="search" value="${escapeHtml(state.rulesetQuery)}" placeholder="搜索规则集或 SHA" data-filter="rulesets" aria-label="搜索规则集"></label><span class="soft-count">${state.ruleSets.length} 个规则集</span></div>
             <div class="toolbar-right"><span class="tag ${verificationTone}"><span class="status-dot ${verificationDot}"></span>${escapeHtml(verificationLabel)}</span></div>
           </div>
-          <div class="table-wrap">
+          <div class="table-wrap" role="region" aria-label="规则集列表" tabindex="0">
             <table class="data-table ruleset-table">
               <thead><tr><th>规则集</th><th>来源</th><th>格式</th><th>大小</th><th>更新时间</th><th>SHA</th><th>状态</th><th class="is-right">操作</th></tr></thead>
               <tbody id="rulesets-body">${rulesetRows()}</tbody>
@@ -1588,11 +1610,11 @@ function connectionRows() {
   if (!filtered.length) return `<tr><td colspan="8"><div class="empty-state"><span class="empty-icon">${icon('activity')}</span><strong>${state.connections.length ? '没有匹配的连接' : state.kernel.state === 'running' ? '当前没有活动连接' : '内核未运行'}</strong><span>${state.connections.length ? '尝试调整筛选条件' : state.kernel.state === 'running' ? '新连接会实时显示在这里' : '启动内核后才会产生连接快照'}</span></div></td></tr>`;
   return filtered.map((item) => `
     <tr>
-      <td><div class="conn-target"><strong>${escapeHtml(item.target)}</strong><span>${escapeHtml(item.source || item.id)}</span></div></td>
-      <td><span class="tag is-solid">${escapeHtml(item.inbound)}</span></td>
-      <td>${escapeHtml(item.outbound)}</td>
-      <td class="muted">${escapeHtml(item.rule)}</td>
-      <td class="mono">${escapeHtml(item.process || '—')}</td>
+      <td><div class="conn-target" title="${escapeHtml(item.target)} · ${escapeHtml(item.source || item.id)}"><strong>${escapeHtml(item.target)}</strong><span>${escapeHtml(item.source || item.id)}</span></div></td>
+      <td title="${escapeHtml(item.inbound)}"><span class="tag is-solid">${escapeHtml(item.inbound)}</span></td>
+      <td title="${escapeHtml(item.outbound)}">${escapeHtml(item.outbound)}</td>
+      <td class="muted" title="${escapeHtml(item.rule)}">${escapeHtml(item.rule)}</td>
+      <td class="mono" title="${escapeHtml(item.process || '—')}">${escapeHtml(item.process || '—')}</td>
       <td class="mono nowrap">${escapeHtml(item.upload)} / ${escapeHtml(item.download)}</td>
       <td class="mono nowrap muted">${escapeHtml(item.duration)}</td>
       <td><div class="cell-actions"><button class="btn btn-sm btn-danger" data-action="close-connection" data-id="${item.id}" title="关闭连接" aria-label="关闭连接 ${escapeHtml(item.target)}" ${state.kernel.state === 'running' ? '' : 'disabled'}>${icon('close')}关闭</button></div></td>
@@ -1620,11 +1642,15 @@ function filteredLogs() {
   });
 }
 
+function logLineText(item) {
+  return `${item.time} [${item.channel.toUpperCase()}] ${item.level.toUpperCase()} ${item.source} ${item.message}`;
+}
+
 function logLines() {
   const filtered = filteredLogs();
   if (!filtered.length) return `<div class="empty-state"><span class="empty-icon">${icon('terminal')}</span><strong>暂无匹配日志</strong><span>调整来源、级别或关键词筛选</span></div>`;
   return filtered.map((item, index) => `
-    <div class="log-line ${index === filtered.length - 1 ? 'is-new' : ''}">
+    <div class="log-line ${index === filtered.length - 1 ? 'is-new' : ''}" data-action="copy-log" data-log-id="${escapeHtml(item.id)}" role="button" tabindex="0" title="点击复制完整日志">
       <span class="log-time">${escapeHtml(item.time)}</span>
       <span class="log-channel ${item.channel}">${item.channel === 'app' ? 'APP' : 'KERNEL'}</span>
       <span class="log-level ${item.level}">${escapeHtml(item.level)}</span>
@@ -1681,9 +1707,10 @@ function logsView() {
               <button class="btn btn-sm" data-action="clear-logs">${icon('close')}清空</button>
             </div>
           </div>
-          <div class="log-console log-console-xl" id="logs-console">${logLines()}</div>
+          <div class="log-console log-console-xl" id="logs-console" role="log" aria-label="应用与内核日志" tabindex="0">${logLines()}</div>
           <div class="log-console-footer">
             <span class="dot-word"><span class="status-dot ${state.sseConnected ? 'is-online' : 'is-warn'}"></span>${!state.sseConnected ? '事件流重连中' : state.logPaused ? '显示已暂停 · 仍在接收' : '流式接收中'}</span>
+            <span class="log-copy-help">${icon('copy')}点击日志行复制</span>
             <span id="log-match-count">显示 ${filtered.length} / ${state.logs.length} 行</span>
             <span id="log-buffer-count">缓冲区 ${state.logs.length} / 500</span>
             <button class="link-button" data-action="scroll-log-bottom">跳到底部 ${icon('chevron-down')}</button>
@@ -1757,8 +1784,8 @@ function connectionsPanel() {
         <div class="toolbar-left"><label class="filter-input">${icon('search')}<input type="search" value="${escapeHtml(state.connQuery)}" placeholder="筛选目标、进程或出口" data-filter="connections" aria-label="筛选连接"></label><span class="soft-count" id="conn-count">${state.traffic.available ? `${state.connections.length} 条连接` : '内核未运行'}</span></div>
         <div class="toolbar-right"><button class="btn btn-sm btn-danger" data-action="close-all-connections" ${state.kernel.state === 'running' ? '' : 'disabled title="需要先启动内核"'}>${icon('close')}全部关闭</button></div>
       </div>
-      <div class="table-wrap">
-        <table class="data-table">
+      <div class="table-wrap" role="region" aria-label="活动连接列表" tabindex="0">
+        <table class="data-table connections-table">
           <thead><tr><th>目标</th><th>入口</th><th>出口</th><th>命中规则</th><th>进程</th><th>上下行</th><th>时长</th><th class="is-right">操作</th></tr></thead>
           <tbody id="connections-body">${connectionRows()}</tbody>
         </table>
@@ -1875,8 +1902,11 @@ function dnsCard(slot) {
 }
 
 function settingsView() {
-  const running = state.kernel.state === 'running';
-  const stateLabel = KERNEL_STATE_LABELS[state.kernel.state] || state.kernel.state;
+  const kernelState = String(state.kernel.state || 'stopped');
+  const kernelStateLabel = KERNEL_STATE_LABELS[kernelState] || kernelState;
+  const kernelRunning = kernelState === 'running';
+  const kernelStateDot = kernelState === 'failed' ? 'is-error' : ['starting', 'stopping'].includes(kernelState) ? 'is-warn' : kernelRunning ? 'is-online' : 'is-idle';
+  const kernelTagTone = kernelRunning ? 'is-mint' : kernelState === 'failed' ? 'is-rose' : 'is-solid';
   const initialized = Boolean(state.snapshot?.security?.initialized);
   const authenticated = Boolean(state.auth.authenticated);
   const authLabel = !initialized ? '未初始化' : authenticated ? '会话有效' : '未认证';
@@ -1888,28 +1918,18 @@ function settingsView() {
       ${pageHead({
         eyebrow: 'CONTROL PLANE SETTINGS',
         title: '设置',
-        description: '调整 DNS、外观与会话。所有控制面变更都通过本机 HTTP API 持久化到 SQLite。',
+        description: '管理访问安全、DNS 与外观；内核生命周期统一在总览页操作。',
         actions: `<button class="btn" data-action="refresh-overview">${icon('refresh')}刷新状态</button>`,
       })}
       <div class="settings-grid">
-        <article class="card settings-card">
-          <div class="card-head"><div class="card-head-copy"><h2>内核与运行时</h2><p>sing-box 进程与应用策略</p></div><span class="tag ${running ? 'is-mint' : 'is-amber'}"><span class="status-dot ${running ? 'is-online' : 'is-warn'}"></span>${escapeHtml(stateLabel)}</span></div>
-          <div class="system-list">
-            <div class="system-row"><span>运行时版本</span><strong>${escapeHtml(kernelVersionLabel())}</strong></div>
-            <div class="system-row"><span>配置 revision</span><code>${escapeHtml(shortRevision(state.kernel.revision || '—'))}</code></div>
-            <div class="system-row"><span>启动时间</span><strong>${escapeHtml(state.kernel.startedAt || '—')}</strong></div>
-            <div class="system-row"><span>Uptime</span><strong>${escapeHtml(state.kernel.uptime || '—')}</strong></div>
-          </div>
-          <div class="about-strip" style="margin-top:12px"><div><strong>运行时由控制面管理</strong><span>启动失败时会返回真实错误，不会伪造运行状态</span></div>${running
-            ? `<button class="btn btn-sm" data-action="stop-kernel">${icon('stop')}停止</button><button class="btn btn-sm" data-action="restart-kernel">${icon('power')}重启</button>`
-            : `<button class="btn btn-sm btn-primary" data-action="start-kernel">${icon('play')}启动</button>`}</div>
-        </article>
-        <article class="card settings-card">
+        <article class="card settings-card wide settings-security-card">
           <div class="card-head"><div class="card-head-copy"><h2>访问安全</h2><p>本地管理员与 API 访问控制</p></div><span class="tag is-mint">${icon('shield')}${initialized ? '已初始化' : '待初始化'}</span></div>
-          <div class="setting-row"><div class="setting-copy"><strong>认证模式</strong><span>${escapeHtml(modeLabel)}</span></div><span class="tag ${authTone}">${icon('lock')}${escapeHtml(authLabel)}</span></div>
-          <div class="setting-row"><div class="setting-copy"><strong>API 认证</strong><span>除健康检查、认证状态和登录外，全部 API 需要会话</span></div><span class="tag is-solid">强制</span></div>
-          <div class="setting-row"><div class="setting-copy"><strong>写请求来源校验</strong><span>Cookie 会话的写操作要求同源请求</span></div><span class="tag is-solid">启用</span></div>
-          <div class="setting-row"><div class="setting-copy"><strong>当前会话</strong><span>${authenticated ? `有效期至 ${escapeHtml(sessionExpiry)}` : '当前没有有效会话'}</span></div><button class="btn btn-sm" data-action="logout">${icon('power')}退出登录</button></div>
+          <div class="settings-security-grid">
+            <div class="setting-row"><div class="setting-copy"><strong>认证模式</strong><span>${escapeHtml(modeLabel)}</span></div><span class="tag ${authTone}">${icon('lock')}${escapeHtml(authLabel)}</span></div>
+            <div class="setting-row"><div class="setting-copy"><strong>API 认证</strong><span>除健康检查、认证状态和登录外，全部 API 需要会话</span></div><span class="tag is-solid">强制</span></div>
+            <div class="setting-row"><div class="setting-copy"><strong>写请求来源校验</strong><span>Cookie 会话的写操作要求同源请求</span></div><span class="tag is-solid">启用</span></div>
+            <div class="setting-row"><div class="setting-copy"><strong>当前会话</strong><span>${authenticated ? `有效期至 ${escapeHtml(sessionExpiry)}` : '当前没有有效会话'}</span></div><button class="btn btn-sm" data-action="logout">${icon('power')}退出登录</button></div>
+          </div>
         </article>
         <article class="card settings-card wide">
           <div class="card-head"><div class="card-head-copy"><h2>DNS 配置</h2><p>国内、国外与默认三个逻辑槽位</p></div><div class="card-actions"><span class="tag is-sky">${escapeHtml(state.dnsProfile.strategy || '—')}</span><button class="switch switch-sm ${state.dnsProfile.cache ? 'is-on' : ''}" data-action="toggle-dns-cache" role="switch" aria-checked="${Boolean(state.dnsProfile.cache)}" aria-label="DNS 缓存"></button><button class="btn btn-sm" data-action="test-dns">${icon('zap')}DNS 测速</button><button class="btn btn-sm" data-action="flush-dns">${icon('refresh')}刷新缓存</button></div></div>
@@ -1919,22 +1939,49 @@ function settingsView() {
           </select></div>
           <div class="modal-callout" style="margin-top:12px">${icon('zap')}<span>“DNS 测速”由控制面主机向各已启用槽位发起真实查询，记录完整网络往返耗时；未执行时显示“未测速”，失败时显示真实错误。</span></div>
         </article>
-        <article class="card settings-card">
-          <div class="card-head"><div class="card-head-copy"><h2>外观</h2><p>控制台主题与显示密度</p></div></div>
-          <div class="theme-options">
-            <button class="theme-option ${state.themeChoice === 'light' ? 'is-active' : ''}" data-action="set-theme-choice" data-theme-value="light"><span class="theme-swatch light"></span>浅色</button>
-            <button class="theme-option ${state.themeChoice === 'dark' ? 'is-active' : ''}" data-action="set-theme-choice" data-theme-value="dark"><span class="theme-swatch"></span>深色</button>
-            <button class="theme-option ${state.themeChoice === 'system' ? 'is-active' : ''}" data-action="set-theme-choice" data-theme-value="system"><span class="theme-swatch system"></span>跟随系统</button>
-          </div>
-          <div class="setting-row"><div class="setting-copy"><strong>紧凑表格</strong><span>减少表格行高以显示更多数据</span></div><button class="switch switch-sm ${state.flags.compactTable ? 'is-on' : ''}" data-action="toggle-setting" data-key="compactTable" role="switch" aria-checked="${Boolean(state.flags.compactTable)}" aria-label="紧凑表格"></button></div>
-          <div class="form-hint" style="margin-top:10px">主题偏好保存在当前浏览器；紧凑表格会写入控制面设置。</div>
-        </article>
         <article class="card settings-card wide">
-          <div class="card-head"><div class="card-head-copy"><h2>关于控制面</h2><p>本地控制面版本与运行时契约</p></div><span class="tag ${state.sseConnected ? 'is-mint' : 'is-amber'}"><span class="status-dot ${state.sseConnected ? 'is-online' : 'is-warn'}"></span>${state.sseConnected ? 'LIVE' : 'RECONNECTING'}</span></div>
+          <div class="card-head"><div class="card-head-copy"><h2>关于控制面</h2><p>控制面版本、访问方式与内核运行时概况</p></div><span class="tag ${state.sseConnected ? 'is-mint' : 'is-amber'}" title="${state.sseConnected ? 'SSE 实时事件流已连接' : 'SSE 实时事件流正在重连'}"><span class="status-dot ${state.sseConnected ? 'is-online' : 'is-warn'}"></span>${state.sseConnected ? '事件流 LIVE' : '事件流重连中'}</span></div>
           <div class="three-grid">
             <div class="info-block"><span class="tag is-mint">VERSION</span><strong>Boxd v2 Control Plane</strong><p>Web 控制台通过同源 HTTP API 与 SSE 接入控制面门面。</p></div>
-            <div class="info-block"><span class="tag is-sky">RUNTIME</span><strong>${escapeHtml(kernelVersionLabel())}</strong><p>revision ${escapeHtml(shortRevision(state.kernel.revision))}；配置应用后由内核管理器生成运行时快照。</p></div>
+            <div class="info-block"><span class="tag is-sky">API</span><strong>REST · SSE</strong><p>REST 提供配置与状态读写，SSE 持续推送日志、流量和运行时事件。</p></div>
             <div class="info-block"><span class="tag is-violet">ACCESS</span><strong>Local Control</strong><p>Web 端仅调用本机控制面 API，不直接暴露内核控制端口，也不提供 Shell 或终端执行。</p></div>
+          </div>
+          <section class="about-kernel-panel" aria-label="内核基本信息">
+            <div class="about-panel-head">
+              <span class="about-panel-icon">${icon('cpu')}</span>
+              <div class="about-panel-copy"><strong>内核运行时</strong><span>生命周期由总览页统一管理，此处仅展示基本状态</span></div>
+              <span class="tag ${kernelTagTone}"><span class="status-dot ${kernelStateDot}"></span>${escapeHtml(kernelStateLabel)}</span>
+            </div>
+            <div class="about-kernel-grid">
+              <div class="system-list">
+                <div class="system-row"><span>运行时版本</span><strong>${escapeHtml(kernelVersionLabel())}</strong></div>
+                <div class="system-row"><span>配置 revision</span><code>${escapeHtml(shortRevision(state.kernel.revision || '—'))}</code></div>
+                <div class="system-row"><span>启动时间</span><strong>${escapeHtml(state.kernel.startedAt || '—')}</strong></div>
+              </div>
+              <div class="system-list">
+                <div class="system-row"><span>运行时长</span><strong>${escapeHtml(state.kernel.uptime || '—')}</strong></div>
+                <div class="system-row"><span>路由模式</span><strong>${escapeHtml(String(state.routeMode || 'rules').toUpperCase())}</strong></div>
+                <div class="system-row"><span>生命周期入口</span><strong>总览页</strong></div>
+              </div>
+            </div>
+          </section>
+        </article>
+        <article class="card settings-card wide settings-preferences-card">
+          <div class="card-head"><div class="card-head-copy"><h2>外观</h2><p>控制台主题与显示密度</p></div></div>
+          <div class="settings-preferences-grid">
+            <div class="settings-preference-group">
+              <span class="settings-group-label">主题模式</span>
+              <div class="theme-options">
+                <button class="theme-option ${state.themeChoice === 'light' ? 'is-active' : ''}" data-action="set-theme-choice" data-theme-value="light"><span class="theme-swatch light"></span>浅色</button>
+                <button class="theme-option ${state.themeChoice === 'dark' ? 'is-active' : ''}" data-action="set-theme-choice" data-theme-value="dark"><span class="theme-swatch"></span>深色</button>
+                <button class="theme-option ${state.themeChoice === 'system' ? 'is-active' : ''}" data-action="set-theme-choice" data-theme-value="system"><span class="theme-swatch system"></span>跟随系统</button>
+              </div>
+            </div>
+            <div class="settings-preference-group">
+              <span class="settings-group-label">显示密度</span>
+              <div class="setting-row"><div class="setting-copy"><strong>紧凑表格</strong><span>减少表格行高以显示更多数据</span></div><button class="switch switch-sm ${state.flags.compactTable ? 'is-on' : ''}" data-action="toggle-setting" data-key="compactTable" role="switch" aria-checked="${Boolean(state.flags.compactTable)}" aria-label="紧凑表格"></button></div>
+              <div class="form-hint">主题偏好保存在当前浏览器；紧凑表格会写入控制面设置。</div>
+            </div>
           </div>
         </article>
       </div>
@@ -2031,7 +2078,7 @@ function decodeLinkName(hash) {
 function parseHostPort(value, fallbackPort = 0) {
   const authority = String(value || '').trim().replace(/^\/+|\/+$/g, '');
   if (!authority) return null;
-  let server = '';
+  let server;
   let portText = '';
   if (authority.startsWith('[')) {
     const closeIndex = authority.indexOf(']');
@@ -2057,7 +2104,7 @@ function parseShadowsocksLink(link) {
   let authority = hashIndex >= 0 ? body.slice(0, hashIndex) : body;
   const queryIndex = authority.indexOf('?');
   if (queryIndex >= 0) authority = authority.slice(0, queryIndex);
-  let hostPort = authority;
+  let hostPort;
   const atIndex = authority.lastIndexOf('@');
   if (atIndex >= 0) {
     hostPort = authority.slice(atIndex + 1);
@@ -2290,14 +2337,6 @@ function openConfirm({ title, description, note, confirmLabel = '确认', action
   });
 }
 
-function optionList(items, valueOf, labelOf, selected = []) {
-  const selectedSet = new Set(selected);
-  return items.map((item) => {
-    const value = valueOf(item);
-    return `<option value="${escapeHtml(value)}" ${selectedSet.has(value) ? 'selected' : ''}>${escapeHtml(labelOf(item))}</option>`;
-  }).join('');
-}
-
 function pickerOrderMarkup(ids) {
   if (!ids.length) {
     return '<div class="picker-order-empty">从下方节点列表选择节点，选中后会按顺序加入链路</div>';
@@ -2497,11 +2536,6 @@ function openFormModal(kind, id = '') {
   });
 }
 
-function selectedValues(id) {
-  const element = document.getElementById(id);
-  return element ? [...element.selectedOptions].map((option) => option.value) : [];
-}
-
 function inputValue(id) {
   return String(document.getElementById(id)?.value || '').trim();
 }
@@ -2607,7 +2641,7 @@ function openAbout() {
     title: 'Boxd Control Plane',
     description: '控制面 Web 接入信息',
     body: `
-      <div class="about-strip" style="margin-bottom:13px"><div><strong>当前范围：控制平面及以下能力</strong><span>Web 控制台已接入真实控制面；桌面应用等上层宿主暂不启用</span></div><span class="tag ${state.sseConnected ? 'is-mint' : 'is-amber'}">${state.sseConnected ? 'LIVE' : 'RECONNECTING'}</span></div>
+      <div class="about-strip" style="margin-bottom:13px"><div><strong>当前范围：控制平面及以下能力</strong><span>Web 控制台已接入真实控制面；桌面应用等上层宿主暂不启用</span></div><span class="tag ${state.sseConnected ? 'is-mint' : 'is-amber'}">${state.sseConnected ? '事件流 LIVE' : '事件流重连中'}</span></div>
       <div class="system-list">
         <div class="system-row"><span>前端</span><strong>原生 HTML / CSS / ES Module</strong></div>
         <div class="system-row"><span>API</span><strong>同源 REST · /api/v1</strong></div>
@@ -2630,17 +2664,6 @@ function openNotifications() {
       <div class="event-line"><span class="event-time">${escapeHtml(item.time)}</span><span class="event-dot ${item.level === 'error' ? 'error' : 'warn'}"></span><span><strong>${escapeHtml(item.channel.toUpperCase())}</strong> · ${escapeHtml(item.message)}</span></div>
     `).join('')}</div>` : `<div class="empty-state"><span class="empty-icon">${icon('check')}</span><strong>当前没有告警</strong><span>新的 WARN / ERROR 日志会实时出现在这里</span></div>`,
     footer: `<button class="btn" data-action="modal-close">关闭</button><button class="btn btn-primary" data-view="logs">${icon('terminal')}打开日志</button>`,
-  });
-}
-
-function openConnectionDetail(id) {
-  const connection = state.connections.find((item) => item.id === id);
-  if (!connection) return;
-  openModal({
-    title: '连接详情',
-    description: connection.target,
-    body: `<div class="system-list"><div class="system-row"><span>连接 ID</span><code>${escapeHtml(connection.id)}</code></div><div class="system-row"><span>入口</span><strong>${escapeHtml(connection.inbound)}</strong></div><div class="system-row"><span>出口</span><strong>${escapeHtml(connection.outbound)}</strong></div><div class="system-row"><span>命中规则</span><strong>${escapeHtml(connection.rule)}</strong></div><div class="system-row"><span>进程</span><strong>${escapeHtml(connection.process)}</strong></div><div class="system-row"><span>上下行</span><strong>${escapeHtml(connection.upload)} / ${escapeHtml(connection.download)}</strong></div><div class="system-row"><span>时长</span><strong>${escapeHtml(connection.duration)}</strong></div></div>`,
-    footer: `<button class="btn" data-action="modal-close">关闭</button><button class="btn btn-danger" data-action="do-close-detail-connection" data-id="${id}">${icon('close')}关闭连接</button>`,
   });
 }
 
@@ -2882,7 +2905,7 @@ async function handleAction(actionEl) {
     case 'logout':
       try {
         await api.logout();
-      } catch (_) {
+      } catch {
         // Local session is cleared by the browser regardless of server response.
       }
       stopEvents();
@@ -3150,8 +3173,18 @@ async function handleAction(actionEl) {
       break;
     case 'copy': {
       const text = actionEl.dataset.copy || '';
-      if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).catch(() => {});
-      showToast('已复制到剪贴板', text.length > 38 ? `${text.slice(0, 38)}…` : text);
+      const copied = await copyTextToClipboard(text);
+      showToast(copied ? '已复制到剪贴板' : '复制失败', copied ? text.length > 38 ? `${text.slice(0, 38)}…` : text : '浏览器未授予剪贴板权限', copied ? 'check' : 'alert');
+      break;
+    }
+    case 'copy-log': {
+      const entry = state.logs.find((item) => item.id === actionEl.dataset.logId);
+      if (!entry) {
+        showToast('日志已刷新', '目标日志已不在当前缓冲区', 'alert');
+        break;
+      }
+      const copied = await copyTextToClipboard(logLineText(entry));
+      showToast(copied ? '日志已复制' : '日志复制失败', copied ? `${entry.channel.toUpperCase()} · ${entry.time}` : '浏览器未授予剪贴板权限', copied ? 'copy' : 'alert');
       break;
     }
     case 'toggle-ruleset': {
@@ -3477,6 +3510,16 @@ document.addEventListener('change', async (event) => {
 });
 
 document.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter' || event.key === ' ') {
+    const logRow = event.target.closest('[data-action="copy-log"]');
+    if (logRow) {
+      event.preventDefault();
+      handleAction(logRow).catch((error) => {
+        if (error?.status !== 401) showToast('操作失败', error?.hint || error?.message || '未知错误', 'alert');
+      });
+      return;
+    }
+  }
   if (event.key === 'Escape') {
     if (!modalRoot.hidden) closeModal();
     document.body.classList.remove('sidebar-open');

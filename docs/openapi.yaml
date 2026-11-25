@@ -1,0 +1,1979 @@
+openapi: 3.1.0
+info:
+  title: boxd Control Plane API
+  version: 0.1.0-dev
+  description: |
+    Same-origin REST and Server-Sent Events API for the boxd control plane.
+
+    Browser clients authenticate with the `boxd_session` HttpOnly cookie. API
+    clients may use the bearer token returned by initialization or login.
+    Cookie-authenticated mutating requests must be same-origin.
+
+    Error responses use a stable envelope with `code`, `op`, `message`, and an
+    optional `hint`. Sensitive node options and subscription query values are
+    omitted from list views.
+  license:
+    name: Apache-2.0
+    identifier: Apache-2.0
+servers:
+  - url: /
+    description: Same-origin boxd server
+security:
+  - cookieAuth: []
+  - bearerAuth: []
+tags:
+  - name: System
+  - name: Authentication
+  - name: Kernel
+  - name: Configuration
+  - name: Inbounds
+  - name: Egress
+  - name: Routing
+  - name: DNS
+  - name: Subscriptions
+  - name: Rule sets
+  - name: Observability
+  - name: Settings
+paths:
+  /api/v1/health:
+    get:
+      tags: [System]
+      operationId: health
+      summary: Liveness and readiness summary
+      security: []
+      responses:
+        '200':
+          description: Service is accepting requests.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+  /api/v1/auth/status:
+    get:
+      tags: [Authentication]
+      operationId: authStatus
+      summary: Inspect initialization and current session state
+      security: []
+      responses:
+        '200':
+          description: Authentication state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthStatus'
+  /api/v1/auth/initialize:
+    post:
+      tags: [Authentication]
+      operationId: initializeAdministrator
+      summary: Initialize the local administrator password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordRequest'
+      responses:
+        '201':
+          description: Administrator created and session established.
+          headers:
+            Set-Cookie:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /api/v1/auth/login:
+    post:
+      tags: [Authentication]
+      operationId: login
+      summary: Authenticate with the local administrator password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordRequest'
+      responses:
+        '200':
+          description: Authenticated session.
+          headers:
+            Set-Cookie:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+  /api/v1/auth/logout:
+    post:
+      tags: [Authentication]
+      operationId: logout
+      summary: Revoke the current session
+      responses:
+        '200':
+          description: Session revoked.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [authenticated]
+                properties:
+                  authenticated: { type: boolean, const: false }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/snapshot:
+    get:
+      tags: [System, Configuration]
+      operationId: getSnapshot
+      summary: Get a consistent first-paint control-plane snapshot
+      responses:
+        '200':
+          description: Full console snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Snapshot'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /api/v1/capabilities:
+    get:
+      tags: [System, Kernel]
+      operationId: getCapabilities
+      summary: Get engine kind, version, and capabilities
+      responses:
+        '200':
+          description: Engine capabilities.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Capabilities'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/scheduler:
+    get:
+      tags: [Subscriptions, System]
+      operationId: getSchedulerStatus
+      summary: Get subscription scheduler status
+      responses:
+        '200':
+          description: Scheduler status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchedulerStatus'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/config/history:
+    get:
+      tags: [Configuration]
+      operationId: getConfigHistory
+      summary: List recent desired-state revisions
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 200, default: 20 }
+      responses:
+        '200':
+          description: Configuration history.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [history, at]
+                properties:
+                  history:
+                    type: array
+                    items: { $ref: '#/components/schemas/JsonObject' }
+                  at: { type: string, format: date-time }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/kernel/status:
+    get:
+      tags: [Kernel]
+      operationId: getKernelStatus
+      summary: Get kernel runtime status
+      responses:
+        '200':
+          description: Kernel status.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KernelStatus'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/kernel/start:
+    post:
+      tags: [Kernel]
+      operationId: startKernel
+      summary: Start the sing-box kernel
+      responses:
+        '200':
+          description: Updated kernel status.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/KernelStatus' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ApplyFailed' }
+  /api/v1/kernel/stop:
+    post:
+      tags: [Kernel]
+      operationId: stopKernel
+      summary: Stop the sing-box kernel
+      responses:
+        '200':
+          description: Updated kernel status.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/KernelStatus' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/kernel/restart:
+    post:
+      tags: [Kernel]
+      operationId: restartKernel
+      summary: Restart the sing-box kernel
+      responses:
+        '200':
+          description: Updated kernel status.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/KernelStatus' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ApplyFailed' }
+  /api/v1/inbounds:
+    get:
+      tags: [Inbounds]
+      operationId: listInbounds
+      summary: List managed inbounds
+      responses:
+        '200':
+          description: Inbounds.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/InboundView' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Inbounds]
+      operationId: createInbound
+      summary: Create or save an inbound
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InboundInput' }
+      responses:
+        '201':
+          description: Inbound created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InboundView' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/inbounds/{id}:
+    parameters:
+      - $ref: '#/components/parameters/InboundID'
+    get:
+      tags: [Inbounds]
+      operationId: getInbound
+      summary: Get one inbound
+      responses:
+        '200':
+          description: Inbound.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InboundView' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Inbounds]
+      operationId: patchInbound
+      summary: Update mutable inbound fields
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InboundPatch' }
+      responses:
+        '200':
+          description: Updated inbound.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InboundView' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [Inbounds]
+      operationId: deleteInbound
+      summary: Delete an inbound
+      responses:
+        '200':
+          description: Deleted identifier.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Deleted' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/egress:
+    get:
+      tags: [Egress]
+      operationId: getEgressCatalog
+      summary: Get nodes, groups, and chains in one catalog
+      responses:
+        '200':
+          description: Egress catalog.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EgressCatalog' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/nodes:
+    get:
+      tags: [Egress]
+      operationId: listNodes
+      summary: List proxy nodes with redacted protocol options
+      parameters:
+        - name: subscription_id
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Nodes.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/NodeView' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/nodes/{id}:
+    parameters:
+      - $ref: '#/components/parameters/NodeID'
+    get:
+      tags: [Egress]
+      operationId: getNode
+      summary: Get full node data for editing
+      responses:
+        '200':
+          description: Node including protocol options.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Node' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Egress]
+      operationId: updateNode
+      summary: Replace editable node data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Node' }
+      responses:
+        '200':
+          description: Updated node view.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NodeView' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [Egress]
+      operationId: deleteNode
+      summary: Delete a node
+      responses:
+        '200':
+          description: Deleted identifier.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Deleted' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/nodes/import-links:
+    post:
+      tags: [Egress]
+      operationId: importNodeLinks
+      summary: Import share links
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [links]
+              properties:
+                links:
+                  type: array
+                  minItems: 1
+                  maxItems: 500
+                  items: { type: string }
+                group_id: { type: string }
+      responses:
+        '200':
+          description: Import result.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NodeImportResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/nodes/import:
+    post:
+      tags: [Egress]
+      operationId: importNodes
+      summary: Import structured node records
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nodes]
+              properties:
+                nodes:
+                  type: array
+                  minItems: 1
+                  maxItems: 500
+                  items: { $ref: '#/components/schemas/Node' }
+      responses:
+        '200':
+          description: Import result.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NodeImportResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/nodes/decode:
+    post:
+      tags: [Egress]
+      operationId: decodeNodeLink
+      summary: Decode one share link without importing it
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [link]
+              properties:
+                link: { type: string }
+      responses:
+        '200':
+          description: Decoded node preview.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NodeView' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/nodes/save:
+    post:
+      tags: [Egress]
+      operationId: saveNode
+      summary: Create or update a structured node
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Node' }
+      responses:
+        '200':
+          description: Saved node view.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NodeView' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/nodes/test:
+    post:
+      tags: [Egress]
+      operationId: testNodes
+      summary: Run URL Test, TCP Ping, or ICMP Ping
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NodeTestRequest' }
+      responses:
+        '200':
+          description: Batch test results. Individual failures are reported per node.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [kind, results]
+                properties:
+                  kind: { type: string, enum: [url, tcp, icmp] }
+                  results:
+                    type: array
+                    items: { $ref: '#/components/schemas/NodeTestResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/nodes/{id}/delay:
+    parameters:
+      - $ref: '#/components/parameters/NodeID'
+    post:
+      tags: [Egress]
+      operationId: measureNodeDelay
+      summary: Measure one node URL delay
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                url: { type: string, format: uri }
+      responses:
+        '200':
+          description: Delay result.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [node_id, latency_ms, tested_at]
+                properties:
+                  node_id: { type: string }
+                  url: { type: string }
+                  latency_ms: { type: integer, format: int64, minimum: 0 }
+                  tested_at: { type: string, format: date-time }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/nodes/{id}/results:
+    parameters:
+      - $ref: '#/components/parameters/NodeID'
+      - $ref: '#/components/parameters/Limit'
+    get:
+      tags: [Egress]
+      operationId: listNodeTestResults
+      summary: List persisted latency history for a node
+      responses:
+        '200':
+          description: Test history.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/NodeTestResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/groups:
+    get:
+      tags: [Egress]
+      operationId: listGroups
+      summary: List strategy groups
+      responses:
+        '200':
+          description: Groups.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/GroupView' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Egress]
+      operationId: saveGroup
+      summary: Create or update a selector or URL-test group
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/GroupInput' }
+      responses:
+        '200':
+          description: Saved group.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GroupView' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/groups/{id}:
+    parameters:
+      - $ref: '#/components/parameters/GroupID'
+    delete:
+      tags: [Egress]
+      operationId: deleteGroup
+      summary: Delete a strategy group
+      responses:
+        '200':
+          description: Deleted identifier.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Deleted' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/groups/{id}/select:
+    parameters:
+      - $ref: '#/components/parameters/GroupID'
+    post:
+      tags: [Egress]
+      operationId: selectGroupMember
+      summary: Select the active member of a selector group
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [node_id]
+              properties:
+                node_id: { type: string }
+      responses:
+        '200':
+          description: Updated groups.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/GroupView' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/chains:
+    get:
+      tags: [Egress]
+      operationId: listChains
+      summary: List multi-hop proxy chains
+      responses:
+        '200':
+          description: Chains.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ChainView' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Egress]
+      operationId: saveChain
+      summary: Create or update a chain with ordered hops
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChainInput' }
+      responses:
+        '200':
+          description: Saved chain.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ChainView' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/chains/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ChainID'
+    delete:
+      tags: [Egress]
+      operationId: deleteChain
+      summary: Delete a proxy chain
+      responses:
+        '200':
+          description: Deleted identifier.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Deleted' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/routes:
+    get:
+      tags: [Routing]
+      operationId: getRoutes
+      summary: Get routing mode, default egress, presets, and ordered rules
+      responses:
+        '200':
+          description: Routing profile.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RouteView' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/routes/mode:
+    patch:
+      tags: [Routing]
+      operationId: setRouteMode
+      summary: Set rules, global, or direct routing mode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mode]
+              properties:
+                mode: { type: string, enum: [rules, global, direct] }
+      responses:
+        '200':
+          description: Updated routing profile.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RouteView' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/routes/default-egress:
+    patch:
+      tags: [Routing]
+      operationId: setDefaultEgress
+      summary: Set the default egress target
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EgressRef' }
+      responses:
+        '200':
+          description: Updated routing profile.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RouteView' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/routes/presets:
+    patch:
+      tags: [Routing]
+      operationId: setRoutePresets
+      summary: Enable or disable built-in routing presets
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RoutePresets' }
+      responses:
+        '200':
+          description: Updated routing profile.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RouteView' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/routes/rules:
+    post:
+      tags: [Routing]
+      operationId: saveRouteRule
+      summary: Create or update one route rule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RouteRule' }
+      responses:
+        '200':
+          description: Saved rule.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RouteRule' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    put:
+      tags: [Routing]
+      operationId: replaceRouteRules
+      summary: Replace and reorder all route rules atomically
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rules]
+              properties:
+                rules:
+                  type: array
+                  items: { $ref: '#/components/schemas/RouteRule' }
+      responses:
+        '200':
+          description: Replaced rules in evaluation order.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/RouteRule' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/routes/rules/{id}:
+    parameters:
+      - $ref: '#/components/parameters/RuleID'
+    patch:
+      tags: [Routing]
+      operationId: patchRouteRule
+      summary: Update selected fields of a route rule
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RouteRulePatch' }
+      responses:
+        '200':
+          description: Updated rule.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RouteRule' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Routing]
+      operationId: deleteRouteRule
+      summary: Delete a route rule
+      responses:
+        '200':
+          description: Deleted identifier.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Deleted' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/subscriptions:
+    get:
+      tags: [Subscriptions]
+      operationId: listSubscriptions
+      summary: List subscriptions with redacted URL query values
+      responses:
+        '200':
+          description: Subscriptions.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/SubscriptionView' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Subscriptions]
+      operationId: createSubscription
+      summary: Create a subscription
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SubscriptionInput' }
+      responses:
+        '201':
+          description: Created subscription.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SubscriptionView' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/subscriptions/{id}:
+    parameters:
+      - $ref: '#/components/parameters/SubscriptionID'
+    get:
+      tags: [Subscriptions]
+      operationId: getSubscription
+      summary: Get one subscription
+      responses:
+        '200':
+          description: Subscription.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SubscriptionView' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Subscriptions]
+      operationId: patchSubscription
+      summary: Update subscription fields and sync behavior
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SubscriptionPatch' }
+      responses:
+        '200':
+          description: Updated subscription.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SubscriptionView' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [Subscriptions]
+      operationId: deleteSubscription
+      summary: Delete a subscription
+      responses:
+        '200':
+          description: Deleted identifier.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Deleted' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/v1/subscriptions/refresh:
+    post:
+      tags: [Subscriptions]
+      operationId: refreshAllSubscriptions
+      summary: Refresh every enabled subscription
+      responses:
+        '200':
+          description: Refresh results.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [results]
+                properties:
+                  results:
+                    type: array
+                    items: { $ref: '#/components/schemas/SubscriptionRefreshResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '502': { $ref: '#/components/responses/InternalError' }
+  /api/v1/subscriptions/{id}/refresh:
+    parameters:
+      - $ref: '#/components/parameters/SubscriptionID'
+    post:
+      tags: [Subscriptions]
+      operationId: refreshSubscription
+      summary: Refresh one subscription atomically
+      responses:
+        '200':
+          description: Refresh result.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SubscriptionRefreshResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '502': { $ref: '#/components/responses/InternalError' }
+  /api/v1/rulesets:
+    get:
+      tags: [Rule sets]
+      operationId: listRuleSets
+      summary: List built-in and custom rule sets
+      responses:
+        '200':
+          description: Rule sets.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/RuleSetView' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Rule sets]
+      operationId: createRuleSet
+      summary: Create or update a custom rule set
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RuleSetDefinition' }
+      responses:
+        '201':
+          description: Saved rule set.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RuleSetView' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/rulesets/refresh:
+    post:
+      tags: [Rule sets]
+      operationId: refreshAllRuleSets
+      summary: Refresh metadata for all enabled rule sets
+      responses:
+        '200':
+          description: Refreshed rule sets.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/RuleSetView' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '502': { $ref: '#/components/responses/InternalError' }
+  /api/v1/rulesets/{name}:
+    parameters:
+      - $ref: '#/components/parameters/RuleSetName'
+    patch:
+      tags: [Rule sets]
+      operationId: patchRuleSet
+      summary: Enable or disable a custom rule set
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled: { type: boolean }
+      responses:
+        '200':
+          description: Updated rule set.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RuleSetView' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [Rule sets]
+      operationId: deleteRuleSet
+      summary: Delete a custom rule set
+      responses:
+        '200':
+          description: Deleted name.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Deleted' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/rulesets/{name}/refresh:
+    parameters:
+      - $ref: '#/components/parameters/RuleSetName'
+    post:
+      tags: [Rule sets]
+      operationId: refreshRuleSet
+      summary: Refresh one rule set's download metadata
+      responses:
+        '200':
+          description: Refreshed rule set.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RuleSetView' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '502': { $ref: '#/components/responses/InternalError' }
+  /api/v1/dns:
+    get:
+      tags: [DNS]
+      operationId: getDNSProfile
+      summary: Get the three DNS slots and latest probe results
+      responses:
+        '200':
+          description: DNS profile.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DNSProfileView' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    put:
+      tags: [DNS]
+      operationId: replaceDNSProfile
+      summary: Replace the complete DNS profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DNSProfileInput' }
+      responses:
+        '200':
+          description: Saved DNS profile.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DNSProfileView' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    patch:
+      tags: [DNS]
+      operationId: patchDNSProfile
+      summary: Update selected DNS fields
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DNSPatch' }
+      responses:
+        '200':
+          description: Saved DNS profile.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DNSProfileView' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/dns/flush:
+    post:
+      tags: [DNS]
+      operationId: flushDNSCache
+      summary: Flush engine DNS cache
+      responses:
+        '200':
+          description: Cache flushed.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [flushed]
+                properties:
+                  flushed: { type: boolean, const: true }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/dns/test:
+    post:
+      tags: [DNS]
+      operationId: testDNS
+      summary: Probe enabled DNS slots and return updated latency
+      responses:
+        '200':
+          description: DNS profile with probe results.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DNSProfileView' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '502': { $ref: '#/components/responses/InternalError' }
+  /api/v1/settings:
+    get:
+      tags: [Settings]
+      operationId: listSettings
+      summary: List preference values
+      responses:
+        '200':
+          description: Settings map.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SettingsMap' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    put:
+      tags: [Settings]
+      operationId: updateSettings
+      summary: Update up to 100 preference values
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [settings]
+              properties:
+                settings: { $ref: '#/components/schemas/SettingsMap' }
+      responses:
+        '200':
+          description: Updated settings map.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SettingsMap' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/settings/{key}:
+    parameters:
+      - $ref: '#/components/parameters/SettingKey'
+    get:
+      tags: [Settings]
+      operationId: getSetting
+      summary: Get one preference value
+      responses:
+        '200':
+          description: Setting record.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Setting' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Settings]
+      operationId: setSetting
+      summary: Set one preference value
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [value]
+              properties:
+                value: { type: string }
+      responses:
+        '200':
+          description: Updated setting.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Setting' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/observability/logs:
+    get:
+      tags: [Observability]
+      operationId: listLogs
+      summary: Read recent application and kernel logs
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 500, default: 200 }
+        - name: source
+          in: query
+          schema: { type: string, enum: [all, app, kernel], default: all }
+      responses:
+        '200':
+          description: Log snapshot.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Logs' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/observability/traffic:
+    get:
+      tags: [Observability]
+      operationId: getTraffic
+      summary: Get current traffic counters and availability
+      responses:
+        '200':
+          description: Traffic snapshot.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Traffic' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/observability/connections:
+    get:
+      tags: [Observability]
+      operationId: listConnections
+      summary: List active connections
+      responses:
+        '200':
+          description: Connections.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Connection' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [Observability]
+      operationId: closeAllConnections
+      summary: Close all active connections
+      responses:
+        '200':
+          description: Number of connections closed.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [closed]
+                properties:
+                  closed: { type: integer, minimum: 0 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/observability/connections/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ConnectionID'
+    delete:
+      tags: [Observability]
+      operationId: closeConnection
+      summary: Close one active connection by numeric ID
+      responses:
+        '200':
+          description: Connection closed.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [closed]
+                properties:
+                  closed: { type: boolean, const: true }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/v1/events:
+    get:
+      tags: [Observability, System]
+      operationId: streamEvents
+      summary: Subscribe to application logs, kernel logs, state, traffic, and invalidations
+      description: |
+        Server-Sent Events. Event names are `ready`, `app.log`, `kernel.log`,
+        `kernel.state`, `traffic`, and `snapshot.invalidated`. A keepalive
+        comment is emitted every 15 seconds. Reverse proxies must disable
+        response buffering for this endpoint.
+      responses:
+        '200':
+          description: Event stream.
+          content:
+            text/event-stream:
+              schema: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: boxd_session
+    bearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    InboundID:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    NodeID:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    GroupID:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    ChainID:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    RuleID:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    SubscriptionID:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    RuleSetName:
+      name: name
+      in: path
+      required: true
+      schema: { type: string }
+    SettingKey:
+      name: key
+      in: path
+      required: true
+      schema: { type: string }
+    ConnectionID:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 500 }
+  responses:
+    BadRequest:
+      description: Invalid request or configuration.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Unauthorized:
+      description: Authentication is missing or expired.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    NotFound:
+      description: Resource was not found.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Conflict:
+      description: The operation conflicts with current state.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    RateLimited:
+      description: Too many authentication attempts.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    ApplyFailed:
+      description: The candidate configuration could not be applied.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    InternalError:
+      description: Internal server error.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+  schemas:
+    JsonObject:
+      type: object
+      additionalProperties: true
+    Health:
+      type: object
+      required: [service, status, version]
+      properties:
+        service: { type: string, example: boxd-web }
+        status: { type: string, enum: [ok] }
+        version: { type: string, example: v2 }
+        started_at: { type: string, format: date-time }
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string, example: kernel_unauthorized }
+        op: { type: string, example: security.login }
+        message: { type: string }
+        hint: { type: string }
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error: { $ref: '#/components/schemas/Error' }
+    PasswordRequest:
+      type: object
+      required: [password]
+      properties:
+        password: { type: string, minLength: 8, maxLength: 1024, format: password }
+    Session:
+      type: object
+      required: [authenticated, token, expires_at, actor]
+      properties:
+        authenticated: { type: boolean, const: true }
+        token: { type: string }
+        expires_at: { type: string, format: date-time }
+        actor: { type: string, example: web-admin }
+    AuthStatus:
+      type: object
+      required: [initialized, authenticated, mode, session_count]
+      properties:
+        initialized: { type: boolean }
+        authenticated: { type: boolean }
+        mode: { type: string, enum: [local, password] }
+        session_count: { type: integer, minimum: 0 }
+        expires_at: { type: string, format: date-time }
+        credential_updated_at: { type: string, format: date-time }
+    SecurityStatus:
+      type: object
+      description: Safe subset of security state included in the control-plane snapshot.
+      required: [initialized, mode, session_count]
+      properties:
+        initialized: { type: boolean }
+        mode: { type: string, enum: [local, password] }
+        session_count: { type: integer, minimum: 0 }
+        credential_updated_at: { type: string, format: date-time }
+    Capabilities:
+      type: object
+      required: [kind, version, items]
+      properties:
+        kind: { type: string, example: sing-box }
+        version: { type: string, example: 1.14.4 }
+        items: { $ref: '#/components/schemas/JsonObject' }
+    KernelStatus:
+      type: object
+      required: [kind, state, version, revision, uptime_seconds]
+      properties:
+        kind: { type: string, example: sing-box }
+        state: { type: string, enum: [stopped, starting, running, stopping, failed] }
+        version: { type: string }
+        started_at: { type: string, format: date-time }
+        revision: { type: string }
+        uptime_seconds: { type: integer, format: int64, minimum: 0 }
+        last_error: { $ref: '#/components/schemas/Error' }
+    SchedulerStatus:
+      type: object
+      required: [running, interval_seconds]
+      properties:
+        running: { type: boolean }
+        interval_seconds: { type: integer, minimum: 0 }
+        last_run_at: { type: string, format: date-time }
+        next_run_at: { type: string, format: date-time }
+        last_error: { type: string }
+    Deleted:
+      type: object
+      required: [deleted]
+      properties:
+        deleted: { type: string }
+    EgressRef:
+      type: object
+      required: [kind, id]
+      properties:
+        kind: { type: string, enum: [node, group, chain, direct, reject] }
+        id: { type: string }
+    ListenAddress:
+      type: object
+      required: [host, port]
+      properties:
+        host: { type: string, example: '::' }
+        port: { type: integer, minimum: 1, maximum: 65535, example: 1080 }
+    InboundAuth:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string }
+        password: { type: string, format: password }
+    TunOptions:
+      type: object
+      properties:
+        interface_name: { type: string }
+        addresses:
+          type: array
+          items: { type: string }
+        mtu: { type: integer, minimum: 0 }
+        stack: { type: string }
+        auto_route: { type: boolean }
+        strict_route: { type: boolean }
+    InboundInput:
+      type: object
+      required: [name, kind, enabled]
+      properties:
+        id: { type: string }
+        name: { type: string, maxLength: 120 }
+        kind: { type: string, enum: [mixed, tun] }
+        enabled: { type: boolean }
+        listen: { $ref: '#/components/schemas/ListenAddress' }
+        udp: { type: boolean }
+        auth: { $ref: '#/components/schemas/InboundAuth' }
+        egress: { $ref: '#/components/schemas/EgressRef' }
+        tun: { $ref: '#/components/schemas/TunOptions' }
+    InboundPatch:
+      type: object
+      properties:
+        name: { type: string, maxLength: 120 }
+        enabled: { type: boolean }
+        listen: { $ref: '#/components/schemas/ListenAddress' }
+        udp: { type: boolean }
+    InboundView:
+      type: object
+      required: [id, name, kind, enabled, listen, udp, auth, connections, observed]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        kind: { type: string, enum: [mixed, tun] }
+        enabled: { type: boolean }
+        listen: { type: string, example: '[::]:1080' }
+        udp: { type: boolean }
+        auth: { type: boolean }
+        mtu: { type: integer }
+        stack: { type: string }
+        connections: { type: integer }
+        traffic: { type: string }
+        rate: { type: string }
+        observed: { type: boolean }
+        bytes: { type: integer, format: int64 }
+        rate_bytes: { type: integer, format: int64 }
+    Node:
+      type: object
+      required: [name, protocol, server, port]
+      properties:
+        id: { type: string }
+        name: { type: string, maxLength: 120 }
+        protocol: { type: string, enum: [ss, vmess, vless, trojan, hysteria2, socks, http] }
+        server: { type: string }
+        port: { type: integer, minimum: 1, maximum: 65535 }
+        options:
+          type: object
+          additionalProperties: true
+          description: Protocol-specific settings. Sensitive fields are returned only by the authenticated detail endpoint.
+        supports_udp: { type: boolean, default: true }
+        subscription_id: { type: string }
+    NodeView:
+      type: object
+      required: [id, name, protocol, server, port, udp, groups, observed]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        protocol: { type: string }
+        server: { type: string }
+        port: { type: integer }
+        udp: { type: boolean }
+        group: { type: string }
+        groups:
+          type: array
+          items: { type: string }
+        status: { type: string }
+        traffic: { type: string }
+        rate: { type: string }
+        observed: { type: boolean }
+        traffic_bytes: { type: integer, format: int64 }
+        rate_bytes: { type: integer, format: int64 }
+        subscription_id: { type: string }
+    NodeImportResult:
+      type: object
+      required: [added, updated, nodes]
+      properties:
+        added: { type: integer, minimum: 0 }
+        updated: { type: integer, minimum: 0 }
+        nodes:
+          type: array
+          items: { $ref: '#/components/schemas/NodeView' }
+        group_warning: { type: string }
+    NodeTestRequest:
+      type: object
+      required: [node_ids, kind]
+      properties:
+        node_ids:
+          type: array
+          minItems: 1
+          items: { type: string }
+        kind: { type: string, enum: [url, tcp, icmp] }
+        url: { type: string, format: uri }
+    NodeTestResult:
+      type: object
+      required: [node_id, kind, target, latency_ms, tested_at]
+      properties:
+        node_id: { type: string }
+        node_name: { type: string }
+        kind: { type: string, enum: [url, tcp, icmp] }
+        target: { type: string }
+        latency_ms: { type: integer, format: int64, minimum: 0 }
+        error: { type: string }
+        tested_at: { type: string, format: date-time }
+    GroupInput:
+      type: object
+      required: [name, kind, members]
+      properties:
+        id: { type: string }
+        name: { type: string, maxLength: 60 }
+        kind: { type: string, enum: [selector, urltest] }
+        members:
+          type: array
+          minItems: 1
+          items: { type: string }
+        selected: { type: string }
+        url: { type: string, format: uri }
+        interval_seconds: { type: integer, minimum: 0 }
+    GroupView:
+      type: object
+      required: [id, name, kind, members, description, latency]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        kind: { type: string, enum: [selector, urltest] }
+        selected: { type: string }
+        members:
+          type: array
+          items: { type: string }
+        description: { type: string }
+        latency: { type: integer, minimum: 0 }
+        url: { type: string }
+        interval_seconds: { type: integer }
+    ProxyHop:
+      type: object
+      required: [kind, id]
+      properties:
+        kind: { type: string, enum: [node, group] }
+        id: { type: string }
+    ChainInput:
+      type: object
+      required: [name, hops]
+      properties:
+        id: { type: string }
+        name: { type: string, maxLength: 60 }
+        hops:
+          type: array
+          minItems: 1
+          maxItems: 4
+          items: { $ref: '#/components/schemas/ProxyHop' }
+    ChainView:
+      type: object
+      required: [id, name, hops, usedBy, latency]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        hops:
+          type: array
+          items: { type: string }
+        description: { type: string }
+        usedBy: { type: string }
+        latency: { type: integer, minimum: 0 }
+    PortRange:
+      type: object
+      required: [from, to]
+      properties:
+        from: { type: integer, minimum: 1, maximum: 65535 }
+        to: { type: integer, minimum: 1, maximum: 65535 }
+    RouteMatch:
+      type: object
+      properties:
+        inbound_ids: { type: array, items: { type: string } }
+        domains: { type: array, items: { type: string } }
+        domain_suffixes: { type: array, items: { type: string } }
+        domain_keywords: { type: array, items: { type: string } }
+        ip_cidrs: { type: array, items: { type: string } }
+        source_ip_cidrs: { type: array, items: { type: string } }
+        process_names: { type: array, items: { type: string } }
+        process_paths: { type: array, items: { type: string } }
+        rule_sets: { type: array, items: { type: string } }
+        networks: { type: array, items: { type: string, enum: [tcp, udp] } }
+        ports: { type: array, items: { type: integer, minimum: 1, maximum: 65535 } }
+        port_ranges: { type: array, items: { $ref: '#/components/schemas/PortRange' } }
+        private_ip: { type: boolean }
+        source_private_ip: { type: boolean }
+    RouteRule:
+      type: object
+      required: [name, match, action]
+      properties:
+        id: { type: string }
+        name: { type: string, maxLength: 80 }
+        disabled: { type: boolean }
+        match: { $ref: '#/components/schemas/RouteMatch' }
+        action: { type: string, enum: [egress, direct, reject] }
+        egress: { $ref: '#/components/schemas/EgressRef' }
+    RouteRulePatch:
+      type: object
+      properties:
+        name: { type: string }
+        disabled: { type: boolean }
+        match: { $ref: '#/components/schemas/RouteMatch' }
+        action: { type: string, enum: [egress, direct, reject] }
+        egress: { $ref: '#/components/schemas/EgressRef' }
+    RoutePresets:
+      type: object
+      required: [bypass_lan, china_direct, ad_block]
+      properties:
+        bypass_lan: { type: boolean }
+        china_direct: { type: boolean }
+        ad_block: { type: boolean }
+    RouteView:
+      type: object
+      required: [mode, default_egress, default_target, presets, rules]
+      properties:
+        mode: { type: string, enum: [rules, global, direct] }
+        default_egress: { $ref: '#/components/schemas/EgressRef' }
+        default_target: { type: string }
+        presets: { $ref: '#/components/schemas/RoutePresets' }
+        rules:
+          type: array
+          items: { $ref: '#/components/schemas/RouteRule' }
+    SubscriptionInput:
+      type: object
+      required: [name, url, enabled]
+      properties:
+        id: { type: string }
+        name: { type: string, maxLength: 80 }
+        url: { type: string, format: uri }
+        interval_seconds: { type: integer, minimum: 0 }
+        enabled: { type: boolean }
+    SubscriptionPatch:
+      type: object
+      properties:
+        name: { type: string, maxLength: 80 }
+        url: { type: string, format: uri }
+        interval_seconds: { type: integer, minimum: 0 }
+        enabled: { type: boolean }
+    SubscriptionView:
+      type: object
+      required: [id, name, provider, url, nodes, enabled, interval, lastRefresh, state]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        provider: { type: string }
+        url: { type: string, description: Redacted display URL }
+        nodes: { type: integer, minimum: 0 }
+        enabled: { type: boolean }
+        interval: { type: integer, minimum: 0 }
+        lastRefresh: { type: string }
+        last_refreshed_at: { type: string, format: date-time }
+        etag: { type: string }
+        state: { type: string }
+    SubscriptionRefreshResult:
+      type: object
+      required: [subscription, added, updated, removed, not_modified]
+      properties:
+        subscription: { $ref: '#/components/schemas/SubscriptionView' }
+        added: { type: integer, minimum: 0 }
+        updated: { type: integer, minimum: 0 }
+        removed: { type: integer, minimum: 0 }
+        not_modified: { type: boolean }
+    RuleSetDefinition:
+      type: object
+      required: [name, url, format, enabled]
+      properties:
+        name: { type: string }
+        url: { type: string, format: uri }
+        format: { type: string, enum: [binary, source] }
+        enabled: { type: boolean }
+    RuleSetView:
+      type: object
+      required: [name, url, format, enabled, builtin, size, updated, sha, status]
+      properties:
+        name: { type: string }
+        url: { type: string }
+        format: { type: string, enum: [binary, source] }
+        enabled: { type: boolean }
+        builtin: { type: boolean }
+        description: { type: string }
+        size: { type: string }
+        updated: { type: string }
+        updated_at: { type: string, format: date-time }
+        sha: { type: string }
+        status: { type: string }
+        error: { type: string }
+    DNSServerConfig:
+      type: object
+      required: [enabled, provider, protocol, address, detour, timeout_seconds]
+      properties:
+        enabled: { type: boolean }
+        provider: { type: string, enum: [alidns, tencent, cloudflare, google, quad9, custom] }
+        protocol: { type: string, enum: [udp, doh, dot] }
+        address: { type: string }
+        detour: { type: string, enum: [direct, route_default, egress] }
+        egress: { $ref: '#/components/schemas/EgressRef' }
+        timeout_seconds: { type: integer, minimum: 0 }
+        follow_foreign: { type: boolean }
+    DNSProfileInput:
+      type: object
+      required: [domestic, foreign, default, strategy, cache]
+      properties:
+        domestic: { $ref: '#/components/schemas/DNSServerConfig' }
+        foreign: { $ref: '#/components/schemas/DNSServerConfig' }
+        default: { $ref: '#/components/schemas/DNSServerConfig' }
+        strategy: { type: string, example: prefer_ipv4 }
+        cache: { type: boolean }
+    DNSPatch:
+      type: object
+      properties:
+        strategy: { type: string }
+        cache: { type: boolean }
+        domestic: { $ref: '#/components/schemas/DNSServerConfig' }
+        foreign: { $ref: '#/components/schemas/DNSServerConfig' }
+        default: { $ref: '#/components/schemas/DNSServerConfig' }
+    DNSSlotView:
+      type: object
+      required: [slot, key, enabled, provider, protocol, address, detour, latency]
+      properties:
+        slot: { type: string }
+        key: { type: string }
+        enabled: { type: boolean }
+        provider: { type: string }
+        protocol: { type: string }
+        address: { type: string }
+        detour: { type: string }
+        latency: { type: integer, minimum: 0 }
+        tested_at: { type: string, format: date-time }
+        error: { type: string }
+        skipped: { type: boolean }
+        reason: { type: string }
+    DNSProfileView:
+      allOf:
+        - $ref: '#/components/schemas/DNSProfileInput'
+        - type: object
+          required: [slots]
+          properties:
+            slots:
+              type: array
+              items: { $ref: '#/components/schemas/DNSSlotView' }
+    SettingsMap:
+      type: object
+      additionalProperties: { type: string }
+      example:
+        autoRefresh: 'on'
+        subscriptionMaxAttempts: '3'
+        subscriptionConflictPolicy: keep_local
+    Setting:
+      type: object
+      required: [Key, Value, UpdatedAt]
+      properties:
+        Key: { type: string }
+        Value: { type: string }
+        UpdatedAt: { type: string, format: date-time }
+    LogEntry:
+      type: object
+      required: [id, time, level, source, message]
+      properties:
+        id: { type: string }
+        time: { type: string, format: date-time }
+        level: { type: string, enum: [debug, info, warn, error] }
+        source: { type: string }
+        message: { type: string }
+        fields: { type: object, additionalProperties: true }
+    Logs:
+      type: object
+      required: [app, kernel]
+      properties:
+        app:
+          type: array
+          items: { $ref: '#/components/schemas/LogEntry' }
+        kernel:
+          type: array
+          items: { $ref: '#/components/schemas/LogEntry' }
+    Traffic:
+      type: object
+      required: [upload_total, download_total, upload_rate, download_rate, available, at]
+      properties:
+        upload_total: { type: integer, format: int64 }
+        download_total: { type: integer, format: int64 }
+        upload_rate: { type: integer, format: int64 }
+        download_rate: { type: integer, format: int64 }
+        available: { type: boolean }
+        at: { type: string, format: date-time }
+    Connection:
+      type: object
+      required: [id, numeric_id, target, inbound, network, source, outbound, rule, process, upload, download, duration]
+      properties:
+        id: { type: string }
+        numeric_id: { type: integer, format: int64 }
+        target: { type: string }
+        inbound: { type: string }
+        network: { type: string }
+        source: { type: string }
+        outbound: { type: string }
+        rule: { type: string }
+        process: { type: string }
+        upload: { type: string }
+        download: { type: string }
+        duration: { type: string }
+        upload_bytes: { type: integer, format: int64 }
+        download_bytes: { type: integer, format: int64 }
+        started_at: { type: string, format: date-time }
+    EgressCatalog:
+      type: object
+      required: [nodes, groups, chains]
+      properties:
+        nodes:
+          type: array
+          items: { $ref: '#/components/schemas/NodeView' }
+        groups:
+          type: array
+          items: { $ref: '#/components/schemas/GroupView' }
+        chains:
+          type: array
+          items: { $ref: '#/components/schemas/ChainView' }
+    Snapshot:
+      type: object
+      required: [server_time, revision, kernel, capabilities, scheduler, security, inbounds, nodes, groups, chains, routes, dns, rulesets, subscriptions, settings, connections, traffic, logs, overview]
+      properties:
+        server_time: { type: string, format: date-time }
+        revision: { type: string }
+        kernel: { $ref: '#/components/schemas/KernelStatus' }
+        capabilities: { $ref: '#/components/schemas/Capabilities' }
+        scheduler: { $ref: '#/components/schemas/SchedulerStatus' }
+        security: { $ref: '#/components/schemas/SecurityStatus' }
+        inbounds:
+          type: array
+          items: { $ref: '#/components/schemas/InboundView' }
+        nodes:
+          type: array
+          items: { $ref: '#/components/schemas/NodeView' }
+        groups:
+          type: array
+          items: { $ref: '#/components/schemas/GroupView' }
+        chains:
+          type: array
+          items: { $ref: '#/components/schemas/ChainView' }
+        routes: { $ref: '#/components/schemas/RouteView' }
+        dns: { $ref: '#/components/schemas/DNSProfileView' }
+        rulesets:
+          type: array
+          items: { $ref: '#/components/schemas/RuleSetView' }
+        subscriptions:
+          type: array
+          items: { $ref: '#/components/schemas/SubscriptionView' }
+        settings: { $ref: '#/components/schemas/SettingsMap' }
+        connections:
+          type: array
+          items: { $ref: '#/components/schemas/Connection' }
+        traffic: { $ref: '#/components/schemas/Traffic' }
+        logs: { $ref: '#/components/schemas/Logs' }
+        overview: { $ref: '#/components/schemas/JsonObject' }

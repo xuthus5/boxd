@@ -2,6 +2,11 @@
 
 FROM golang:1.27-bookworm AS build
 
+ARG GOPROXY=https://proxy.golang.org,direct
+ARG GOSUMDB=sum.golang.org
+ENV GOPROXY=${GOPROXY} \
+    GOSUMDB=${GOSUMDB}
+
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
@@ -29,11 +34,15 @@ ARG BUILD_DATE=unknown
 
 LABEL org.opencontainers.image.title="boxd" \
       org.opencontainers.image.description="boxd control plane and sing-box data plane" \
+      org.opencontainers.image.source="https://github.com/xuthus5/boxd" \
+      org.opencontainers.image.url="https://github.com/xuthus5/boxd" \
+      org.opencontainers.image.licenses="Apache-2.0" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${COMMIT}" \
       org.opencontainers.image.created="${BUILD_DATE}"
 
 COPY --from=build /out/boxd /usr/local/bin/boxd
+COPY LICENSE NOTICE /licenses/
 
 # TUN and route management require root plus NET_ADMIN. The default Mixed
 # inbound can run without either when the container is not used for TUN.
