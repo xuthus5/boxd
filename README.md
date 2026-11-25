@@ -475,6 +475,7 @@ dist/desktop/boxd-desktop-windows-amd64.exe
 
 ### 桌面生命周期
 
+- 入口：导航内可直接编辑 Mixed 监听地址、端口、UDP 转发，以及 TUN 接口、地址、MTU、协议栈和路由选项；保存后写入本地控制面并立即生效。
 - 单实例：重复启动会唤回已有窗口；同一数据目录另有文件锁保护。
 - 窗口状态：窗口位置、尺寸和最大化状态由 MyGo 的稳定 `StateKey` 保存。
 - 主题：浅色/暗色偏好保存在数据目录的 `desktop-preferences.json`，启动后立即恢复。

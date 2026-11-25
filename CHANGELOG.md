@@ -9,11 +9,11 @@ uses [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 ### Added
 
 - Native MyGo desktop client for Linux, macOS, and Windows with overview,
-  subscriptions, nodes, egress groups/chains, routes, DNS, rule sets, streaming
-  logs, connections, settings, and about pages. It runs the control plane
-  in-process, never exposes an HTTP management listener or Web login, and
-  supports single-instance startup, tray integration, persisted window/theme
-  preferences, and graceful shutdown.
+  inbound listener/TUN editing, subscriptions, nodes, egress groups/chains,
+  routes, DNS, rule sets, streaming logs, connections, settings, and about
+  pages. It runs the control plane in-process, never exposes an HTTP management
+  listener or Web login, and supports single-instance startup, tray integration,
+  persisted window/theme preferences, and graceful shutdown.
 - Control-plane activity log and observation sampling are now transport-neutral
   and shared by Web and desktop ingress; typed patch commands remove handler-side
   merge logic from the HTTP adapter.

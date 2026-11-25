@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,6 +18,7 @@ import (
 
 const (
 	pageOverview      = "overview"
+	pageInbounds      = "inbounds"
 	pageSubscriptions = "subscriptions"
 	pageNodes         = "nodes"
 	pageEgress        = "egress"
@@ -38,6 +40,7 @@ type navItem struct {
 
 var navigation = []navItem{
 	{pageOverview, "总览", "overview", "运行状态与关键指标"},
+	{pageInbounds, "入口", "inbounds", "本地监听与 TUN 接入"},
 	{pageSubscriptions, "订阅", "subscriptions", "远程节点来源"},
 	{pageNodes, "节点", "nodes", "节点与连通性"},
 	{pageEgress, "出口编排", "egress", "策略组与链路"},
@@ -101,6 +104,7 @@ type editorKind int
 
 const (
 	editorNone editorKind = iota
+	editorInbound
 	editorSubscription
 	editorNode
 	editorImportLinks
@@ -147,6 +151,16 @@ type editorState struct {
 
 	format  string
 	builtin bool
+
+	inboundKind    control.InboundKind
+	listenHost     string
+	listenPort     string
+	tunInterface   string
+	tunAddresses   string
+	tunMTU         string
+	tunStack       string
+	tunAutoRoute   bool
+	tunStrictRoute bool
 
 	links   string
 	groupID string
@@ -366,6 +380,25 @@ func (c *Controller) pageTitle() (string, string) {
 func (c *Controller) openEditor(kind editorKind, id string) {
 	e := editorState{kind: kind, id: id}
 	switch kind {
+	case editorInbound:
+		for _, inbound := range c.snapshot.Inbounds {
+			if inbound.ID != id {
+				continue
+			}
+			e.inboundKind = inbound.Kind
+			e.name = inbound.Name
+			e.enabled = inbound.Enabled
+			e.udp = inbound.UDP
+			e.listenHost = inbound.Listen.Host
+			e.listenPort = strconv.Itoa(int(inbound.Listen.Port))
+			e.tunInterface = inbound.Tun.InterfaceName
+			e.tunAddresses = strings.Join(inbound.Tun.Addresses, "\n")
+			e.tunMTU = strconv.Itoa(inbound.Tun.MTU)
+			e.tunStack = inbound.Tun.Stack
+			e.tunAutoRoute = inbound.Tun.AutoRoute
+			e.tunStrictRoute = inbound.Tun.StrictRoute
+			break
+		}
 	case editorSubscription:
 		if subscription, exists := c.snapshot.SubscriptionsByID[id]; exists {
 			e.name, e.url, e.enabled = subscription.Name, subscription.URL, subscription.Enabled
@@ -497,6 +530,43 @@ func (c *Controller) confirmDelete() {
 
 func (c *Controller) saveEditor(ctx context.Context, app control.Application, e editorState) error {
 	switch e.kind {
+	case editorInbound:
+		inbound, err := app.Inbounds().Get(ctx, e.id)
+		if err != nil {
+			return err
+		}
+		inbound.Name = strings.TrimSpace(e.name)
+		inbound.Enabled = e.enabled
+		if inbound.Name == "" {
+			return fmt.Errorf("入口名称不能为空")
+		}
+		if inbound.Kind == control.InboundKindMixed {
+			host := strings.TrimSpace(e.listenHost)
+			if net.ParseIP(host) == nil {
+				return fmt.Errorf("监听地址必须是有效 IP，例如 ::、0.0.0.0 或 127.0.0.1")
+			}
+			port, err := strconv.Atoi(strings.TrimSpace(e.listenPort))
+			if err != nil || port <= 0 || port > 65535 {
+				return fmt.Errorf("监听端口必须在 1 到 65535 之间")
+			}
+			inbound.Listen = control.ListenAddress{Host: host, Port: uint16(port)}
+			inbound.UDP = e.udp
+		} else {
+			mtu, err := strconv.Atoi(strings.TrimSpace(e.tunMTU))
+			if err != nil || mtu < 0 || mtu > 65535 {
+				return fmt.Errorf("TUN MTU 必须在 0 到 65535 之间")
+			}
+			inbound.Tun = control.TunOptions{
+				InterfaceName: strings.TrimSpace(e.tunInterface),
+				Addresses:     splitLines(e.tunAddresses),
+				MTU:           mtu,
+				Stack:         strings.TrimSpace(e.tunStack),
+				AutoRoute:     e.tunAutoRoute,
+				StrictRoute:   e.tunStrictRoute,
+			}
+		}
+		_, err = app.Inbounds().Save(ctx, inbound)
+		return err
 	case editorSubscription:
 		interval, err := strconv.Atoi(strings.TrimSpace(e.interval))
 		if err != nil || interval < 0 {

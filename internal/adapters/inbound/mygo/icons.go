@@ -13,6 +13,7 @@ var (
 	logoBitmap = mustBitmap("assets/icon-64.png")
 
 	iconOverview      = mustIcon("M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm10 0h6V11h-6v9Zm0-16v5h6V4h-6Z")
+	iconInbounds      = mustIcon("M4 12a8 8 0 0 1 16 0M4 12h16M6 12v7h12v-7M9 16h6")
 	iconSubscriptions = mustIcon("M5 5h14v14H5zM8 9h8M8 12h8M8 15h5")
 	iconNodes         = mustIcon("M12 3v4m0 10v4M3 12h4m10 0h4M8.5 12a3.5 3.5 0 1 0 7 0 3.5 3.5 0 0 0-7 0Z")
 	iconEgress        = mustIcon("M4 7h6m4 0h6M4 17h6m4 0h6M13 4l3 3-3 3M11 14l3 3-3 3")
@@ -58,6 +59,8 @@ func navIcon(id string) *ui.SVG {
 	switch id {
 	case pageOverview:
 		return iconOverview
+	case pageInbounds:
+		return iconInbounds
 	case pageSubscriptions:
 		return iconSubscriptions
 	case pageNodes:

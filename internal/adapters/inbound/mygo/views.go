@@ -56,9 +56,15 @@ func (c *Controller) View(ctx *ui.Context) {
 
 func (c *Controller) sidebar(ctx *ui.Context, narrow bool) {
 	p := c.colors()
+	_, height := ctx.Size()
+	compact := height < 760
 	width := float32(224)
 	if narrow {
 		width = 82
+	}
+	itemHeight := float32(40)
+	if compact {
+		itemHeight = 36
 	}
 	side := ui.Column(ctx).Width(width).FillHeight().Background(p.Sidebar).
 		BorderWidth(0, 0, 0, 1).BorderColor(p.Border).Padding(14, 12).Gap(6).Shrink(0)
@@ -73,10 +79,10 @@ func (c *Controller) sidebar(ctx *ui.Context, narrow bool) {
 			}
 		})
 		ui.Box(ctx).Height(10)
-		ui.Column(ctx).Grow(1).Gap(4).Children(func() {
+		ui.Column(ctx).Grow(1).Gap(3).Children(func() {
 			for _, item := range navigation {
 				selected := c.page == item.ID
-				button := ui.ButtonBase(ctx).Key("nav-"+item.ID).Label(item.Label).Height(40).
+				button := ui.ButtonBase(ctx).Key("nav-"+item.ID).Label(item.Label).Height(itemHeight).
 					Padding(0, 11).Radius(11).Gap(11).AlignItems(ui.Center).Tooltip(item.Label)
 				if selected {
 					c.brandGradient(button)
@@ -195,6 +201,8 @@ func (c *Controller) pageView(ctx *ui.Context) {
 	switch c.page {
 	case pageOverview:
 		c.overviewPage(ctx)
+	case pageInbounds:
+		c.inboundsPage(ctx)
 	case pageSubscriptions:
 		c.subscriptionsPage(ctx)
 	case pageNodes:

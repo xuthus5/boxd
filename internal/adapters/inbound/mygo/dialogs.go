@@ -55,6 +55,8 @@ func editorWidth(kind editorKind) float32 {
 		return 700
 	case editorImportLinks:
 		return 600
+	case editorInbound:
+		return 620
 	default:
 		return 540
 	}
@@ -66,6 +68,8 @@ func editorTitle(e editorState) string {
 		action = "添加"
 	}
 	switch e.kind {
+	case editorInbound:
+		return action + "入口"
 	case editorSubscription:
 		return action + "订阅"
 	case editorNode:
@@ -92,6 +96,8 @@ func editorTitle(e editorState) string {
 
 func editorHint(kind editorKind) string {
 	switch kind {
+	case editorInbound:
+		return "入口修改会立即写入控制面；内核运行时会自动应用新配置"
 	case editorSubscription:
 		return "订阅地址只保存在本地控制面数据库中"
 	case editorNode:
@@ -116,6 +122,76 @@ func editorHint(kind editorKind) string {
 func (c *Controller) editorFields(ctx *ui.Context) {
 	e := &c.editor
 	switch e.kind {
+	case editorInbound:
+		ui.Field(ctx, "名称", func() { ui.TextInput(ctx, &e.name).AutoFocus().Label("名称") })
+		ui.Row(ctx).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
+			c.smallPill(ctx, inboundKindLabel(e.inboundKind), c.colors().Sky, c.colors().SurfaceAlt)
+			ui.Column(ctx).Grow(1).Children(func() {
+				ui.Text(ctx, inboundKindHint(e.inboundKind)).FontSize(11).TextColor(c.colors().TextMuted).SingleLine()
+			})
+			ui.Text(ctx, "启用入口").FontSize(11.5).TextColor(c.colors().TextMuted)
+			ui.Switch(ctx, &e.enabled).Label("启用入口")
+		})
+		if e.inboundKind == control.InboundKindMixed {
+			ui.Row(ctx).FillWidth().Gap(12).Children(func() {
+				ui.Column(ctx).Grow(1).Basis(0).Children(func() {
+					ui.Field(ctx, "监听地址", func() {
+						ui.TextInput(ctx, &e.listenHost).Placeholder("::").Label("监听地址")
+					})
+				})
+				ui.Column(ctx).Width(140).Children(func() {
+					ui.Field(ctx, "监听端口", func() {
+						ui.TextInput(ctx, &e.listenPort).Placeholder("1090").Label("监听端口")
+					})
+				})
+			})
+			ui.Text(ctx, ":: 表示同时监听 IPv4 和 IPv6；127.0.0.1 仅允许本机访问，0.0.0.0 监听全部 IPv4 地址。").
+				FontSize(10.5).TextColor(c.colors().TextFaint).Wrap().LineHeight(1.5)
+			ui.Row(ctx).FillWidth().AlignItems(ui.Center).Children(func() {
+				ui.Column(ctx).Grow(1).Gap(2).Children(func() {
+					ui.Text(ctx, "UDP 转发").FontSize(12.5).FontWeight(600).SingleLine()
+					ui.Text(ctx, "允许 SOCKS UDP Associate 通过入口转发").FontSize(10.5).TextColor(c.colors().TextFaint).SingleLine()
+				})
+				ui.Switch(ctx, &e.udp).Label("UDP 转发")
+			})
+		} else {
+			ui.Row(ctx).FillWidth().Gap(12).Children(func() {
+				ui.Column(ctx).Grow(1).Basis(0).Children(func() {
+					ui.Field(ctx, "接口名称", func() {
+						ui.TextInput(ctx, &e.tunInterface).Placeholder("留空使用系统默认").Label("接口名称")
+					})
+				})
+				ui.Column(ctx).Width(130).Children(func() {
+					ui.Field(ctx, "MTU", func() { ui.TextInput(ctx, &e.tunMTU).Label("MTU") })
+				})
+				ui.Column(ctx).Width(150).Children(func() {
+					ui.Field(ctx, "协议栈", func() {
+						labels := []string{"混合", "系统", "GVisor"}
+						values := []string{"mixed", "system", "gvisor"}
+						current := optionLabel(labels, values, e.tunStack)
+						selector := ui.Select(ctx, &current, labels).Label("协议栈")
+						if selector.Changed() {
+							e.tunStack = optionValueByLabel(labels, values, current)
+						}
+					})
+				})
+			})
+			ui.Field(ctx, "接口地址（每行一个 CIDR）", func() {
+				ui.TextArea(ctx, &e.tunAddresses).Height(76).Font("monospace").Label("接口地址")
+			})
+			ui.Row(ctx).FillWidth().Gap(28).Children(func() {
+				ui.Row(ctx).AlignItems(ui.Center).Gap(10).Children(func() {
+					ui.Text(ctx, "自动路由").FontSize(11.5).TextColor(c.colors().TextMuted)
+					ui.Switch(ctx, &e.tunAutoRoute).Label("自动路由")
+				})
+				ui.Row(ctx).AlignItems(ui.Center).Gap(10).Children(func() {
+					ui.Text(ctx, "严格路由").FontSize(11.5).TextColor(c.colors().TextMuted)
+					ui.Switch(ctx, &e.tunStrictRoute).Label("严格路由")
+				})
+			})
+			ui.Text(ctx, "Windows 上启用 TUN 需要管理员权限；如果当前账户没有网络适配器权限，保存会自动回滚并给出错误。").
+				FontSize(10.5).TextColor(c.colors().TextFaint).Wrap().LineHeight(1.5)
+		}
 	case editorSubscription:
 		ui.Field(ctx, "名称", func() { ui.TextInput(ctx, &e.name).AutoFocus().Label("名称") })
 		ui.Field(ctx, "订阅地址", func() {

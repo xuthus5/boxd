@@ -53,6 +53,25 @@ func TestNavigationAndNarrowSidebar(t *testing.T) {
 	}
 }
 
+func TestInboundPageExposesListenPortEditor(t *testing.T) {
+	controller := newViewTestController(ControllerOptions{})
+	controller.page = pageInbounds
+	tester := ui.NewTester(controller.View, 1320, 860)
+	if !tester.HasText("本地入口") || !tester.HasText("[::]:1080") {
+		t.Fatalf("inbound page missing listener summary; texts=%q", tester.Texts())
+	}
+	if err := tester.Click("编辑入口 Mixed"); err != nil {
+		t.Fatalf("open inbound editor: %v", err)
+	}
+	if !controller.editorOpen || controller.editor.kind != editorInbound || controller.editor.listenPort != "1080" {
+		t.Fatalf("inbound editor = %+v, open=%v", controller.editor, controller.editorOpen)
+	}
+	tester.Frame()
+	if !tester.HasText("监听端口") || !tester.HasText("监听地址") {
+		t.Fatalf("inbound editor missing listen fields; texts=%q", tester.Texts())
+	}
+}
+
 func TestLongTableValueKeepsSingleLineHeight(t *testing.T) {
 	longName := "Very long node name " + strings.Repeat("that must not expand the table row ", 4)
 	controller := newViewTestController(ControllerOptions{})
@@ -94,6 +113,10 @@ func newViewTestController(options ControllerOptions) *Controller {
 	}
 	controller.snapshot = snapshot{
 		Kernel: kernel.Status{State: kernel.StateStopped},
+		Inbounds: []control.InboundProfile{
+			{ID: "mixed", Name: "Mixed", Kind: control.InboundKindMixed, Enabled: true, Listen: control.ListenAddress{Host: "::", Port: 1080}, UDP: true},
+			{ID: "tun", Name: "TUN", Kind: control.InboundKindTun, Enabled: false, Tun: control.TunOptions{Addresses: []string{"172.19.0.1/30"}, MTU: 9000, Stack: "mixed", AutoRoute: true}},
+		},
 		Scheduler: control.SchedulerStatus{
 			Running:         true,
 			IntervalSeconds: 60,
