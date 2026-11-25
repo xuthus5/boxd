@@ -54,8 +54,11 @@ is not a multi-tenant authorization boundary.
 - The HTTP API and Web console share one origin.
 - Administrator authentication is a Web-ingress capability implemented in
   `internal/webauth` and `internal/adapters/inbound/httpapi`. It is not part of
-  `control.Application`, so future desktop hosts do not inherit Web passwords
-  or browser sessions.
+  `control.Application`, so the native desktop host does not inherit Web
+  passwords or browser sessions.
+- The native desktop host runs the control plane in-process. It does not open
+  the Web management listener and does not import `internal/webauth` or the HTTP
+  inbound adapter.
 - The first administrator password is initialized locally and stored as a
   salted PBKDF2-HMAC-SHA256 verifier.
 - The settings console can rotate the administrator password. Rotation uses a

@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/xuthus5/boxd/control"
-	"github.com/xuthus5/boxd/kernel"
 )
 
 type ruleSetPatch struct {
@@ -51,20 +50,7 @@ func (s *Server) handleRuleSetPatch(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err.(*apiError))
 		return
 	}
-	current, err := s.app.RuleSets().Get(r.Context(), r.PathValue("name"))
-	if err != nil {
-		s.writeServiceError(w, r, err)
-		return
-	}
-	if current.Builtin {
-		writeError(w, r, newAPIError(http.StatusConflict, string(kernel.ErrCodeConflict), "rulesets.save", "built-in rule sets cannot be modified", "create a custom rule set instead"))
-		return
-	}
-	definition := control.RuleSetDefinition{Name: current.Name, URL: current.URL, Format: current.Format, Enabled: current.Enabled}
-	if patch.Enabled != nil {
-		definition.Enabled = *patch.Enabled
-	}
-	saved, err := s.app.RuleSets().Save(r.Context(), definition)
+	saved, err := s.app.RuleSets().Patch(r.Context(), r.PathValue("name"), control.RuleSetPatch{Enabled: patch.Enabled})
 	if err != nil {
 		s.writeServiceError(w, r, err)
 		return

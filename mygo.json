@@ -1,0 +1,15 @@
+{
+  "name": "BOXD",
+  "slug": "boxd",
+  "identifier": "com.xuthus5.boxd",
+  "version": "0.1.0-dev",
+  "main": "./cmd/boxd-desktop",
+  "out": "dist/desktop",
+  "linux": {
+    "maintainer": "xuthus5",
+    "comment": "Native control plane for BOXD",
+    "categories": ["Network", "Utility"],
+    "webview": false,
+    "command": ["boxd-desktop"]
+  }
+}

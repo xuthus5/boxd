@@ -2,12 +2,14 @@
 
 ## 1. 当前边界
 
-控制面通过公开包 `control` 向外暴露统一门面。当前已实现 HTTP/SSE Web 入站适配器；Wails、MyGo、CLI 和桌面宿主属于后续上层接入。适配器只依赖接口，不访问 SQLite、配置文件或 sing-box API。
+控制面通过公开包 `control` 向外暴露统一门面。当前已实现 HTTP/SSE Web 入站适配器和 MyGo 原生桌面入站适配器；两者并行存在、互不导入，也不在业务代码中按宿主类型分支。适配器只依赖接口，不访问 SQLite、配置文件或 sing-box API。
 
 ```text
 Web 入站适配器（httpapi）
   ├─ internal/webauth        浏览器管理员口令、PBKDF2 摘要、内存会话
   └─ control.Application     业务门面（不含 Web 认证）
+MyGo 桌面入站适配器（mygo）
+  └─ control.Application     同一个业务门面（无 HTTP、无浏览器会话）
             |
             v
 internal/controlplane
@@ -19,7 +21,7 @@ control.ProfileRepository <-- internal/adapters/outbound/sqlite
 kernel.Manager
 ```
 
-后续 Wails、MyGo、桌面或 CLI 宿主只接入 `control.Application`，不会获得 Web 管理员口令、Cookie 或浏览器会话；这些能力仅在启用 `boxd -web` 时由 HTTP 入站适配器构造。
+MyGo 桌面宿主在进程内通过 `bootstrap` 构造 `control.Application`，不会获得 Web 管理员口令、Cookie 或浏览器会话；这些能力仅在启用 `boxd -web` 时由 HTTP 入站适配器构造。后续 CLI 或其他宿主同样只接入这个门面，禁止在控制面用例里新增“Web/桌面”条件分支。
 
 公开包仍然只有 `kernel` 和 `control`。sing-box 依赖被限制在 `internal/driver/singbox`；sing-box JSON 编译器不导入 sing-box 类型。
 
@@ -41,6 +43,7 @@ kernel.Manager
 | `RuleSets()` | 内置/自定义规则集定义、下载体积、刷新状态和预设依赖 |
 | `Settings()` | 通用偏好键值 |
 | `Observability()` | 最近日志、流量、活动/已关闭连接快照、关闭连接、事件订阅 |
+| `ActivityLogs()` | 传输无关的应用活动日志记录、回放与订阅；由 HTTP 映射为 SSE，由桌面直接读取 |
 | `Audit()` | 自动记录控制面变更，并提供按动作、操作者、来源和时间查询 |
 
 ## 3. 期望状态与原子应用
@@ -217,7 +220,7 @@ kernel.Manager
 
 控制面及以下能力已经闭环，以下项目属于明确的范围外或引擎内实现，不应由入站适配器自行补业务：
 
-- 上层真实应用接入：Wails、MyGo、桌面宿主及更上层的真实应用，留待下层契约与模型稳定后实施。
+- MyGo 原生桌面接入已经完成；移动应用、WebView 包装层、Wails 和更上层的真实应用仍留待后续实施。
 - 多用户、角色权限和多租户；当前设计是单本地管理员，符合第一阶段非目标。
 - 规则集本地预取；当前由 sing-box remote rule-set 在引擎内自动下载并缓存，控制面只维护刷新元数据。
 - 持久化令牌撤销列表；当前会话为进程内短期令牌，登出和进程重启都会使令牌失效。

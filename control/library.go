@@ -44,11 +44,21 @@ type SubscriptionRefreshResult struct {
 	NotModified  bool         `json:"not_modified"`
 }
 
+// SubscriptionPatch is a partial update applied atomically by the control
+// plane. Nil fields are left unchanged.
+type SubscriptionPatch struct {
+	Name            *string `json:"name,omitempty"`
+	URL             *string `json:"url,omitempty"`
+	IntervalSeconds *int    `json:"interval_seconds,omitempty"`
+	Enabled         *bool   `json:"enabled,omitempty"`
+}
+
 // SubscriptionAPI manages remote node sources and their download metadata.
 type SubscriptionAPI interface {
 	List(ctx context.Context) ([]Subscription, error)
 	Get(ctx context.Context, id string) (Subscription, error)
 	Save(ctx context.Context, subscription Subscription) (Subscription, error)
+	Patch(ctx context.Context, id string, patch SubscriptionPatch) (Subscription, error)
 	Delete(ctx context.Context, id string) error
 	Refresh(ctx context.Context, id string) (SubscriptionRefreshResult, error)
 	RefreshAll(ctx context.Context) ([]SubscriptionRefreshResult, error)
@@ -123,6 +133,7 @@ type NodeAPI interface {
 	Get(ctx context.Context, id string) (Node, error)
 	Import(ctx context.Context, nodes []Node) (NodeImportResult, error)
 	ImportLinks(ctx context.Context, links []string) (NodeImportResult, error)
+	ImportLinksIntoGroup(ctx context.Context, links []string, groupID string) (NodeImportResult, error)
 	Save(ctx context.Context, node Node) (Node, error)
 	Delete(ctx context.Context, id string) error
 	Delay(ctx context.Context, id, url string) (NodeDelay, error)
@@ -146,11 +157,17 @@ type PolicyAPI interface {
 	DNS() DNSAPI
 }
 
+// RuleSetPatch is a partial rule-set update. Nil fields are unchanged.
+type RuleSetPatch struct {
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
 // RuleSetAPI manages rule-set definitions and their refresh metadata.
 type RuleSetAPI interface {
 	List(ctx context.Context) ([]RuleSet, error)
 	Get(ctx context.Context, name string) (RuleSet, error)
 	Save(ctx context.Context, definition RuleSetDefinition) (RuleSet, error)
+	Patch(ctx context.Context, name string, patch RuleSetPatch) (RuleSet, error)
 	Delete(ctx context.Context, name string) error
 	Refresh(ctx context.Context, name string) (RuleSet, error)
 	RefreshAll(ctx context.Context) ([]RuleSet, error)

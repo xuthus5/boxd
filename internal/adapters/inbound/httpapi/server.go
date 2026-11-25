@@ -17,7 +17,6 @@ import (
 
 	"github.com/xuthus5/boxd/control"
 	"github.com/xuthus5/boxd/internal/webauth"
-	"github.com/xuthus5/boxd/kernel"
 )
 
 const (
@@ -46,8 +45,7 @@ type Server struct {
 	tlsKeyFile  string
 	tlsConfig   *tls.Config
 	startedAt   time.Time
-	logs        *logHub
-	observation *liveObservation
+	logs        activitySink
 	handler     http.Handler
 }
 
@@ -91,8 +89,7 @@ func New(app control.Application, options Options) (*Server, error) {
 		tlsKeyFile:  keyFile,
 		tlsConfig:   tlsConfig,
 		startedAt:   time.Now().UTC(),
-		logs:        newLogHub(500),
-		observation: newLiveObservation(),
+		logs:        activitySink{api: app.ActivityLogs()},
 	}
 	server.handler = server.routes()
 	return server, nil
@@ -117,9 +114,6 @@ func (s *Server) Serve(ctx context.Context) error {
 
 // ServeListener is the testable form of Serve.
 func (s *Server) ServeListener(ctx context.Context, listener net.Listener) error {
-	samplerCtx, stopSampler := context.WithCancel(ctx)
-	defer stopSampler()
-	go s.runObservationSampler(samplerCtx)
 	httpServer := &http.Server{
 		Handler:           s.handler,
 		TLSConfig:         s.tlsConfig,
@@ -155,53 +149,6 @@ func (s *Server) ServeListener(ctx context.Context, listener net.Listener) error
 		return nil
 	}
 	return err
-}
-
-func (s *Server) runObservationSampler(ctx context.Context) {
-	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case now := <-ticker.C:
-			s.sampleObservation(ctx, now.UTC())
-		}
-	}
-}
-
-func (s *Server) sampleObservation(parent context.Context, now time.Time) {
-	ctx, cancel := context.WithTimeout(parent, 5*time.Second)
-	defer cancel()
-	status, err := s.app.Kernel().Status(ctx)
-	if err != nil {
-		return
-	}
-	if status.State != kernel.StateRunning {
-		s.observation.Update(status, nil, nil, control.RouteProfile{}, nil, nil, nil, now)
-		return
-	}
-	connections, err := s.app.Observability().Connections(ctx)
-	if err != nil && !isNotRunning(err) {
-		return
-	}
-	closedConnections, err := s.app.Observability().ClosedConnections(ctx)
-	if err != nil && !isNotRunning(err) {
-		return
-	}
-	inbounds, err := s.app.Inbounds().List(ctx)
-	if err != nil {
-		return
-	}
-	catalog, err := s.app.Egress().Catalog(ctx)
-	if err != nil {
-		return
-	}
-	routes, err := s.app.Routes().Get(ctx)
-	if err != nil {
-		return
-	}
-	s.observation.Update(status, connections, closedConnections, routes, inbounds, catalog.Nodes, catalog.Chains, now)
 }
 
 func (s *Server) routes() http.Handler {

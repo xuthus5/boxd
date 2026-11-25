@@ -1,6 +1,8 @@
-package httpapi
+package controlplane
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"sync"
 	"time"
@@ -11,24 +13,6 @@ import (
 
 const observationRetention = 10 * time.Minute
 
-type observedTraffic struct {
-	UploadTotal   int64
-	DownloadTotal int64
-	UploadRate    int64
-	DownloadRate  int64
-}
-
-func (t observedTraffic) Total() int64 { return t.UploadTotal + t.DownloadTotal }
-
-func (t observedTraffic) TotalRate() int64 { return t.UploadRate + t.DownloadRate }
-
-type observationSnapshot struct {
-	Available bool
-	Nodes     map[string]observedTraffic
-	Inbounds  map[string]observedTraffic
-	RuleHits  map[string]uint64
-}
-
 type observedConnection struct {
 	Upload     int64
 	Download   int64
@@ -37,7 +21,7 @@ type observedConnection struct {
 }
 
 type trafficAccumulator struct {
-	Traffic      observedTraffic
+	Traffic      control.ObservedTraffic
 	LastUpload   int64
 	LastDownload int64
 }
@@ -51,9 +35,8 @@ type observationState struct {
 	ruleHits     map[string]uint64
 }
 
-// liveObservation turns real kernel connection snapshots into bounded,
-// per-entity counters. It never estimates traffic: counters only advance from
-// upload/download values reported by sing-box for observed connections.
+// liveObservation converts real kernel connection snapshots into bounded,
+// per-entity counters. Counters only advance from values the engine reports.
 type liveObservation struct {
 	mu    sync.Mutex
 	state observationState
@@ -72,7 +55,7 @@ func emptyObservationState() observationState {
 	}
 }
 
-func (o *liveObservation) Update(
+func (o *liveObservation) update(
 	status kernel.Status,
 	connections []kernel.Connection,
 	closedConnections []kernel.Connection,
@@ -81,15 +64,15 @@ func (o *liveObservation) Update(
 	nodes []control.Node,
 	chains []control.ProxyChain,
 	now time.Time,
-) observationSnapshot {
+) control.ObservationSnapshot {
 	if o == nil {
-		return observationSnapshot{}
+		return emptyObservationSnapshot()
 	}
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	if status.State != kernel.StateRunning || status.StartedAt.IsZero() {
 		o.state = emptyObservationState()
-		return observationSnapshot{}
+		return emptyObservationSnapshot()
 	}
 	runKey := status.StartedAt.UTC().Format(time.RFC3339Nano) + "\x00" + status.Revision
 	if o.state.runKey != runKey {
@@ -150,7 +133,7 @@ func (o *liveObservation) Update(
 	}
 	o.removeStaleConnections(observed, now)
 	o.updateRates(now)
-	return o.snapshot()
+	return o.snapshot(now)
 }
 
 func (o *liveObservation) addNode(nodeID string, upload, download int64) {
@@ -217,11 +200,12 @@ func (o *liveObservation) removeStaleConnections(active map[int64]struct{}, now 
 	}
 }
 
-func (o *liveObservation) snapshot() observationSnapshot {
-	result := observationSnapshot{
+func (o *liveObservation) snapshot(now time.Time) control.ObservationSnapshot {
+	result := control.ObservationSnapshot{
 		Available: true,
-		Nodes:     make(map[string]observedTraffic, len(o.state.nodes)),
-		Inbounds:  make(map[string]observedTraffic, len(o.state.inbounds)),
+		SampledAt: now.UTC(),
+		Nodes:     make(map[string]control.ObservedTraffic, len(o.state.nodes)),
+		Inbounds:  make(map[string]control.ObservedTraffic, len(o.state.inbounds)),
 		RuleHits:  make(map[string]uint64, len(o.state.ruleHits)),
 	}
 	for id, counter := range o.state.nodes {
@@ -234,6 +218,14 @@ func (o *liveObservation) snapshot() observationSnapshot {
 		result.RuleHits[id] = hits
 	}
 	return result
+}
+
+func emptyObservationSnapshot() control.ObservationSnapshot {
+	return control.ObservationSnapshot{
+		Nodes:    map[string]control.ObservedTraffic{},
+		Inbounds: map[string]control.ObservedTraffic{},
+		RuleHits: map[string]uint64{},
+	}
 }
 
 func nonNegativeDelta(current, previous int64) int64 {
@@ -269,6 +261,14 @@ func resolveConnectionNode(tag string, nodeByTag map[string]string, chains map[s
 	return ""
 }
 
+func connectionInboundMatches(value string, inbound control.InboundProfile) bool {
+	value = strings.TrimSpace(value)
+	if index := strings.LastIndexByte(value, '/'); index >= 0 && index+1 < len(value) {
+		value = value[index+1:]
+	}
+	return value == inbound.ID || value == control.InboundTag(inbound.ID) || strings.EqualFold(value, inbound.Name)
+}
+
 func compiledRouteRuleIDs(routes control.RouteProfile, inbounds []control.InboundProfile) map[int]string {
 	result := make(map[int]string)
 	if routes.Mode != control.RouteModeRules {
@@ -297,4 +297,131 @@ func compiledRouteRuleIDs(routes control.RouteProfile, inbounds []control.Inboun
 		index++
 	}
 	return result
+}
+
+type ObservabilityService struct {
+	manager kernel.Manager
+	profile *ProfileService
+	live    *liveObservation
+
+	mu     sync.Mutex
+	cancel context.CancelFunc
+	done   chan struct{}
+}
+
+var _ control.ObservabilityAPI = (*ObservabilityService)(nil)
+
+func NewObservabilityService(manager kernel.Manager, profile *ProfileService) *ObservabilityService {
+	return &ObservabilityService{
+		manager: manager,
+		profile: profile,
+		live:    newLiveObservation(),
+	}
+}
+
+func (s *ObservabilityService) StartSampling(ctx context.Context) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.cancel != nil {
+		return nil
+	}
+	// Sampling belongs to the application lifetime, not to the short-lived
+	// context callers use while constructing the control plane. The scheduler
+	// follows the same rule; StopSampling remains the explicit shutdown path.
+	samplerCtx, cancel := context.WithCancel(context.WithoutCancel(ctx))
+	done := make(chan struct{})
+	s.cancel = cancel
+	s.done = done
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(time.Second)
+		defer ticker.Stop()
+		s.sample(samplerCtx)
+		for {
+			select {
+			case <-samplerCtx.Done():
+				return
+			case <-ticker.C:
+				s.sample(samplerCtx)
+			}
+		}
+	}()
+	return nil
+}
+
+func (s *ObservabilityService) StopSampling() {
+	s.mu.Lock()
+	cancel, done := s.cancel, s.done
+	s.cancel, s.done = nil, nil
+	s.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+	if done != nil {
+		<-done
+	}
+}
+
+func (s *ObservabilityService) Snapshot(ctx context.Context) (control.ObservationSnapshot, error) {
+	return s.sample(ctx), nil
+}
+
+func (s *ObservabilityService) sample(ctx context.Context) control.ObservationSnapshot {
+	if s.manager == nil {
+		return emptyObservationSnapshot()
+	}
+	status := s.manager.Status()
+	now := time.Now().UTC()
+	if status.State != kernel.StateRunning {
+		return s.live.update(status, nil, nil, control.RouteProfile{}, nil, nil, nil, now)
+	}
+	connections, err := s.manager.ListConnections(ctx)
+	if err != nil && !isKernelNotRunning(err) {
+		return emptyObservationSnapshot()
+	}
+	closedConnections, err := s.manager.ListClosedConnections(ctx)
+	if err != nil && !isKernelNotRunning(err) {
+		return emptyObservationSnapshot()
+	}
+	if s.profile == nil {
+		return s.live.update(status, connections, closedConnections, control.RouteProfile{}, nil, nil, nil, now)
+	}
+	state, err := s.profile.Snapshot(ctx)
+	if err != nil {
+		return emptyObservationSnapshot()
+	}
+	return s.live.update(status, connections, closedConnections, state.Routes, state.Inbounds, state.Nodes, state.Chains, now)
+}
+
+func (s *ObservabilityService) RecentLogs(limit int) []kernel.LogEntry {
+	return s.manager.RecentLogs(limit)
+}
+
+func (s *ObservabilityService) Traffic(context.Context) (kernel.TrafficSnapshot, error) {
+	return s.manager.TrafficSnapshot(), nil
+}
+
+func (s *ObservabilityService) Connections(ctx context.Context) ([]kernel.Connection, error) {
+	return s.manager.ListConnections(ctx)
+}
+
+func (s *ObservabilityService) ClosedConnections(ctx context.Context) ([]kernel.Connection, error) {
+	return s.manager.ListClosedConnections(ctx)
+}
+
+func (s *ObservabilityService) CloseConnection(ctx context.Context, id int64) error {
+	return s.manager.CloseConnection(ctx, id)
+}
+
+func (s *ObservabilityService) CloseConnections(ctx context.Context, filter kernel.ConnectionFilter) (int, error) {
+	return s.manager.CloseConnections(ctx, filter)
+}
+
+func (s *ObservabilityService) Subscribe(ctx context.Context, types ...kernel.EventType) (<-chan kernel.Event, error) {
+	return s.manager.Subscribe(ctx, types...)
+}
+
+func isKernelNotRunning(err error) bool {
+	var serviceErr *kernel.Error
+	return errors.As(err, &serviceErr) && (serviceErr.Code == kernel.ErrCodeNotRunning || serviceErr.Code == kernel.ErrCodeInvalidState)
 }

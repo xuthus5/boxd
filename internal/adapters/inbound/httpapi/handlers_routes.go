@@ -124,41 +124,9 @@ func (s *Server) handleRouteRulePatch(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err.(*apiError))
 		return
 	}
-	id := r.PathValue("id")
-	routes, err := s.app.Routes().Get(r.Context())
-	if err != nil {
-		s.writeServiceError(w, r, err)
-		return
-	}
-	var rule control.RouteRule
-	found := false
-	for _, candidate := range routes.Rules {
-		if candidate.ID == id {
-			rule = candidate
-			found = true
-			break
-		}
-	}
-	if !found {
-		writeError(w, r, newAPIError(http.StatusNotFound, "kernel_not_found", "routes.save_rule", "route rule was not found", "reload the page and retry"))
-		return
-	}
-	if patch.Name != nil {
-		rule.Name = *patch.Name
-	}
-	if patch.Disabled != nil {
-		rule.Disabled = *patch.Disabled
-	}
-	if patch.Match != nil {
-		rule.Match = *patch.Match
-	}
-	if patch.Action != nil {
-		rule.Action = *patch.Action
-	}
-	if patch.Egress != nil {
-		rule.Egress = *patch.Egress
-	}
-	saved, err := s.app.Routes().SaveRule(r.Context(), rule)
+	saved, err := s.app.Routes().PatchRule(r.Context(), r.PathValue("id"), control.RouteRulePatch{
+		Name: patch.Name, Disabled: patch.Disabled, Match: patch.Match, Action: patch.Action, Egress: patch.Egress,
+	})
 	if err != nil {
 		s.writeServiceError(w, r, err)
 		return

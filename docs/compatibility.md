@@ -11,6 +11,24 @@
 | Engine | sing-box `v1.14.x`, locked module `v1.14.4` |
 | Storage | Embedded SQLite with WAL |
 
+## Native desktop
+
+The desktop client is rendered with MyGo native controls and does not embed the
+Web console in a WebView. It links the control plane in-process, so it does not
+open the Web management port and does not require the Web administrator login.
+
+| Platform | Architecture | Verification |
+| --- | --- | --- |
+| Linux | `amd64`, `arm64` | `amd64` real-window validation under Xvfb; both targets cross-compile in CI |
+| macOS | `amd64`, `arm64` | Cross-compiled in CI; signing and notarization require a macOS release host |
+| Windows | `amd64` | Cross-compiled in CI |
+
+Linux TUN use still requires `/dev/net/tun` and `CAP_NET_ADMIN`. The desktop
+shell itself, subscription management, node editing, routing, DNS, rule sets,
+logs, connections and Mixed inbound management do not require those privileges.
+Window state and the light/dark theme are persisted per user; the Web and desktop
+hosts use separate default data directories to avoid SQLite writer contention.
+
 ## Browsers
 
 The Web console is tested with the Playwright browser engines pinned in

@@ -9,8 +9,6 @@ import (
 	"github.com/xuthus5/boxd/control"
 )
 
-const maxImportLinks = 500
-
 type importLinksRequest struct {
 	Links   []string `json:"links"`
 	GroupID string   `json:"group_id,omitempty"`
@@ -76,7 +74,12 @@ func (s *Server) handleEgressCatalog(w http.ResponseWriter, r *http.Request) {
 		s.writeServiceError(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, s.catalogView(catalog, r.Context()))
+	view, err := s.catalogView(catalog, r.Context())
+	if err != nil {
+		s.writeServiceError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, view)
 }
 
 func (s *Server) handleNodeList(w http.ResponseWriter, r *http.Request) {
@@ -109,62 +112,18 @@ func (s *Server) handleNodeImportLinks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	request.Links = compactStrings(request.Links)
-	if len(request.Links) == 0 {
-		writeError(w, r, newAPIError(http.StatusBadRequest, "invalid_links", "nodes.import_links", "at least one node link is required", "paste one or more share links"))
+	result, err := s.app.Nodes().ImportLinksIntoGroup(r.Context(), request.Links, strings.TrimSpace(request.GroupID))
+	if err != nil {
+		s.writeServiceError(w, r, err)
 		return
 	}
-	if len(request.Links) > maxImportLinks {
-		writeError(w, r, newAPIError(http.StatusBadRequest, "too_many_links", "nodes.import_links", "too many node links", "import at most 500 links at a time"))
-		return
-	}
-	var group control.Group
-	groupFound := false
-	if request.GroupID != "" {
-		catalog, err := s.app.Egress().Catalog(r.Context())
-		if err != nil {
-			s.writeServiceError(w, r, err)
-			return
-		}
-		for _, candidate := range catalog.Groups {
-			if candidate.ID == request.GroupID {
-				group = candidate
-				groupFound = true
-				break
-			}
-		}
-		if !groupFound {
-			writeError(w, r, newAPIError(http.StatusNotFound, "kernel_not_found", "nodes.import_links", "strategy group was not found", "reload the page and choose another group"))
-			return
-		}
-	}
-	result, err := s.app.Nodes().ImportLinks(r.Context(), request.Links)
+	catalog, err := s.app.Egress().Catalog(r.Context())
 	if err != nil {
 		s.writeServiceError(w, r, err)
 		return
 	}
 	view := nodeImportView{Added: result.Added, Updated: result.Updated}
-	catalog, err := s.app.Egress().Catalog(r.Context())
-	if err == nil {
-		view.Nodes = makeNodeViews(result.Nodes, catalogGroupMap(catalog.Groups), catalog.Groups)
-	}
-	if groupFound {
-		members := make(map[string]struct{}, len(group.Members)+len(result.Nodes))
-		for _, member := range group.Members {
-			members[member] = struct{}{}
-		}
-		for _, node := range result.Nodes {
-			if _, exists := members[node.ID]; !exists {
-				group.Members = append(group.Members, node.ID)
-				members[node.ID] = struct{}{}
-			}
-		}
-		if group.Kind == control.GroupKindSelector && group.Selected == "" && len(group.Members) > 0 {
-			group.Selected = group.Members[0]
-		}
-		if _, saveErr := s.app.Egress().SaveGroup(r.Context(), group); saveErr != nil {
-			view.GroupWarning = saveErr.Error()
-		}
-	}
+	view.Nodes = makeNodeViews(result.Nodes, catalogGroupMap(catalog.Groups), catalog.Groups)
 	s.logs.add("info", "nodes", "node links imported", map[string]any{"added": result.Added, "updated": result.Updated})
 	writeJSON(w, http.StatusOK, view)
 }
@@ -177,20 +136,18 @@ func (s *Server) handleNodeImport(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err.(*apiError))
 		return
 	}
-	if len(request.Nodes) == 0 || len(request.Nodes) > maxImportLinks {
-		writeError(w, r, newAPIError(http.StatusBadRequest, "invalid_nodes", "nodes.import", "import requires between 1 and 500 nodes", "check the request body"))
-		return
-	}
 	result, err := s.app.Nodes().Import(r.Context(), request.Nodes)
 	if err != nil {
 		s.writeServiceError(w, r, err)
 		return
 	}
-	catalog, catalogErr := s.app.Egress().Catalog(r.Context())
-	view := nodeImportView{Added: result.Added, Updated: result.Updated}
-	if catalogErr == nil {
-		view.Nodes = makeNodeViews(result.Nodes, catalogGroupMap(catalog.Groups), catalog.Groups)
+	catalog, err := s.app.Egress().Catalog(r.Context())
+	if err != nil {
+		s.writeServiceError(w, r, err)
+		return
 	}
+	view := nodeImportView{Added: result.Added, Updated: result.Updated}
+	view.Nodes = makeNodeViews(result.Nodes, catalogGroupMap(catalog.Groups), catalog.Groups)
 	s.logs.add("info", "nodes", "nodes imported", map[string]any{"added": result.Added, "updated": result.Updated})
 	writeJSON(w, http.StatusOK, view)
 }
@@ -220,7 +177,11 @@ func (s *Server) handleNodeSave(w http.ResponseWriter, r *http.Request) {
 		s.writeServiceError(w, r, err)
 		return
 	}
-	catalog, _ := s.app.Egress().Catalog(r.Context())
+	catalog, err := s.app.Egress().Catalog(r.Context())
+	if err != nil {
+		s.writeServiceError(w, r, err)
+		return
+	}
 	writeJSON(w, http.StatusOK, makeNodeViews([]control.Node{saved}, catalogGroupMap(catalog.Groups), catalog.Groups)[0])
 }
 
@@ -237,7 +198,11 @@ func (s *Server) handleNodeUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.logs.add("info", "nodes", "node updated", map[string]any{"id": saved.ID})
-	catalog, _ := s.app.Egress().Catalog(r.Context())
+	catalog, err := s.app.Egress().Catalog(r.Context())
+	if err != nil {
+		s.writeServiceError(w, r, err)
+		return
+	}
 	writeJSON(w, http.StatusOK, makeNodeViews([]control.Node{saved}, catalogGroupMap(catalog.Groups), catalog.Groups)[0])
 }
 
@@ -401,15 +366,16 @@ func (s *Server) handleChainDelete(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"deleted": id})
 }
 
-func (s *Server) catalogView(catalog control.EgressCatalog, ctx context.Context) map[string]any {
+func (s *Server) catalogView(catalog control.EgressCatalog, ctx context.Context) (map[string]any, error) {
+	routes, err := s.app.Routes().Get(ctx)
+	if err != nil {
+		return nil, err
+	}
 	return map[string]any{
 		"nodes":  makeNodeViews(catalog.Nodes, catalogGroupMap(catalog.Groups), catalog.Groups),
 		"groups": makeGroupViews(catalog.Groups, catalog.Nodes),
-		"chains": func() any {
-			routes, _ := s.app.Routes().Get(ctx)
-			return makeChainViews(catalog.Chains, catalog.Nodes, routes)
-		}(),
-	}
+		"chains": makeChainViews(catalog.Chains, catalog.Nodes, routes),
+	}, nil
 }
 
 func catalogGroupMap(groups []control.Group) map[string][]string {

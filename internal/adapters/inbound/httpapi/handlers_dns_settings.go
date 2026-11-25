@@ -63,27 +63,9 @@ func (s *Server) handleDNSPatch(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err.(*apiError))
 		return
 	}
-	profile, err := s.app.DNS().Get(r.Context())
-	if err != nil {
-		s.writeServiceError(w, r, err)
-		return
-	}
-	if patch.Strategy != nil {
-		profile.Strategy = *patch.Strategy
-	}
-	if patch.Cache != nil {
-		profile.Cache = *patch.Cache
-	}
-	if patch.Domestic != nil {
-		profile.Domestic = *patch.Domestic
-	}
-	if patch.Foreign != nil {
-		profile.Foreign = *patch.Foreign
-	}
-	if patch.Default != nil {
-		profile.Default = *patch.Default
-	}
-	saved, err := s.app.DNS().Update(r.Context(), profile)
+	saved, err := s.app.DNS().Patch(r.Context(), control.DNSProfilePatch{
+		Strategy: patch.Strategy, Cache: patch.Cache, Domestic: patch.Domestic, Foreign: patch.Foreign, Default: patch.Default,
+	})
 	if err != nil {
 		s.writeServiceError(w, r, err)
 		return

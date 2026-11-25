@@ -6,7 +6,7 @@ not approved until every required item is complete.
 ## 1. Scope and versioning
 
 - Confirm all changes are within the documented control-plane scope.
-- Confirm backup/restore, Web Shell, and upper-layer host integration remain
+- Confirm backup/restore, Web Shell, and mobile/WebView host integration remain
   excluded.
 - Review `CHANGELOG.md` and choose the Semantic Versioning tag.
 - Confirm the engine version policy in `docs/sing-box-versioning.md`.
@@ -26,6 +26,8 @@ not approved until every required item is complete.
   Chromium.
 - The accessibility scan reports no serious or critical violations.
 - Container build succeeds for `linux/amd64` and `linux/arm64`.
+- Native desktop cross-builds succeed for Linux, macOS and Windows, and the
+  Linux desktop window passes the Xvfb/MyGo automation smoke check.
 
 ## 3. Manual product acceptance
 
@@ -40,6 +42,8 @@ not approved until every required item is complete.
 - Verify SSE logs, traffic, connection snapshots, and reconnect behavior.
 - Verify invalid credentials are rate limited and no sensitive values appear
   in responses or logs.
+- Verify the native desktop opens without an HTTP listener, restores window and
+  theme preferences, enforces single instance, and shows no Web login controls.
 
 ## 4. Deployment verification
 

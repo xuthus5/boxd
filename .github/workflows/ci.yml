@@ -115,11 +115,16 @@ jobs:
       - name: Build boxd
         run: make build
 
-      - name: Verify binary
+      - name: Build native desktop for Linux, macOS and Windows
+        run: make build-desktop-all
+
+      - name: Verify binaries
         run: |
           set -euo pipefail
           ./bin/boxd -version
+          ./bin/boxd-desktop -version
           file ./bin/boxd
+          file dist/desktop/boxd-desktop-*
 
   scripts:
     name: Validate deployment scripts

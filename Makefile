@@ -9,10 +9,25 @@ LDFLAGS := -s -w \
 	-X $(MODULE)/internal/version.Commit=$(COMMIT) \
 	-X $(MODULE)/internal/version.Date=$(DATE)
 
-.PHONY: build test race vet fmt fmt-check engine-version ci
+.PHONY: build build-desktop build-desktop-all test race vet fmt fmt-check engine-version ci
 
 build:
 	go build -trimpath -tags "$(BUILD_TAGS)" -ldflags "$(LDFLAGS)" -o bin/boxd ./cmd/boxd
+
+build-desktop:
+	go build -trimpath -tags "$(BUILD_TAGS)" -ldflags "$(LDFLAGS)" -o bin/boxd-desktop ./cmd/boxd-desktop
+
+build-desktop-all:
+	@mkdir -p dist/desktop
+	@set -eu; \
+	for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do \
+		os=$${target%/*}; arch=$${target#*/}; ext=""; platform_ldflags=""; \
+		if [ "$${os}" = "windows" ]; then ext=".exe"; platform_ldflags="-H=windowsgui"; fi; \
+		echo "building desktop $$os/$$arch"; \
+		CGO_ENABLED=0 GOOS="$${os}" GOARCH="$${arch}" \
+			go build -trimpath -tags "$(BUILD_TAGS)" -ldflags "$(LDFLAGS) $${platform_ldflags}" \
+			-o "dist/desktop/boxd-desktop-$${os}-$${arch}$${ext}" ./cmd/boxd-desktop; \
+	done
 
 test:
 	go test -tags "$(BUILD_TAGS)" $(GO_PACKAGES)

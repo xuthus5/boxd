@@ -8,6 +8,18 @@ uses [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 
 ### Added
 
+- Native MyGo desktop client for Linux, macOS, and Windows with overview,
+  subscriptions, nodes, egress groups/chains, routes, DNS, rule sets, streaming
+  logs, connections, settings, and about pages. It runs the control plane
+  in-process, never exposes an HTTP management listener or Web login, and
+  supports single-instance startup, tray integration, persisted window/theme
+  preferences, and graceful shutdown.
+- Control-plane activity log and observation sampling are now transport-neutral
+  and shared by Web and desktop ingress; typed patch commands remove handler-side
+  merge logic from the HTTP adapter.
+- Architecture tests enforce independence between Web and desktop ingress and
+  prevent client-specific branching in the control plane.
+
 - Native HTTPS serving through `-tls-cert` and `-tls-key`, with TLS 1.2 as the
   minimum version, secure session cookies, and HSTS responses.
 - Web settings password rotation that generates a one-time 32-character random
@@ -51,5 +63,5 @@ uses [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 - Single local administrator only; multi-user RBAC, SSO, and multi-tenancy are
   not part of the current product boundary.
 - Backup and restore are intentionally excluded from the product.
-- Desktop and mobile host integrations are deferred until the control-plane,
-  kernel, and model contracts are stable.
+- Mobile host integration and WebView-based wrappers are out of scope for the
+  current native-desktop release line.

@@ -14,6 +14,7 @@ import (
 )
 
 const (
+	maxImportNodes      = 500
 	defaultDelayURL     = "https://www.gstatic.com/generate_204"
 	defaultTestLimit    = 50
 	maxTestLimit        = 500
@@ -70,8 +71,12 @@ func (s *NodeService) Get(ctx context.Context, id string) (control.Node, error) 
 }
 
 func (s *NodeService) Import(ctx context.Context, nodes []control.Node) (control.NodeImportResult, error) {
-	if len(nodes) == 0 {
-		return control.NodeImportResult{}, kernel.NewError(kernel.ErrCodeInvalidConfig, "nodes.import", "at least one node is required")
+	return s.importNodes(ctx, nodes, "")
+}
+
+func (s *NodeService) importNodes(ctx context.Context, nodes []control.Node, groupID string) (control.NodeImportResult, error) {
+	if len(nodes) == 0 || len(nodes) > maxImportNodes {
+		return control.NodeImportResult{}, kernel.NewError(kernel.ErrCodeInvalidConfig, "nodes.import", fmt.Sprintf("import requires between 1 and %d nodes", maxImportNodes))
 	}
 	imported := make([]control.Node, len(nodes))
 	copy(imported, nodes)
@@ -90,6 +95,18 @@ func (s *NodeService) Import(ctx context.Context, nodes []control.Node) (control
 
 	result := control.NodeImportResult{}
 	state, err := s.profile.update(ctx, "nodes.import", func(state *control.DesiredState) error {
+		groupIndex := -1
+		if groupID != "" {
+			for index := range state.Groups {
+				if state.Groups[index].ID == groupID {
+					groupIndex = index
+					break
+				}
+			}
+			if groupIndex < 0 {
+				return notFound("group", groupID)
+			}
+		}
 		indexByID := make(map[string]int, len(state.Nodes))
 		for index, node := range state.Nodes {
 			indexByID[node.ID] = index
@@ -103,6 +120,23 @@ func (s *NodeService) Import(ctx context.Context, nodes []control.Node) (control
 			indexByID[node.ID] = len(state.Nodes)
 			state.Nodes = append(state.Nodes, node)
 			result.Added++
+		}
+		if groupIndex >= 0 {
+			group := &state.Groups[groupIndex]
+			existing := make(map[string]struct{}, len(group.Members))
+			for _, member := range group.Members {
+				existing[member] = struct{}{}
+			}
+			for _, node := range imported {
+				if _, exists := existing[node.ID]; exists {
+					continue
+				}
+				group.Members = append(group.Members, node.ID)
+				existing[node.ID] = struct{}{}
+			}
+			if group.Kind == control.GroupKindSelector && group.Selected == "" && len(group.Members) > 0 {
+				group.Selected = group.Members[0]
+			}
 		}
 		return nil
 	})
@@ -118,6 +152,10 @@ func (s *NodeService) Import(ctx context.Context, nodes []control.Node) (control
 }
 
 func (s *NodeService) ImportLinks(ctx context.Context, links []string) (control.NodeImportResult, error) {
+	return s.ImportLinksIntoGroup(ctx, links, "")
+}
+
+func (s *NodeService) ImportLinksIntoGroup(ctx context.Context, links []string, groupID string) (control.NodeImportResult, error) {
 	if s.codec == nil {
 		return control.NodeImportResult{}, capabilityUnavailable("nodes.import_links", "node link codec")
 	}
@@ -132,7 +170,7 @@ func (s *NodeService) ImportLinks(ctx context.Context, links []string) (control.
 		}
 		nodes = append(nodes, node)
 	}
-	return s.Import(ctx, nodes)
+	return s.importNodes(ctx, nodes, strings.TrimSpace(groupID))
 }
 
 func (s *NodeService) DecodeLink(ctx context.Context, link string) (control.Node, error) {

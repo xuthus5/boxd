@@ -112,6 +112,39 @@ func (s *RuleSetService) Save(ctx context.Context, definition control.RuleSetDef
 	return ruleSetView(saved, status), nil
 }
 
+func (s *RuleSetService) Patch(ctx context.Context, name string, patch control.RuleSetPatch) (control.RuleSet, error) {
+	name = strings.TrimSpace(name)
+	var saved control.RuleSetDefinition
+	_, err := s.profile.update(ctx, "rulesets.patch", func(state *control.DesiredState) error {
+		for index := range state.RuleSets {
+			definition := &state.RuleSets[index]
+			if definition.Name != name {
+				continue
+			}
+			if definition.Builtin {
+				return kernel.NewError(kernel.ErrCodeConflict, "rulesets.patch", fmt.Sprintf("built-in rule set %q cannot be modified", name))
+			}
+			if patch.Enabled != nil {
+				definition.Enabled = *patch.Enabled
+			}
+			saved = *definition
+			return nil
+		}
+		return notFound("rule set", name)
+	})
+	if err != nil {
+		return control.RuleSet{}, err
+	}
+	status, found, err := s.getStatus(ctx, saved.Name)
+	if err != nil {
+		return control.RuleSet{}, err
+	}
+	if !found {
+		status = control.RuleSetStatus{Name: saved.Name}
+	}
+	return ruleSetView(saved, status), nil
+}
+
 func (s *RuleSetService) Delete(ctx context.Context, name string) error {
 	name = strings.TrimSpace(name)
 	_, err := s.profile.update(ctx, "rulesets.delete", func(state *control.DesiredState) error {

@@ -23,6 +23,7 @@ type App struct {
 	ruleSets      control.RuleSetAPI
 	settings      control.SettingsAPI
 	observability control.ObservabilityAPI
+	activityLogs  control.ActivityLogAPI
 	audit         control.AuditAPI
 }
 
@@ -69,6 +70,7 @@ func NewWithDependencies(kernelManager kernel.Manager, configStore kernel.Config
 	nodeService.SetAuditor(audit)
 	dns.SetAuditor(audit)
 	dns.SetProber(dependencies.DNSProber)
+	activityLogs := NewActivityService(0)
 	return &App{
 		kernel:        kernelService,
 		config:        configService,
@@ -83,7 +85,8 @@ func NewWithDependencies(kernelManager kernel.Manager, configStore kernel.Config
 		dns:           dns,
 		ruleSets:      ruleSetService,
 		settings:      settingsService,
-		observability: NewObservabilityService(kernelManager),
+		observability: NewObservabilityService(kernelManager, profileService),
+		activityLogs:  activityLogs,
 		audit:         audit,
 	}
 }
@@ -102,4 +105,5 @@ func (a *App) DNS() control.DNSAPI                     { return a.dns }
 func (a *App) RuleSets() control.RuleSetAPI            { return a.ruleSets }
 func (a *App) Settings() control.SettingsAPI           { return a.settings }
 func (a *App) Observability() control.ObservabilityAPI { return a.observability }
+func (a *App) ActivityLogs() control.ActivityLogAPI    { return a.activityLogs }
 func (a *App) Audit() control.AuditAPI                 { return a.audit }

@@ -5,7 +5,7 @@
 <h1 align="center">boxd</h1>
 
 <p align="center">
-  基于 sing-box 的现代化控制平面，内置 Web 控制台、订阅管理、策略路由、DNS 编排与流式可观测能力。
+  基于 sing-box 的现代化控制平面，内置 Web 控制台、原生桌面客户端、订阅管理、策略路由、DNS 编排与流式可观测能力。
 </p>
 
 <p align="center">
@@ -18,6 +18,7 @@
 <p align="center">
   <a href="#项目简介">项目简介</a> ·
   <a href="#产品截图">产品截图</a> ·
+  <a href="#原生桌面端">原生桌面端</a> ·
   <a href="#架构设计">架构设计</a> ·
   <a href="#部署方式一二进制部署">二进制部署</a> ·
   <a href="#部署方式二systemd-部署">systemd 部署</a> ·
@@ -26,7 +27,7 @@
   <a href="#开发与测试">开发与测试</a>
 </p>
 
-> **项目状态**：当前版本聚焦控制平面、数据平面及其管理能力，不包含桌面/移动宿主接入、Web Shell、终端执行和备份恢复功能。
+> **项目状态**：当前版本已覆盖控制平面、数据平面、Web 控制台和 MyGo 原生桌面客户端。桌面端直接持有一个本地控制面实例，不经过 HTTP 管理端口，也不继承 Web 登录能力；移动宿主、Web Shell、终端执行和备份恢复仍不在范围内。
 
 > **商用发布基线**：当前 Web 控制台、控制平面、持久化、内核驱动和 API 均连接真实 `boxd` 实例，不包含前端 mock 数据。仓库已提供许可证、OpenAPI 契约、跨浏览器 E2E、无障碍门禁、兼容性矩阵、安全政策和发布检查清单。正式对外提供服务前，部署方仍应完成自身环境的安全审计、容量验证、合规评估和运维预案。
 
@@ -34,12 +35,16 @@
 
 boxd 是一个围绕 [sing-box](https://sing-box.sagernet.org/) 构建的代理控制平面。它把内核生命周期、配置事务、入站监听、节点与订阅、策略组、多跳链路、路由规则、DNS、规则集和运行观测统一到一个可审计、可回滚的管理模型中，并通过内置 Web 控制台和 REST/SSE API 对外提供操作能力。
 
+除 Web 控制台外，仓库提供基于 [MyGo](https://github.com/egoist/mygo) 的原生桌面客户端。桌面端使用 Go 原生控件渲染，不嵌入 Web 页面；Linux、macOS 与 Windows 共享同一套控制面契约和业务用例。
+
 项目采用清晰的分层边界：
 
 - `cmd/boxd` 只负责宿主启动与参数解析。
+- `cmd/boxd-desktop` 是原生桌面组合根，负责本地生命周期、单实例、托盘和偏好存储。
 - `control`、`kernel` 是不依赖内部实现细节的稳定契约。
 - `internal/controlplane` 实现控制面用例和统一配置事务。
 - SQLite、sing-box、HTTP/订阅下载器等外部依赖被隔离在各自适配器中。
+- Web 与桌面入站互不导入；两者只通过 `control.Application` 使用相同业务能力。
 - 生产构建通过 Go embed 内嵌 Web 控制台，无需额外部署静态文件。
 
 当前版本适合单机部署代理控制面、节点编排和 Web 管理；Web 入口既支持直接终止 TLS，也可部署在可信的 TLS 反向代理之后。
@@ -70,6 +75,14 @@ boxd 是一个围绕 [sing-box](https://sing-box.sagernet.org/) 构建的代理�
 |---|---|
 | ![应用与内核日志](docs/images/logs.png) | <img src="docs/images/overview-mobile.png" width="330" alt="移动端总览"> |
 
+### 原生桌面端
+
+桌面客户端使用 MyGo 原生控件，默认浅色主题、克制的渐变品牌色与紧凑侧栏，可在设置中即时切换暗色主题。截图来自连接到真实本地控制面的隔离实例，不使用 mock 数据。
+
+| 原生桌面总览 | 暗色主题 |
+|---|---|
+| ![原生桌面总览](docs/images/desktop-overview.png) | ![暗色主题](docs/images/desktop-overview-dark.png) |
+
 ## 核心能力
 
 | 领域 | 能力 |
@@ -82,6 +95,7 @@ boxd 是一个围绕 [sing-box](https://sing-box.sagernet.org/) 构建的代理�
 | 节点操作 | 单节点编辑、单节点/多节点测速、URL Test、TCP Ping、ICMP Ping、测速历史 |
 | 规则集 | 内置与自定义规则集、条件下载、字节统计、刷新状态和依赖校验 |
 | 可观测性 | 真实连接快照、连接关闭、流量采样、DNS 探测、规则命中、应用与内核日志流 |
+| 宿主接入 | MyGo 原生桌面端；单实例、托盘、窗口状态、主题持久化、优雅退出；不启动 HTTP 管理端口 |
 | 安全 | Web 专用管理员 PBKDF2 口令、服务端随机口令轮换、24 小时会话、HttpOnly + SameSite=Strict Cookie、Bearer Token、同源写操作校验、直连 HTTPS |
 | 数据存储 | SQLite WAL、外键、版本化内嵌迁移、配置历史和期望状态快照 |
 
@@ -105,8 +119,10 @@ boxd 以“可部署、可验证、可维护”为发布基线，而不是只有
 flowchart LR
     Browser[Web 控制台] -->|REST + SSE| HTTP[HTTP API]
     Client[API 客户端] -->|REST| HTTP
+    Desktop[MyGo 原生桌面] --> MyGo[MyGo 入站适配器]
     HTTP --> WebAuth[Web 认证与会话]
     HTTP --> Control[控制平面用例]
+    MyGo --> Control
     Control --> Manager[内核管理器]
     Control --> SQLite[(SQLite WAL)]
     Manager --> Engine[sing-box v1.14.x]
@@ -121,6 +137,7 @@ flowchart LR
 
 ```text
 cmd/boxd/                          headless / Web 宿主入口
+cmd/boxd-desktop/                  MyGo 原生桌面组合根与本地偏好
 control/                           稳定控制面契约
 kernel/                            稳定内核契约
 webui/                             内嵌 Web 控制台静态资源
@@ -130,6 +147,7 @@ internal/controlplane/             控制面用例与配置事务
 internal/webauth/                 仅 Web 入口使用的管理员凭据与会话
 internal/kernel/manager/           与引擎无关的内核状态机
 internal/adapters/inbound/httpapi/ REST、SSE、认证和静态控制台
+internal/adapters/inbound/mygo/    MyGo 原生视图、控制器与桌面生命周期
 internal/adapters/outbound/        sing-box 配置、SQLite、订阅、下载和探测适配器
 internal/driver/singbox/           sing-box 唯一依赖边界与真实 Driver
 deploy/                            systemd 单元、安装与卸载脚本
@@ -142,6 +160,7 @@ docs/                              架构、控制面和版本兼容文档
 ## 环境要求
 
 - Linux `amd64` 或 `arm64`。
+- 原生桌面端支持 Linux、macOS 和 Windows；当前 Linux 已完成真实窗口验收，macOS/Windows 在 CI 中执行交叉编译验证。
 - 默认 Web 监听端口 `7662`，Mixed 代理监听端口 `1080`。
 - 二进制发布包为静态构建，不依赖系统 Go 环境。
 - 从源码构建需要 Go `1.27+`。
@@ -422,6 +441,64 @@ docker compose up -d
 docker compose logs -f boxd
 ```
 
+## 原生桌面端
+
+桌面端不是 WebView 包装层。它通过 `cmd/boxd-desktop` 在进程内初始化控制面，并把同一个 `control.Application` 交给 MyGo 原生视图；不会监听 `7662`，不会加载 `internal/webauth`，也不存在管理员登录或浏览器会话。
+
+### 构建与运行
+
+Linux 本机构建：
+
+```bash
+make build-desktop
+./bin/boxd-desktop -data-dir ./boxd-desktop-data
+```
+
+三端交叉编译验证：
+
+```bash
+make build-desktop-all
+ls -lh dist/desktop/
+```
+
+产物包括：
+
+```text
+dist/desktop/boxd-desktop-linux-amd64
+dist/desktop/boxd-desktop-linux-arm64
+dist/desktop/boxd-desktop-darwin-amd64
+dist/desktop/boxd-desktop-darwin-arm64
+dist/desktop/boxd-desktop-windows-amd64.exe
+```
+
+桌面端支持 `-data-dir` 和 `-version`。未指定数据目录时使用操作系统用户配置目录下的 `boxd-desktop`，与 Web 服务默认数据目录隔离，避免两个宿主同时写同一个 SQLite 数据库。
+
+### 桌面生命周期
+
+- 单实例：重复启动会唤回已有窗口；同一数据目录另有文件锁保护。
+- 窗口状态：窗口位置、尺寸和最大化状态由 MyGo 的稳定 `StateKey` 保存。
+- 主题：浅色/暗色偏好保存在数据目录的 `desktop-preferences.json`，启动后立即恢复。
+- 托盘：支持显示窗口、隐藏窗口、刷新控制面和退出；无 AppIndicator 的纯 Xvfb 环境会自动跳过托盘而不影响主窗口。
+- 关闭：退出前先停止观测采样、订阅调度器和内核，再释放 SQLite。
+
+### 无桌面 Linux 验收
+
+Linux 服务器可以通过 Xvfb 运行真实原生窗口，并用 MyGo 自动化协议检查元素和截图。以下命令用于开发和验收，不进入发布二进制：
+
+```bash
+go build -trimpath -tags "e2e,with_utls,with_quic" -o bin/boxd-desktop-e2e ./cmd/boxd-desktop
+Xvfb :99 -screen 0 1600x1000x24 -nolisten tcp &
+DISPLAY=:99 MYGO_AUTOMATION=/tmp/boxd-desktop.sock \
+  ./bin/boxd-desktop-e2e -data-dir /tmp/boxd-desktop-e2e
+
+go install github.com/egoist/mygo/cmd/mygo-automation@v0.10.0
+mygo-automation open --socket /tmp/boxd-desktop.sock
+mygo-automation snapshot -i
+mygo-automation screenshot test-results/desktop/overview.png
+```
+
+当前镜像未安装 AppIndicator 时，托盘创建会静默降级；这是宿主环境限制，不是控制面故障。TUN 仍需要 `/dev/net/tun` 与 `CAP_NET_ADMIN`，普通用户运行桌面端时可以正常管理订阅、节点、路由、DNS 和 Mixed 入口，但启动 TUN 会按内核能力返回明确错误。
+
 ## 配置说明
 
 boxd 使用命令行参数启动，托管状态由 Web 控制台和 REST API 写入 SQLite；当前版本不读取独立的 YAML 配置文件。
@@ -469,7 +546,7 @@ Web 控制台和 API 的配置事实来源是 SQLite。修改端口、入口、�
 - 反向代理应指向 `http://127.0.0.1:7662`，并保留 `Host`、`X-Forwarded-*` 与 SSE 所需的流式响应设置。
 - systemd 单元已启用 `NoNewPrivileges`、`ProtectSystem=strict`、`ProtectHome`、`RestrictAddressFamilies` 和能力边界；如需调整 TUN 或网络能力，应逐项评估。
 - 节点凭据、订阅令牌和连接凭据在列表视图中脱敏；完整协议参数只在管理员显式打开编辑器时加载。
-- 当前版本不提供 Web Shell、任意命令执行、桌面宿主接入和备份恢复能力。
+- 当前版本不提供 Web Shell、任意命令执行和备份恢复能力；桌面宿主直接使用控制面门面，不继承 Web 管理员口令或 Cookie。
 
 ## REST API 与事件流
 
@@ -481,7 +558,7 @@ Web 控制台和 API 的配置事实来源是 SQLite。修改端口、入口、�
 - 管理员登录：`POST /api/v1/auth/login`
 - 管理员随机轮换口令：`POST /api/v1/auth/rotate-password`（需要认证，不接受自定义口令请求体）
 
-除健康检查、认证状态、初始化和登录外，其余 API 均要求有效会话。Web 控制台使用同源 HttpOnly Cookie；自动化客户端可在登录后使用 `Authorization: Bearer <token>`。认证与口令存储仅属于 Web 入站层，不暴露在 `control.Application` 中，后续桌面宿主不会继承这套 Web 会话能力。
+除健康检查、认证状态、初始化和登录外，其余 API 均要求有效会话。Web 控制台使用同源 HttpOnly Cookie；自动化客户端可在登录后使用 `Authorization: Bearer <token>`。认证与口令存储仅属于 Web 入站层，不暴露在 `control.Application` 中；原生桌面宿主直接调用控制面门面，不继承这套 Web 会话能力。
 
 完整路由、领域约束和错误语义见 [控制面文档](docs/control-plane.md)；机器可读的 OpenAPI 3.1 契约见 [docs/openapi.yaml](docs/openapi.yaml)。
 
@@ -496,6 +573,13 @@ make build
 
 访问 `http://127.0.0.1:7662/`，首次进入时初始化管理员口令。
 
+原生桌面端本地运行：
+
+```bash
+make build-desktop
+./bin/boxd-desktop -data-dir ./tmp-desktop-data
+```
+
 ### 常用命令
 
 ```bash
@@ -504,6 +588,8 @@ make race          # 竞态测试
 make vet           # go vet
 make fmt-check     # 检查 Go 格式
 make ci            # 格式、vet、测试和构建
+make build-desktop # 构建当前平台的 MyGo 桌面端
+make build-desktop-all # 交叉编译 Linux/macOS/Windows 桌面端
 make engine-version
 ```
 
@@ -552,6 +638,8 @@ GitHub Actions 包含以下工作流：
 - 记录版本、提交、资产大小、SHA-256、Release 下载地址和 GHCR 镜像信息的 `boxd-manifest.json`。
 - 覆盖全部资产的 `checksums.txt`。
 
+`ci.yml` 中的构建门禁会额外执行 `make build-desktop-all`，确保 Linux、macOS 与 Windows 桌面入口在每次变更后仍可交叉编译。当前正式发布包仍以 Web/headless Linux 服务为主；桌面平台安装器与平台签名属于后续发布打包工作，不影响桌面二进制构建和三端共享代码的 CI 验证。
+
 容器镜像采用多阶段构建与 distroless 运行时，支持 `linux/amd64` 和 `linux/arm64`。发布工作流需要在仓库 **Settings → Actions → General → Workflow permissions** 中允许 `Read and write permissions`；GHCR 包可见性可在 GitHub Package 设置中调整。
 
 ## 故障排查
@@ -598,11 +686,11 @@ systemd 部署需要保留 `CAP_NET_ADMIN`；容器部署需要 `--network host 
 
 ## 项目范围
 
-当前版本已经完成控制平面及其以下能力，包括内核、配置、入口、出口、订阅、节点、路由、DNS、规则集、观测、日志和 Web 管理。
+当前版本已经完成控制平面及其以下能力，包括内核、配置、入口、出口、订阅、节点、路由、DNS、规则集、观测、日志、Web 管理和 MyGo 原生桌面客户端。
 
 以下能力不在当前范围内：
 
-- 桌面应用、移动应用、Wails 或其他上层宿主接入。
+- 移动应用、WebView 包装层、Wails 或其他上层宿主接入；已交付的桌面客户端不嵌入 Web 页面。
 - Web 终端、Shell 或任意命令执行。
 - 备份与恢复。
 - 多实例集群编排和跨主机高可用。

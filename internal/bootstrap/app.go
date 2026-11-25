@@ -145,6 +145,12 @@ func New(ctx context.Context, opts Options) (*App, error) {
 		_ = store.Close()
 		return nil, fmt.Errorf("start subscription scheduler: %w", err)
 	}
+	if err := application.Observability().StartSampling(ctx); err != nil {
+		_ = scheduler.Stop(context.Background())
+		_ = kernelManager.Close()
+		_ = store.Close()
+		return nil, fmt.Errorf("start observation sampler: %w", err)
+	}
 	logger.Info("control plane initialized",
 		slog.String("database", databasePath),
 		slog.String("engine", string(opts.Factory.Kind())),
@@ -183,6 +189,9 @@ func (a *App) Close() error {
 	}
 	ctx := context.Background()
 	var closeErrors []error
+	if a.Control != nil {
+		a.Control.Observability().StopSampling()
+	}
 	if a.scheduler != nil {
 		if err := a.scheduler.Stop(ctx); err != nil {
 			closeErrors = append(closeErrors, err)

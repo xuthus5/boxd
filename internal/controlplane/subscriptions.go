@@ -79,6 +79,37 @@ func (s *SubscriptionService) Save(ctx context.Context, subscription control.Sub
 	return control.Subscription{}, notFound("subscription", subscription.ID)
 }
 
+func (s *SubscriptionService) Patch(ctx context.Context, id string, patch control.SubscriptionPatch) (control.Subscription, error) {
+	var saved control.Subscription
+	_, err := s.profile.update(ctx, "subscriptions.patch", func(state *control.DesiredState) error {
+		for index := range state.Subscriptions {
+			subscription := &state.Subscriptions[index]
+			if subscription.ID != id {
+				continue
+			}
+			if patch.Name != nil {
+				subscription.Name = *patch.Name
+			}
+			if patch.URL != nil {
+				subscription.URL = *patch.URL
+			}
+			if patch.IntervalSeconds != nil {
+				subscription.IntervalSeconds = *patch.IntervalSeconds
+			}
+			if patch.Enabled != nil {
+				subscription.Enabled = *patch.Enabled
+			}
+			saved = *subscription
+			return nil
+		}
+		return notFound("subscription", id)
+	})
+	if err != nil {
+		return control.Subscription{}, err
+	}
+	return saved, nil
+}
+
 func (s *SubscriptionService) Delete(ctx context.Context, id string) error {
 	_, err := s.profile.update(ctx, "subscriptions.delete", func(state *control.DesiredState) error {
 		subscriptionIndex := -1

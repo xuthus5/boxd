@@ -39,10 +39,13 @@ npx playwright install --with-deps chromium firefox webkit
 - Only the sing-box driver may depend on sing-box implementation packages.
 - HTTP handlers perform protocol conversion, authentication, validation, and
   view redaction. They must not duplicate control-plane business rules.
+- Native desktop views dispatch user intent into the same `control.Application`
+  surface. Do not import HTTP handlers or Web authentication into the desktop
+  adapter, and do not add host/client kind branches to control-plane use cases.
 - All mutations must preserve the atomic desired-state and configuration apply
   model. Do not add a second persistence path.
-- Do not add Web Shell, arbitrary command execution, backup/restore, or
-  upper-layer desktop/mobile host integration to the current scope.
+- Do not add Web Shell, arbitrary command execution, backup/restore, mobile host
+  integration, or a WebView-based desktop wrapper to the current scope.
 
 ## Before opening a pull request
 

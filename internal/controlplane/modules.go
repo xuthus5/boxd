@@ -96,6 +96,40 @@ func (s *InboundService) Save(ctx context.Context, profile control.InboundProfil
 	return control.InboundProfile{}, notFound("inbound", profile.ID)
 }
 
+func (s *InboundService) Patch(ctx context.Context, id string, patch control.InboundPatch) (control.InboundProfile, error) {
+	state, err := s.profile.update(ctx, "inbounds.patch", func(state *control.DesiredState) error {
+		for index := range state.Inbounds {
+			if state.Inbounds[index].ID != id {
+				continue
+			}
+			profile := &state.Inbounds[index]
+			if patch.Name != nil {
+				profile.Name = *patch.Name
+			}
+			if patch.Enabled != nil {
+				profile.Enabled = *patch.Enabled
+			}
+			if patch.Listen != nil {
+				profile.Listen = *patch.Listen
+			}
+			if patch.UDP != nil {
+				profile.UDP = *patch.UDP
+			}
+			return nil
+		}
+		return notFound("inbound", id)
+	})
+	if err != nil {
+		return control.InboundProfile{}, err
+	}
+	for _, profile := range state.Inbounds {
+		if profile.ID == id {
+			return profile, nil
+		}
+	}
+	return control.InboundProfile{}, notFound("inbound", id)
+}
+
 func (s *InboundService) Delete(ctx context.Context, id string) error {
 	_, err := s.profile.update(ctx, "inbounds.delete", func(state *control.DesiredState) error {
 		for index := range state.Inbounds {
@@ -365,6 +399,40 @@ func (s *RouteService) SaveRule(ctx context.Context, rule control.RouteRule) (co
 	return control.RouteRule{}, notFound("route rule", rule.ID)
 }
 
+func (s *RouteService) PatchRule(ctx context.Context, id string, patch control.RouteRulePatch) (control.RouteRule, error) {
+	var saved control.RouteRule
+	_, err := s.profile.update(ctx, "routes.patch_rule", func(state *control.DesiredState) error {
+		for index := range state.Routes.Rules {
+			rule := &state.Routes.Rules[index]
+			if rule.ID != id {
+				continue
+			}
+			if patch.Name != nil {
+				rule.Name = *patch.Name
+			}
+			if patch.Disabled != nil {
+				rule.Disabled = *patch.Disabled
+			}
+			if patch.Match != nil {
+				rule.Match = *patch.Match
+			}
+			if patch.Action != nil {
+				rule.Action = *patch.Action
+			}
+			if patch.Egress != nil {
+				rule.Egress = *patch.Egress
+			}
+			saved = *rule
+			return nil
+		}
+		return notFound("route rule", id)
+	})
+	if err != nil {
+		return control.RouteRule{}, err
+	}
+	return saved, nil
+}
+
 func (s *RouteService) DeleteRule(ctx context.Context, id string) error {
 	_, err := s.profile.update(ctx, "routes.delete_rule", func(state *control.DesiredState) error {
 		for index := range state.Routes.Rules {
@@ -430,6 +498,35 @@ func (s *DNSService) Get(ctx context.Context) (control.DNSProfile, error) {
 func (s *DNSService) Update(ctx context.Context, profile control.DNSProfile) (control.DNSProfile, error) {
 	state, err := s.profile.update(ctx, "dns.update", func(state *control.DesiredState) error {
 		state.DNS = profile
+		return nil
+	})
+	if err != nil {
+		return control.DNSProfile{}, err
+	}
+	s.mu.Lock()
+	s.probes = make(map[string]control.DNSProbeResult)
+	s.mu.Unlock()
+	return state.DNS, nil
+}
+
+func (s *DNSService) Patch(ctx context.Context, patch control.DNSProfilePatch) (control.DNSProfile, error) {
+	state, err := s.profile.update(ctx, "dns.patch", func(state *control.DesiredState) error {
+		profile := &state.DNS
+		if patch.Strategy != nil {
+			profile.Strategy = *patch.Strategy
+		}
+		if patch.Cache != nil {
+			profile.Cache = *patch.Cache
+		}
+		if patch.Domestic != nil {
+			profile.Domestic = *patch.Domestic
+		}
+		if patch.Foreign != nil {
+			profile.Foreign = *patch.Foreign
+		}
+		if patch.Default != nil {
+			profile.Default = *patch.Default
+		}
 		return nil
 	})
 	if err != nil {
@@ -515,44 +612,6 @@ func (s *DNSService) ProbeResults(context.Context) ([]control.DNSProbeResult, er
 		}
 	}
 	return results, nil
-}
-
-type ObservabilityService struct {
-	manager kernel.Manager
-}
-
-var _ control.ObservabilityAPI = (*ObservabilityService)(nil)
-
-func NewObservabilityService(manager kernel.Manager) *ObservabilityService {
-	return &ObservabilityService{manager: manager}
-}
-
-func (s *ObservabilityService) RecentLogs(limit int) []kernel.LogEntry {
-	return s.manager.RecentLogs(limit)
-}
-
-func (s *ObservabilityService) Traffic(context.Context) (kernel.TrafficSnapshot, error) {
-	return s.manager.TrafficSnapshot(), nil
-}
-
-func (s *ObservabilityService) Connections(ctx context.Context) ([]kernel.Connection, error) {
-	return s.manager.ListConnections(ctx)
-}
-
-func (s *ObservabilityService) ClosedConnections(ctx context.Context) ([]kernel.Connection, error) {
-	return s.manager.ListClosedConnections(ctx)
-}
-
-func (s *ObservabilityService) CloseConnection(ctx context.Context, id int64) error {
-	return s.manager.CloseConnection(ctx, id)
-}
-
-func (s *ObservabilityService) CloseConnections(ctx context.Context, filter kernel.ConnectionFilter) (int, error) {
-	return s.manager.CloseConnections(ctx, filter)
-}
-
-func (s *ObservabilityService) Subscribe(ctx context.Context, types ...kernel.EventType) (<-chan kernel.Event, error) {
-	return s.manager.Subscribe(ctx, types...)
 }
 
 func notFound(kind, id string) error {

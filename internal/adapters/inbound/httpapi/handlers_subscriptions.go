@@ -42,19 +42,17 @@ func (s *Server) handleSubscriptionList(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Server) handleSubscriptionGet(w http.ResponseWriter, r *http.Request) {
-	subscriptions, err := s.app.Subscriptions().List(r.Context())
+	subscription, err := s.app.Subscriptions().Get(r.Context(), r.PathValue("id"))
 	if err != nil {
 		s.writeServiceError(w, r, err)
 		return
 	}
-	for _, subscription := range subscriptions {
-		if subscription.ID == r.PathValue("id") {
-			catalog, _ := s.app.Egress().Catalog(r.Context())
-			writeJSON(w, http.StatusOK, makeSubscriptionViews([]control.Subscription{subscription}, catalog.Nodes, time.Now().UTC())[0])
-			return
-		}
+	catalog, err := s.app.Egress().Catalog(r.Context())
+	if err != nil {
+		s.writeServiceError(w, r, err)
+		return
 	}
-	writeError(w, r, newAPIError(http.StatusNotFound, "kernel_not_found", "subscriptions.get", "subscription was not found", "reload the page and retry"))
+	writeJSON(w, http.StatusOK, makeSubscriptionViews([]control.Subscription{subscription}, catalog.Nodes, time.Now().UTC())[0])
 }
 
 func (s *Server) handleSubscriptionCreate(w http.ResponseWriter, r *http.Request) {
@@ -78,30 +76,19 @@ func (s *Server) handleSubscriptionPatch(w http.ResponseWriter, r *http.Request)
 		writeError(w, r, err.(*apiError))
 		return
 	}
-	subscription, err := s.app.Subscriptions().Get(r.Context(), r.PathValue("id"))
-	if err != nil {
-		s.writeServiceError(w, r, err)
-		return
-	}
-	if patch.Name != nil {
-		subscription.Name = *patch.Name
-	}
-	if patch.URL != nil {
-		subscription.URL = *patch.URL
-	}
-	if patch.IntervalSeconds != nil {
-		subscription.IntervalSeconds = *patch.IntervalSeconds
-	}
-	if patch.Enabled != nil {
-		subscription.Enabled = *patch.Enabled
-	}
-	saved, err := s.app.Subscriptions().Save(r.Context(), subscription)
+	saved, err := s.app.Subscriptions().Patch(r.Context(), r.PathValue("id"), control.SubscriptionPatch{
+		Name: patch.Name, URL: patch.URL, IntervalSeconds: patch.IntervalSeconds, Enabled: patch.Enabled,
+	})
 	if err != nil {
 		s.writeServiceError(w, r, err)
 		return
 	}
 	s.logs.add("info", "subscriptions", "subscription updated", map[string]any{"id": saved.ID, "enabled": saved.Enabled})
-	catalog, _ := s.app.Egress().Catalog(r.Context())
+	catalog, err := s.app.Egress().Catalog(r.Context())
+	if err != nil {
+		s.writeServiceError(w, r, err)
+		return
+	}
 	writeJSON(w, http.StatusOK, makeSubscriptionViews([]control.Subscription{saved}, catalog.Nodes, time.Now().UTC())[0])
 }
 
@@ -124,7 +111,11 @@ func (s *Server) handleSubscriptionRefresh(w http.ResponseWriter, r *http.Reques
 	s.logs.add("info", "subscriptions", "subscription refreshed", map[string]any{
 		"id": result.Subscription.ID, "added": result.Added, "updated": result.Updated, "removed": result.Removed,
 	})
-	catalog, _ := s.app.Egress().Catalog(r.Context())
+	catalog, err := s.app.Egress().Catalog(r.Context())
+	if err != nil {
+		s.writeServiceError(w, r, err)
+		return
+	}
 	writeJSON(w, http.StatusOK, subscriptionRefreshView{
 		Subscription: makeSubscriptionViews([]control.Subscription{result.Subscription}, catalog.Nodes, time.Now().UTC())[0],
 		Added:        result.Added, Updated: result.Updated, Removed: result.Removed, NotModified: result.NotModified,
@@ -137,7 +128,11 @@ func (s *Server) handleSubscriptionRefreshAll(w http.ResponseWriter, r *http.Req
 		s.writeServiceError(w, r, err)
 		return
 	}
-	catalog, _ := s.app.Egress().Catalog(r.Context())
+	catalog, err := s.app.Egress().Catalog(r.Context())
+	if err != nil {
+		s.writeServiceError(w, r, err)
+		return
+	}
 	views := make([]subscriptionRefreshView, 0, len(results))
 	for _, result := range results {
 		views = append(views, subscriptionRefreshView{

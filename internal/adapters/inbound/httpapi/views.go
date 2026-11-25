@@ -313,10 +313,6 @@ func (s *Server) buildSnapshot(ctx context.Context) (snapshotView, error) {
 	if err != nil && !isNotRunning(err) {
 		return snapshotView{}, err
 	}
-	closedConnections, err := s.app.Observability().ClosedConnections(ctx)
-	if err != nil && !isNotRunning(err) {
-		return snapshotView{}, err
-	}
 	traffic, err := s.app.Observability().Traffic(ctx)
 	if err != nil {
 		return snapshotView{}, err
@@ -330,7 +326,10 @@ func (s *Server) buildSnapshot(ctx context.Context) (snapshotView, error) {
 		}
 	}
 	connectionViews := makeConnectionViews(connections, now)
-	observation := s.observation.Update(kernelStatus, connections, closedConnections, routes, inbounds, catalog.Nodes, catalog.Chains, now)
+	observation, err := s.app.Observability().Snapshot(ctx)
+	if err != nil {
+		return snapshotView{}, err
+	}
 	nodeViews := makeNodeViewsWithObservation(catalog.Nodes, groupByNode, catalog.Groups, observation)
 	groupViews := makeGroupViews(catalog.Groups, catalog.Nodes)
 	routeViews := makeRouteViewsWithObservation(routes, catalog, observation)
@@ -875,7 +874,7 @@ func makeTrafficView(snapshot kernel.TrafficSnapshot, now time.Time, available b
 	}
 }
 
-func makeAppLogViews(entries []appLogEntry) []logView {
+func makeAppLogViews(entries []control.ActivityLogEntry) []logView {
 	result := make([]logView, 0, len(entries))
 	for _, entry := range entries {
 		result = append(result, logView{ID: "app-" + strconv.FormatUint(entry.ID, 10), Time: entry.Time, Level: entry.Level, Source: entry.Source, Message: entry.Message, Fields: entry.Fields})

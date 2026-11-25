@@ -61,24 +61,9 @@ func (s *Server) handleInboundPatch(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, err.(*apiError))
 		return
 	}
-	profile, err := s.app.Inbounds().Get(r.Context(), r.PathValue("id"))
-	if err != nil {
-		s.writeServiceError(w, r, err)
-		return
-	}
-	if patch.Name != nil {
-		profile.Name = *patch.Name
-	}
-	if patch.Enabled != nil {
-		profile.Enabled = *patch.Enabled
-	}
-	if patch.Listen != nil {
-		profile.Listen = *patch.Listen
-	}
-	if patch.UDP != nil {
-		profile.UDP = *patch.UDP
-	}
-	saved, err := s.app.Inbounds().Save(r.Context(), profile)
+	saved, err := s.app.Inbounds().Patch(r.Context(), r.PathValue("id"), control.InboundPatch{
+		Name: patch.Name, Enabled: patch.Enabled, Listen: patch.Listen, UDP: patch.UDP,
+	})
 	if err != nil {
 		s.writeServiceError(w, r, err)
 		return

@@ -24,6 +24,7 @@ type Application interface {
 	RuleSets() RuleSetAPI
 	Settings() SettingsAPI
 	Observability() ObservabilityAPI
+	ActivityLogs() ActivityLogAPI
 	Audit() AuditAPI
 }
 
@@ -51,11 +52,20 @@ type SetupAPI interface {
 	Capabilities(ctx context.Context) (kernel.EngineDescriptor, error)
 }
 
+// InboundPatch is a partial inbound update. Nil fields are unchanged.
+type InboundPatch struct {
+	Name    *string        `json:"name,omitempty"`
+	Enabled *bool          `json:"enabled,omitempty"`
+	Listen  *ListenAddress `json:"listen,omitempty"`
+	UDP     *bool          `json:"udp,omitempty"`
+}
+
 // InboundAPI manages the first-version Mixed and TUN entries.
 type InboundAPI interface {
 	List(ctx context.Context) ([]InboundProfile, error)
 	Get(ctx context.Context, id string) (InboundProfile, error)
 	Save(ctx context.Context, profile InboundProfile) (InboundProfile, error)
+	Patch(ctx context.Context, id string, patch InboundPatch) (InboundProfile, error)
 	Delete(ctx context.Context, id string) error
 }
 
@@ -71,6 +81,15 @@ type EgressAPI interface {
 	SelectGroupMember(ctx context.Context, groupID, nodeID string) error
 }
 
+// RouteRulePatch is a partial route-rule update. Nil fields are unchanged.
+type RouteRulePatch struct {
+	Name     *string      `json:"name,omitempty"`
+	Disabled *bool        `json:"disabled,omitempty"`
+	Match    *RouteMatch  `json:"match,omitempty"`
+	Action   *RouteAction `json:"action,omitempty"`
+	Egress   *EgressRef   `json:"egress,omitempty"`
+}
+
 // RouteAPI owns one-click modes, presets, and ordered custom rules.
 type RouteAPI interface {
 	Get(ctx context.Context) (RouteProfile, error)
@@ -78,14 +97,25 @@ type RouteAPI interface {
 	SetDefaultEgress(ctx context.Context, egress EgressRef) (RouteProfile, error)
 	SetPresets(ctx context.Context, presets RoutePresets) (RouteProfile, error)
 	SaveRule(ctx context.Context, rule RouteRule) (RouteRule, error)
+	PatchRule(ctx context.Context, id string, patch RouteRulePatch) (RouteRule, error)
 	DeleteRule(ctx context.Context, id string) error
 	ReplaceRules(ctx context.Context, rules []RouteRule) ([]RouteRule, error)
+}
+
+// DNSProfilePatch is a partial DNS profile update. Nil fields are unchanged.
+type DNSProfilePatch struct {
+	Strategy *string          `json:"strategy,omitempty"`
+	Cache    *bool            `json:"cache,omitempty"`
+	Domestic *DNSServerConfig `json:"domestic,omitempty"`
+	Foreign  *DNSServerConfig `json:"foreign,omitempty"`
+	Default  *DNSServerConfig `json:"default,omitempty"`
 }
 
 // DNSAPI owns the fixed three-slot DNS profile.
 type DNSAPI interface {
 	Get(ctx context.Context) (DNSProfile, error)
 	Update(ctx context.Context, profile DNSProfile) (DNSProfile, error)
+	Patch(ctx context.Context, patch DNSProfilePatch) (DNSProfile, error)
 	Flush(ctx context.Context) error
 	Test(ctx context.Context) ([]DNSProbeResult, error)
 	ProbeResults(ctx context.Context) ([]DNSProbeResult, error)
@@ -98,8 +128,13 @@ type SettingsAPI interface {
 	Set(ctx context.Context, key, value string) (Setting, error)
 }
 
-// ObservabilityAPI exposes logs, traffic, connections, and live events.
+// ObservabilityAPI exposes engine logs, sampled traffic, connections, and live
+// events. Sampling is owned by the control plane so every host observes the
+// same counters instead of recomputing rates from different request cadences.
 type ObservabilityAPI interface {
+	Snapshot(ctx context.Context) (ObservationSnapshot, error)
+	StartSampling(ctx context.Context) error
+	StopSampling()
 	RecentLogs(limit int) []kernel.LogEntry
 	Traffic(ctx context.Context) (kernel.TrafficSnapshot, error)
 	Connections(ctx context.Context) ([]kernel.Connection, error)
@@ -107,6 +142,49 @@ type ObservabilityAPI interface {
 	CloseConnection(ctx context.Context, id int64) error
 	CloseConnections(ctx context.Context, filter kernel.ConnectionFilter) (int, error)
 	Subscribe(ctx context.Context, types ...kernel.EventType) (<-chan kernel.Event, error)
+}
+
+// ObservedTraffic is the sampled cumulative and current rate for one entity.
+type ObservedTraffic struct {
+	UploadTotal   int64 `json:"upload_total"`
+	DownloadTotal int64 `json:"download_total"`
+	UploadRate    int64 `json:"upload_rate"`
+	DownloadRate  int64 `json:"download_rate"`
+}
+
+// Total returns the sampled cumulative bytes.
+func (t ObservedTraffic) Total() int64 { return t.UploadTotal + t.DownloadTotal }
+
+// TotalRate returns the sampled bytes per second.
+func (t ObservedTraffic) TotalRate() int64 { return t.UploadRate + t.DownloadRate }
+
+// ObservationSnapshot is a transport-neutral view of live per-entity traffic.
+// Available is false when the engine is stopped or observation is unsupported.
+type ObservationSnapshot struct {
+	Available bool                       `json:"available"`
+	SampledAt time.Time                  `json:"sampled_at"`
+	Nodes     map[string]ObservedTraffic `json:"nodes"`
+	Inbounds  map[string]ObservedTraffic `json:"inbounds"`
+	RuleHits  map[string]uint64          `json:"rule_hits"`
+}
+
+// ActivityLogEntry is a bounded, structured application log record suitable
+// for HTTP SSE, a native desktop event stream, or a CLI tail.
+type ActivityLogEntry struct {
+	ID      uint64         `json:"id"`
+	Time    time.Time      `json:"time"`
+	Level   string         `json:"level"`
+	Source  string         `json:"source"`
+	Message string         `json:"message"`
+	Fields  map[string]any `json:"fields,omitempty"`
+}
+
+// ActivityLogAPI owns the shared application activity log. Host adapters must
+// consume this service instead of maintaining private log hubs.
+type ActivityLogAPI interface {
+	Recent(limit int) []ActivityLogEntry
+	Subscribe(ctx context.Context) (<-chan ActivityLogEntry, error)
+	Record(ctx context.Context, entry ActivityLogEntry) ActivityLogEntry
 }
 
 // Setting is a single versioned preference value.
