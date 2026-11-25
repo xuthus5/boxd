@@ -5,7 +5,7 @@
 - 范围：全新实现，不迁移旧项目代码，不沿用旧项目目录结构
 - 目标：以 sing-box 为最底层引擎，建立稳定内核契约、控制面应用层和多客户端适配体系
 
-> 当前实施范围截至控制面与其下各层，并已实现同源 HTTP/SSE Web 控制台：内核运行时观测/控制、订阅调度、节点链接编解码、审计查询、安全会话、REST API、事件流和浏览器控制台均已完成。Wails、MyGo、桌面宿主等更上层真实应用接入留待下层库与模型稳定后再实施。
+> 当前实施范围截至控制面与其下各层，并已实现同源 HTTP/SSE Web 控制台：内核运行时观测/控制、订阅调度、节点链接编解码、审计查询、REST API、事件流和浏览器控制台均已完成。管理员口令与浏览器会话归 Web 入站层的 `internal/webauth` 所有，不进入控制面门面；Wails、MyGo、桌面宿主等更上层真实应用接入留待下层库与模型稳定后再实施。
 
 ## 1. 核心结论
 
@@ -182,8 +182,8 @@ boxd_v2/
 │   │   ├── ruleset/
 │   │   ├── settings/
 │   │   ├── observability/
-│   │   ├── setup/
-│   │   └── security/
+│   │   └── setup/
+│   ├── webauth/                    # 仅 Web 入口：口令、PBKDF2、浏览器会话
 │   │
 │   ├── adapters/
 │   │   ├── inbound/
@@ -605,7 +605,8 @@ type ConfigRevision struct {
 | Settings | 应用设置、运行偏好 | Repository |
 | Observability | 日志、流量、连接、事件查询 | Kernel Observer |
 | Setup | 首次安装、默认配置、环境能力探测 | Config、Platform |
-| Security | 凭据、会话、访问控制 | Repository、SecretProvider |
+
+Web 管理员凭据与浏览器会话不属于控制面模块；它们由 `internal/webauth` 提供，且只由 HTTP 入站适配器在启用 `-web` 时构造。
 
 ### 10.2 Application Facade
 
@@ -624,7 +625,6 @@ type Application interface {
     Settings() SettingsAPI
     Observability() ObservabilityAPI
     Setup() SetupAPI
-    Security() SecurityAPI
 }
 ```
 
@@ -1040,7 +1040,8 @@ type DNSServerConfig struct {
 - 订阅下载限制大小、超时、重定向次数和协议。
 - 阻止访问本机、私网和元数据地址，除非用户显式允许。
 - Web 模式启用认证、限速和会话过期。
-- 远程模式必须使用本地回环或 TLS。
+- Web 入口支持原生 TLS，远程访问必须使用本地回环、原生 HTTPS 或可信 TLS 反向代理。
+- 设置页轮换管理员口令时必须由服务端生成随机口令、撤销全部旧会话，并只在一次性响应/弹窗中展示。
 - 本地 IPC/RPC 使用短期令牌或操作系统用户边界。
 - 日志和诊断包默认脱敏。
 - 敏感文件创建权限 `0600`，目录 `0700`。
@@ -1223,7 +1224,7 @@ type DNSServerConfig struct {
 | 配置重载 | 第一阶段统一重启，保留热重载能力位 | 降低 Driver 复杂度 |
 | 事件持久化 | 不持久化内核事件，仅保留有界内存 | 避免存储膨胀 |
 | 存储 | SQLite，驱动固定为 `modernc.org/sqlite` | 单文件、事务、无 CGO、跨平台构建简单 |
-| 认证归属 | 控制面 Security 模块，HTTP 适配器落地 | 明确 Web 和桌面差异 |
+| 认证归属 | Web 入站专用 `internal/webauth`；控制面不暴露认证 API | 桌面宿主不会继承浏览器口令、Cookie 或会话 |
 | 引擎抽象程度 | 只抽象生命周期、配置、运行时、观测和必要特性 | 避免复制 sing-box 全量模型 |
 | 宿主与内核进程关系 | 嵌入式优先，守护进程模式复用控制面 | 兼顾桌面与 Web |
 | 第一版入站范围 | 仅 Mixed 和 TUN | 保持入口模型简单，不混入服务端入站 |

@@ -5,14 +5,9 @@
 控制面通过公开包 `control` 向外暴露统一门面。当前已实现 HTTP/SSE Web 入站适配器；Wails、MyGo、CLI 和桌面宿主属于后续上层接入。适配器只依赖接口，不访问 SQLite、配置文件或 sing-box API。
 
 ```text
-入站适配器
-  HTTP / SSE（已实现） · Wails / MyGo / CLI（后续）
-            |
-            v
-control.Application
-  Kernel / Config / Setup / Inbounds / Egress / Subscriptions / Nodes
-  Scheduler / Policies / Routes / DNS / RuleSets / Settings / Observability
-  Security / Audit
+Web 入站适配器（httpapi）
+  ├─ internal/webauth        浏览器管理员口令、PBKDF2 摘要、内存会话
+  └─ control.Application     业务门面（不含 Web 认证）
             |
             v
 internal/controlplane
@@ -23,6 +18,8 @@ control.ConfigCompiler  <----  internal/adapters/outbound/singboxconfig
 control.ProfileRepository <-- internal/adapters/outbound/sqlite
 kernel.Manager
 ```
+
+后续 Wails、MyGo、桌面或 CLI 宿主只接入 `control.Application`，不会获得 Web 管理员口令、Cookie 或浏览器会话；这些能力仅在启用 `boxd -web` 时由 HTTP 入站适配器构造。
 
 公开包仍然只有 `kernel` 和 `control`。sing-box 依赖被限制在 `internal/driver/singbox`；sing-box JSON 编译器不导入 sing-box 类型。
 
@@ -44,7 +41,6 @@ kernel.Manager
 | `RuleSets()` | 内置/自定义规则集定义、下载体积、刷新状态和预设依赖 |
 | `Settings()` | 通用偏好键值 |
 | `Observability()` | 最近日志、流量、活动/已关闭连接快照、关闭连接、事件订阅 |
-| `Security()` | 本地管理员口令、PBKDF2 摘要和内存会话 |
 | `Audit()` | 自动记录控制面变更，并提供按动作、操作者、来源和时间查询 |
 
 ## 3. 期望状态与原子应用
@@ -188,15 +184,16 @@ kernel.Manager
 - 中国直连和广告拦截预设会校验其依赖规则集存在且启用。
 - 当前由 sing-box remote rule-set 在引擎内维护下载缓存；控制面保存 ETag、Last-Modified、SHA-256、实际响应体字节数、刷新时间和错误。缺少体积的旧状态会强制完整下载一次，避免条件请求返回 304 后一直无法显示体积。
 
-## 8. 安全
+## 8. Web 认证边界
 
-- 未初始化时模式为 `local`，适用于仅本机可信传输的嵌入式宿主。
-- 初始化后模式为 `password`，口令使用随机盐和 PBKDF2-HMAC-SHA256 派生。
-- 会话只保存在进程内，默认 24 小时过期；进程重启后需要重新登录。
-- 登出立即撤销会话；进程重启会天然清空全部会话令牌。
+- 管理员认证位于 `internal/webauth`，由 `internal/adapters/inbound/httpapi` 构造和调用；`control.Application` 不再暴露 `Security()`。
+- SQLite 的 `security_credential` 表只保存随机盐、PBKDF2-HMAC-SHA256 摘要、迭代次数和更新时间，适配器为 `sqlite.WebAuthRepository`。
+- 未初始化时模式为 `local`；初始化后模式为 `password`。首个口令由管理员在浏览器首次访问时设置。
+- 设置页只能执行服务端随机轮换：服务端生成 32 位无歧义随机口令，不接受用户提交的新口令，并在成功后撤销全部旧会话。
+- 新口令只在轮换响应和一次性弹窗中展示；前端不得写入状态管理、`localStorage`、`sessionStorage` 或日志。
+- 会话只保存在进程内，默认 24 小时过期；进程重启后需要重新登录。登出立即撤销当前会话。
 - 未授权统一返回 `kernel_unauthorized`；错误信息不区分口令长度、摘要或存储细节。
-- HTTP/Wails/MyGo 入站适配器必须调用 `Security().ValidateSession`，不得自行读取凭据表。
-- 审计事件默认操作者为 `local`、来源为 `control-plane`；入站适配器可在认证后通过 `control.WithAuditIdentity` 注入真实操作者和来源。
+- 审计事件默认操作者为 `local`、来源为 `control-plane`；Web 入站适配器在认证后通过 `control.WithAuditIdentity` 注入 `web-admin`/`http`。
 
 ## 9. HTTP / SSE 入站适配器
 
@@ -204,14 +201,16 @@ kernel.Manager
 
 - 默认监听地址为 `[::]:7662`，通过 `boxd -web -listen <address>` 启用；同源静态控制台由同一进程提供。
 - `GET /api/v1/health`、`/api/v1/auth/status`、`POST /api/v1/auth/initialize` 和 `POST /api/v1/auth/login` 允许匿名访问，其余 API 必须认证。
+- `POST /api/v1/auth/rotate-password` 必须携带有效管理员会话，不接受请求体；响应中的随机口令只显示一次，同时返回当前请求的新会话。
 - 初始化与登录返回短期会话令牌，同时设置 `HttpOnly; SameSite=Strict` Cookie；API 客户端可使用 `Authorization: Bearer <token>`。
 - Cookie 认证的写请求执行同源校验；跨站 `Origin` 或 `Sec-Fetch-Site: cross-site` 返回 `request_forbidden`。
 - 未认证请求统一返回 `401 kernel_unauthorized`；错误体包含稳定的 `code`、`op`、`message` 和 `hint`。
-- `GET /api/v1/snapshot` 返回控制台首屏所需的完整一致快照；各资源同时提供细粒度 REST 查询和变更接口。
+- `GET /api/v1/snapshot` 返回控制面首屏所需的完整一致快照，不包含 Web 认证状态；认证状态由 `/api/v1/auth/status` 单独提供；各资源同时提供细粒度 REST 查询和变更接口。
 - `GET /api/v1/events` 用 SSE 推送 `app.log`、`kernel.log`、`kernel.state`、`traffic` 和 `snapshot.invalidated`；应用日志与内核日志共用日志页，不单独建设审计 UI。
 - 登录与初始化按客户端地址限速；列表和快照不返回协议凭据、节点 `options`、订阅查询参数值或原始敏感 URL。
 - 节点编辑器仅在已认证管理员显式请求 `GET /api/v1/nodes/{id}` 时返回完整协议参数，用于编辑 UUID、密码、Reality 等字段。
-- 安全响应头包含严格 CSP、`X-Frame-Options: DENY`、`nosniff` 和 `no-referrer`。服务本身不提供 TLS，远程部署应放在可信内网或 TLS 反向代理之后。
+- Web 入口支持原生 HTTPS：`-tls-cert` 与 `-tls-key` 必须同时提供，最低 TLS 1.2；HTTPS 响应增加 HSTS，会话 Cookie 自动使用 `Secure`。未启用 TLS 时仍应放在可信内网或 TLS 反向代理之后。
+- 安全响应头包含严格 CSP、`X-Frame-Options: DENY`、`nosniff`、`no-referrer`，HTTPS 下额外包含 `Strict-Transport-Security`。
 - 不提供 Web 终端、Shell、任意命令执行、备份或恢复入口。
 
 ## 10. 当前未覆盖

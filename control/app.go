@@ -24,7 +24,6 @@ type Application interface {
 	RuleSets() RuleSetAPI
 	Settings() SettingsAPI
 	Observability() ObservabilityAPI
-	Security() SecurityAPI
 	Audit() AuditAPI
 }
 

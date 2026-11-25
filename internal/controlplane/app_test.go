@@ -33,7 +33,7 @@ func TestApplicationFacadeAndSettings(t *testing.T) {
 		application.Subscriptions() == nil || application.Scheduler() == nil || application.Nodes() == nil ||
 		application.Policies() == nil || application.Routes() == nil || application.DNS() == nil ||
 		application.RuleSets() == nil || application.Observability() == nil ||
-		application.Security() == nil || application.Audit() == nil {
+		application.Audit() == nil {
 		t.Fatal("application facade returned a nil module")
 	}
 	if _, err := application.Setup().EnsureDefaults(ctx); err != nil {

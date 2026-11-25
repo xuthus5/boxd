@@ -4,13 +4,21 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
+	"encoding/pem"
 	"io"
 	"log/slog"
+	"math/big"
 	"net"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -40,8 +48,9 @@ func newTestEnvironment(t *testing.T) *testEnvironment {
 		t.Fatalf("bootstrap.New() error = %v", err)
 	}
 	adapter, err := httpapi.New(app.Control, httpapi.Options{
-		Address: "127.0.0.1:0",
-		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Address:        "127.0.0.1:0",
+		Logger:         slog.New(slog.NewTextHandler(io.Discard, nil)),
+		AuthRepository: app.WebAuthRepository(),
 	})
 	if err != nil {
 		_ = app.Close()
@@ -242,6 +251,176 @@ func TestAuthenticationCookieBearerAndOriginPolicy(t *testing.T) {
 	if status != http.StatusForbidden || errorCode(t, body) != "request_forbidden" {
 		t.Fatalf("cross-origin cookie mutation = %d %s", status, body)
 	}
+}
+
+func TestPasswordRotationUsesServerGeneratedSecretAndRevokesPreviousAccess(t *testing.T) {
+	environment := newTestEnvironment(t)
+	oldToken := environment.initialize(t)
+
+	status, _, body := environment.request(t, http.MethodPost, "/api/v1/auth/rotate-password", map[string]string{"password": "user-chosen-password"}, nil)
+	if status != http.StatusOK {
+		t.Fatalf("rotate password = %d %s", status, body)
+	}
+	rotation := decodeObject(t, body)
+	password, _ := rotation["password"].(string)
+	newToken, _ := rotation["token"].(string)
+	if len(password) != 32 || password == "user-chosen-password" || password == testPassword {
+		t.Fatalf("rotated password = %q", password)
+	}
+	if newToken == "" || rotation["credential_updated_at"] == nil {
+		t.Fatalf("rotation response = %s", body)
+	}
+
+	oldClient := &http.Client{Timeout: 10 * time.Second}
+	request, err := http.NewRequest(http.MethodGet, environment.server.URL+"/api/v1/snapshot", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Authorization", "Bearer "+oldToken)
+	response, err := oldClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if response.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("old session snapshot = %d, want 401", response.StatusCode)
+	}
+
+	status, _, body = environment.request(t, http.MethodPost, "/api/v1/auth/login", map[string]string{"password": testPassword}, nil)
+	if status != http.StatusUnauthorized {
+		t.Fatalf("old password login = %d %s", status, body)
+	}
+	status, _, body = environment.request(t, http.MethodPost, "/api/v1/auth/login", map[string]string{"password": password}, nil)
+	if status != http.StatusOK {
+		t.Fatalf("rotated password login = %d %s", status, body)
+	}
+	if token, _ := decodeObject(t, body)["token"].(string); token == "" {
+		t.Fatalf("rotated password login did not return a token: %s", body)
+	}
+}
+
+func TestHTTPSListenerSetsSecureCookieHSTSAndMinimumTLSVersion(t *testing.T) {
+	certFile, keyFile := writeSelfSignedCertificate(t)
+	app, err := bootstrap.New(context.Background(), bootstrap.Options{
+		DataDir: t.TempDir(),
+		Factory: fake.NewFactory(),
+		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+	if err != nil {
+		t.Fatalf("bootstrap.New() error = %v", err)
+	}
+	t.Cleanup(func() { _ = app.Close() })
+	adapter, err := httpapi.New(app.Control, httpapi.Options{
+		Address:        "127.0.0.1:0",
+		Logger:         slog.New(slog.NewTextHandler(io.Discard, nil)),
+		AuthRepository: app.WebAuthRepository(),
+		TLSCertFile:    certFile,
+		TLSKeyFile:     keyFile,
+	})
+	if err != nil {
+		t.Fatalf("httpapi.New() error = %v", err)
+	}
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	serveDone := make(chan error, 1)
+	go func() { serveDone <- adapter.ServeListener(ctx, listener) }()
+	t.Cleanup(func() {
+		cancel()
+		<-serveDone
+	})
+
+	client := &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}, Timeout: 10 * time.Second}
+	baseURL := "https://" + listener.Addr().String()
+	var response *http.Response
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		response, err = client.Get(baseURL + "/api/v1/health")
+		if err == nil {
+			break
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	if err != nil {
+		t.Fatalf("HTTPS health request error = %v", err)
+	}
+	response.Body.Close()
+	if response.StatusCode != http.StatusOK || response.TLS == nil || response.TLS.Version < tls.VersionTLS12 {
+		t.Fatalf("HTTPS health response = %d, TLS %+v", response.StatusCode, response.TLS)
+	}
+	if response.Header.Get("Strict-Transport-Security") == "" {
+		t.Fatal("HTTPS response omitted Strict-Transport-Security")
+	}
+
+	status, headers, body := requestJSON(t, client, http.MethodPost, baseURL+"/api/v1/auth/initialize", map[string]string{"password": testPassword})
+	if status != http.StatusCreated {
+		t.Fatalf("HTTPS initialize = %d %s", status, body)
+	}
+	if cookie := headers.Get("Set-Cookie"); !strings.Contains(cookie, "Secure") || !strings.Contains(cookie, "HttpOnly") {
+		t.Fatalf("HTTPS session cookie = %q", cookie)
+	}
+}
+
+func requestJSON(t *testing.T, client *http.Client, method, url string, body any) (int, http.Header, []byte) {
+	t.Helper()
+	encoded, err := json.Marshal(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request, err := http.NewRequest(method, url, bytes.NewReader(encoded))
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	response, err := client.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	payload, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return response.StatusCode, response.Header.Clone(), payload
+}
+
+func writeSelfSignedCertificate(t *testing.T) (string, string) {
+	t.Helper()
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	serial, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+	if err != nil {
+		t.Fatal(err)
+	}
+	template := &x509.Certificate{
+		SerialNumber: serial,
+		Subject:      pkix.Name{CommonName: "127.0.0.1"},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(time.Hour),
+		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		DNSNames:     []string{"localhost"},
+		IPAddresses:  []net.IP{net.ParseIP("127.0.0.1")},
+	}
+	der, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	certFile := t.TempDir() + "/cert.pem"
+	keyFile := t.TempDir() + "/key.pem"
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)})
+	if err := os.WriteFile(certFile, certPEM, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(keyFile, keyPEM, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return certFile, keyFile
 }
 
 func TestNodeSubscriptionRedactionAndStaticConsole(t *testing.T) {

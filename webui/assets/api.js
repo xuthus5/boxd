@@ -54,6 +54,7 @@ export const api = {
   authStatus: () => request('/auth/status'),
   initialize: (password) => request('/auth/initialize', { method: 'POST', body: { password } }),
   login: (password) => request('/auth/login', { method: 'POST', body: { password } }),
+  rotatePassword: () => request('/auth/rotate-password', { method: 'POST' }),
   logout: () => request('/auth/logout', { method: 'POST' }),
   snapshot: () => request('/snapshot'),
   kernel: {

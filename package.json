@@ -11,10 +11,10 @@
     "check": "npm run lint:js && npm run lint:css && npm run check:openapi && npm run check:docs",
     "check:docs": "node scripts/check-docs.mjs",
     "check:openapi": "node scripts/check-openapi.mjs",
-    "lint:js": "eslint prototype/app.js prototype/assets e2e playwright.config.js eslint.config.js scripts",
-    "lint:css": "stylelint \"prototype/**/*.css\"",
+    "lint:js": "eslint webui/app.js webui/assets e2e playwright.config.js eslint.config.js scripts",
+    "lint:css": "stylelint \"webui/**/*.css\"",
     "test:e2e": "playwright test",
-    "test:e2e:chromium": "playwright test --project=desktop-chromium --project=mobile-chromium",
+    "test:e2e:chromium": "playwright test --project=desktop-chromium --project=mobile-chromium --project=rotation-chromium",
     "test:e2e:headed": "playwright test --headed --project=desktop-chromium"
   },
   "devDependencies": {

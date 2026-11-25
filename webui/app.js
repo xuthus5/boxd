@@ -51,7 +51,7 @@ const state = {
   trafficHistory: { down: [], up: [] },
   lastTrafficSampleAt: '',
   scheduler: null,
-  auth: { initialized: false, authenticated: false, expiresAt: null },
+  auth: { initialized: false, authenticated: false, expiresAt: null, credentialUpdatedAt: null, sessionCount: 0, mode: 'local' },
   nodes: [],
   groups: [],
   chains: [],
@@ -233,7 +233,7 @@ function applySnapshot(snapshot) {
   };
   state.flags = {
     ...state.flags,
-    authRequired: Boolean(snapshot.security?.initialized),
+    authRequired: Boolean(state.auth.initialized),
     autoRefresh: settingEnabled(snapshot.settings, 'autoRefresh', true),
     subscriptionMaxAttempts: Math.max(1, Number(snapshot.settings?.subscriptionMaxAttempts) || 3),
     subscriptionConflictPolicy: snapshot.settings?.subscriptionConflictPolicy === 'follow_remote' ? 'follow_remote' : 'keep_local',
@@ -313,7 +313,7 @@ function syncChrome() {
     const badge = document.querySelector(`[data-view="${view}"] .nav-count`);
     if (badge) badge.textContent = String(count);
   });
-  const badge = document.querySelector('.topbar-left .prototype-badge');
+  const badge = document.querySelector('.topbar-left .runtime-badge');
   if (badge) {
     badge.textContent = state.sseConnected ? 'LIVE' : 'RECONNECTING';
     badge.classList.toggle('is-live', state.sseConnected);
@@ -384,6 +384,7 @@ function connectEvents() {
     authProbeTimer = window.setTimeout(async () => {
       try {
         const status = await api.authStatus();
+        applyAuthStatus(status);
         if (!status.authenticated) showAuthScreen(status.initialized ? 'login' : 'initialize');
       } catch {
         // EventSource keeps retrying while the control plane is temporarily unavailable.
@@ -399,6 +400,18 @@ function appendStreamLog(item, channel) {
   state.logs.push(entry);
   if (state.logs.length > 500) state.logs = state.logs.slice(-500);
   if (state.view === 'logs' && !state.logPaused) updateLogConsole();
+}
+
+function applyAuthStatus(status = {}) {
+  state.auth = {
+    initialized: Boolean(status.initialized),
+    authenticated: Boolean(status.authenticated),
+    expiresAt: status.expires_at || null,
+    credentialUpdatedAt: status.credential_updated_at || null,
+    sessionCount: Number(status.session_count) || 0,
+    mode: status.mode === 'password' ? 'password' : 'local',
+  };
+  state.flags.authRequired = state.auth.initialized;
 }
 
 function updateLiveMetrics(connectionCount) {
@@ -448,6 +461,7 @@ function updateLiveMetrics(connectionCount) {
 
 function showAuthScreen(mode = 'login', message = '') {
   stopEvents();
+  if (modalRoot && !modalRoot.hidden) closeModal();
   state.auth = { ...state.auth, authenticated: false, expiresAt: null };
   const shell = document.querySelector('.app-shell');
   if (shell) shell.hidden = true;
@@ -577,10 +591,13 @@ async function submitAuth(event) {
   try {
     const session = initializing ? await api.initialize(password) : await api.login(password);
     state.auth = {
+      ...state.auth,
       initialized: true,
       authenticated: Boolean(session?.authenticated),
       expiresAt: session?.expires_at || null,
+      mode: 'password',
     };
+    if (session?.authenticated) api.authStatus().then(applyAuthStatus).catch(() => {});
     document.getElementById('auth-screen')?.remove();
     const shell = document.querySelector('.app-shell');
     if (shell) shell.hidden = false;
@@ -620,11 +637,7 @@ async function boot() {
   applyTheme(state.themeChoice, true);
   try {
     const status = await api.authStatus();
-    state.auth = {
-      initialized: Boolean(status.initialized),
-      authenticated: Boolean(status.authenticated),
-      expiresAt: status.expires_at || null,
-    };
+    applyAuthStatus(status);
     if (!status.initialized) {
       showAuthScreen('initialize');
       return;
@@ -1907,12 +1920,13 @@ function settingsView() {
   const kernelRunning = kernelState === 'running';
   const kernelStateDot = kernelState === 'failed' ? 'is-error' : ['starting', 'stopping'].includes(kernelState) ? 'is-warn' : kernelRunning ? 'is-online' : 'is-idle';
   const kernelTagTone = kernelRunning ? 'is-mint' : kernelState === 'failed' ? 'is-rose' : 'is-solid';
-  const initialized = Boolean(state.snapshot?.security?.initialized);
+  const initialized = Boolean(state.auth.initialized);
   const authenticated = Boolean(state.auth.authenticated);
   const authLabel = !initialized ? '未初始化' : authenticated ? '会话有效' : '未认证';
   const authTone = authenticated ? 'is-mint' : 'is-amber';
-  const modeLabel = state.snapshot?.security?.mode === 'password' ? '本地管理员口令 + 24 小时会话' : '本地模式';
+  const modeLabel = state.auth.mode === 'password' ? '本地管理员口令 + 24 小时会话' : '本地模式';
   const sessionExpiry = state.auth.expiresAt ? formatDateTime(state.auth.expiresAt) : '—';
+  const credentialUpdatedAt = state.auth.credentialUpdatedAt ? formatDateTime(state.auth.credentialUpdatedAt) : '—';
   return `
     <section class="page">
       ${pageHead({
@@ -1926,6 +1940,7 @@ function settingsView() {
           <div class="card-head"><div class="card-head-copy"><h2>访问安全</h2><p>本地管理员与 API 访问控制</p></div><span class="tag is-mint">${icon('shield')}${initialized ? '已初始化' : '待初始化'}</span></div>
           <div class="settings-security-grid">
             <div class="setting-row"><div class="setting-copy"><strong>认证模式</strong><span>${escapeHtml(modeLabel)}</span></div><span class="tag ${authTone}">${icon('lock')}${escapeHtml(authLabel)}</span></div>
+            <div class="setting-row"><div class="setting-copy"><strong>管理员口令</strong><span>${initialized ? `最近轮换于 ${escapeHtml(credentialUpdatedAt)}` : '尚未初始化管理员口令'}</span></div><button class="btn btn-sm" data-action="rotate-admin-password" ${initialized ? '' : 'disabled'}>${icon('refresh')}随机轮换</button></div>
             <div class="setting-row"><div class="setting-copy"><strong>API 认证</strong><span>除健康检查、认证状态和登录外，全部 API 需要会话</span></div><span class="tag is-solid">强制</span></div>
             <div class="setting-row"><div class="setting-copy"><strong>写请求来源校验</strong><span>Cookie 会话的写操作要求同源请求</span></div><span class="tag is-solid">启用</span></div>
             <div class="setting-row"><div class="setting-copy"><strong>当前会话</strong><span>${authenticated ? `有效期至 ${escapeHtml(sessionExpiry)}` : '当前没有有效会话'}</span></div><button class="btn btn-sm" data-action="logout">${icon('power')}退出登录</button></div>
@@ -2334,6 +2349,17 @@ function openConfirm({ title, description, note, confirmLabel = '确认', action
     description,
     body: `<div class="modal-callout ${destructive ? 'danger' : ''}">${icon(destructive ? 'trash' : 'alert')}<span>${escapeHtml(note)}</span></div>`,
     footer: `<button class="btn" data-action="modal-close">取消</button><button class="btn ${destructive ? 'btn-danger' : 'btn-primary'}" data-action="${action}" ${id ? `data-id="${escapeHtml(id)}"` : ''}>${escapeHtml(confirmLabel)}</button>`,
+  });
+}
+
+function openRotatedPasswordModal(password) {
+  openModal({
+    title: '新管理员口令已生成',
+    description: '旧口令与全部旧会话已失效',
+    body: `<div class="modal-callout danger">${icon('alert')}<span>这是唯一一次显示新口令。关闭弹窗后，服务端和浏览器都不会再次提供明文。</span></div>
+      <div class="rotated-password"><code id="rotated-admin-password" aria-label="新管理员口令">${escapeHtml(password)}</code><button class="icon-button" data-action="copy-rotated-password" aria-label="复制新管理员口令" title="复制新管理员口令">${icon('copy')}</button></div>
+      <div class="modal-callout" style="margin-top:12px">${icon('shield')}<span>口令由 32 位随机字符组成，可直接粘贴到密码管理器。不要通过聊天、邮件或截图传播。</span></div>`,
+    footer: `<button class="btn btn-primary" data-action="modal-close">${icon('check')}我已安全保存</button>`,
   });
 }
 
@@ -2902,6 +2928,35 @@ async function handleAction(actionEl) {
         footer: `<button class="btn" data-action="modal-close">关闭</button><button class="btn btn-danger" data-action="logout">${icon('power')}退出登录</button>`,
       });
       break;
+    case 'rotate-admin-password':
+      openConfirm({
+        title: '轮换管理员口令？',
+        description: '新口令由服务端使用安全随机数生成，不接受自定义输入。',
+        note: '旧口令会立即失效，所有现有管理员会话都会被撤销；当前页面会自动获得一个新会话。新口令只在下一步显示一次。',
+        confirmLabel: '生成新口令',
+        action: 'do-rotate-admin-password',
+      });
+      break;
+    case 'do-rotate-admin-password': {
+      const rotation = await api.rotatePassword();
+      applyAuthStatus({
+        initialized: true,
+        authenticated: true,
+        mode: 'password',
+        expires_at: rotation.expires_at,
+        credential_updated_at: rotation.credential_updated_at,
+        session_count: 1,
+      });
+      openRotatedPasswordModal(rotation.password);
+      break;
+    }
+    case 'copy-rotated-password': {
+      const password = document.getElementById('rotated-admin-password')?.textContent || '';
+      if (!password) break;
+      const copied = await copyTextToClipboard(password);
+      showToast(copied ? '新口令已复制' : '复制失败', copied ? '请妥善保存，关闭弹窗后无法再次查看' : '浏览器未授予剪贴板权限', copied ? 'copy' : 'alert');
+      break;
+    }
     case 'logout':
       try {
         await api.logout();

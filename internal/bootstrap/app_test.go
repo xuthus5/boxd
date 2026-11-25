@@ -29,7 +29,7 @@ func TestApplicationAssemblyAndPersistence(t *testing.T) {
 		t.Fatalf("default inbounds = %+v, %v", inbounds, err)
 	}
 	if app.Control.Subscriptions() == nil || app.Control.Nodes() == nil || app.Control.Policies() == nil ||
-		app.Control.RuleSets() == nil || app.Control.Security() == nil {
+		app.Control.RuleSets() == nil || app.WebAuthRepository() == nil {
 		t.Fatal("full application facade returned a nil module")
 	}
 	if ruleSets, err := app.Control.RuleSets().List(ctx); err != nil || len(ruleSets) != 3 {

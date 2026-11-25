@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/xuthus5/boxd/control"
+	"github.com/xuthus5/boxd/internal/webauth"
 	"github.com/xuthus5/boxd/kernel"
 )
 
@@ -210,14 +211,14 @@ func TestTestResultRepositoryRoundTrip(t *testing.T) {
 	}
 }
 
-func TestSecurityRepositoryRoundTrip(t *testing.T) {
+func TestWebAuthRepositoryRoundTrip(t *testing.T) {
 	ctx := context.Background()
 	db := openTestDB(t)
-	repository := db.Security()
+	repository := db.WebAuth()
 	if _, found, err := repository.Load(ctx); err != nil || found {
 		t.Fatalf("Load() = found %v, err %v", found, err)
 	}
-	credential := control.SecurityCredential{
+	credential := webauth.Credential{
 		Salt:       []byte("salt"),
 		Hash:       []byte("hash"),
 		Iterations: 600000,

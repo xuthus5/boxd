@@ -21,7 +21,6 @@ type snapshotView struct {
 	Kernel        kernelView              `json:"kernel"`
 	Capabilities  capabilitiesView        `json:"capabilities"`
 	Scheduler     control.SchedulerStatus `json:"scheduler"`
-	Security      control.SecurityStatus  `json:"security"`
 	Inbounds      []inboundView           `json:"inbounds"`
 	Nodes         []nodeView              `json:"nodes"`
 	Groups        []groupView             `json:"groups"`
@@ -278,10 +277,6 @@ func (s *Server) buildSnapshot(ctx context.Context) (snapshotView, error) {
 	if err != nil {
 		return snapshotView{}, err
 	}
-	securityStatus, err := s.app.Security().Status(ctx)
-	if err != nil {
-		return snapshotView{}, err
-	}
 	inbounds, err := s.app.Inbounds().List(ctx)
 	if err != nil {
 		return snapshotView{}, err
@@ -345,7 +340,6 @@ func (s *Server) buildSnapshot(ctx context.Context) (snapshotView, error) {
 		Kernel:        makeKernelView(kernelStatus, now),
 		Capabilities:  capabilitiesView{Kind: capabilities.Kind, Version: capabilities.Version, Items: capabilities.Capabilities},
 		Scheduler:     schedulerStatus,
-		Security:      securityStatus,
 		Inbounds:      makeInboundViewsWithObservation(inbounds, connections, observation),
 		Nodes:         nodeViews,
 		Groups:        groupViews,

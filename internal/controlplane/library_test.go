@@ -395,51 +395,6 @@ func TestPolicyAggregateFacade(t *testing.T) {
 	}
 }
 
-func TestSecurityCredentialAndSessionLifecycle(t *testing.T) {
-	ctx := context.Background()
-	repository := &memorySecurityRepository{}
-	application := newApplicationWithDependencies(t, controlplane.Dependencies{SecurityRepository: repository})
-
-	status, err := application.Security().Status(ctx)
-	if err != nil || status.Initialized || status.Mode != control.SecurityModeLocal {
-		t.Fatalf("initial Status() = %+v, %v", status, err)
-	}
-	if _, err := application.Security().Initialize(ctx, "short"); !hasCode(err, kernel.ErrCodeInvalidConfig) {
-		t.Fatalf("short password error = %v", err)
-	}
-	first, err := application.Security().Initialize(ctx, "correct horse battery staple")
-	if err != nil {
-		t.Fatalf("Initialize() error = %v", err)
-	}
-	if first.Token == "" || first.ExpiresAt.IsZero() || len(repository.credential.Hash) == 0 {
-		t.Fatalf("initialized session = %+v, credential = %+v", first, repository.credential)
-	}
-	if _, err := application.Security().Initialize(ctx, "another password"); !hasCode(err, kernel.ErrCodeConflict) {
-		t.Fatalf("second Initialize() error = %v", err)
-	}
-	if _, err := application.Security().Login(ctx, "wrong password"); !hasCode(err, kernel.ErrCodeUnauthorized) {
-		t.Fatalf("wrong password error = %v", err)
-	}
-	second, err := application.Security().Login(ctx, "correct horse battery staple")
-	if err != nil {
-		t.Fatalf("Login() error = %v", err)
-	}
-	validated, err := application.Security().ValidateSession(ctx, second.Token)
-	if err != nil || validated.Token != second.Token {
-		t.Fatalf("ValidateSession() = %+v, %v", validated, err)
-	}
-	if err := application.Security().Logout(ctx, second.Token); err != nil {
-		t.Fatalf("Logout() error = %v", err)
-	}
-	if _, err := application.Security().ValidateSession(ctx, second.Token); !hasCode(err, kernel.ErrCodeUnauthorized) {
-		t.Fatalf("ValidateSession() after logout error = %v", err)
-	}
-	status, err = application.Security().Status(ctx)
-	if err != nil || !status.Initialized || status.Mode != control.SecurityModePassword || status.SessionCount != 1 {
-		t.Fatalf("final Status() = %+v, %v", status, err)
-	}
-}
-
 func newApplicationWithDependencies(t *testing.T, dependencies controlplane.Dependencies) control.Application {
 	t.Helper()
 	ctx := context.Background()
@@ -573,19 +528,4 @@ func (r *memoryTestResults) List(_ context.Context, nodeID string, limit int) ([
 		}
 	}
 	return result, nil
-}
-
-type memorySecurityRepository struct {
-	credential  control.SecurityCredential
-	initialized bool
-}
-
-func (r *memorySecurityRepository) Load(context.Context) (control.SecurityCredential, bool, error) {
-	return r.credential, r.initialized, nil
-}
-
-func (r *memorySecurityRepository) Save(_ context.Context, credential control.SecurityCredential) error {
-	r.credential = credential
-	r.initialized = true
-	return nil
 }

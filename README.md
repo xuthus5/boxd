@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="prototype/favicon.svg" alt="boxd logo" width="76" height="76">
+  <img src="webui/favicon.svg" alt="boxd logo" width="76" height="76">
 </p>
 
 <h1 align="center">boxd</h1>
@@ -42,7 +42,7 @@ boxd 是一个围绕 [sing-box](https://sing-box.sagernet.org/) 构建的代理�
 - SQLite、sing-box、HTTP/订阅下载器等外部依赖被隔离在各自适配器中。
 - 生产构建通过 Go embed 内嵌 Web 控制台，无需额外部署静态文件。
 
-当前版本适合单机部署代理控制面、节点编排和本地 Web 管理；远程访问应通过可信网络或 TLS 反向代理完成。
+当前版本适合单机部署代理控制面、节点编排和 Web 管理；Web 入口既支持直接终止 TLS，也可部署在可信的 TLS 反向代理之后。
 
 ## 产品截图
 
@@ -82,7 +82,7 @@ boxd 是一个围绕 [sing-box](https://sing-box.sagernet.org/) 构建的代理�
 | 节点操作 | 单节点编辑、单节点/多节点测速、URL Test、TCP Ping、ICMP Ping、测速历史 |
 | 规则集 | 内置与自定义规则集、条件下载、字节统计、刷新状态和依赖校验 |
 | 可观测性 | 真实连接快照、连接关闭、流量采样、DNS 探测、规则命中、应用与内核日志流 |
-| 安全 | 本地管理员 PBKDF2 口令、24 小时会话、HttpOnly + SameSite=Strict Cookie、Bearer Token、同源写操作校验 |
+| 安全 | Web 专用管理员 PBKDF2 口令、服务端随机口令轮换、24 小时会话、HttpOnly + SameSite=Strict Cookie、Bearer Token、同源写操作校验、直连 HTTPS |
 | 数据存储 | SQLite WAL、外键、版本化内嵌迁移、配置历史和期望状态快照 |
 
 ## 商用发布与质量治理
@@ -105,6 +105,7 @@ boxd 以“可部署、可验证、可维护”为发布基线，而不是只有
 flowchart LR
     Browser[Web 控制台] -->|REST + SSE| HTTP[HTTP API]
     Client[API 客户端] -->|REST| HTTP
+    HTTP --> WebAuth[Web 认证与会话]
     HTTP --> Control[控制平面用例]
     Control --> Manager[内核管理器]
     Control --> SQLite[(SQLite WAL)]
@@ -122,10 +123,11 @@ flowchart LR
 cmd/boxd/                          headless / Web 宿主入口
 control/                           稳定控制面契约
 kernel/                            稳定内核契约
-prototype/                         内嵌 Web 控制台静态资源
+webui/                             内嵌 Web 控制台静态资源
 webfiles.go                        Web 资源 embed 入口
 internal/bootstrap/                唯一组合根
 internal/controlplane/             控制面用例与配置事务
+internal/webauth/                 仅 Web 入口使用的管理员凭据与会话
 internal/kernel/manager/           与引擎无关的内核状态机
 internal/adapters/inbound/httpapi/ REST、SSE、认证和静态控制台
 internal/adapters/outbound/        sing-box 配置、SQLite、订阅、下载和探测适配器
@@ -195,7 +197,22 @@ mkdir -p ./boxd-data
 ./boxd-linux-amd64 -data-dir ./boxd-data -web -listen '[::]:7662'
 ```
 
-### 3. 从源码构建
+### 3. 启用 HTTPS 直连
+
+Web 入口支持直接加载 PEM 证书和私钥，不依赖反向代理。两个参数必须同时提供；证书会在启动阶段完成解析校验：
+
+```bash
+./boxd-linux-amd64 \
+  -data-dir ./boxd-data \
+  -web \
+  -listen '[::]:7662' \
+  -tls-cert /etc/boxd/tls/fullchain.pem \
+  -tls-key /etc/boxd/tls/privkey.pem
+```
+
+启用后访问 `https://127.0.0.1:7662/`。服务强制 TLS 1.2 及以上，HTTPS 响应包含 HSTS，浏览器会话 Cookie 自动带 `Secure` 属性。公网或生产部署应使用受信任 CA 签发的证书；自签名证书只适合本地验证。
+
+### 4. 从源码构建
 
 ```bash
 git clone ssh://git@github.com/xuthus5/boxd.git
@@ -278,6 +295,18 @@ ExecStart=
 ExecStart=/usr/local/bin/boxd -data-dir /var/lib/boxd -web -listen [::]:7662
 ```
 
+HTTPS 直连同样通过 drop-in 配置，证书目录应仅允许 root 读取：
+
+```ini
+[Service]
+ExecStart=
+ExecStart=/usr/local/bin/boxd -data-dir /var/lib/boxd -web -listen [::]:7662 \
+  -tls-cert /etc/boxd/tls/fullchain.pem \
+  -tls-key /etc/boxd/tls/privkey.pem
+```
+
+将证书放到 `/etc/boxd/tls/` 后执行 `sudo systemctl daemon-reload && sudo systemctl restart boxd`。启用 HTTPS 后健康检查使用 `curl -fsS https://127.0.0.1:7662/api/v1/health`；自签名测试需额外传入对应 CA 或使用反向代理。
+
 ### 运维命令
 
 ```bash
@@ -333,6 +362,25 @@ docker run -d --name boxd --restart unless-stopped \
 curl -fsS http://127.0.0.1:7662/api/v1/health
 ```
 
+### 启用 HTTPS
+
+容器内直接终止 TLS 时，将证书以只读方式挂载并传入启动参数：
+
+```bash
+docker run -d --name boxd --restart unless-stopped \
+  -p 7662:7662 \
+  -p 1080:1080 \
+  -v boxd-data:/var/lib/boxd \
+  -v /etc/boxd/tls:/etc/boxd/tls:ro \
+  "$BOXD_IMAGE" \
+  -data-dir /var/lib/boxd \
+  -web \
+  -listen [::]:7662 \
+  -tls-cert /etc/boxd/tls/fullchain.pem \
+  -tls-key /etc/boxd/tls/privkey.pem \
+  -start
+```
+
 ### 启用 TUN
 
 TUN 需要 host 网络、网络管理能力和 TUN 设备。此模式会直接修改宿主机路由，请仅在明确需要透明代理时使用：
@@ -383,6 +431,8 @@ boxd 使用命令行参数启动，托管状态由 Web 控制台和 REST API 写
 | `-data-dir` | 用户配置目录下的 `boxd` | SQLite、内核缓存和应用数据的根目录 |
 | `-web` | `false` | 启用 Web 控制台和 HTTP API |
 | `-listen` | `[::]:7662` | Web 控制台与 API 监听地址 |
+| `-tls-cert` | — | HTTPS PEM 证书链；必须与 `-tls-key` 同时使用 |
+| `-tls-key` | — | HTTPS PEM 私钥；必须与 `-tls-cert` 同时使用 |
 | `-start` | `false` | 初始化后立即启动 sing-box 内核 |
 | `-version` | — | 输出构建版本并退出 |
 
@@ -413,7 +463,8 @@ Web 控制台和 API 的配置事实来源是 SQLite。修改端口、入口、�
 ## 安全建议
 
 - 首次部署后立即设置强管理员口令，不要继续使用测试口令。
-- Web 控制台默认使用 HTTP。远程访问必须通过 HTTPS 反向代理、VPN 或可信内网。
+- 管理员口令可在设置页随机轮换；新口令固定由服务端安全随机数生成，不接受用户自定义，并会撤销全部旧会话。
+- Web 控制台支持原生 HTTPS。公网访问应启用 `-tls-cert`/`-tls-key`，或部署在受信任的 TLS 反向代理之后。
 - 不要把 `7662`、`1080` 或 TUN 管理能力直接暴露到公网。
 - 反向代理应指向 `http://127.0.0.1:7662`，并保留 `Host`、`X-Forwarded-*` 与 SSE 所需的流式响应设置。
 - systemd 单元已启用 `NoNewPrivileges`、`ProtectSystem=strict`、`ProtectHome`、`RestrictAddressFamilies` 和能力边界；如需调整 TUN 或网络能力，应逐项评估。
@@ -428,8 +479,9 @@ Web 控制台和 API 的配置事实来源是 SQLite。修改端口、入口、�
 - 认证状态：`GET /api/v1/auth/status`
 - 管理员初始化：`POST /api/v1/auth/initialize`
 - 管理员登录：`POST /api/v1/auth/login`
+- 管理员随机轮换口令：`POST /api/v1/auth/rotate-password`（需要认证，不接受自定义口令请求体）
 
-除健康检查、认证状态、初始化和登录外，其余 API 均要求有效会话。Web 控制台使用同源 HttpOnly Cookie；自动化客户端可在登录后使用 `Authorization: Bearer <token>`。
+除健康检查、认证状态、初始化和登录外，其余 API 均要求有效会话。Web 控制台使用同源 HttpOnly Cookie；自动化客户端可在登录后使用 `Authorization: Bearer <token>`。认证与口令存储仅属于 Web 入站层，不暴露在 `control.Application` 中，后续桌面宿主不会继承这套 Web 会话能力。
 
 完整路由、领域约束和错误语义见 [控制面文档](docs/control-plane.md)；机器可读的 OpenAPI 3.1 契约见 [docs/openapi.yaml](docs/openapi.yaml)。
 
@@ -455,7 +507,7 @@ make ci            # 格式、vet、测试和构建
 make engine-version
 ```
 
-Web 控制台静态资源位于 `prototype/`，通过 `webfiles.go` 与 Go embed 打包，不需要 Node.js 构建步骤。
+Web 控制台静态资源位于 `webui/`，通过 `webfiles.go` 与 Go embed 打包，不需要 Node.js 构建步骤。
 
 ### 浏览器质量门禁
 

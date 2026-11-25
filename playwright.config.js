@@ -30,19 +30,28 @@ export default defineConfig({
   projects: [
     {
       name: 'desktop-chromium',
+      testIgnore: /password-rotation\.spec\.js/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 }, storageState: authState },
     },
     {
       name: 'desktop-firefox',
+      testIgnore: /password-rotation\.spec\.js/,
       use: { ...devices['Desktop Firefox'], viewport: { width: 1440, height: 900 }, storageState: authState },
     },
     {
       name: 'desktop-webkit',
+      testIgnore: /password-rotation\.spec\.js/,
       use: { ...devices['Desktop Safari'], viewport: { width: 1440, height: 900 }, storageState: authState },
     },
     {
       name: 'mobile-chromium',
+      testIgnore: /password-rotation\.spec\.js/,
       use: { ...devices['Pixel 7'], storageState: authState },
+    },
+    {
+      name: 'rotation-chromium',
+      testMatch: /password-rotation\.spec\.js/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 }, storageState: authState },
     },
   ],
   webServer: {

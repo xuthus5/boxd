@@ -19,6 +19,7 @@ import (
 	"github.com/xuthus5/boxd/internal/adapters/outbound/subscriptionjson"
 	"github.com/xuthus5/boxd/internal/controlplane"
 	"github.com/xuthus5/boxd/internal/kernel/manager"
+	"github.com/xuthus5/boxd/internal/webauth"
 	"github.com/xuthus5/boxd/kernel"
 )
 
@@ -130,7 +131,6 @@ func New(ctx context.Context, opts Options) (*App, error) {
 			DNSProber:            dnsProber,
 			RuleSetRepository:    store.RuleSets(),
 			TestResultRepository: store.TestResults(),
-			SecurityRepository:   store.Security(),
 			AuditRepository:      store.Audit(),
 		},
 	)
@@ -157,6 +157,15 @@ func New(ctx context.Context, opts Options) (*App, error) {
 		scheduler: scheduler,
 		logger:    logger,
 	}, nil
+}
+
+// WebAuthRepository returns the browser credential store. Only the Web ingress
+// should consume it; the control-plane facade has no authentication surface.
+func (a *App) WebAuthRepository() webauth.Repository {
+	if a == nil || a.store == nil {
+		return nil
+	}
+	return a.store.WebAuth()
 }
 
 // DatabasePath returns the active SQLite file.

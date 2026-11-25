@@ -96,21 +96,6 @@ type TestResultRepository interface {
 	List(ctx context.Context, nodeID string, limit int) ([]NodeTestResult, error)
 }
 
-// SecurityCredential is a salted password verifier. Plaintext passwords never
-// cross this port.
-type SecurityCredential struct {
-	Salt       []byte
-	Hash       []byte
-	Iterations int
-	UpdatedAt  time.Time
-}
-
-// SecurityRepository persists the single local administrator credential.
-type SecurityRepository interface {
-	Load(ctx context.Context) (SecurityCredential, bool, error)
-	Save(ctx context.Context, credential SecurityCredential) error
-}
-
 // AuditRepository persists immutable control-plane audit events.
 type AuditRepository interface {
 	Append(ctx context.Context, event AuditEvent) (int64, error)

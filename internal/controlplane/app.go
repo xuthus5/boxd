@@ -23,7 +23,6 @@ type App struct {
 	ruleSets      control.RuleSetAPI
 	settings      control.SettingsAPI
 	observability control.ObservabilityAPI
-	security      control.SecurityAPI
 	audit         control.AuditAPI
 }
 
@@ -40,7 +39,6 @@ type Dependencies struct {
 	DNSProber            control.DNSProber
 	RuleSetRepository    control.RuleSetRepository
 	TestResultRepository control.TestResultRepository
-	SecurityRepository   control.SecurityRepository
 	AuditRepository      control.AuditRepository
 }
 
@@ -61,8 +59,6 @@ func NewWithDependencies(kernelManager kernel.Manager, configStore kernel.Config
 	if profileService != nil {
 		profileService.SetAuditor(audit)
 	}
-	security := NewSecurityService(dependencies.SecurityRepository)
-	security.SetAuditor(audit)
 	kernelService := NewKernelService(kernelManager)
 	kernelService.SetAuditor(audit)
 	configService := NewConfigService(kernelManager, configStore, profileService)
@@ -88,7 +84,6 @@ func NewWithDependencies(kernelManager kernel.Manager, configStore kernel.Config
 		ruleSets:      ruleSetService,
 		settings:      settingsService,
 		observability: NewObservabilityService(kernelManager),
-		security:      security,
 		audit:         audit,
 	}
 }
@@ -107,5 +102,4 @@ func (a *App) DNS() control.DNSAPI                     { return a.dns }
 func (a *App) RuleSets() control.RuleSetAPI            { return a.ruleSets }
 func (a *App) Settings() control.SettingsAPI           { return a.settings }
 func (a *App) Observability() control.ObservabilityAPI { return a.observability }
-func (a *App) Security() control.SecurityAPI           { return a.security }
 func (a *App) Audit() control.AuditAPI                 { return a.audit }

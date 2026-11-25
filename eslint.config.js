@@ -11,7 +11,7 @@ export default [
   },
   js.configs.recommended,
   {
-    files: ['prototype/**/*.js'],
+    files: ['webui/**/*.js'],
     languageOptions: {
       ecmaVersion: 2024,
       sourceType: 'module',

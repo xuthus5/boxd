@@ -8,6 +8,11 @@ uses [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 
 ### Added
 
+- Native HTTPS serving through `-tls-cert` and `-tls-key`, with TLS 1.2 as the
+  minimum version, secure session cookies, and HSTS responses.
+- Web settings password rotation that generates a one-time 32-character random
+  administrator secret, rejects user-supplied replacements, revokes prior
+  sessions, and never persists plaintext in the browser.
 - Embedded responsive Web control plane covering overview, inbounds, egress
   nodes, groups, chains, routing, DNS, subscriptions, rule sets,
   observability, streaming application/kernel logs, and settings.
@@ -34,6 +39,10 @@ uses [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 
 - PBKDF2 password verifiers, rate-limited authentication, in-memory sessions,
   same-origin write protection, strict CSP, and sensitive-view redaction.
+- Administrator authentication now lives exclusively in the Web ingress
+  (`internal/webauth` plus `httpapi`) and is no longer exposed through
+  `control.Application`, keeping future desktop hosts outside the Web password
+  and cookie trust boundary.
 - Go module and standard-library dependency baselines are checked with
   `govulncheck`; known reachable vulnerabilities block release.
 

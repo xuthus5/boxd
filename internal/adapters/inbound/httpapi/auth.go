@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"context"
-	"errors"
 	"net"
 	"net/http"
 	"net/url"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/xuthus5/boxd/control"
+	"github.com/xuthus5/boxd/internal/webauth"
 )
 
 const (
@@ -22,7 +22,7 @@ const (
 )
 
 type authStatusResponse struct {
-	control.SecurityStatus
+	webauth.Status
 	Authenticated bool       `json:"authenticated"`
 	ExpiresAt     *time.Time `json:"expires_at,omitempty"`
 }
@@ -36,6 +36,15 @@ type sessionResponse struct {
 	Token         string    `json:"token"`
 	ExpiresAt     time.Time `json:"expires_at"`
 	Actor         string    `json:"actor"`
+}
+
+type passwordRotationResponse struct {
+	Authenticated       bool      `json:"authenticated"`
+	Password            string    `json:"password"`
+	Token               string    `json:"token"`
+	ExpiresAt           time.Time `json:"expires_at"`
+	CredentialUpdatedAt time.Time `json:"credential_updated_at"`
+	Actor               string    `json:"actor"`
 }
 
 type authContextKey struct{}
@@ -53,8 +62,6 @@ type loginLimiter struct {
 func newLoginLimiter() *loginLimiter {
 	return &loginLimiter{failures: make(map[string][]time.Time)}
 }
-
-var limiter = newLoginLimiter()
 
 func (l *loginLimiter) blocked(key string, now time.Time) bool {
 	l.mu.Lock()
@@ -92,6 +99,7 @@ func (s *Server) registerAuthRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/auth/status", s.handleAuthStatus)
 	mux.HandleFunc("POST /api/v1/auth/initialize", s.handleInitialize)
 	mux.HandleFunc("POST /api/v1/auth/login", s.handleLogin)
+	mux.HandleFunc("POST /api/v1/auth/rotate-password", s.handleRotatePassword)
 	mux.HandleFunc("POST /api/v1/auth/logout", s.handleLogout)
 }
 
@@ -154,14 +162,14 @@ func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) handleAuthStatus(w http.ResponseWriter, r *http.Request) {
-	status, err := s.app.Security().Status(r.Context())
+	status, err := s.auth.Status(r.Context())
 	if err != nil {
 		s.writeServiceError(w, r, err)
 		return
 	}
-	response := authStatusResponse{SecurityStatus: status}
+	response := authStatusResponse{Status: status}
 	if auth, ok := s.authenticate(r); ok {
-		if session, validateErr := s.app.Security().ValidateSession(r.Context(), auth.Token); validateErr == nil {
+		if session, validateErr := s.auth.ValidateSession(r.Context(), auth.Token); validateErr == nil {
 			response.Authenticated = true
 			response.ExpiresAt = &session.ExpiresAt
 		}
@@ -175,18 +183,18 @@ func (s *Server) handleInitialize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	key := clientKey(r)
-	if limiter.blocked(key, time.Now()) {
+	if s.limiter.blocked(key, time.Now()) {
 		writeError(w, r, newAPIError(http.StatusTooManyRequests, "rate_limited", "security.initialize", "too many authentication attempts", "wait a few minutes and try again"))
 		return
 	}
 	ctx := control.WithAuditIdentity(r.Context(), sessionActor, sessionSource)
-	session, err := s.app.Security().Initialize(ctx, request.Password)
+	session, err := s.auth.Initialize(ctx, request.Password)
 	if err != nil {
-		limiter.fail(key, time.Now())
+		s.limiter.fail(key, time.Now())
 		s.writeServiceError(w, r, err)
 		return
 	}
-	limiter.reset(key)
+	s.limiter.reset(key)
 	s.setSessionCookie(w, r, session)
 	s.logs.add("info", "security", "administrator password initialized", nil)
 	writeJSON(w, http.StatusCreated, sessionResponse{Authenticated: true, Token: session.Token, ExpiresAt: session.ExpiresAt, Actor: sessionActor})
@@ -198,28 +206,52 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	key := clientKey(r)
-	if limiter.blocked(key, time.Now()) {
+	if s.limiter.blocked(key, time.Now()) {
 		writeError(w, r, newAPIError(http.StatusTooManyRequests, "rate_limited", "security.login", "too many authentication attempts", "wait a few minutes and try again"))
 		return
 	}
 	ctx := control.WithAuditIdentity(r.Context(), sessionActor, sessionSource)
-	session, err := s.app.Security().Login(ctx, request.Password)
+	session, err := s.auth.Login(ctx, request.Password)
 	if err != nil {
-		limiter.fail(key, time.Now())
+		s.limiter.fail(key, time.Now())
 		s.writeServiceError(w, r, err)
 		return
 	}
-	limiter.reset(key)
+	s.limiter.reset(key)
 	s.setSessionCookie(w, r, session)
 	s.logs.add("info", "security", "administrator signed in", nil)
 	writeJSON(w, http.StatusOK, sessionResponse{Authenticated: true, Token: session.Token, ExpiresAt: session.ExpiresAt, Actor: sessionActor})
+}
+
+func (s *Server) handleRotatePassword(w http.ResponseWriter, r *http.Request) {
+	ctx := control.WithAuditIdentity(r.Context(), sessionActor, sessionSource)
+	rotation, err := s.auth.RotatePassword(ctx)
+	if err != nil {
+		s.writeServiceError(w, r, err)
+		return
+	}
+	status, err := s.auth.Status(ctx)
+	if err != nil {
+		s.writeServiceError(w, r, err)
+		return
+	}
+	s.setSessionCookie(w, r, rotation.Session)
+	s.logs.add("info", "security", "administrator password rotated; all prior sessions revoked", nil)
+	writeJSON(w, http.StatusOK, passwordRotationResponse{
+		Authenticated:       true,
+		Password:            rotation.Password,
+		Token:               rotation.Session.Token,
+		ExpiresAt:           rotation.Session.ExpiresAt,
+		CredentialUpdatedAt: status.CredentialUpdatedAt,
+		Actor:               sessionActor,
+	})
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	auth, _ := s.authenticate(r)
 	ctx := control.WithAuditIdentity(r.Context(), sessionActor, sessionSource)
 	if auth.Token != "" {
-		if err := s.app.Security().Logout(ctx, auth.Token); err != nil {
+		if err := s.auth.Logout(ctx, auth.Token); err != nil {
 			s.writeServiceError(w, r, err)
 			return
 		}
@@ -247,7 +279,7 @@ func (s *Server) authenticate(r *http.Request) (authContext, bool) {
 	if token == "" {
 		return authContext{}, false
 	}
-	if _, err := s.app.Security().ValidateSession(r.Context(), token); err != nil {
+	if _, err := s.auth.ValidateSession(r.Context(), token); err != nil {
 		return authContext{}, false
 	}
 	return authContext{Token: token, ViaCookie: viaCookie}, true
@@ -267,7 +299,7 @@ func (s *Server) sessionToken(r *http.Request) (string, bool) {
 	return "", false
 }
 
-func (s *Server) setSessionCookie(w http.ResponseWriter, r *http.Request, session control.SecuritySession) {
+func (s *Server) setSessionCookie(w http.ResponseWriter, r *http.Request, session webauth.Session) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     s.cookieName,
 		Value:    session.Token,
@@ -302,9 +334,4 @@ func clientKey(r *http.Request) string {
 		return r.RemoteAddr
 	}
 	return "unknown"
-}
-
-func authenticationError(err error) bool {
-	var apiErr *apiError
-	return errors.As(err, &apiErr) && apiErr.status == http.StatusUnauthorized
 }

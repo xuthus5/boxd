@@ -1,10 +1,12 @@
 // Package httpapi exposes the control-plane application over a same-origin HTTP
-// API and serves the embedded browser console. It contains no control-plane
-// business logic: every operation delegates to control.Application.
+// API and serves the embedded browser console. Control-plane operations delegate
+// to control.Application; browser authentication is a Web-ingress concern backed
+// by internal/webauth and is never exposed through the control facade.
 package httpapi
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -14,6 +16,7 @@ import (
 	"time"
 
 	"github.com/xuthus5/boxd/control"
+	"github.com/xuthus5/boxd/internal/webauth"
 	"github.com/xuthus5/boxd/kernel"
 )
 
@@ -24,16 +27,24 @@ const (
 
 // Options configures the HTTP inbound adapter.
 type Options struct {
-	Address string
-	Logger  *slog.Logger
+	Address        string
+	Logger         *slog.Logger
+	AuthRepository webauth.Repository
+	TLSCertFile    string
+	TLSKeyFile     string
 }
 
 // Server owns the HTTP listener and all browser-facing adapters.
 type Server struct {
 	app         control.Application
+	auth        *webauth.Service
 	logger      *slog.Logger
 	address     string
 	cookieName  string
+	limiter     *loginLimiter
+	tlsCertFile string
+	tlsKeyFile  string
+	tlsConfig   *tls.Config
 	startedAt   time.Time
 	logs        *logHub
 	observation *liveObservation
@@ -46,6 +57,9 @@ func New(app control.Application, options Options) (*Server, error) {
 	if app == nil {
 		return nil, errors.New("control application is required")
 	}
+	if options.AuthRepository == nil {
+		return nil, errors.New("web authentication repository is required")
+	}
 	logger := options.Logger
 	if logger == nil {
 		logger = slog.Default()
@@ -54,11 +68,28 @@ func New(app control.Application, options Options) (*Server, error) {
 	if address == "" {
 		address = DefaultAddress
 	}
+	certFile := strings.TrimSpace(options.TLSCertFile)
+	keyFile := strings.TrimSpace(options.TLSKeyFile)
+	if (certFile == "") != (keyFile == "") {
+		return nil, errors.New("both TLS certificate and key files are required")
+	}
+	var tlsConfig *tls.Config
+	if certFile != "" {
+		if _, err := tls.LoadX509KeyPair(certFile, keyFile); err != nil {
+			return nil, fmt.Errorf("load TLS certificate: %w", err)
+		}
+		tlsConfig = &tls.Config{MinVersion: tls.VersionTLS12}
+	}
 	server := &Server{
 		app:         app,
+		auth:        webauth.New(options.AuthRepository),
 		logger:      logger,
 		address:     address,
 		cookieName:  sessionCookieKey,
+		limiter:     newLoginLimiter(),
+		tlsCertFile: certFile,
+		tlsKeyFile:  keyFile,
+		tlsConfig:   tlsConfig,
 		startedAt:   time.Now().UTC(),
 		logs:        newLogHub(500),
 		observation: newLiveObservation(),
@@ -91,6 +122,7 @@ func (s *Server) ServeListener(ctx context.Context, listener net.Listener) error
 	go s.runObservationSampler(samplerCtx)
 	httpServer := &http.Server{
 		Handler:           s.handler,
+		TLSConfig:         s.tlsConfig,
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      0,
@@ -107,8 +139,17 @@ func (s *Server) ServeListener(ctx context.Context, listener net.Listener) error
 			s.logger.Warn("http server shutdown incomplete", slog.Any("error", shutdownErr))
 		}
 	}()
-	s.logger.Info("web console listening", slog.String("address", listener.Addr().String()))
-	err := httpServer.Serve(listener)
+	scheme := "http"
+	if s.tlsConfig != nil {
+		scheme = "https"
+	}
+	s.logger.Info("web console listening", slog.String("address", listener.Addr().String()), slog.String("scheme", scheme))
+	var err error
+	if s.tlsConfig != nil {
+		err = httpServer.ServeTLS(listener, s.tlsCertFile, s.tlsKeyFile)
+	} else {
+		err = httpServer.Serve(listener)
+	}
 	if errors.Is(err, http.ErrServerClosed) {
 		<-shutdownDone
 		return nil
@@ -261,6 +302,9 @@ func (s *Server) securityHeaders(next http.Handler) http.Handler {
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+		if r.TLS != nil {
+			w.Header().Set("Strict-Transport-Security", "max-age=31536000")
+		}
 		next.ServeHTTP(w, r)
 	})
 }

@@ -58,7 +58,7 @@ func walkGoFiles(t *testing.T, root string, visit func(path string, imports []st
 			return err
 		}
 		if entry.IsDir() {
-			if entry.Name() == ".git" || entry.Name() == "prototype" || entry.Name() == ".idea" {
+			if entry.Name() == ".git" || entry.Name() == "webui" || entry.Name() == ".idea" {
 				return filepath.SkipDir
 			}
 			return nil

@@ -6,10 +6,10 @@ package boxd
 import "embed"
 
 // WebFiles contains the browser application served by the HTTP inbound adapter.
-// Keep prototype/ as the single source of truth for the static UI.
+// Keep webui/ as the single source of truth for the static UI.
 //
-//go:embed prototype/index.html prototype/app.js prototype/styles.css prototype/favicon.svg prototype/assets
+//go:embed webui/index.html webui/app.js webui/styles.css webui/favicon.svg webui/assets
 var WebFiles embed.FS
 
 // WebRoot is the path of the embedded browser application.
-const WebRoot = "prototype"
+const WebRoot = "webui"

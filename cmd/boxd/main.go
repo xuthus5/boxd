@@ -30,6 +30,8 @@ func run() error {
 	startKernel := flag.Bool("start", false, "start the kernel after initialization")
 	webEnabled := flag.Bool("web", false, "serve the browser console and HTTP API")
 	webListen := flag.String("listen", httpapi.DefaultAddress, "web console listen address")
+	tlsCert := flag.String("tls-cert", "", "PEM certificate chain for HTTPS (requires -tls-key)")
+	tlsKey := flag.String("tls-key", "", "PEM private key for HTTPS (requires -tls-cert)")
 	flag.Parse()
 
 	if *showVersion {
@@ -88,7 +90,13 @@ func run() error {
 	var webServer *httpapi.Server
 	webErrors := make(chan error, 1)
 	if *webEnabled {
-		webServer, err = httpapi.New(app.Control, httpapi.Options{Address: *webListen, Logger: logger})
+		webServer, err = httpapi.New(app.Control, httpapi.Options{
+			Address:        *webListen,
+			Logger:         logger,
+			AuthRepository: app.WebAuthRepository(),
+			TLSCertFile:    *tlsCert,
+			TLSKeyFile:     *tlsKey,
+		})
 		if err != nil {
 			return fmt.Errorf("initialize web console: %w", err)
 		}

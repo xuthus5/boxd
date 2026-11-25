@@ -114,9 +114,9 @@ func (db *DB) TestResults() *TestResultRepository {
 	return &TestResultRepository{db: db.sql}
 }
 
-// Security returns the local administrator credential repository.
-func (db *DB) Security() *SecurityRepository {
-	return &SecurityRepository{db: db.sql}
+// WebAuth returns the browser administrator credential repository.
+func (db *DB) WebAuth() *WebAuthRepository {
+	return &WebAuthRepository{db: db.sql}
 }
 
 // Audit returns the audit event repository.

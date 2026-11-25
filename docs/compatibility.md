@@ -37,9 +37,11 @@ improving; report blockers through a normal issue with reproduction details.
 
 ## Network and TLS
 
-boxd serves HTTP and SSE on port `7662` by default. TLS is intentionally
-terminated by a reverse proxy, VPN, or trusted private network. The proxy must
-preserve streaming responses, `Host`, and forwarded headers for SSE.
+boxd serves HTTP and SSE on port `7662` by default. Native HTTPS is available by
+passing `-tls-cert` and `-tls-key`; TLS 1.2 is the minimum accepted version and
+HTTPS responses include HSTS. A reverse proxy, VPN, or trusted private network
+may still terminate TLS instead. Any proxy must preserve streaming responses,
+`Host`, and forwarded headers for SSE.
 
 ## Mobile
 

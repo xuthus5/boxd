@@ -23,6 +23,8 @@ TimeoutStopSec=30
 LimitNOFILE=1048576
 UMask=0077
 
+# Web 直连 HTTPS 可通过 systemd drop-in 追加：
+#   -tls-cert /etc/boxd/tls/fullchain.pem -tls-key /etc/boxd/tls/privkey.pem
 # Keep /dev/net/tun available for the optional TUN inbound.
 NoNewPrivileges=true
 PrivateTmp=true

@@ -9,6 +9,9 @@ info:
     clients may use the bearer token returned by initialization or login.
     Cookie-authenticated mutating requests must be same-origin.
 
+    Administrator password rotation returns a server-generated one-time secret
+    and revokes all previous sessions.
+
     Error responses use a stable envelope with `code`, `op`, `message`, and an
     optional `hint`. Sensitive node options and subscription query values are
     omitted from list views.
@@ -128,6 +131,27 @@ paths:
                 properties:
                   authenticated: { type: boolean, const: false }
         '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/auth/rotate-password:
+    post:
+      tags: [Authentication]
+      operationId: rotateAdministratorPassword
+      summary: Rotate the administrator password using a server-generated secret
+      description: |
+        Generates a new 32-character random password, revokes every existing
+        session, and returns a fresh session for the current request. The new
+        password is returned once and is never accepted from the request body.
+      responses:
+        '200':
+          description: Password rotated and a new session established.
+          headers:
+            Set-Cookie:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordRotation'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /api/v1/snapshot:
     get:
       tags: [System, Configuration]
@@ -1422,7 +1446,7 @@ components:
       required: [code, message]
       properties:
         code: { type: string, example: kernel_unauthorized }
-        op: { type: string, example: security.login }
+        op: { type: string, example: webauth.login }
         message: { type: string }
         hint: { type: string }
     ErrorEnvelope:
@@ -1443,6 +1467,20 @@ components:
         token: { type: string }
         expires_at: { type: string, format: date-time }
         actor: { type: string, example: web-admin }
+    PasswordRotation:
+      type: object
+      required: [authenticated, password, token, expires_at, credential_updated_at, actor]
+      properties:
+        authenticated: { type: boolean, const: true }
+        password:
+          type: string
+          minLength: 32
+          maxLength: 32
+          description: One-time server-generated administrator password. Never persist or log it.
+        token: { type: string }
+        expires_at: { type: string, format: date-time }
+        credential_updated_at: { type: string, format: date-time }
+        actor: { type: string, example: web-admin }
     AuthStatus:
       type: object
       required: [initialized, authenticated, mode, session_count]
@@ -1452,15 +1490,6 @@ components:
         mode: { type: string, enum: [local, password] }
         session_count: { type: integer, minimum: 0 }
         expires_at: { type: string, format: date-time }
-        credential_updated_at: { type: string, format: date-time }
-    SecurityStatus:
-      type: object
-      description: Safe subset of security state included in the control-plane snapshot.
-      required: [initialized, mode, session_count]
-      properties:
-        initialized: { type: boolean }
-        mode: { type: string, enum: [local, password] }
-        session_count: { type: integer, minimum: 0 }
         credential_updated_at: { type: string, format: date-time }
     Capabilities:
       type: object
@@ -1942,14 +1971,13 @@ components:
           items: { $ref: '#/components/schemas/ChainView' }
     Snapshot:
       type: object
-      required: [server_time, revision, kernel, capabilities, scheduler, security, inbounds, nodes, groups, chains, routes, dns, rulesets, subscriptions, settings, connections, traffic, logs, overview]
+      required: [server_time, revision, kernel, capabilities, scheduler, inbounds, nodes, groups, chains, routes, dns, rulesets, subscriptions, settings, connections, traffic, logs, overview]
       properties:
         server_time: { type: string, format: date-time }
         revision: { type: string }
         kernel: { $ref: '#/components/schemas/KernelStatus' }
         capabilities: { $ref: '#/components/schemas/Capabilities' }
         scheduler: { $ref: '#/components/schemas/SchedulerStatus' }
-        security: { $ref: '#/components/schemas/SecurityStatus' }
         inbounds:
           type: array
           items: { $ref: '#/components/schemas/InboundView' }

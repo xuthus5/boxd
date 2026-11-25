@@ -52,10 +52,20 @@ boxd is a single-host control plane with one local administrator account. It
 is not a multi-tenant authorization boundary.
 
 - The HTTP API and Web console share one origin.
+- Administrator authentication is a Web-ingress capability implemented in
+  `internal/webauth` and `internal/adapters/inbound/httpapi`. It is not part of
+  `control.Application`, so future desktop hosts do not inherit Web passwords
+  or browser sessions.
 - The first administrator password is initialized locally and stored as a
   salted PBKDF2-HMAC-SHA256 verifier.
+- The settings console can rotate the administrator password. Rotation uses a
+  server-generated 32-character random secret, accepts no user-supplied
+  replacement, revokes every prior session, and displays the new secret once.
 - Sessions are short-lived, in-memory bearer tokens delivered as
   `HttpOnly; SameSite=Strict` cookies to browser clients.
+- Direct HTTPS is supported with `-tls-cert` and `-tls-key`. TLS 1.2 is the
+  minimum version; HTTPS cookies are marked `Secure` and responses include
+  HSTS.
 - Cookie-authenticated writes require a same-origin request. Automated clients
   may use a bearer token returned by login.
 - Login and initialization attempts are rate limited per client address.
@@ -68,8 +78,12 @@ is not a multi-tenant authorization boundary.
 ## Secure deployment requirements
 
 - Do not expose ports `7662`, `1080`, or TUN management to untrusted networks.
-- Terminate TLS at a trusted reverse proxy, VPN, or private overlay network.
+- Enable native HTTPS with a trusted certificate, or terminate TLS at a trusted
+  reverse proxy, VPN, or private overlay network.
 - Use a strong, unique administrator password.
+- Rotate the administrator password from the Web console immediately if a
+  session, browser profile, or credential may have been exposed. Rotation
+  invalidates all existing sessions.
 - Run as a dedicated host with systemd or an equivalent process supervisor.
 - Keep `/var/lib/boxd` readable only by the service account.
 - Keep boxd, sing-box, the host kernel, and the reverse proxy patched.

@@ -6,34 +6,35 @@ import (
 	"errors"
 	"time"
 
-	"github.com/xuthus5/boxd/control"
+	"github.com/xuthus5/boxd/internal/webauth"
 )
 
-// SecurityRepository persists the local administrator password verifier.
-type SecurityRepository struct {
+// WebAuthRepository persists the browser administrator password verifier.
+// It is a Web-ingress adapter and is not exposed through control.Application.
+type WebAuthRepository struct {
 	db *sql.DB
 }
 
-var _ control.SecurityRepository = (*SecurityRepository)(nil)
+var _ webauth.Repository = (*WebAuthRepository)(nil)
 
-func (r *SecurityRepository) Load(ctx context.Context) (control.SecurityCredential, bool, error) {
-	var credential control.SecurityCredential
+func (r *WebAuthRepository) Load(ctx context.Context) (webauth.Credential, bool, error) {
+	var credential webauth.Credential
 	var updatedAt int64
 	err := r.db.QueryRowContext(ctx, `
 		SELECT salt, hash, iterations, updated_at
 		FROM security_credential WHERE id = 1`,
 	).Scan(&credential.Salt, &credential.Hash, &credential.Iterations, &updatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
-		return control.SecurityCredential{}, false, nil
+		return webauth.Credential{}, false, nil
 	}
 	if err != nil {
-		return control.SecurityCredential{}, false, err
+		return webauth.Credential{}, false, err
 	}
 	credential.UpdatedAt = time.UnixMilli(updatedAt).UTC()
 	return credential, true, nil
 }
 
-func (r *SecurityRepository) Save(ctx context.Context, credential control.SecurityCredential) error {
+func (r *WebAuthRepository) Save(ctx context.Context, credential webauth.Credential) error {
 	updatedAt := credential.UpdatedAt
 	if updatedAt.IsZero() {
 		updatedAt = time.Now().UTC()
