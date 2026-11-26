@@ -58,10 +58,7 @@ func (c *Controller) sidebar(ctx *ui.Context, narrow bool) {
 	p := c.colors()
 	_, height := ctx.Size()
 	compact := height < 760
-	width := float32(216)
-	if narrow {
-		width = 82
-	}
+	width := c.sidebarWidth()
 	itemHeight := float32(38)
 	if compact {
 		itemHeight = 34
@@ -123,6 +120,13 @@ func (c *Controller) sidebar(ctx *ui.Context, narrow bool) {
 				Font("monospace").TextColor(p.TextFaint).SingleLine()
 		})
 	})
+}
+
+func (c *Controller) sidebarWidth() float32 {
+	if c.narrow {
+		return sidebarNarrowWidth
+	}
+	return sidebarWidth
 }
 
 func (c *Controller) header(ctx *ui.Context) {
@@ -286,7 +290,8 @@ func (c *Controller) pageView(ctx *ui.Context) {
 }
 
 func (c *Controller) pageScroll(ctx *ui.Context, fn func()) {
-	ui.Scroll(ctx).Key("page-"+c.page).Grow(1).Padding(22, 24, 28).Gap(16).Children(fn)
+	ui.Scroll(ctx).Key("page-"+c.page).Grow(1).FillWidth().MinWidth(0).
+		Padding(22, 24, 28).Gap(16).Children(fn)
 }
 
 func (c *Controller) overviewPage(ctx *ui.Context) {

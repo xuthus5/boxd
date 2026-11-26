@@ -29,6 +29,9 @@ const (
 	pageConnections   = "connections"
 	pageSettings      = "settings"
 	pageAbout         = "about"
+
+	sidebarWidth       = 216
+	sidebarNarrowWidth = 82
 )
 
 type navItem struct {

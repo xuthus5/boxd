@@ -427,7 +427,7 @@ func (c *Controller) ruleSetsPage(ctx *ui.Context) {
 
 func (c *Controller) logsPage(ctx *ui.Context) {
 	p := c.colors()
-	ui.Column(ctx).Grow(1).MinWidth(0).Padding(22, 24, 18).Gap(12).Children(func() {
+	ui.Column(ctx).Grow(1).FillWidth().MinWidth(0).Padding(22, 24, 18).Gap(12).Children(func() {
 		logs := c.snapshot.mergedLogs(c.logFilter == 1, c.logFilter == 2)
 		for i, j := 0, len(logs)-1; i < j; i, j = i+1, j-1 {
 			logs[i], logs[j] = logs[j], logs[i]
@@ -444,8 +444,9 @@ func (c *Controller) logsPage(ctx *ui.Context) {
 				c.emptyState(ctx, "暂无日志", "应用或内核产生日志后会自动出现在这里。", nil)
 				return
 			}
-			ui.ScrollBoth(ctx).Key("logs-scroll").Grow(1).Padding(0).Children(func() {
-				ui.Column(ctx).Width(1560).Gap(1).Padding(5, 6).Children(func() {
+			ui.ScrollBoth(ctx).Key("logs-scroll").Grow(1).FillWidth().MinWidth(0).Padding(0).Children(func() {
+				ui.Column(ctx).Key("logs-content").Label("日志内容").Width(c.logsContentWidth(ctx)).
+					Gap(1).Padding(5, 6, 24, 6).Children(func() {
 					for index, entry := range logs {
 						levelColor := logLevelColor(p, entry.Level)
 						background := p.Surface
@@ -454,7 +455,7 @@ func (c *Controller) logsPage(ctx *ui.Context) {
 						}
 						line := entry.Time.Local().Format("2006-01-02 15:04:05.000") + "  " +
 							strings.ToUpper(entry.Level) + "  " + oneLine(entry.Message)
-						row := ui.ButtonBase(ctx).Key("log-"+entry.ID).Label(line).Width(1548).Height(27).
+						row := ui.ButtonBase(ctx).Key("log-"+entry.ID).Label(line).FillWidth().Height(27).
 							Padding(0, 8).Radius(5).Gap(0).AlignItems(ui.Center).Background(background).
 							Tooltip("点击复制此日志")
 						row.Children(func() {
@@ -463,7 +464,7 @@ func (c *Controller) logsPage(ctx *ui.Context) {
 							ui.Text(ctx, strings.ToUpper(entry.Level)).FontSize(10).FontWeight(700).
 								TextColor(levelColor).Width(72).SingleLine()
 							ui.Text(ctx, oneLine(entry.Message)).FontSize(10.5).Font("monospace").
-								TextColor(p.Text).Width(1300).SingleLine().Tooltip(entry.Message)
+								TextColor(p.Text).Grow(1).MinWidth(0).SingleLine().Tooltip(entry.Message)
 						})
 						if row.Clicked() {
 							c.copyLog(entry)
@@ -473,6 +474,15 @@ func (c *Controller) logsPage(ctx *ui.Context) {
 			})
 		})
 	})
+}
+
+func (c *Controller) logsContentWidth(ctx *ui.Context) float32 {
+	const minimum = 1560
+	width, _ := ctx.Size()
+	// The page scroll and log panel each contribute 24px, and the panel has
+	// a 1px border on both sides. Below the minimum, ScrollBoth keeps the
+	// full log line available through horizontal scrolling.
+	return max(minimum, width-c.sidebarWidth()-50)
 }
 
 func (c *Controller) connectionsPage(ctx *ui.Context) {

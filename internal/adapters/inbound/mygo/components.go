@@ -11,13 +11,13 @@ import (
 
 func (c *Controller) card(ctx *ui.Context, key string, fn func()) ui.Element {
 	p := c.colors()
-	return ui.Column(ctx).Key(key).Background(p.Surface).Border(1, p.Border).Radius(16).
+	return ui.Column(ctx).Key(key).FillWidth().MinWidth(0).Background(p.Surface).Border(1, p.Border).Radius(16).
 		Padding(18).Gap(12).Shadow(0, 4, 18, 0, p.Shadow).Children(fn)
 }
 
 func (c *Controller) softCard(ctx *ui.Context, key string, fn func()) ui.Element {
 	p := c.colors()
-	return ui.Column(ctx).Key(key).Background(p.SurfaceAlt).Border(1, p.BorderSoft).Radius(14).
+	return ui.Column(ctx).Key(key).FillWidth().MinWidth(0).Background(p.SurfaceAlt).Border(1, p.BorderSoft).Radius(14).
 		Padding(16).Gap(10).Children(fn)
 }
 
