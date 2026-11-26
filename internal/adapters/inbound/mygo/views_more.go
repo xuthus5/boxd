@@ -648,7 +648,7 @@ func (c *Controller) aboutPage(ctx *ui.Context) {
 							ui.Text(ctx, "BOXD").FontSize(22).FontWeight(760).SingleLine()
 							ui.Text(ctx, "网络控制平面 · 原生桌面客户端").FontSize(12).TextColor(p.TextMuted).SingleLine()
 						})
-						c.smallPill(ctx, "Apache-2.0", p.TextMuted, p.SurfaceAlt)
+						c.smallPill(ctx, c.project.License, p.TextMuted, p.SurfaceAlt)
 					})
 					ui.Text(ctx, "BOXD 将订阅、节点、出口编排、路由和 DNS 收敛为可审计的本地控制面。桌面端直接调用同一控制面接口，不依赖 Web 登录或 HTTP 管理端口。").FontSize(12).TextColor(p.TextMuted).Wrap().LineHeight(1.55)
 					ui.Row(ctx).Gap(8).Children(func() {
@@ -685,6 +685,7 @@ func (c *Controller) aboutPage(ctx *ui.Context) {
 				})
 			})
 			ui.Column(ctx).Grow(2).Basis(0).MinWidth(0).Children(func() {
+				c.aboutRepositoryCard(ctx)
 				c.card(ctx, "about-kernel", func() {
 					c.sectionHeader(ctx, "内核", "运行状态与引擎版本", nil)
 					ui.Text(ctx, kernelStateLabel(c.snapshot.Kernel.State)).FontSize(18).FontWeight(700).SingleLine()
@@ -700,6 +701,96 @@ func (c *Controller) aboutPage(ctx *ui.Context) {
 				})
 			})
 		})
+	})
+}
+
+func (c *Controller) aboutRepositoryCard(ctx *ui.Context) {
+	p := c.colors()
+	c.card(ctx, "about-repository", func() {
+		c.sectionHeader(ctx, "GitHub 仓库", "源码、问题反馈与正式版本发布", func() {
+			c.smallPill(ctx, c.project.License, p.Success, p.SuccessSoft)
+		})
+		ui.Row(ctx).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
+			ui.Row(ctx).Size(38, 38).Radius(11).Background(p.SurfaceAlt).Center().Children(func() {
+				ui.Icon(ctx, iconRepository).FontSize(19).TextColor(p.Accent)
+			})
+			ui.Column(ctx).Grow(1).MinWidth(0).Gap(2).Children(func() {
+				ui.Text(ctx, c.project.Slug).FontSize(14).FontWeight(680).SingleLine().Tooltip(c.project.URL)
+				ui.Text(ctx, strings.TrimPrefix(c.project.URL, "https://")).FontSize(10.5).
+					Font("monospace").TextColor(p.TextFaint).SingleLine().Tooltip(c.project.URL)
+			})
+		})
+		c.aboutUpdateStatus(ctx)
+		ui.Row(ctx).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
+			if c.labeledAction(ctx, iconRepository, "打开仓库", false).Clicked() {
+				c.openExternal(ctx, c.project.URL, "打开仓库")
+			}
+			if c.labeledAction(ctx, iconArrowRight, "问题反馈", false).Clicked() {
+				c.openExternal(ctx, c.project.IssuesURL, "打开问题反馈")
+			}
+			ui.Box(ctx).Grow(1)
+			checking := c.update.state == updateChecking || c.options.UpdateChecker == nil
+			if c.labeledAction(ctx, iconRefresh, "检查更新", true).Disabled(checking).Clicked() {
+				c.checkForUpdates()
+			}
+		})
+	})
+}
+
+func (c *Controller) aboutUpdateStatus(ctx *ui.Context) {
+	p := c.colors()
+	tone, fill := p.TextMuted, p.SurfaceAlt
+	switch c.update.state {
+	case updateChecking:
+		tone, fill = p.Accent, p.AccentSoft
+	case updateCurrent:
+		tone, fill = p.Success, p.SuccessSoft
+	case updateAvailable:
+		tone, fill = p.Success, p.SuccessSoft
+	case updateNoRelease, updateUnknown:
+		tone, fill = p.Warning, p.WarningSoft
+	case updateFailed:
+		tone, fill = p.Danger, p.DangerSoft
+	}
+	if c.options.UpdateChecker == nil {
+		tone, fill = p.TextMuted, p.SurfaceAlt
+	}
+	ui.Row(ctx).FillWidth().Padding(12, 14).Radius(12).Background(fill).
+		Border(1, tone.Alpha(0.16)).AlignItems(ui.Center).Gap(10).Children(func() {
+		if c.update.state == updateChecking {
+			ui.Spinner(ctx).Size(16, 16).TextColor(tone)
+		} else {
+			icon := iconRefresh
+			switch c.update.state {
+			case updateCurrent, updateAvailable:
+				icon = iconCheck
+			case updateNoRelease, updateUnknown, updateFailed:
+				icon = iconAlert
+			}
+			ui.Icon(ctx, icon).FontSize(16).TextColor(tone)
+		}
+		ui.Column(ctx).Grow(1).MinWidth(0).Gap(2).Children(func() {
+			ui.Text(ctx, c.updateTitle()).FontSize(12).FontWeight(650).TextColor(tone).SingleLine()
+			ui.Text(ctx, c.updateDetail()).FontSize(10.5).TextColor(p.TextMuted).SingleLine().Tooltip(c.updateDetail())
+		})
+		switch c.update.state {
+		case updateAvailable, updateUnknown:
+			if c.tonedAction(ctx, iconArrowRight, "查看版本", tone, fill).Clicked() {
+				c.openExternal(ctx, c.updateReleaseURL(), "打开发布版本")
+			}
+		case updateNoRelease:
+			if c.tonedAction(ctx, iconArrowRight, "发布记录", tone, fill).Clicked() {
+				c.openExternal(ctx, c.project.ReleasesURL, "打开发布记录")
+			}
+		}
+	})
+}
+
+func (c *Controller) openExternal(ctx *ui.Context, url, action string) {
+	ctx.OpenURLThen(url, func(err error) {
+		if err != nil {
+			c.setNotice(action+"失败："+err.Error(), true)
+		}
 	})
 }
 

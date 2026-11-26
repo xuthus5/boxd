@@ -12,8 +12,10 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/gofrs/flock"
 	desktop "github.com/xuthus5/boxd/internal/adapters/inbound/mygo"
+	"github.com/xuthus5/boxd/internal/adapters/outbound/githubrelease"
 	"github.com/xuthus5/boxd/internal/bootstrap"
 	"github.com/xuthus5/boxd/internal/driver/singbox"
+	"github.com/xuthus5/boxd/internal/updatecheck"
 	"github.com/xuthus5/boxd/internal/version"
 )
 
@@ -98,11 +100,14 @@ func run() error {
 		}, nil
 	})
 
+	project := updatecheck.DefaultProject()
 	host := desktop.NewHost(loader, desktop.HostOptions{
-		Version: version.Version,
-		Commit:  version.Commit,
-		BuiltAt: version.Date,
-		Dark:    preferences.isDark(),
+		Version:       version.Version,
+		Commit:        version.Commit,
+		BuiltAt:       version.Date,
+		Dark:          preferences.isDark(),
+		Project:       project,
+		UpdateChecker: githubrelease.New(project.Slug),
 		OnThemeChange: func(dark bool) error {
 			return saveDesktopPreferences(resolvedDir, desktopPreferences{Theme: preferenceTheme(dark)})
 		},

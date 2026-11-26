@@ -5,6 +5,7 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+	"github.com/xuthus5/boxd/internal/updatecheck"
 )
 
 // HostOptions are presentation and build metadata owned by the desktop
@@ -16,6 +17,8 @@ type HostOptions struct {
 	BuiltAt       string
 	Dark          bool
 	OnThemeChange func(bool) error
+	Project       updatecheck.Project
+	UpdateChecker updatecheck.Checker
 }
 
 // Host owns the single native window and optional tray icon. It never opens an
@@ -33,6 +36,8 @@ func NewHost(loader Loader, options HostOptions) *Host {
 	return &Host{controller: NewController(loader, ControllerOptions{
 		Dark:          options.Dark,
 		OnThemeChange: options.OnThemeChange,
+		Project:       options.Project,
+		UpdateChecker: options.UpdateChecker,
 	}), options: options}
 }
 

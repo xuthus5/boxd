@@ -3,6 +3,7 @@ package mygo
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
@@ -13,6 +14,7 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/xuthus5/boxd/control"
+	"github.com/xuthus5/boxd/internal/updatecheck"
 	"github.com/xuthus5/boxd/kernel"
 )
 
@@ -52,7 +54,7 @@ var navigation = []navItem{
 	{pageLogs, "日志", "运行日志", "logs", "应用事件与内核输出统一按时间排列，点击任意行即可复制"},
 	{pageConnections, "连接", "活动连接", "connections", "实时数据来自当前内核连接表"},
 	{pageSettings, "设置", "设置", "settings", "控制面同步行为、界面偏好与本地运行环境"},
-	{pageAbout, "关于", "关于 BOXD", "about", "版本、内核与运行环境信息"},
+	{pageAbout, "关于", "关于 BOXD", "about", "版本、仓库、更新与运行环境信息"},
 }
 
 type Controller struct {
@@ -63,6 +65,8 @@ type Controller struct {
 	runtime  *Runtime
 	snapshot snapshot
 	clock    *clock
+	project  updatecheck.Project
+	update   updateStatus
 
 	page        string
 	loading     bool
@@ -102,6 +106,8 @@ type Controller struct {
 type ControllerOptions struct {
 	Dark          bool
 	OnThemeChange func(bool) error
+	Project       updatecheck.Project
+	UpdateChecker updatecheck.Checker
 }
 
 type editorKind int
@@ -169,10 +175,13 @@ type editorState struct {
 
 func NewController(loader Loader, options ControllerOptions) *Controller {
 	ctx, cancel := context.WithCancel(context.Background())
+	project := options.Project.WithDefaults()
 	return &Controller{
 		loader:        loader,
 		options:       options,
 		clock:         newClock(),
+		project:       project,
+		update:        updateStatus{state: updateIdle},
 		page:          pageOverview,
 		nodeTests:     make(map[string]string),
 		nodeTestKind:  control.NodeTestKindURL,
@@ -183,6 +192,56 @@ func NewController(loader Loader, options ControllerOptions) *Controller {
 		cancel:        cancel,
 		dark:          options.Dark,
 	}
+}
+
+func (c *Controller) invalidate() {
+	if c.window != nil && !c.window.IsDestroyed() {
+		c.window.Invalidate()
+	}
+}
+
+func (c *Controller) completeUpdate(release updatecheck.Release, err error) {
+	c.update.checkedAt = time.Now()
+	switch {
+	case err == nil:
+		comparison, compareErr := updatecheck.CompareVersions(c.version(), release.Tag)
+		c.update.release = release
+		if compareErr != nil {
+			c.update.state = updateUnknown
+			c.update.err = "当前构建版本不是有效的语义化版本"
+		} else if comparison > 0 {
+			c.update.state = updateAvailable
+		} else {
+			c.update.state = updateCurrent
+		}
+	case errors.Is(err, updatecheck.ErrNoRelease):
+		c.update.state = updateNoRelease
+		c.update.err = ""
+	default:
+		c.update.state = updateFailed
+		c.update.err = err.Error()
+	}
+	c.invalidate()
+}
+
+func (c *Controller) checkForUpdates() {
+	if c.options.UpdateChecker == nil || c.update.state == updateChecking {
+		return
+	}
+	c.update = updateStatus{state: updateChecking}
+	c.invalidate()
+	checker := c.options.UpdateChecker
+	go func() {
+		ctx, cancel := context.WithTimeout(c.ctx, 15*time.Second)
+		defer cancel()
+		release, err := checker.LatestRelease(ctx)
+		finish := func() { c.completeUpdate(release, err) }
+		if c.window != nil && !c.window.IsDestroyed() {
+			c.window.Update(finish)
+			return
+		}
+		finish()
+	}()
 }
 
 func (c *Controller) Attach(window *mygo.Window) {

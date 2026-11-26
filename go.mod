@@ -8,6 +8,7 @@ require (
 	github.com/gofrs/uuid/v5 v5.5.1
 	github.com/sagernet/sing v0.9.7-0.20261023115459-5dc452e537bf
 	github.com/sagernet/sing-box v1.14.4
+	golang.org/x/mod v0.42.0
 	golang.org/x/net v0.63.0
 	modernc.org/sqlite v1.62.0
 )
@@ -174,7 +175,6 @@ require (
 	golang.org/x/crypto v0.59.0 // indirect
 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f // indirect
 	golang.org/x/image v0.46.0 // indirect
-	golang.org/x/mod v0.42.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.25.0 // indirect
 	golang.org/x/sys v0.50.0 // indirect

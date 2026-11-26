@@ -36,6 +36,7 @@ var (
 	iconChevronDown   = mustIcon("M6 9l6 6 6-6")
 	iconCheck         = mustIcon("M5 12l5 5L19 7")
 	iconAlert         = mustIcon("M12 8v5M12 17h.01M10.3 4.6 3.2 17a2 2 0 0 0 1.7 3h14.2a2 2 0 0 0 1.7-3L13.7 4.6a2 2 0 0 0-3.4 0Z")
+	iconRepository    = mustIcon("M6 4h9l4 4v12H6zM15 4v4h4M9 12h6M9 16h6")
 	iconArrowRight    = mustIcon("M5 12h14M14 7l5 5-5 5")
 	iconGrip          = mustIcon("M9 5h.01M9 12h.01M9 19h.01M15 5h.01M15 12h.01M15 19h.01")
 )
