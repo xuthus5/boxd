@@ -78,6 +78,27 @@ func TestAboutPageDoesNotRepeatKernelStatus(t *testing.T) {
 	}
 }
 
+func TestAboutPageOmitsAuditHistory(t *testing.T) {
+	controller := newViewTestController(ControllerOptions{})
+	controller.page = pageAbout
+	tester := ui.NewTester(controller.View, 1320, 860)
+	if tester.HasText("最近审计") || tester.HasText("暂无可展示的审计记录") {
+		t.Fatalf("about page still renders audit history; texts=%q", tester.Texts())
+	}
+}
+
+func TestSettingsRuntimeOmitsImplementationNotes(t *testing.T) {
+	controller := newViewTestController(ControllerOptions{})
+	controller.page = pageSettings
+	tester := ui.NewTester(controller.View, 1320, 860)
+	if !tester.HasText("本地环境") {
+		t.Fatalf("runtime card missing; texts=%q", tester.Texts())
+	}
+	if tester.HasText("桌面进程直接持有控制面") || tester.HasText("不经过 HTTP 管理端口") {
+		t.Fatalf("settings page leaked implementation details; texts=%q", tester.Texts())
+	}
+}
+
 func TestRouteEgressOptionsUseHumanLabels(t *testing.T) {
 	controller := newViewTestController(ControllerOptions{})
 	options := strings.Join(egressOptions(controller.snapshot), "\n")

@@ -18,7 +18,6 @@ import (
 
 const (
 	pageOverview      = "overview"
-	pageInbounds      = "inbounds"
 	pageSubscriptions = "subscriptions"
 	pageNodes         = "nodes"
 	pageEgress        = "egress"
@@ -44,7 +43,6 @@ type navItem struct {
 
 var navigation = []navItem{
 	{pageOverview, "总览", "运行总览", "overview", "运行状态与关键指标"},
-	{pageInbounds, "入口", "入口管理", "inbounds", "本地监听、端口与 TUN 接入"},
 	{pageSubscriptions, "订阅", "订阅管理", "subscriptions", "远程节点来源与统一同步策略"},
 	{pageNodes, "节点", "节点管理", "nodes", "节点编辑、分组归属与连通性测试"},
 	{pageEgress, "出口编排", "出口编排", "egress", "策略组负责选择，链路负责串联出口路径"},

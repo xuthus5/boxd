@@ -75,6 +75,17 @@ func (c *Controller) labeledAction(ctx *ui.Context, icon *ui.SVG, label string, 
 	})
 }
 
+func (c *Controller) tonedAction(ctx *ui.Context, icon *ui.SVG, label string, tone, fill ui.Color) ui.Element {
+	button := ui.ButtonBase(ctx).Key("action-"+label).Label(label).Height(34).Padding(0, 13).Radius(9).
+		Gap(7).AlignItems(ui.Center).Background(fill).Border(1, tone.Alpha(0.22)).TextColor(tone)
+	return button.Children(func() {
+		if icon != nil {
+			ui.Icon(ctx, icon).FontSize(15).TextColor(tone)
+		}
+		ui.Text(ctx, label).FontSize(12.5).FontWeight(600).SingleLine().TextColor(tone)
+	})
+}
+
 func (c *Controller) dangerAction(ctx *ui.Context, label string) ui.Element {
 	p := c.colors()
 	return ui.ButtonBase(ctx).Key("danger-"+label).Label(label).Height(34).Padding(0, 13).Radius(9).

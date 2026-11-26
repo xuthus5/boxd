@@ -618,8 +618,9 @@ func (c *Controller) settingsPage(ctx *ui.Context) {
 				})
 			})
 		})
+		c.inboundsSettingsCard(ctx)
 		c.card(ctx, "settings-runtime", func() {
-			c.sectionHeader(ctx, "本地环境", "桌面进程直接持有控制面，不经过 HTTP 管理端口", nil)
+			c.sectionHeader(ctx, "本地环境", "", nil)
 			c.pathRow(ctx, "数据目录", c.runtime.DataDir)
 			c.pathRow(ctx, "数据库", c.runtime.DatabasePath)
 			c.pathRow(ctx, "控制面架构", "单进程 · SQLite · sing-box")
@@ -695,23 +696,6 @@ func (c *Controller) aboutPage(ctx *ui.Context) {
 					c.pathRow(ctx, "配置版本", valueOrDash(shortVersion(c.snapshot.Kernel.Revision)))
 					if c.snapshot.Kernel.LastError != nil {
 						ui.Text(ctx, oneLine(c.snapshot.Kernel.LastError.Error())).FontSize(11.5).TextColor(p.Danger).Wrap()
-					}
-				})
-				c.card(ctx, "about-audit", func() {
-					c.sectionHeader(ctx, "最近审计", "控制面自动记录的资源变更", nil)
-					if len(c.snapshot.Audit) == 0 {
-						ui.Row(ctx).FillWidth().Padding(10, 0).AlignItems(ui.Center).Children(func() {
-							ui.Text(ctx, "—").FontSize(15).TextColor(p.TextFaint).Width(32)
-							ui.Text(ctx, "暂无可展示的审计记录").FontSize(11.5).TextColor(p.TextMuted).SingleLine()
-						})
-						return
-					}
-					for _, event := range c.snapshot.Audit[:min(6, len(c.snapshot.Audit))] {
-						ui.Row(ctx).FillWidth().AlignItems(ui.Center).Gap(10).Children(func() {
-							ui.Text(ctx, shortTime(event.CreatedAt)).FontSize(10).Font("monospace").TextColor(p.TextFaint).Width(72)
-							ui.Text(ctx, event.Action).FontSize(11).FontWeight(600).TextColor(p.TextMuted).Width(150).SingleLine()
-							ui.Text(ctx, event.Actor).FontSize(10.5).TextColor(p.TextFaint).Grow(1).SingleLine()
-						})
 					}
 				})
 			})

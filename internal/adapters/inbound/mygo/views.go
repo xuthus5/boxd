@@ -12,6 +12,8 @@ import (
 	"github.com/xuthus5/boxd/kernel"
 )
 
+const overviewActivityLimit = 10
+
 // View is the root of the native window. It only reads controller state and
 // dispatches host actions; all persisted data comes from control.Application.
 func (c *Controller) View(ctx *ui.Context) {
@@ -262,8 +264,6 @@ func (c *Controller) pageView(ctx *ui.Context) {
 	switch c.page {
 	case pageOverview:
 		c.overviewPage(ctx)
-	case pageInbounds:
-		c.inboundsPage(ctx)
 	case pageSubscriptions:
 		c.subscriptionsPage(ctx)
 	case pageNodes:
@@ -319,11 +319,11 @@ func (c *Controller) overviewPage(ctx *ui.Context) {
 		})
 		ui.Row(ctx).FillWidth().Gap(14).AlignItems(ui.Stretch).Children(func() {
 			ui.Column(ctx).Grow(3).Basis(0).MinWidth(0).Children(func() { c.overviewComponents(ctx) })
-			ui.Column(ctx).Grow(2).Basis(0).MinWidth(0).Children(func() { c.overviewActivity(ctx) })
+			ui.Column(ctx).Grow(2).Basis(0).MinWidth(0).Children(func() { c.overviewInventory(ctx) })
 		})
 		ui.Row(ctx).FillWidth().Gap(14).AlignItems(ui.Stretch).Children(func() {
 			ui.Column(ctx).Grow(3).Basis(0).MinWidth(0).Children(func() { c.overviewConnections(ctx) })
-			ui.Column(ctx).Grow(2).Basis(0).MinWidth(0).Children(func() { c.overviewInventory(ctx) })
+			ui.Column(ctx).Grow(2).Basis(0).MinWidth(0).Children(func() { c.overviewActivity(ctx) })
 		})
 	})
 }
@@ -362,10 +362,10 @@ func (c *Controller) overviewHero(ctx *ui.Context) {
 		ui.Column(ctx).Gap(8).AlignItems(ui.End).Children(func() {
 			ui.Row(ctx).Gap(8).Children(func() {
 				if running {
-					if c.labeledAction(ctx, iconStop, "停止内核", false).Clicked() {
+					if c.tonedAction(ctx, iconStop, "停止内核", p.Danger, p.DangerSoft).Clicked() {
 						c.stopKernel()
 					}
-					if c.labeledAction(ctx, iconRefresh, "重启内核", false).Clicked() {
+					if c.tonedAction(ctx, iconRefresh, "重启内核", p.Accent, p.AccentSoft).Clicked() {
 						c.restartKernel()
 					}
 				} else {
@@ -407,7 +407,7 @@ func (c *Controller) overviewComponents(ctx *ui.Context) {
 				ui.Text(ctx, row.value).FontSize(12).FontWeight(650).TextColor(p.TextMuted).SingleLine()
 			})
 		}
-	})
+	}).FillHeight()
 }
 
 func (c *Controller) overviewActivity(ctx *ui.Context) {
@@ -423,7 +423,7 @@ func (c *Controller) overviewActivity(ctx *ui.Context) {
 			c.emptyState(ctx, "暂无日志", "控制面操作和内核输出会实时出现在这里。", nil)
 			return
 		}
-		start := max(0, len(logs)-6)
+		start := max(0, len(logs)-overviewActivityLimit)
 		for _, entry := range logs[start:] {
 			ui.Row(ctx).FillWidth().AlignItems(ui.Center).Gap(8).Children(func() {
 				ui.Text(ctx, entry.Time.Local().Format("15:04:05")).FontSize(10).Font("monospace").TextColor(p.TextFaint).Width(58)
@@ -432,7 +432,7 @@ func (c *Controller) overviewActivity(ctx *ui.Context) {
 				ui.Text(ctx, oneLine(entry.Message)).FontSize(11).TextColor(p.TextMuted).Grow(1).SingleLine().Tooltip(entry.Message)
 			})
 		}
-	})
+	}).FillHeight()
 }
 
 func (c *Controller) overviewConnections(ctx *ui.Context) {
@@ -467,7 +467,7 @@ func (c *Controller) overviewConnections(ctx *ui.Context) {
 				ui.Text(ctx, humanBytes(conn.Upload+conn.Download)).FontSize(10.5).TextColor(p.TextMuted).SingleLine()
 			})
 		}
-	})
+	}).FillHeight()
 }
 
 func (c *Controller) overviewInventory(ctx *ui.Context) {
@@ -498,7 +498,7 @@ func (c *Controller) overviewInventory(ctx *ui.Context) {
 				c.show(item.page)
 			}
 		}
-	})
+	}).FillHeight()
 }
 
 func (c *Controller) subscriptionsPage(ctx *ui.Context) {

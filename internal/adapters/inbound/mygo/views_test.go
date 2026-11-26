@@ -1,6 +1,7 @@
 package mygo
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -34,6 +35,59 @@ func TestOverviewUsesUnavailablePlaceholders(t *testing.T) {
 	}
 }
 
+func TestOverviewActivityShowsTenMostRecentLogs(t *testing.T) {
+	controller := newViewTestController(ControllerOptions{})
+	base := time.Date(2026, 11, 25, 12, 0, 0, 0, time.UTC)
+	controller.snapshot.Activity = make([]control.ActivityLogEntry, 15)
+	for i := range controller.snapshot.Activity {
+		controller.snapshot.Activity[i] = control.ActivityLogEntry{
+			ID: uint64(i + 1), Time: base.Add(time.Duration(i) * time.Minute), Level: "info",
+			Source: "desktop", Message: fmt.Sprintf("activity event %02d", i),
+		}
+	}
+	tester := ui.NewTester(controller.View, 1320, 860)
+	for i := 5; i < 15; i++ {
+		if !tester.HasText(fmt.Sprintf("activity event %02d", i)) {
+			t.Fatalf("recent activity omitted event %d; texts=%q", i, tester.Texts())
+		}
+	}
+	for i := 0; i < 5; i++ {
+		if tester.HasText(fmt.Sprintf("activity event %02d", i)) {
+			t.Fatalf("recent activity kept old event %d; texts=%q", i, tester.Texts())
+		}
+	}
+}
+
+func TestOverviewPairsRelatedCardsByRow(t *testing.T) {
+	controller := newViewTestController(ControllerOptions{})
+	tester := ui.NewTester(controller.View, 1320, 860)
+	components, ok := tester.Find("订阅、策略与数据面状态")
+	if !ok {
+		t.Fatalf("overview components card missing; texts=%q", tester.Texts())
+	}
+	inventory, ok := tester.Find("当前控制面中已保存的对象")
+	if !ok {
+		t.Fatalf("inventory card missing; texts=%q", tester.Texts())
+	}
+	connections, ok := tester.Find("最近建立的真实连接")
+	if !ok {
+		t.Fatalf("connections card missing; texts=%q", tester.Texts())
+	}
+	activity, ok := tester.Find("来自控制面事件日志")
+	if !ok {
+		t.Fatalf("activity card missing; texts=%q", tester.Texts())
+	}
+	if components.Y != inventory.Y {
+		t.Fatalf("components and inventory are not in the same row: %.1f vs %.1f", components.Y, inventory.Y)
+	}
+	if connections.Y != activity.Y {
+		t.Fatalf("connections and activity are not in the same row: %.1f vs %.1f", connections.Y, activity.Y)
+	}
+	if connections.Y <= components.Y {
+		t.Fatalf("connections/activity row did not move below components/inventory: %.1f <= %.1f", connections.Y, components.Y)
+	}
+}
+
 func TestNavigationAndNarrowSidebar(t *testing.T) {
 	controller := newViewTestController(ControllerOptions{})
 	tester := ui.NewTester(controller.View, 1000, 800)
@@ -53,12 +107,12 @@ func TestNavigationAndNarrowSidebar(t *testing.T) {
 	}
 }
 
-func TestInboundPageExposesListenPortEditor(t *testing.T) {
+func TestSettingsEmbedInboundsAndExposeListenPortEditor(t *testing.T) {
 	controller := newViewTestController(ControllerOptions{})
-	controller.page = pageInbounds
-	tester := ui.NewTester(controller.View, 1320, 860)
-	if !tester.HasText("本地入口") || !tester.HasText("[::]:1080") {
-		t.Fatalf("inbound page missing listener summary; texts=%q", tester.Texts())
+	controller.page = pageSettings
+	tester := ui.NewTester(controller.View, 1320, 1200)
+	if !tester.HasText("入口管理") || !tester.HasText("[::]:1080") {
+		t.Fatalf("settings page missing inbound section; texts=%q", tester.Texts())
 	}
 	if err := tester.Click("编辑入口 Mixed"); err != nil {
 		t.Fatalf("open inbound editor: %v", err)
@@ -69,6 +123,14 @@ func TestInboundPageExposesListenPortEditor(t *testing.T) {
 	tester.Frame()
 	if !tester.HasText("监听端口") || !tester.HasText("监听地址") {
 		t.Fatalf("inbound editor missing listen fields; texts=%q", tester.Texts())
+	}
+}
+
+func TestNavigationOmitsStandaloneInboundsPage(t *testing.T) {
+	for _, item := range navigation {
+		if item.ID == "inbounds" {
+			t.Fatalf("navigation still contains the standalone inbounds page: %+v", item)
+		}
 	}
 }
 
