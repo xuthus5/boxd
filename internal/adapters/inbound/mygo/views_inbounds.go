@@ -14,8 +14,6 @@ import (
 func (c *Controller) inboundsPage(ctx *ui.Context) {
 	p := c.colors()
 	c.pageScroll(ctx, func() {
-		c.pageLead(ctx, "入口", "配置客户端连接本地内核的 Mixed 监听与 TUN 接入", nil)
-
 		enabled := 0
 		mixed := control.InboundProfile{}
 		tun := control.InboundProfile{}
@@ -84,7 +82,7 @@ func (c *Controller) inboundsPage(ctx *ui.Context) {
 						c.openEditor(editorInbound, inbound.ID)
 					}
 				}
-			}).Grow(1).Height(max(220, c.tableHeight(ctx)*0.54))
+			}).Grow(1).Height(c.tableHeightForRows(ctx, len(inbounds)))
 		})
 
 		c.softCard(ctx, "inbounds-note", func() {

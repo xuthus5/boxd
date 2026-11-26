@@ -34,23 +34,24 @@ const (
 type navItem struct {
 	ID    string
 	Label string
+	Title string
 	Icon  string
 	Hint  string
 }
 
 var navigation = []navItem{
-	{pageOverview, "总览", "overview", "运行状态与关键指标"},
-	{pageInbounds, "入口", "inbounds", "本地监听与 TUN 接入"},
-	{pageSubscriptions, "订阅", "subscriptions", "远程节点来源"},
-	{pageNodes, "节点", "nodes", "节点与连通性"},
-	{pageEgress, "出口编排", "egress", "策略组与链路"},
-	{pageRoutes, "路由", "routes", "分流策略与规则"},
-	{pageDNS, "DNS", "dns", "解析策略"},
-	{pageRuleSets, "规则集", "rulesets", "规则资源"},
-	{pageLogs, "日志", "logs", "应用与内核日志"},
-	{pageConnections, "连接", "connections", "实时活动连接"},
-	{pageSettings, "设置", "settings", "同步与界面偏好"},
-	{pageAbout, "关于", "about", "版本与运行环境"},
+	{pageOverview, "总览", "运行总览", "overview", "运行状态与关键指标"},
+	{pageInbounds, "入口", "入口管理", "inbounds", "本地监听、端口与 TUN 接入"},
+	{pageSubscriptions, "订阅", "订阅管理", "subscriptions", "远程节点来源与统一同步策略"},
+	{pageNodes, "节点", "节点管理", "nodes", "节点编辑、分组归属与连通性测试"},
+	{pageEgress, "出口编排", "出口编排", "egress", "策略组负责选择，链路负责串联出口路径"},
+	{pageRoutes, "路由", "路由策略", "routes", "运行模式、默认出口与有序自定义规则"},
+	{pageDNS, "DNS", "DNS 解析", "dns", "固定三个解析槽位，按场景选择国内、国外与默认解析"},
+	{pageRuleSets, "规则集", "规则集", "rulesets", "规则资源的下载、启用与刷新状态"},
+	{pageLogs, "日志", "运行日志", "logs", "应用事件与内核输出统一按时间排列，点击任意行即可复制"},
+	{pageConnections, "连接", "活动连接", "connections", "实时数据来自当前内核连接表"},
+	{pageSettings, "设置", "设置", "settings", "控制面同步行为、界面偏好与本地运行环境"},
+	{pageAbout, "关于", "关于 BOXD", "about", "版本、内核与运行环境信息"},
 }
 
 type Controller struct {
@@ -62,14 +63,15 @@ type Controller struct {
 	snapshot snapshot
 	clock    *clock
 
-	page       string
-	loading    bool
-	busy       bool
-	refreshing bool
-	notice     string
-	noticeErr  bool
-	narrow     bool
-	dark       bool
+	page        string
+	loading     bool
+	busy        bool
+	refreshing  bool
+	notice      string
+	noticeErr   bool
+	noticeUntil time.Time
+	narrow      bool
+	dark        bool
 
 	editorOpen bool
 	editor     editorState
@@ -199,16 +201,13 @@ func (c *Controller) Boot() {
 		c.window.Update(func() {
 			if err != nil {
 				c.loading = false
-				c.notice = "控制面初始化失败"
-				c.noticeErr = true
+				c.setStickyNotice("控制面初始化失败："+err.Error(), true)
 				c.snapshot = snapshot{}
-				c.notice = err.Error()
 				return
 			}
 			c.runtime = runtime
 			c.loading = false
-			c.noticeErr = false
-			c.notice = "控制面已就绪"
+			c.setNotice("控制面已就绪", false)
 			c.refresh(true)
 			go c.watch()
 		})
@@ -217,8 +216,7 @@ func (c *Controller) Boot() {
 
 func (c *Controller) setLoadingError(err error) {
 	c.loading = false
-	c.notice = err.Error()
-	c.noticeErr = true
+	c.setStickyNotice(err.Error(), true)
 	if c.window != nil {
 		c.window.Invalidate()
 	}
@@ -236,6 +234,7 @@ func (c *Controller) watch() {
 			ticks++
 			c.window.Update(func() {
 				c.clock.Tick()
+				c.expireNotice()
 				if ticks%5 == 0 && c.runtime != nil && !c.busy {
 					c.refresh(false)
 				}
@@ -261,8 +260,7 @@ func (c *Controller) Close() {
 
 func (c *Controller) show(page string) {
 	c.page = page
-	c.notice = ""
-	c.noticeErr = false
+	c.clearNotice()
 	if c.window != nil {
 		c.window.Invalidate()
 	}
@@ -289,14 +287,12 @@ func (c *Controller) refresh(showLoading bool) {
 			c.refreshing = false
 			c.loading = false
 			if err != nil {
-				c.notice = "刷新失败：" + err.Error()
-				c.noticeErr = true
+				c.setNotice("刷新失败："+err.Error(), true)
 			} else {
 				c.snapshot = next
 				c.syncDrafts()
 				if showLoading {
-					c.notice = ""
-					c.noticeErr = false
+					c.clearNotice()
 				}
 			}
 		})
@@ -309,9 +305,14 @@ func (c *Controller) syncDrafts() {
 			c.settingsDraft[key] = value
 		}
 	}
-	for _, key := range []string{control.SettingAutoRefresh, control.SettingSubscriptionMaxAttempts, control.SettingSubscriptionConflictPolicy} {
+	defaults := map[string]string{
+		control.SettingAutoRefresh:                "true",
+		control.SettingSubscriptionMaxAttempts:    "3",
+		control.SettingSubscriptionConflictPolicy: control.SubscriptionConflictKeepLocal,
+	}
+	for key, fallback := range defaults {
 		if _, exists := c.settingsDraft[key]; !exists {
-			c.settingsDraft[key] = c.snapshot.SettingsByKey[key]
+			c.settingsDraft[key] = fallback
 		}
 	}
 }
@@ -321,8 +322,7 @@ func (c *Controller) run(label string, fn func(context.Context, control.Applicat
 		return
 	}
 	c.busy = true
-	c.notice = label + "中…"
-	c.noticeErr = false
+	c.setNotice(label+"中…", false)
 	c.window.Invalidate()
 	app := c.runtime.Control
 	go func() {
@@ -332,23 +332,62 @@ func (c *Controller) run(label string, fn func(context.Context, control.Applicat
 		c.window.Update(func() {
 			c.busy = false
 			if err != nil {
-				c.notice = label + "失败：" + err.Error()
-				c.noticeErr = true
+				c.setNotice(label+"失败："+err.Error(), true)
 			} else {
-				c.notice = label + "完成"
-				c.noticeErr = false
+				c.setNotice(label+"完成", false)
 			}
 			c.refresh(false)
 		})
 	}()
 }
 
+const (
+	noticeSuccessTTL = 4 * time.Second
+	noticeErrorTTL   = 8 * time.Second
+)
+
+// setNotice publishes a transient result. Messages shown while an operation is
+// running stay visible until that operation publishes its final result.
+func (c *Controller) setNotice(message string, isError bool) {
+	c.notice = message
+	c.noticeErr = isError
+	c.noticeUntil = time.Time{}
+	if message == "" || c.busy {
+		return
+	}
+	ttl := noticeSuccessTTL
+	if isError {
+		ttl = noticeErrorTTL
+	}
+	c.noticeUntil = time.Now().Add(ttl)
+}
+
+// setStickyNotice is for failures that explain an unavailable screen. They
+// remain until the user retries or dismisses them.
+func (c *Controller) setStickyNotice(message string, isError bool) {
+	c.notice = message
+	c.noticeErr = isError
+	c.noticeUntil = time.Time{}
+}
+
+func (c *Controller) clearNotice() {
+	c.notice = ""
+	c.noticeErr = false
+	c.noticeUntil = time.Time{}
+}
+
+func (c *Controller) expireNotice() {
+	if c.notice == "" || c.noticeUntil.IsZero() || time.Now().Before(c.noticeUntil) {
+		return
+	}
+	c.clearNotice()
+}
+
 func (c *Controller) toggleTheme() {
 	c.dark = !c.dark
 	if c.options.OnThemeChange != nil {
 		if err := c.options.OnThemeChange(c.dark); err != nil {
-			c.notice = "主题偏好保存失败：" + err.Error()
-			c.noticeErr = true
+			c.setNotice("主题偏好保存失败："+err.Error(), true)
 		}
 	}
 	if c.window != nil {
@@ -369,7 +408,7 @@ func (c *Controller) setNarrow(narrow bool) {
 func (c *Controller) pageTitle() (string, string) {
 	for _, item := range navigation {
 		if item.ID == c.page {
-			return item.Label, item.Hint
+			return item.Title, item.Hint
 		}
 	}
 	return "BOXD", ""
@@ -694,29 +733,51 @@ func parsePorts(value string) []uint16 {
 }
 
 func egressOptions(s snapshot) []string {
-	options := []string{"direct:直连", "reject:拒绝"}
+	options := []string{"直连", "拒绝"}
 	for _, group := range s.Catalog.Groups {
-		options = append(options, "group:"+group.ID+" · "+group.Name)
+		options = append(options, "策略组 · "+group.Name)
 	}
 	for _, chain := range s.Catalog.Chains {
-		options = append(options, "chain:"+chain.ID+" · "+chain.Name)
+		options = append(options, "链路 · "+chain.Name)
 	}
 	for _, node := range s.Catalog.Nodes {
-		options = append(options, "node:"+node.ID+" · "+node.Name)
+		options = append(options, "节点 · "+node.Name)
 	}
 	return options
 }
 
-func optionValue(value string) string {
-	kind, rest, found := strings.Cut(value, ":")
+func egressRefFromLabel(label string, s snapshot) control.EgressRef {
+	switch label {
+	case "直连":
+		return control.EgressRef{Kind: control.EgressKindDirect}
+	case "拒绝":
+		return control.EgressRef{Kind: control.EgressKindReject}
+	}
+	kind, name, found := strings.Cut(label, " · ")
 	if !found {
-		return value
+		return control.EgressRef{}
 	}
-	id, _, _ := strings.Cut(rest, " · ")
-	if id == "" && (kind == "direct" || kind == "reject") {
-		return kind
+	switch kind {
+	case "策略组":
+		for _, group := range s.Catalog.Groups {
+			if group.Name == name {
+				return control.EgressRef{Kind: control.EgressKindGroup, ID: group.ID}
+			}
+		}
+	case "链路":
+		for _, chain := range s.Catalog.Chains {
+			if chain.Name == name {
+				return control.EgressRef{Kind: control.EgressKindChain, ID: chain.ID}
+			}
+		}
+	case "节点":
+		for _, node := range s.Catalog.Nodes {
+			if node.Name == name {
+				return control.EgressRef{Kind: control.EgressKindNode, ID: node.ID}
+			}
+		}
 	}
-	return kind + ":" + id
+	return control.EgressRef{}
 }
 
 func labelForEgress(ref control.EgressRef, s snapshot) string {
@@ -746,14 +807,14 @@ func labelForEgress(ref control.EgressRef, s snapshot) string {
 func kernelStateLabel(state kernel.State) string {
 	switch state {
 	case kernel.StateRunning:
-		return "运行中"
+		return "内核运行中"
 	case kernel.StateStarting:
-		return "启动中"
+		return "内核启动中"
 	case kernel.StateStopping:
-		return "停止中"
+		return "内核停止中"
 	case kernel.StateFailed:
-		return "异常"
+		return "内核异常"
 	default:
-		return "未启动"
+		return "内核未启动"
 	}
 }

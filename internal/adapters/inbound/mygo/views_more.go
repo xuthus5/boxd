@@ -15,14 +15,6 @@ import (
 func (c *Controller) egressPage(ctx *ui.Context) {
 	p := c.colors()
 	c.pageScroll(ctx, func() {
-		c.pageLead(ctx, "出口编排", "策略组负责选择，链路负责串联出口路径", func() {
-			if c.labeledAction(ctx, iconPlus, "新建策略组", false).Clicked() {
-				c.openEditor(editorGroup, "")
-			}
-			if c.labeledAction(ctx, iconPlus, "新建链路", true).Clicked() {
-				c.openEditor(editorChain, "")
-			}
-		})
 		c.card(ctx, "egress-groups", func() {
 			c.sectionHeader(ctx, "策略组", "按名称、类型和当前出口快速检查运行状态", nil)
 			if len(c.snapshot.Catalog.Groups) == 0 {
@@ -85,7 +77,7 @@ func (c *Controller) egressPage(ctx *ui.Context) {
 						}
 					})
 				}
-			}).Grow(1).Height(c.tableHeight(ctx) * 0.55)
+			}).Grow(1).Height(c.tableHeightForRows(ctx, len(groups)))
 		})
 		c.card(ctx, "egress-chains", func() {
 			c.sectionHeader(ctx, "代理链路", "从上到下依次经过各个跳点；过长内容支持查看提示", nil)
@@ -126,7 +118,7 @@ func (c *Controller) egressPage(ctx *ui.Context) {
 						}
 					})
 				}
-			}).Grow(1).Height(max(240, c.tableHeight(ctx)*0.35))
+			}).Grow(1).Height(c.tableHeightForRows(ctx, len(chains)))
 		})
 	})
 }
@@ -134,13 +126,8 @@ func (c *Controller) egressPage(ctx *ui.Context) {
 func (c *Controller) routesPage(ctx *ui.Context) {
 	p := c.colors()
 	c.pageScroll(ctx, func() {
-		c.pageLead(ctx, "路由", "模式、默认出口与有序自定义规则", func() {
-			if c.labeledAction(ctx, iconPlus, "添加规则", true).Clicked() {
-				c.openEditor(editorRouteRule, "")
-			}
-		})
 		c.card(ctx, "routes-profile", func() {
-			c.sectionHeader(ctx, "路由策略", "修改后立即写入控制面并重新编译内核配置", nil)
+			c.sectionHeader(ctx, "运行模式与默认出口", "修改后立即写入控制面并重新编译内核配置", nil)
 			ui.Row(ctx).FillWidth().Gap(16).AlignItems(ui.End).Children(func() {
 				ui.Column(ctx).Width(190).Gap(6).Children(func() {
 					ui.Text(ctx, "运行模式").FontSize(11).FontWeight(600).TextColor(p.TextMuted)
@@ -163,8 +150,7 @@ func (c *Controller) routesPage(ctx *ui.Context) {
 					current := egressOptionLabel(c.snapshot.Routes.DefaultEgress, c.snapshot)
 					selector := ui.Select(ctx, &current, options).Label("默认出口")
 					if selector.Changed() {
-						kind, id := parseEgressOption(optionValue(current))
-						c.setDefaultEgress(control.EgressRef{Kind: control.EgressKind(kind), ID: id})
+						c.setDefaultEgress(egressRefFromLabel(current, c.snapshot))
 					}
 				})
 				ui.Row(ctx).Gap(18).Padding(0, 0, 3, 0).Children(func() {
@@ -250,7 +236,7 @@ func (c *Controller) routesPage(ctx *ui.Context) {
 						}
 					})
 				}
-			}).Grow(1).Height(max(280, c.tableHeight(ctx)*0.55))
+			}).Grow(1).Height(c.tableHeightForRows(ctx, len(rules)))
 		})
 	})
 }
@@ -269,22 +255,13 @@ func (c *Controller) presetSwitch(ctx *ui.Context, label string, value bool, app
 func (c *Controller) dnsPage(ctx *ui.Context) {
 	p := c.colors()
 	c.pageScroll(ctx, func() {
-		c.pageLead(ctx, "DNS", "固定三个解析槽位，按场景选择国内、国外与默认解析", func() {
-			if c.labeledAction(ctx, iconRefresh, "刷新缓存", false).Clicked() {
-				c.flushDNS()
-			}
-			if c.labeledAction(ctx, iconPlay, "测试解析", true).Clicked() {
-				c.testDNS()
-			}
-		})
 		c.card(ctx, "dns-profile", func() {
 			c.sectionHeader(ctx, "全局设置", "策略与缓存属于控制面意图，不依赖当前内核状态", nil)
 			ui.Row(ctx).FillWidth().Gap(18).AlignItems(ui.End).Children(func() {
 				ui.Column(ctx).Width(180).Gap(6).Children(func() {
 					ui.Text(ctx, "解析策略").FontSize(11).FontWeight(600).TextColor(p.TextMuted)
-					labels := []string{"偏好 IPv4", "偏好 IPv6", "IPv4 优先", "IPv6 优先"}
-					values := []string{"prefer_ipv4", "prefer_ipv6", "ipv4_only", "ipv6_only"}
-					current := c.snapshot.DNS.Strategy
+					labels, values := dnsStrategyChoices()
+					current := optionLabel(labels, values, c.snapshot.DNS.Strategy)
 					selector := ui.Select(ctx, &current, labels).Label("解析策略")
 					if selector.Changed() {
 						for i, label := range labels {
@@ -307,9 +284,15 @@ func (c *Controller) dnsPage(ctx *ui.Context) {
 			})
 		})
 		ui.Row(ctx).FillWidth().Gap(12).AlignItems(ui.Stretch).Children(func() {
-			c.dnsSlotCard(ctx, "domestic", "国内 DNS", "处理国内域名与直连场景", c.snapshot.DNS.Domestic)
-			c.dnsSlotCard(ctx, "foreign", "国外 DNS", "处理代理场景与海外域名", c.snapshot.DNS.Foreign)
-			c.dnsSlotCard(ctx, "default", "默认 DNS", "前两个槽位未命中时使用", c.snapshot.DNS.Default)
+			ui.Column(ctx).Grow(1).Basis(0).MinWidth(0).Children(func() {
+				c.dnsSlotCard(ctx, "domestic", "国内 DNS", "处理国内域名与直连场景", c.snapshot.DNS.Domestic)
+			})
+			ui.Column(ctx).Grow(1).Basis(0).MinWidth(0).Children(func() {
+				c.dnsSlotCard(ctx, "foreign", "国外 DNS", "处理代理场景与海外域名", c.snapshot.DNS.Foreign)
+			})
+			ui.Column(ctx).Grow(1).Basis(0).MinWidth(0).Children(func() {
+				c.dnsSlotCard(ctx, "default", "默认 DNS", "前两个槽位未命中时使用", c.snapshot.DNS.Default)
+			})
 		})
 		c.card(ctx, "dns-results", func() {
 			c.sectionHeader(ctx, "最近探测", "点击“测试解析”后显示真实请求结果", nil)
@@ -379,14 +362,6 @@ func (c *Controller) dnsSlotCard(ctx *ui.Context, slot, title, hint string, serv
 func (c *Controller) ruleSetsPage(ctx *ui.Context) {
 	p := c.colors()
 	c.pageScroll(ctx, func() {
-		c.pageLead(ctx, "规则集", "规则资源的下载、启用与刷新状态", func() {
-			if c.labeledAction(ctx, iconRefresh, "刷新全部", false).Clicked() {
-				c.refreshAllRuleSets()
-			}
-			if c.labeledAction(ctx, iconPlus, "添加规则集", true).Clicked() {
-				c.openEditor(editorRuleSet, "")
-			}
-		})
 		c.card(ctx, "rulesets-table", func() {
 			if len(c.snapshot.RuleSets) == 0 {
 				c.emptyState(ctx, "还没有规则集", "添加 source 或 binary 规则集后即可在路由规则中引用。", nil)
@@ -445,7 +420,7 @@ func (c *Controller) ruleSetsPage(ctx *ui.Context) {
 						}
 					})
 				}
-			}).Grow(1).Height(c.tableHeight(ctx))
+			}).Grow(1).Height(c.tableHeightForRows(ctx, len(ruleSets)))
 		})
 	})
 }
@@ -453,19 +428,18 @@ func (c *Controller) ruleSetsPage(ctx *ui.Context) {
 func (c *Controller) logsPage(ctx *ui.Context) {
 	p := c.colors()
 	ui.Column(ctx).Grow(1).MinWidth(0).Padding(22, 24, 18).Gap(12).Children(func() {
-		c.pageLead(ctx, "日志", "应用事件与内核输出统一按时间排列，点击任意行即可复制", func() {
-			filter := c.logFilter
-			if ui.Segmented(ctx, &filter, "全部", "应用", "内核").Label("日志来源").Changed() {
-				c.setLogFilter(filter)
-			}
-			ui.Text(ctx, "点击行复制").FontSize(10.5).TextColor(p.TextFaint)
-		})
 		logs := c.snapshot.mergedLogs(c.logFilter == 1, c.logFilter == 2)
 		for i, j := 0, len(logs)-1; i < j; i, j = i+1, j-1 {
 			logs[i], logs[j] = logs[j], logs[i]
 		}
 		panel := ui.Column(ctx).Grow(1).MinWidth(0).Background(p.Surface).Border(1, p.Border).Radius(14).Clip()
 		panel.Children(func() {
+			ui.Row(ctx).FillWidth().Height(34).Padding(0, 12).Background(p.SurfaceAlt).
+				BorderWidth(0, 0, 1, 0).BorderColor(p.BorderSoft).AlignItems(ui.Center).Gap(10).Children(func() {
+				ui.Text(ctx, fmt.Sprintf("%d 条记录 · 点击任意行复制", len(logs))).FontSize(10.5).
+					TextColor(p.TextMuted).Grow(1).SingleLine()
+				c.smallPill(ctx, []string{"全部日志", "应用日志", "内核日志"}[c.logFilter], p.TextMuted, p.Surface)
+			})
 			if len(logs) == 0 {
 				c.emptyState(ctx, "暂无日志", "应用或内核产生日志后会自动出现在这里。", nil)
 				return
@@ -473,15 +447,7 @@ func (c *Controller) logsPage(ctx *ui.Context) {
 			ui.ScrollBoth(ctx).Key("logs-scroll").Grow(1).Padding(0).Children(func() {
 				ui.Column(ctx).Width(1560).Gap(1).Padding(5, 6).Children(func() {
 					for index, entry := range logs {
-						levelColor := p.TextMuted
-						switch strings.ToLower(entry.Level) {
-						case "error", "fatal":
-							levelColor = p.Danger
-						case "warn", "warning":
-							levelColor = p.Warning
-						case "info":
-							levelColor = p.Sky
-						}
+						levelColor := logLevelColor(p, entry.Level)
 						background := p.Surface
 						if index%2 == 1 {
 							background = p.SurfaceAlt
@@ -514,16 +480,6 @@ func (c *Controller) logsPage(ctx *ui.Context) {
 func (c *Controller) connectionsPage(ctx *ui.Context) {
 	p := c.colors()
 	c.pageScroll(ctx, func() {
-		c.pageLead(ctx, "活动连接", "实时数据来自当前内核连接表", func() {
-			enabled := c.snapshot.Kernel.State == kernel.StateRunning && len(c.snapshot.Connections) > 0
-			if c.labeledAction(ctx, iconRefresh, "刷新", false).Clicked() {
-				c.refresh(true)
-			}
-			button := c.dangerAction(ctx, "关闭全部")
-			if button.Disabled(!enabled).Clicked() {
-				c.closeAllConnections()
-			}
-		})
 		c.card(ctx, "connections-table", func() {
 			if c.snapshot.Kernel.State != kernel.StateRunning {
 				ui.Row(ctx).FillWidth().Padding(12, 0).AlignItems(ui.Center).Children(func() {
@@ -571,7 +527,7 @@ func (c *Controller) connectionsPage(ctx *ui.Context) {
 						c.closeConnection(conn.ID)
 					}
 				}
-			}).Grow(1).Height(c.tableHeight(ctx))
+			}).Grow(1).Height(c.tableHeightForRows(ctx, len(conns)))
 		})
 	})
 }
@@ -579,11 +535,21 @@ func (c *Controller) connectionsPage(ctx *ui.Context) {
 func (c *Controller) settingsPage(ctx *ui.Context) {
 	p := c.colors()
 	c.pageScroll(ctx, func() {
-		c.pageLead(ctx, "设置", "控制面同步行为、界面偏好与本地运行环境", nil)
 		ui.Row(ctx).FillWidth().Gap(14).AlignItems(ui.Stretch).Children(func() {
 			ui.Column(ctx).Grow(3).Basis(0).MinWidth(0).Children(func() {
 				c.card(ctx, "settings-sync", func() {
 					c.sectionHeader(ctx, "订阅同步", "这些设置会影响所有订阅的统一同步行为", func() {
+						c.smallPill(ctx, boolLabel(c.snapshot.Scheduler.Running, "调度器运行中", "调度器已停止"), func() ui.Color {
+							if c.snapshot.Scheduler.Running {
+								return p.Success
+							}
+							return p.TextMuted
+						}(), func() ui.Color {
+							if c.snapshot.Scheduler.Running {
+								return p.SuccessSoft
+							}
+							return p.SurfaceAlt
+						}())
 						if c.labeledAction(ctx, iconPlay, "立即同步", false).Clicked() {
 							c.runSchedulerOnce()
 						}
@@ -602,7 +568,7 @@ func (c *Controller) settingsPage(ctx *ui.Context) {
 						ui.Column(ctx).Width(160).Gap(6).Children(func() {
 							ui.Text(ctx, "失败重试次数").FontSize(11).FontWeight(600).TextColor(p.TextMuted)
 							value := c.settingsDraft[control.SettingSubscriptionMaxAttempts]
-							ui.TextInput(ctx, &value).Label("失败重试次数")
+							ui.TextInput(ctx, &value).Placeholder("3").Label("失败重试次数")
 							c.settingsDraft[control.SettingSubscriptionMaxAttempts] = value
 						})
 						ui.Column(ctx).Grow(1).MinWidth(240).Gap(6).Children(func() {
@@ -641,23 +607,6 @@ func (c *Controller) settingsPage(ctx *ui.Context) {
 							c.toggleTheme()
 						}
 					})
-					ui.Row(ctx).FillWidth().AlignItems(ui.Center).Children(func() {
-						ui.Column(ctx).Grow(1).Gap(2).Children(func() {
-							ui.Text(ctx, "订阅调度器").FontSize(12.5).FontWeight(600).SingleLine()
-							ui.Text(ctx, "下次运行 "+shortTime(c.snapshot.Scheduler.NextRunAt)).FontSize(10.5).TextColor(p.TextFaint).SingleLine()
-						})
-						c.smallPill(ctx, boolLabel(c.snapshot.Scheduler.Running, "运行中", "已停止"), func() ui.Color {
-							if c.snapshot.Scheduler.Running {
-								return p.Success
-							}
-							return p.TextMuted
-						}(), func() ui.Color {
-							if c.snapshot.Scheduler.Running {
-								return p.SuccessSoft
-							}
-							return p.SurfaceAlt
-						}())
-					})
 				})
 			})
 		})
@@ -681,7 +630,6 @@ func (c *Controller) pathRow(ctx *ui.Context, label, value string) {
 func (c *Controller) aboutPage(ctx *ui.Context) {
 	p := c.colors()
 	c.pageScroll(ctx, func() {
-		c.pageLead(ctx, "关于", "版本、内核与运行环境信息", nil)
 		ui.Row(ctx).FillWidth().Gap(14).AlignItems(ui.Stretch).Children(func() {
 			ui.Column(ctx).Grow(2).Basis(0).MinWidth(0).Children(func() {
 				c.card(ctx, "about-product", func() {
@@ -713,24 +661,24 @@ func (c *Controller) aboutPage(ctx *ui.Context) {
 						{"流量观测", c.snapshot.Capabilities.Capabilities.TrafficObservation},
 						{"配置诊断", c.snapshot.Capabilities.Capabilities.ConfigDiagnostics},
 					}
-					ui.Row(ctx).FillWidth().Gap(8).Children(func() {
-						for _, capability := range capabilities {
-							tone, fill := p.TextMuted, p.SurfaceAlt
-							if capability.on {
-								tone, fill = p.Success, p.SuccessSoft
+					for start := 0; start < len(capabilities); start += 3 {
+						end := min(start+3, len(capabilities))
+						ui.Row(ctx).FillWidth().Gap(8).Children(func() {
+							for _, capability := range capabilities[start:end] {
+								tone, fill := p.TextMuted, p.SurfaceAlt
+								if capability.on {
+									tone, fill = p.Success, p.SuccessSoft
+								}
+								c.smallPill(ctx, boolLabel(capability.on, "✓ ", "· ")+capability.label, tone, fill)
 							}
-							c.smallPill(ctx, boolLabel(capability.on, "✓ ", "· ")+capability.label, tone, fill)
-						}
-					})
+						})
+					}
 				})
 			})
 			ui.Column(ctx).Grow(2).Basis(0).MinWidth(0).Children(func() {
 				c.card(ctx, "about-kernel", func() {
 					c.sectionHeader(ctx, "内核", "运行状态与引擎版本", nil)
-					ui.Row(ctx).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
-						ui.Text(ctx, kernelStateLabel(c.snapshot.Kernel.State)).FontSize(18).FontWeight(700).SingleLine().Grow(1)
-						c.statusPill(ctx, string(c.snapshot.Kernel.State))
-					})
+					ui.Text(ctx, kernelStateLabel(c.snapshot.Kernel.State)).FontSize(18).FontWeight(700).SingleLine()
 					ui.Row(ctx).FillWidth().Gap(12).Children(func() {
 						c.statTile(ctx, "about-engine", "引擎", valueOrDash(string(c.snapshot.Capabilities.Kind)), valueOrDash(c.snapshot.Capabilities.Version), p.Indigo)
 						c.statTile(ctx, "about-kernel-version", "内核版本", shortVersion(c.snapshot.Kernel.Version), "运行实例报告", p.Sky)
@@ -776,34 +724,23 @@ func nodeName(snapshot snapshot, id string) string {
 func egressOptionLabel(ref control.EgressRef, s snapshot) string {
 	switch ref.Kind {
 	case control.EgressKindDirect:
-		return "direct:直连"
+		return "直连"
 	case control.EgressKindReject:
-		return "reject:拒绝"
+		return "拒绝"
 	case control.EgressKindGroup:
 		if group, ok := s.GroupsByID[ref.ID]; ok {
-			return "group:" + ref.ID + " · " + group.Name
+			return "策略组 · " + group.Name
 		}
 	case control.EgressKindChain:
 		if chain, ok := s.ChainsByID[ref.ID]; ok {
-			return "chain:" + ref.ID + " · " + chain.Name
+			return "链路 · " + chain.Name
 		}
 	case control.EgressKindNode:
 		if node, ok := s.NodesByID[ref.ID]; ok {
-			return "node:" + ref.ID + " · " + node.Name
+			return "节点 · " + node.Name
 		}
 	}
-	return string(ref.Kind) + ":" + ref.ID
-}
-
-func parseEgressOption(option string) (string, string) {
-	if option == "direct" || option == "reject" {
-		return option, ""
-	}
-	kind, id, found := strings.Cut(option, ":")
-	if !found {
-		return string(control.EgressKindGroup), option
-	}
-	return kind, id
+	return ref.ID
 }
 
 func routeMatchSummary(match control.RouteMatch) string {

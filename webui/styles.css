@@ -782,6 +782,9 @@ button { border: 0; background: none; cursor: pointer; }
 .log-level.warn { color: var(--amber); }
 .log-level.error { color: var(--rose); }
 .log-level.debug { color: var(--violet); }
+.log-level.trace { color: var(--faint); }
+.log-level.warning { color: var(--amber); }
+.log-level.fatal, .log-level.panic { color: var(--rose); }
 .log-source { min-width: 68px; flex: 0 0 auto; color: var(--faint); white-space: nowrap; }
 [data-theme="dark"] .log-source { color: #6387a6; }
 .log-message { flex: 0 0 auto; white-space: nowrap; }

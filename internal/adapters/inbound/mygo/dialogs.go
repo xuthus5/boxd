@@ -285,8 +285,8 @@ func (c *Controller) editorFields(ctx *ui.Context) {
 					current := egressOptionLabel(control.EgressRef{Kind: control.EgressKind(e.egressKind), ID: e.egressID}, c.snapshot)
 					selector := ui.Select(ctx, &current, options).Label("目标出口")
 					if selector.Changed() {
-						kind, id := parseEgressOption(optionValue(current))
-						e.egressKind, e.egressID = kind, id
+						ref := egressRefFromLabel(current, c.snapshot)
+						e.egressKind, e.egressID = string(ref.Kind), ref.ID
 					}
 				})
 			})

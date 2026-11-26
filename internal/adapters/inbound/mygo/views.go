@@ -58,13 +58,13 @@ func (c *Controller) sidebar(ctx *ui.Context, narrow bool) {
 	p := c.colors()
 	_, height := ctx.Size()
 	compact := height < 760
-	width := float32(224)
+	width := float32(216)
 	if narrow {
 		width = 82
 	}
-	itemHeight := float32(40)
+	itemHeight := float32(38)
 	if compact {
-		itemHeight = 36
+		itemHeight = 34
 	}
 	side := ui.Column(ctx).Width(width).FillHeight().Background(p.Sidebar).
 		BorderWidth(0, 0, 0, 1).BorderColor(p.Border).Padding(14, 12).Gap(6).Shrink(0)
@@ -83,17 +83,16 @@ func (c *Controller) sidebar(ctx *ui.Context, narrow bool) {
 			for _, item := range navigation {
 				selected := c.page == item.ID
 				button := ui.ButtonBase(ctx).Key("nav-"+item.ID).Label(item.Label).Height(itemHeight).
-					Padding(0, 11).Radius(11).Gap(11).AlignItems(ui.Center).Tooltip(item.Label)
+					Padding(0, 11).Radius(10).Gap(11).AlignItems(ui.Center).Tooltip(item.Label)
 				if selected {
-					c.brandGradient(button)
-					button.TextColor(p.AccentText)
+					button.Background(p.AccentSoft).Border(1, p.Accent.Alpha(0.18)).TextColor(p.Accent)
 				} else {
 					button.TextColor(p.TextMuted)
 				}
 				button.Children(func() {
 					iconColor := p.TextMuted
 					if selected {
-						iconColor = p.AccentText
+						iconColor = p.Accent
 					}
 					ui.Icon(ctx, navIcon(item.ID)).FontSize(18).TextColor(iconColor)
 					if !narrow {
@@ -103,9 +102,6 @@ func (c *Controller) sidebar(ctx *ui.Context, narrow bool) {
 							}
 							return 550
 						}()).TextColor(iconColor).SingleLine().Grow(1)
-						if selected {
-							ui.Box(ctx).Size(4, 4).Radius(4).Background(p.AccentText.Alpha(0.9))
-						}
 					}
 				})
 				if button.Clicked() {
@@ -115,7 +111,8 @@ func (c *Controller) sidebar(ctx *ui.Context, narrow bool) {
 		})
 		ui.Column(ctx).Gap(7).Padding(10, 8).Radius(12).Background(p.SurfaceAlt).Children(func() {
 			if narrow {
-				ui.Text(ctx, "v"+shortVersion(c.version())).FontSize(9).TextColor(p.TextFaint).TextAlign(ui.Center).SingleLine()
+				ui.Text(ctx, compactVersion(c.version())).FontSize(9).TextColor(p.TextFaint).TextAlign(ui.Center).
+					SingleLine().Tooltip("BOXD " + c.version())
 				return
 			}
 			ui.Row(ctx).FillWidth().AlignItems(ui.Center).Gap(7).Children(func() {
@@ -137,15 +134,16 @@ func (c *Controller) header(ctx *ui.Context) {
 			ui.Text(ctx, title).FontSize(18).FontWeight(700).SingleLine()
 			ui.Text(ctx, hint).FontSize(11.5).TextColor(p.TextMuted).SingleLine()
 		})
+		c.pageHeaderActions(ctx)
 		if c.busy {
 			ui.Spinner(ctx).Size(18, 18).TextColor(p.Accent)
 		}
 		c.statusPill(ctx, string(c.snapshot.Kernel.State))
-		dark := c.dark
-		themeButton := c.iconAction(ctx, iconMoon, "切换深色模式", false)
-		if dark {
-			themeButton = c.iconAction(ctx, iconSun, "切换浅色模式", false)
+		themeIcon, themeLabel := iconMoon, "切换深色模式"
+		if c.dark {
+			themeIcon, themeLabel = iconSun, "切换浅色模式"
 		}
+		themeButton := c.iconAction(ctx, themeIcon, themeLabel, false)
 		if themeButton.Clicked() {
 			c.toggleTheme()
 		}
@@ -154,6 +152,63 @@ func (c *Controller) header(ctx *ui.Context) {
 			c.refresh(true)
 		}
 	})
+}
+
+func (c *Controller) pageHeaderActions(ctx *ui.Context) {
+	switch c.page {
+	case pageSubscriptions:
+		if c.labeledAction(ctx, iconRefresh, "刷新全部", false).Clicked() {
+			c.refreshAllSubscriptions()
+		}
+		if c.labeledAction(ctx, iconPlus, "添加订阅", true).Clicked() {
+			c.openEditor(editorSubscription, "")
+		}
+	case pageNodes:
+		if c.labeledAction(ctx, iconPlus, "导入链接", false).Clicked() {
+			c.openEditor(editorImportLinks, "")
+		}
+		if c.labeledAction(ctx, iconPlus, "添加节点", true).Clicked() {
+			c.openEditor(editorNode, "")
+		}
+	case pageEgress:
+		if c.labeledAction(ctx, iconPlus, "新建策略组", false).Clicked() {
+			c.openEditor(editorGroup, "")
+		}
+		if c.labeledAction(ctx, iconPlus, "新建链路", true).Clicked() {
+			c.openEditor(editorChain, "")
+		}
+	case pageRoutes:
+		if c.labeledAction(ctx, iconPlus, "添加规则", true).Clicked() {
+			c.openEditor(editorRouteRule, "")
+		}
+	case pageDNS:
+		if c.labeledAction(ctx, iconRefresh, "刷新缓存", false).Clicked() {
+			c.flushDNS()
+		}
+		if c.labeledAction(ctx, iconPlay, "测试解析", true).Clicked() {
+			c.testDNS()
+		}
+	case pageRuleSets:
+		if c.labeledAction(ctx, iconRefresh, "刷新全部", false).Clicked() {
+			c.refreshAllRuleSets()
+		}
+		if c.labeledAction(ctx, iconPlus, "添加规则集", true).Clicked() {
+			c.openEditor(editorRuleSet, "")
+		}
+	case pageLogs:
+		filter := c.logFilter
+		if ui.Segmented(ctx, &filter, "全部", "应用", "内核").Label("日志来源").Changed() {
+			c.setLogFilter(filter)
+		}
+	case pageConnections:
+		if c.labeledAction(ctx, iconRefresh, "刷新", false).Clicked() {
+			c.refresh(true)
+		}
+		enabled := c.snapshot.Kernel.State == kernel.StateRunning && len(c.snapshot.Connections) > 0
+		if c.dangerAction(ctx, "关闭全部").Disabled(!enabled).Clicked() {
+			c.closeAllConnections()
+		}
+	}
 }
 
 func (c *Controller) noticeBanner(ctx *ui.Context) {
@@ -166,13 +221,15 @@ func (c *Controller) noticeBanner(ctx *ui.Context) {
 		AlignItems(ui.Center).Gap(10).Children(func() {
 		if c.busy {
 			ui.Spinner(ctx).Size(14, 14).TextColor(tone)
+		} else if c.noticeErr {
+			ui.Icon(ctx, iconAlert).FontSize(14).TextColor(tone)
 		} else {
 			ui.Icon(ctx, iconCheck).FontSize(14).TextColor(tone)
 		}
 		ui.Text(ctx, c.notice).FontSize(11.5).TextColor(tone).Grow(1).SingleLine().Tooltip(c.notice)
 		closeButton := c.iconAction(ctx, iconClose, "关闭提示", false)
 		if closeButton.Clicked() {
-			c.notice = ""
+			c.clearNotice()
 		}
 	})
 }
@@ -245,11 +302,15 @@ func (c *Controller) overviewPage(ctx *ui.Context) {
 				rate = humanRate(c.snapshot.Traffic.UploadRate + c.snapshot.Traffic.DownloadRate)
 				hint = "采样于 " + shortTime(c.snapshot.Traffic.At)
 			}
+			activeConnections, activeHint := "—", "内核未启动，未采集数据"
+			if running {
+				activeConnections = fmt.Sprintf("%d", len(c.snapshot.Connections))
+				activeHint = "当前内核会话"
+			}
 			c.statTile(ctx, "traffic-up", "累计上传", upload, hint, p.Indigo)
 			c.statTile(ctx, "traffic-down", "累计下载", download, hint, p.Sky)
 			c.statTile(ctx, "traffic-rate", "实时吞吐", rate, hint, p.Violet)
-			c.statTile(ctx, "active-connections", "活动连接", fmt.Sprintf("%d", len(c.snapshot.Connections)),
-				"当前内核会话", p.Success)
+			c.statTile(ctx, "active-connections", "活动连接", activeConnections, activeHint, p.Success)
 		})
 		ui.Row(ctx).FillWidth().Gap(14).AlignItems(ui.Stretch).Children(func() {
 			ui.Column(ctx).Grow(3).Basis(0).MinWidth(0).Children(func() { c.overviewComponents(ctx) })
@@ -322,7 +383,7 @@ func (c *Controller) overviewComponents(ctx *ui.Context) {
 			ok                 bool
 		}{
 			{"订阅调度", boolLabel(c.snapshot.Scheduler.Running, "运行中", "已停止"), "下次同步 " + shortTime(c.snapshot.Scheduler.NextRunAt), c.snapshot.Scheduler.Running},
-			{"DNS 策略", c.snapshot.DNS.Strategy, fmt.Sprintf("缓存%s · %d 个槽位启用", boolLabel(c.snapshot.DNS.Cache, "开启", "关闭"), dnsEnabledCount(c.snapshot.DNS)), dnsEnabledCount(c.snapshot.DNS) > 0},
+			{"DNS 策略", dnsStrategyLabel(c.snapshot.DNS.Strategy), fmt.Sprintf("缓存%s · %d 个槽位启用", boolLabel(c.snapshot.DNS.Cache, "开启", "关闭"), dnsEnabledCount(c.snapshot.DNS)), dnsEnabledCount(c.snapshot.DNS) > 0},
 			{"路由策略", routeModeLabel(string(c.snapshot.Routes.Mode)), fmt.Sprintf("%d 条规则 · 默认出口 %s", len(c.snapshot.Routes.Rules), labelForEgress(c.snapshot.Routes.DefaultEgress, c.snapshot)), len(c.snapshot.Routes.Rules) > 0 || c.snapshot.Routes.Mode != control.RouteModeRules},
 			{"出口资源", fmt.Sprintf("%d 节点 / %d 策略组", len(c.snapshot.Catalog.Nodes), len(c.snapshot.Catalog.Groups)), fmt.Sprintf("%d 条链路", len(c.snapshot.Catalog.Chains)), len(c.snapshot.Catalog.Nodes) > 0},
 		}
@@ -361,15 +422,7 @@ func (c *Controller) overviewActivity(ctx *ui.Context) {
 		for _, entry := range logs[start:] {
 			ui.Row(ctx).FillWidth().AlignItems(ui.Center).Gap(8).Children(func() {
 				ui.Text(ctx, entry.Time.Local().Format("15:04:05")).FontSize(10).Font("monospace").TextColor(p.TextFaint).Width(58)
-				levelColor := p.TextMuted
-				switch strings.ToLower(entry.Level) {
-				case "error", "fatal":
-					levelColor = p.Danger
-				case "warn", "warning":
-					levelColor = p.Warning
-				case "info":
-					levelColor = p.Sky
-				}
+				levelColor := logLevelColor(p, entry.Level)
 				ui.Box(ctx).Size(6, 6).Radius(6).Background(levelColor)
 				ui.Text(ctx, oneLine(entry.Message)).FontSize(11).TextColor(p.TextMuted).Grow(1).SingleLine().Tooltip(entry.Message)
 			})
@@ -446,14 +499,6 @@ func (c *Controller) overviewInventory(ctx *ui.Context) {
 func (c *Controller) subscriptionsPage(ctx *ui.Context) {
 	p := c.colors()
 	c.pageScroll(ctx, func() {
-		c.pageLead(ctx, "订阅管理", "远程节点来源与统一同步策略", func() {
-			if c.labeledAction(ctx, iconRefresh, "刷新全部", false).Clicked() {
-				c.refreshAllSubscriptions()
-			}
-			if c.labeledAction(ctx, iconPlus, "添加订阅", true).Clicked() {
-				c.openEditor(editorSubscription, "")
-			}
-		})
 		c.card(ctx, "subscriptions-table", func() {
 			if len(c.snapshot.Subscriptions) == 0 {
 				c.emptyState(ctx, "还没有订阅", "添加远程订阅地址，即可集中维护节点。", func() {
@@ -513,7 +558,7 @@ func (c *Controller) subscriptionsPage(ctx *ui.Context) {
 						}
 					})
 				}
-			}).Grow(1).Height(c.tableHeight(ctx))
+			}).Grow(1).Height(c.tableHeightForRows(ctx, len(subs)))
 		})
 	})
 }
@@ -521,14 +566,6 @@ func (c *Controller) subscriptionsPage(ctx *ui.Context) {
 func (c *Controller) nodesPage(ctx *ui.Context) {
 	p := c.colors()
 	c.pageScroll(ctx, func() {
-		c.pageLead(ctx, "节点", "节点编辑、分组归属与连通性测试", func() {
-			if c.labeledAction(ctx, iconPlus, "导入链接", false).Clicked() {
-				c.openEditor(editorImportLinks, "")
-			}
-			if c.labeledAction(ctx, iconPlus, "添加节点", true).Clicked() {
-				c.openEditor(editorNode, "")
-			}
-		})
 		c.card(ctx, "nodes-controls", func() {
 			ui.Row(ctx).FillWidth().AlignItems(ui.End).Gap(12).Children(func() {
 				kindLabels, kindValues := nodeTestOptions()
@@ -618,7 +655,7 @@ func (c *Controller) nodesPage(ctx *ui.Context) {
 						}
 					})
 				}
-			}).Grow(1).Height(c.tableHeight(ctx))
+			}).Grow(1).Height(c.tableHeightForRows(ctx, len(nodes)))
 		})
 	})
 }
@@ -653,6 +690,18 @@ func dnsEnabledCount(profile control.DNSProfile) int {
 	return count
 }
 
+func dnsStrategyLabel(strategy string) string {
+	if strategy == "" {
+		return "自动选择"
+	}
+	labels, values := dnsStrategyChoices()
+	return optionLabel(labels, values, strategy)
+}
+
+func dnsStrategyChoices() ([]string, []string) {
+	return []string{"自动选择", "偏好 IPv4", "偏好 IPv6"}, []string{"auto", "prefer_ipv4", "prefer_ipv6"}
+}
+
 func shortVersion(version string) string {
 	if version == "" {
 		return "—"
@@ -661,6 +710,20 @@ func shortVersion(version string) string {
 		return version[:16]
 	}
 	return version
+}
+
+func compactVersion(version string) string {
+	version = strings.TrimPrefix(strings.TrimSpace(version), "v")
+	if version == "" {
+		return "—"
+	}
+	if index := strings.IndexAny(version, "-+"); index >= 0 {
+		version = version[:index]
+	}
+	if version == "" {
+		return "—"
+	}
+	return "v" + version
 }
 
 func kernelRuntimeLabel(snapshot snapshot) string {

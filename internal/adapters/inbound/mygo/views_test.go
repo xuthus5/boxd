@@ -100,6 +100,13 @@ func TestThemeToggleNotifiesDesktopHost(t *testing.T) {
 	if !controller.dark || !persisted {
 		t.Fatalf("dark = %v, persisted = %v", controller.dark, persisted)
 	}
+	tester.Frame()
+	if tester.HasText("切换深色模式") {
+		t.Fatalf("dark mode rendered both theme controls; texts=%q", tester.Texts())
+	}
+	if !tester.HasText("切换浅色模式") {
+		t.Fatalf("light-mode control missing; texts=%q", tester.Texts())
+	}
 }
 
 func newViewTestController(options ControllerOptions) *Controller {

@@ -35,18 +35,6 @@ func (c *Controller) sectionHeader(ctx *ui.Context, title, subtitle string, acti
 	})
 }
 
-func (c *Controller) pageLead(ctx *ui.Context, title, subtitle string, actions func()) {
-	ui.Row(ctx).FillWidth().AlignItems(ui.Center).Gap(16).Children(func() {
-		ui.Column(ctx).Grow(1).Gap(4).Children(func() {
-			ui.Text(ctx, title).FontSize(21).FontWeight(700).SingleLine()
-			ui.Text(ctx, subtitle).FontSize(13).TextColor(c.colors().TextMuted).SingleLine()
-		})
-		if actions != nil {
-			ui.Row(ctx).Gap(8).AlignItems(ui.Center).Children(actions)
-		}
-	})
-}
-
 func (c *Controller) iconAction(ctx *ui.Context, icon *ui.SVG, label string, danger bool) ui.Element {
 	p := c.colors()
 	button := ui.ButtonBase(ctx).Key("action-"+label).Label(label).Size(32, 32).Radius(9).Padding(0)
@@ -144,8 +132,9 @@ func (c *Controller) subtleDivider(ctx *ui.Context) {
 func (c *Controller) emptyState(ctx *ui.Context, title, hint string, action func()) {
 	p := c.colors()
 	ui.Column(ctx).FillWidth().Padding(34, 18).Gap(8).AlignItems(ui.Center).Children(func() {
-		ui.Box(ctx).Size(36, 36).Radius(12).Background(p.SurfaceAlt).Children(func() {
-			ui.Text(ctx, "·").FontSize(24).TextColor(p.TextFaint).TextAlign(ui.Center)
+		ui.Row(ctx).Size(40, 40).Radius(12).Background(p.SurfaceAlt).Border(1, p.BorderSoft).
+			Justify(ui.Center).AlignItems(ui.Center).Children(func() {
+			ui.Icon(ctx, navIcon(c.page)).FontSize(18).TextColor(p.TextFaint)
 		})
 		ui.Text(ctx, title).FontSize(13).FontWeight(650).TextColor(p.Text)
 		ui.Text(ctx, hint).FontSize(12).TextColor(p.TextMuted).TextAlign(ui.Center).Wrap()
@@ -176,6 +165,12 @@ func tableMonoCell(ctx *ui.Context, text string, color ui.Color) {
 func (c *Controller) tableHeight(ctx *ui.Context) float32 {
 	_, h := ctx.Size()
 	return max(300, h-300)
+}
+
+func (c *Controller) tableHeightForRows(ctx *ui.Context, rows int) float32 {
+	const rowHeight = 42
+	contentHeight := float32(max(rows, 1)*rowHeight + 54)
+	return min(c.tableHeight(ctx), max(170, contentHeight))
 }
 
 func humanBytes(value int64) string {
@@ -261,6 +256,23 @@ func duration(value time.Duration) string {
 
 func oneLine(value string) string {
 	return strings.Join(strings.Fields(value), " ")
+}
+
+func logLevelColor(p palette, level string) ui.Color {
+	switch strings.ToLower(strings.TrimSpace(level)) {
+	case "trace":
+		return p.TextFaint
+	case "debug":
+		return p.Violet
+	case "info":
+		return p.Sky
+	case "warn", "warning":
+		return p.Warning
+	case "error", "fatal", "panic":
+		return p.Danger
+	default:
+		return p.TextMuted
+	}
 }
 
 func protocolLabel(protocol string) string {

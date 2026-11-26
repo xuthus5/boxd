@@ -69,8 +69,7 @@ func (c *Controller) testDNS() {
 	}
 	c.busy = true
 	c.dnsResults = nil
-	c.notice = "DNS 探测中…"
-	c.noticeErr = false
+	c.setNotice("DNS 探测中…", false)
 	c.window.Invalidate()
 	app := c.runtime.Control
 	go func() {
@@ -80,12 +79,10 @@ func (c *Controller) testDNS() {
 		c.window.Update(func() {
 			c.busy = false
 			if err != nil {
-				c.notice = "DNS 探测失败：" + err.Error()
-				c.noticeErr = true
+				c.setNotice("DNS 探测失败："+err.Error(), true)
 			} else {
 				c.dnsResults = results
-				c.notice = "DNS 探测完成"
-				c.noticeErr = false
+				c.setNotice("DNS 探测完成", false)
 			}
 			c.refresh(false)
 		})
@@ -97,8 +94,7 @@ func (c *Controller) testNodes(ids []string, kind control.NodeTestKind, target s
 		return
 	}
 	c.busy = true
-	c.notice = "节点测速中…"
-	c.noticeErr = false
+	c.setNotice("节点测速中…", false)
 	for _, id := range ids {
 		c.nodeTests[id] = "测速中…"
 	}
@@ -131,11 +127,9 @@ func (c *Controller) testNodes(ids []string, kind control.NodeTestKind, target s
 				}
 			}
 			if firstErr != nil {
-				c.notice = "部分节点测速失败：" + firstErr.Error()
-				c.noticeErr = true
+				c.setNotice("部分节点测速失败："+firstErr.Error(), true)
 			} else {
-				c.notice = fmt.Sprintf("已完成 %d 个节点测速", len(outcomes))
-				c.noticeErr = false
+				c.setNotice(fmt.Sprintf("已完成 %d 个节点测速", len(outcomes)), false)
 			}
 			c.refresh(false)
 		})
@@ -209,8 +203,7 @@ func (c *Controller) moveRule(id string, delta int) {
 func (c *Controller) saveSettings() {
 	maxAttempts, err := strconv.Atoi(strings.TrimSpace(c.settingsDraft[control.SettingSubscriptionMaxAttempts]))
 	if err != nil || maxAttempts < 1 || maxAttempts > 10 {
-		c.notice = "同步重试次数必须是 1 到 10 之间的整数"
-		c.noticeErr = true
+		c.setNotice("同步重试次数必须是 1 到 10 之间的整数", true)
 		c.window.Invalidate()
 		return
 	}
@@ -274,8 +267,7 @@ func (c *Controller) closeAllConnections() {
 func (c *Controller) copyLog(line mergedLog) {
 	text := line.Time.Local().Format("2006-01-02 15:04:05.000") + " [" + strings.ToUpper(line.Level) + "] " + line.Source + " " + line.Message
 	mygo.Clipboard.WriteText(text)
-	c.notice = "日志已复制到剪贴板"
-	c.noticeErr = false
+	c.setNotice("日志已复制到剪贴板", false)
 	c.window.Invalidate()
 }
 
@@ -299,8 +291,7 @@ func (c *Controller) submitEditor() {
 	}
 	c.busy = true
 	c.editorErr = ""
-	c.notice = "保存中…"
-	c.noticeErr = false
+	c.setNotice("保存中…", false)
 	c.window.Invalidate()
 	app := c.runtime.Control
 	go func() {
@@ -312,15 +303,13 @@ func (c *Controller) submitEditor() {
 			if err != nil {
 				c.editorOpen = true
 				c.editorErr = err.Error()
-				c.notice = "保存失败：" + err.Error()
-				c.noticeErr = true
+				c.setNotice("保存失败："+err.Error(), true)
 				c.window.Invalidate()
 				return
 			}
 			c.editorOpen = false
 			c.editorErr = ""
-			c.notice = "保存完成"
-			c.noticeErr = false
+			c.setNotice("保存完成", false)
 			c.refresh(false)
 		})
 	}()
