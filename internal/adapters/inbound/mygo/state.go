@@ -169,7 +169,7 @@ func (s snapshot) mergedLogs(appOnly, kernelOnly bool) []mergedLog {
 		for _, entry := range s.Activity {
 			result = append(result, mergedLog{
 				ID: "app-" + formatUint(entry.ID), Time: entry.Time, Level: entry.Level,
-				Source: entry.Source, Message: logtext.StripTerminalFormatting(entry.Message), App: true,
+				Source: entry.Source, Message: logtext.CleanMessage(entry.Level, entry.Message), App: true,
 			})
 		}
 	}
@@ -177,7 +177,7 @@ func (s snapshot) mergedLogs(appOnly, kernelOnly bool) []mergedLog {
 		for index, entry := range s.KernelLogs {
 			result = append(result, mergedLog{
 				ID: "kernel-" + formatUint(uint64(index)), Time: entry.Time, Level: strings.ToLower(entry.Level),
-				Source: entry.Source, Message: logtext.StripTerminalFormatting(entry.Message),
+				Source: entry.Source, Message: logtext.CleanMessage(entry.Level, entry.Message),
 			})
 		}
 	}

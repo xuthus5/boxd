@@ -99,3 +99,21 @@ func TestRuleSetViewUsesDownloadedSize(t *testing.T) {
 		t.Fatalf("unknown size = %q", view.Size)
 	}
 }
+
+func TestLogViewsCleanTerminalFragmentsAndDuplicateLevel(t *testing.T) {
+	now := time.Date(2026, 11, 25, 12, 0, 0, 0, time.UTC)
+	kernelView := makeKernelLogViews([]kernel.LogEntry{{
+		Time: now, Level: "trace", Source: "sing-box",
+		Message: "[37mTRACE[0m[0364] outbound: connected",
+	}})[0]
+	if kernelView.Message != "outbound: connected" {
+		t.Fatalf("kernel message = %q", kernelView.Message)
+	}
+	appView := makeAppLogViews([]control.ActivityLogEntry{{
+		ID: 1, Time: now, Level: "debug", Source: "scheduler",
+		Message: "DEBUG[0012] subscription refreshed",
+	}})[0]
+	if appView.Message != "subscription refreshed" {
+		t.Fatalf("app message = %q", appView.Message)
+	}
+}

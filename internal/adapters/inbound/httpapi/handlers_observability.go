@@ -138,7 +138,7 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 				appLogs = nil
 				continue
 			}
-			if !writeSSE(w, flusher, "app.log", logView{ID: "app-" + strconv.FormatUint(entry.ID, 10), Time: entry.Time, Level: entry.Level, Source: entry.Source, Message: entry.Message, Fields: entry.Fields}) {
+			if !writeSSE(w, flusher, "app.log", logView{ID: "app-" + strconv.FormatUint(entry.ID, 10), Time: entry.Time, Level: entry.Level, Source: entry.Source, Message: logtext.CleanMessage(entry.Level, entry.Message), Fields: entry.Fields}) {
 				return
 			}
 		case event, open := <-kernelEvents:
@@ -180,7 +180,7 @@ func (s *Server) writeKernelEvent(w http.ResponseWriter, flusher http.Flusher, r
 		}
 		return writeSSE(w, flusher, "kernel.log", logView{
 			ID: "kernel-" + strconv.FormatUint(event.Sequence, 10), Time: entry.Time, Level: strings.ToLower(entry.Level),
-			Source: entry.Source, Message: logtext.StripTerminalFormatting(entry.Message), Fields: entry.Fields,
+			Source: entry.Source, Message: logtext.CleanMessage(entry.Level, entry.Message), Fields: entry.Fields,
 		})
 	case kernel.EventConfigApplied:
 		return writeSSE(w, flusher, "snapshot.invalidated", map[string]any{"reason": "config.applied", "at": event.Time})

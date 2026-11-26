@@ -453,7 +453,7 @@ func (c *Controller) logsPage(ctx *ui.Context) {
 							background = p.SurfaceAlt
 						}
 						line := entry.Time.Local().Format("2006-01-02 15:04:05.000") + "  " +
-							strings.ToUpper(entry.Level) + "  " + entry.Source + "  " + oneLine(entry.Message)
+							strings.ToUpper(entry.Level) + "  " + oneLine(entry.Message)
 						row := ui.ButtonBase(ctx).Key("log-"+entry.ID).Label(line).Width(1548).Height(27).
 							Padding(0, 8).Radius(5).Gap(0).AlignItems(ui.Center).Background(background).
 							Tooltip("点击复制此日志")
@@ -462,10 +462,8 @@ func (c *Controller) logsPage(ctx *ui.Context) {
 								Font("monospace").TextColor(p.TextFaint).Width(148).SingleLine()
 							ui.Text(ctx, strings.ToUpper(entry.Level)).FontSize(10).FontWeight(700).
 								TextColor(levelColor).Width(72).SingleLine()
-							ui.Text(ctx, entry.Source).FontSize(10.5).FontWeight(600).TextColor(p.TextMuted).
-								Width(126).SingleLine().Tooltip(entry.Source)
 							ui.Text(ctx, oneLine(entry.Message)).FontSize(10.5).Font("monospace").
-								TextColor(p.Text).Width(1160).SingleLine().Tooltip(entry.Message)
+								TextColor(p.Text).Width(1300).SingleLine().Tooltip(entry.Message)
 						})
 						if row.Clicked() {
 							c.copyLog(entry)

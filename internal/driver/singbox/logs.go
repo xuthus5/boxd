@@ -1,7 +1,6 @@
 package singbox
 
 import (
-	"strings"
 	"time"
 
 	boxlog "github.com/sagernet/sing-box/log"
@@ -43,21 +42,5 @@ func (w *platformLogWriter) WriteMessage(level boxlog.Level, message string) {
 }
 
 func cleanPlatformMessage(level boxlog.Level, message string) string {
-	message = logtext.StripTerminalFormatting(message)
-	label := strings.ToUpper(boxlog.FormatLevel(level))
-	prefix := label + "["
-	if !strings.HasPrefix(message, prefix) {
-		return message
-	}
-	remainder := message[len(prefix):]
-	end := strings.IndexByte(remainder, ']')
-	if end < 1 {
-		return message
-	}
-	for _, char := range remainder[:end] {
-		if char < '0' || char > '9' {
-			return message
-		}
-	}
-	return strings.TrimPrefix(remainder[end+1:], " ")
+	return logtext.CleanMessage(boxlog.FormatLevel(level), message)
 }

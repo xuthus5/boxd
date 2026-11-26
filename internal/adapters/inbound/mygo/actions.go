@@ -265,10 +265,14 @@ func (c *Controller) closeAllConnections() {
 }
 
 func (c *Controller) copyLog(line mergedLog) {
-	text := line.Time.Local().Format("2006-01-02 15:04:05.000") + " [" + strings.ToUpper(line.Level) + "] " + line.Source + " " + line.Message
+	text := formatLogForCopy(line)
 	mygo.Clipboard.WriteText(text)
 	c.setNotice("日志已复制到剪贴板", false)
 	c.window.Invalidate()
+}
+
+func formatLogForCopy(line mergedLog) string {
+	return line.Time.Local().Format("2006-01-02 15:04:05.000") + " [" + strings.ToUpper(line.Level) + "] " + line.Message
 }
 
 func (c *Controller) setLogFilter(value int) {

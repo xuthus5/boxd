@@ -878,7 +878,7 @@ func makeTrafficView(snapshot kernel.TrafficSnapshot, now time.Time, available b
 func makeAppLogViews(entries []control.ActivityLogEntry) []logView {
 	result := make([]logView, 0, len(entries))
 	for _, entry := range entries {
-		result = append(result, logView{ID: "app-" + strconv.FormatUint(entry.ID, 10), Time: entry.Time, Level: entry.Level, Source: entry.Source, Message: logtext.StripTerminalFormatting(entry.Message), Fields: entry.Fields})
+		result = append(result, logView{ID: "app-" + strconv.FormatUint(entry.ID, 10), Time: entry.Time, Level: entry.Level, Source: entry.Source, Message: logtext.CleanMessage(entry.Level, entry.Message), Fields: entry.Fields})
 	}
 	return result
 }
@@ -886,7 +886,7 @@ func makeAppLogViews(entries []control.ActivityLogEntry) []logView {
 func makeKernelLogViews(entries []kernel.LogEntry) []logView {
 	result := make([]logView, 0, len(entries))
 	for index, entry := range entries {
-		result = append(result, logView{ID: "kernel-" + strconv.Itoa(index), Time: entry.Time, Level: strings.ToLower(entry.Level), Source: entry.Source, Message: logtext.StripTerminalFormatting(entry.Message), Fields: entry.Fields})
+		result = append(result, logView{ID: "kernel-" + strconv.Itoa(index), Time: entry.Time, Level: strings.ToLower(entry.Level), Source: entry.Source, Message: logtext.CleanMessage(entry.Level, entry.Message), Fields: entry.Fields})
 	}
 	return result
 }

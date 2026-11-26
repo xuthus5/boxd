@@ -56,3 +56,12 @@ func TestPlatformLogWriterKeepsMessagesWithoutRecognizedPrefix(t *testing.T) {
 		t.Fatalf("entry message = %q", logs.entry.Message)
 	}
 }
+
+func TestPlatformLogWriterCleansFormattingFragments(t *testing.T) {
+	logs := &testLogSink{}
+	writer := newPlatformLogWriter(logs, nil)
+	writer.WriteMessage(boxlog.LevelTrace, "[37mTRACE[0m[0364] outbound: connected")
+	if logs.entry.Message != "outbound: connected" {
+		t.Fatalf("entry message = %q", logs.entry.Message)
+	}
+}
