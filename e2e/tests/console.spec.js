@@ -56,8 +56,7 @@ test('administrator avatar renders a shield icon instead of initials', async ({ 
   await expect(avatar).not.toContainText('LX');
 });
 
-test('long log messages scroll horizontally and copy the full row', async ({ page, context }) => {
-  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+test('long log messages scroll horizontally and copy the full row', async ({ page }) => {
   await page.goto('/#logs');
   await expect(page.getByRole('log', { name: '应用与内核日志' })).toBeVisible();
 
@@ -105,19 +104,34 @@ test('long log messages scroll horizontally and copy the full row', async ({ pag
   expect(layout.consoleMaxScrollLeft, 'log console can scroll to the end').toBeGreaterThan(1);
   expect(layout.documentOverflow).toBeLessThanOrEqual(1);
 
-  await logRow.locator('.log-time').click();
-  await expect(page.locator('.toast').filter({ hasText: '日志已复制' })).toBeVisible();
-  const clipboard = await page.evaluate(() => navigator.clipboard.readText());
-  expect(clipboard).toContain(marker);
-  expect(clipboard).toContain('[APP]');
-
-  await page.evaluate(async () => {
-    window.__boxdNativeClipboard = navigator.clipboard;
-    await window.__boxdNativeClipboard.writeText('clipboard-fallback-sentinel');
-    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined });
+  await page.evaluate(() => {
+    window.__boxdCopiedLog = '';
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: async (text) => {
+          window.__boxdCopiedLog = text;
+        },
+      },
+    });
   });
   await logRow.locator('.log-time').click();
-  await expect.poll(() => page.evaluate(() => window.__boxdNativeClipboard.readText())).toContain(marker);
+  await expect(page.locator('.toast').filter({ hasText: '日志已复制' })).toBeVisible();
+  const copiedLog = await page.evaluate(() => window.__boxdCopiedLog);
+  expect(copiedLog).toContain(marker);
+  expect(copiedLog).toContain('[APP]');
+
+  await page.evaluate(() => {
+    window.__boxdClipboardFallback = '';
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined });
+    document.execCommand = (command) => {
+      if (command !== 'copy') return false;
+      window.__boxdClipboardFallback = document.querySelector('textarea[aria-hidden="true"]')?.value || '';
+      return true;
+    };
+  });
+  await logRow.locator('.log-time').click();
+  await expect.poll(() => page.evaluate(() => window.__boxdClipboardFallback)).toContain(marker);
 });
 
 test('kernel lifecycle controls are only available on the overview page', async ({ page }) => {

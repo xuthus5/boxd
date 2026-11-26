@@ -122,9 +122,11 @@ jobs:
         run: |
           set -euo pipefail
           ./bin/boxd -version
-          ./bin/boxd-desktop -version
-          file ./bin/boxd
-          file dist/desktop/boxd-desktop-*
+          ./dist/desktop/boxd-desktop-linux-amd64 -version
+          for artifact in ./bin/boxd dist/desktop/boxd-desktop-*; do
+            test -s "${artifact}"
+            go version -m "${artifact}" >/dev/null
+          done
 
   scripts:
     name: Validate deployment scripts

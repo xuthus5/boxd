@@ -1,4 +1,16 @@
 import { expect, test } from '@playwright/test';
+import { createServer } from 'node:net';
+
+async function findFreePort() {
+  const server = createServer();
+  await new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', resolve);
+  });
+  const { port } = server.address();
+  await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+  return port;
+}
 
 test('kernel lifecycle reports real running state', async ({ page, request }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-chromium', 'lifecycle runs once on Chromium');
@@ -9,8 +21,9 @@ test('kernel lifecycle reports real running state', async ({ page, request }, te
   const mixed = snapshot.inbounds.find((inbound) => inbound.kind === 'mixed' && inbound.enabled);
   expect(mixed).toBeTruthy();
 
+  const listenPort = await findFreePort();
   const patch = await request.patch(`/api/v1/inbounds/${mixed.id}`, {
-    data: { listen: { host: '127.0.0.1', port: 18080 } },
+    data: { listen: { host: '127.0.0.1', port: listenPort } },
   });
   expect(patch.ok()).toBeTruthy();
 
