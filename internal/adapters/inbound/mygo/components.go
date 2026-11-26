@@ -11,28 +11,50 @@ import (
 
 func (c *Controller) card(ctx *ui.Context, key string, fn func()) ui.Element {
 	p := c.colors()
-	return ui.Column(ctx).Key(key).FillWidth().MinWidth(0).Background(p.Surface).Border(1, p.Border).Radius(16).
-		Padding(18).Gap(12).Shadow(0, 4, 18, 0, p.Shadow).Children(fn)
+	return ui.Column(ctx).Key(key).FillWidth().MinWidth(0).Background(p.Surface).Border(1, p.Border).Radius(14).
+		Padding(20).Gap(16).Children(fn)
 }
 
 func (c *Controller) softCard(ctx *ui.Context, key string, fn func()) ui.Element {
 	p := c.colors()
-	return ui.Column(ctx).Key(key).FillWidth().MinWidth(0).Background(p.SurfaceAlt).Border(1, p.BorderSoft).Radius(14).
+	return ui.Column(ctx).Key(key).FillWidth().MinWidth(0).Background(p.SurfaceAlt).Border(1, p.BorderSoft).Radius(12).
 		Padding(16).Gap(10).Children(fn)
 }
 
 func (c *Controller) sectionHeader(ctx *ui.Context, title, subtitle string, actions func()) {
 	ui.Row(ctx).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
-		ui.Column(ctx).Grow(1).Gap(3).Children(func() {
-			ui.Text(ctx, title).FontSize(15).FontWeight(650).SingleLine()
+		ui.Column(ctx).Grow(1).Gap(4).Children(func() {
+			ui.Text(ctx, title).FontSize(15).FontWeight(660).SingleLine()
 			if subtitle != "" {
-				ui.Text(ctx, subtitle).FontSize(12).TextColor(c.colors().TextMuted).SingleLine()
+				ui.Text(ctx, subtitle).FontSize(11.5).TextColor(c.colors().TextMuted).SingleLine()
 			}
 		})
 		if actions != nil {
 			ui.Row(ctx).Gap(8).AlignItems(ui.Center).Children(actions)
 		}
 	})
+}
+
+func (c *Controller) sectionDivider(ctx *ui.Context) {
+	ui.Box(ctx).FillWidth().Height(1).Background(c.colors().BorderSoft)
+}
+
+func (c *Controller) compactStat(ctx *ui.Context, label, value, hint string, tone ui.Color) {
+	p := c.colors()
+	ui.Column(ctx).Grow(1).Basis(0).MinWidth(0).Gap(7).Children(func() {
+		ui.Row(ctx).FillWidth().AlignItems(ui.Center).Gap(7).Children(func() {
+			ui.Box(ctx).Size(6, 6).Radius(6).Background(tone)
+			ui.Text(ctx, label).FontSize(11).FontWeight(600).TextColor(p.TextMuted).SingleLine()
+		})
+		ui.Text(ctx, value).FontSize(23).FontWeight(700).SingleLine().Tooltip(value)
+		if hint != "" {
+			ui.Text(ctx, hint).FontSize(10.5).TextColor(p.TextFaint).SingleLine().Tooltip(hint)
+		}
+	})
+}
+
+func (c *Controller) verticalRule(ctx *ui.Context) {
+	ui.Box(ctx).Width(1).Height(54).Background(c.colors().BorderSoft)
 }
 
 func (c *Controller) iconAction(ctx *ui.Context, icon *ui.SVG, label string, danger bool) ui.Element {
@@ -94,50 +116,10 @@ func (c *Controller) dangerAction(ctx *ui.Context, label string) ui.Element {
 	})
 }
 
-func (c *Controller) statTile(ctx *ui.Context, key, label, value, hint string, tone ui.Color) {
-	p := c.colors()
-	ui.Column(ctx).Key(key).Grow(1).Basis(0).MinWidth(130).Background(p.SurfaceAlt).Border(1, p.BorderSoft).
-		Radius(13).Padding(14).Gap(6).Children(func() {
-		ui.Row(ctx).FillWidth().AlignItems(ui.Center).Gap(8).Children(func() {
-			ui.Box(ctx).Size(7, 7).Radius(7).Background(tone)
-			ui.Text(ctx, label).FontSize(11.5).FontWeight(600).TextColor(p.TextMuted).SingleLine()
-		})
-		ui.Text(ctx, value).FontSize(21).FontWeight(720).SingleLine()
-		if hint != "" {
-			ui.Text(ctx, hint).FontSize(11).TextColor(p.TextFaint).SingleLine()
-		}
-	})
-}
-
-func (c *Controller) statusPill(ctx *ui.Context, state string) {
-	p := c.colors()
-	color, fill, label := p.TextMuted, p.SurfaceAlt, state
-	switch state {
-	case "running":
-		color, fill, label = p.Success, p.SuccessSoft, "运行中"
-	case "starting":
-		color, fill, label = p.Warning, p.WarningSoft, "启动中"
-	case "stopping":
-		color, fill, label = p.Warning, p.WarningSoft, "停止中"
-	case "failed":
-		color, fill, label = p.Danger, p.DangerSoft, "异常"
-	case "stopped":
-		color, fill, label = p.TextMuted, p.SurfaceAlt, "未启动"
-	}
-	ui.Row(ctx).Height(28).Padding(0, 10).Radius(99).Background(fill).Gap(7).AlignItems(ui.Center).Children(func() {
-		ui.Box(ctx).Size(6, 6).Radius(6).Background(color)
-		ui.Text(ctx, label).FontSize(11.5).FontWeight(650).TextColor(color).SingleLine()
-	})
-}
-
 func (c *Controller) smallPill(ctx *ui.Context, text string, tone ui.Color, fill ui.Color) {
 	ui.Row(ctx).Height(24).Padding(0, 8).Radius(7).Background(fill).AlignItems(ui.Center).Children(func() {
 		ui.Text(ctx, text).FontSize(10.5).FontWeight(650).TextColor(tone).SingleLine()
 	})
-}
-
-func (c *Controller) subtleDivider(ctx *ui.Context) {
-	ui.Divider(ctx).Width(1).Height(1).Background(c.colors().BorderSoft)
 }
 
 func (c *Controller) emptyState(ctx *ui.Context, title, hint string, action func()) {
@@ -181,7 +163,7 @@ func (c *Controller) tableHeight(ctx *ui.Context) float32 {
 func (c *Controller) tableHeightForRows(ctx *ui.Context, rows int) float32 {
 	const rowHeight = 42
 	contentHeight := float32(max(rows, 1)*rowHeight + 54)
-	return min(c.tableHeight(ctx), max(170, contentHeight))
+	return min(c.tableHeight(ctx), max(110, contentHeight))
 }
 
 func humanBytes(value int64) string {

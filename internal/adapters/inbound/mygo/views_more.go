@@ -15,110 +15,110 @@ import (
 func (c *Controller) egressPage(ctx *ui.Context) {
 	p := c.colors()
 	c.pageScroll(ctx, func() {
-		c.card(ctx, "egress-groups", func() {
-			c.sectionHeader(ctx, "策略组", "按名称、类型和当前出口快速检查运行状态", nil)
+		c.card(ctx, "egress-workspace", func() {
+			c.sectionHeader(ctx, "出口资源", "策略组决定出口选择方式，代理链路定义实际经过的跳点顺序", nil)
+			c.sectionHeader(ctx, "策略组", fmt.Sprintf("%d 个策略组 · 可手动选择或自动测速", len(c.snapshot.Catalog.Groups)), nil)
 			if len(c.snapshot.Catalog.Groups) == 0 {
 				c.emptyState(ctx, "尚未创建策略组", "策略组可以把多个节点组合为手动选择或自动测速出口。", nil)
-				return
-			}
-			groups := append([]control.Group(nil), c.snapshot.Catalog.Groups...)
-			sort.SliceStable(groups, func(i, j int) bool { return strings.ToLower(groups[i].Name) < strings.ToLower(groups[j].Name) })
-			cols := []ui.TableColumn{
-				{Title: "名称", Width: 180},
-				{Title: "类型", Width: 100},
-				{Title: "当前出口", MinWidth: 180},
-				{Title: "成员", Width: 64, Align: ui.End},
-				{Title: "测速间隔", Width: 92, Align: ui.End},
-				{Title: "操作", Width: 106, Fixed: true},
-			}
-			state := c.tableState("egress-groups")
-			ui.Table(ctx, state, cols, len(groups), func(row, col int) {
-				group := groups[row]
-				switch col {
-				case 0:
-					ui.Text(ctx, group.Name).FontSize(12.5).FontWeight(600).SingleLine().Tooltip(group.Name)
-				case 1:
-					c.smallPill(ctx, groupKindLabel(string(group.Kind)), p.Violet, p.SurfaceAlt)
-				case 2:
-					names := make([]string, 0, len(group.Members))
-					for _, id := range group.Members {
-						if node, ok := c.snapshot.NodesByID[id]; ok {
-							names = append(names, node.Name)
-						} else {
-							names = append(names, id)
-						}
-					}
-					if group.Kind == control.GroupKindSelector && len(names) > 0 {
-						selected := nodeName(c.snapshot, group.Selected)
-						selector := ui.Select(ctx, &selected, names).Label("当前出口")
-						if selector.Changed() {
-							for i, name := range names {
-								if name == selected {
-									c.selectGroupMember(group.ID, group.Members[i])
-									break
-								}
+			} else {
+				groups := append([]control.Group(nil), c.snapshot.Catalog.Groups...)
+				sort.SliceStable(groups, func(i, j int) bool { return strings.ToLower(groups[i].Name) < strings.ToLower(groups[j].Name) })
+				cols := []ui.TableColumn{
+					{Title: "名称", Width: 180},
+					{Title: "类型", Width: 100},
+					{Title: "当前出口", MinWidth: 180},
+					{Title: "成员", Width: 64, Align: ui.End},
+					{Title: "测速间隔", Width: 92, Align: ui.End},
+					{Title: "操作", Width: 106, Fixed: true},
+				}
+				state := c.tableState("egress-groups")
+				ui.Table(ctx, state, cols, len(groups), func(row, col int) {
+					group := groups[row]
+					switch col {
+					case 0:
+						ui.Text(ctx, group.Name).FontSize(12.5).FontWeight(600).SingleLine().Tooltip(group.Name)
+					case 1:
+						c.smallPill(ctx, groupKindLabel(string(group.Kind)), p.Violet, p.SurfaceAlt)
+					case 2:
+						names := make([]string, 0, len(group.Members))
+						for _, id := range group.Members {
+							if node, ok := c.snapshot.NodesByID[id]; ok {
+								names = append(names, node.Name)
+							} else {
+								names = append(names, id)
 							}
 						}
-					} else {
-						ui.Text(ctx, fmt.Sprintf("自动选择 · %s", nodeName(c.snapshot, group.Selected))).FontSize(11.5).
-							TextColor(p.TextMuted).SingleLine()
+						if group.Kind == control.GroupKindSelector && len(names) > 0 {
+							selected := nodeName(c.snapshot, group.Selected)
+							selector := ui.Select(ctx, &selected, names).Label("当前出口")
+							if selector.Changed() {
+								for i, name := range names {
+									if name == selected {
+										c.selectGroupMember(group.ID, group.Members[i])
+										break
+									}
+								}
+							}
+						} else {
+							ui.Text(ctx, fmt.Sprintf("自动选择 · %s", nodeName(c.snapshot, group.Selected))).FontSize(11.5).
+								TextColor(p.TextMuted).SingleLine()
+						}
+					case 3:
+						ui.Text(ctx, strconv.Itoa(len(group.Members))).FontSize(12).TextAlign(ui.End)
+					case 4:
+						ui.Text(ctx, humanInterval(group.IntervalSeconds)).FontSize(11.5).TextColor(p.TextMuted).TextAlign(ui.End)
+					case 5:
+						ui.Row(ctx).Gap(4).Children(func() {
+							if c.iconAction(ctx, iconEdit, "编辑策略组 "+group.Name, false).Clicked() {
+								c.openEditor(editorGroup, group.ID)
+							}
+							if c.iconAction(ctx, iconTrash, "删除策略组 "+group.Name, true).Clicked() {
+								c.askDelete("group", group.ID, group.Name)
+							}
+						})
 					}
-				case 3:
-					ui.Text(ctx, strconv.Itoa(len(group.Members))).FontSize(12).TextAlign(ui.End)
-				case 4:
-					ui.Text(ctx, humanInterval(group.IntervalSeconds)).FontSize(11.5).TextColor(p.TextMuted).TextAlign(ui.End)
-				case 5:
-					ui.Row(ctx).Gap(4).Children(func() {
-						if c.iconAction(ctx, iconEdit, "编辑策略组 "+group.Name, false).Clicked() {
-							c.openEditor(editorGroup, group.ID)
-						}
-						if c.iconAction(ctx, iconTrash, "删除策略组 "+group.Name, true).Clicked() {
-							c.askDelete("group", group.ID, group.Name)
-						}
-					})
-				}
-			}).Grow(1).Height(c.tableHeightForRows(ctx, len(groups)))
-		})
-		c.card(ctx, "egress-chains", func() {
-			c.sectionHeader(ctx, "代理链路", "从上到下依次经过各个跳点；过长内容支持查看提示", nil)
+				}).Grow(1).Height(c.tableHeightForRows(ctx, len(groups)))
+			}
+			c.sectionDivider(ctx)
+			c.sectionHeader(ctx, "代理链路", fmt.Sprintf("%d 条链路 · 按顺序串联多个出口", len(c.snapshot.Catalog.Chains)), nil)
 			if len(c.snapshot.Catalog.Chains) == 0 {
 				c.emptyState(ctx, "还没有代理链路", "链路用于串联多个出口，例如本地节点 → 中转节点 → 目标网络。", nil)
-				return
-			}
-			chains := append([]control.ProxyChain(nil), c.snapshot.Catalog.Chains...)
-			sort.SliceStable(chains, func(i, j int) bool { return strings.ToLower(chains[i].Name) < strings.ToLower(chains[j].Name) })
-			cols := []ui.TableColumn{
-				{Title: "名称", Width: 190},
-				{Title: "链路顺序", MinWidth: 300},
-				{Title: "跳点", Width: 64, Align: ui.End},
-				{Title: "操作", Width: 106, Fixed: true},
-			}
-			state := c.tableState("egress-chains")
-			ui.Table(ctx, state, cols, len(chains), func(row, col int) {
-				chain := chains[row]
-				switch col {
-				case 0:
-					ui.Text(ctx, chain.Name).FontSize(12.5).FontWeight(600).SingleLine().Tooltip(chain.Name)
-				case 1:
-					parts := make([]string, 0, len(chain.Hops))
-					for _, hop := range chain.Hops {
-						parts = append(parts, labelForEgress(control.EgressRef{Kind: hop.Kind, ID: hop.ID}, c.snapshot))
-					}
-					text := strings.Join(parts, "  →  ")
-					ui.Text(ctx, text).FontSize(11.5).TextColor(p.TextMuted).SingleLine().Tooltip(text)
-				case 2:
-					ui.Text(ctx, strconv.Itoa(len(chain.Hops))).FontSize(12).TextAlign(ui.End)
-				case 3:
-					ui.Row(ctx).Gap(4).Children(func() {
-						if c.iconAction(ctx, iconEdit, "编辑链路 "+chain.Name, false).Clicked() {
-							c.openEditor(editorChain, chain.ID)
-						}
-						if c.iconAction(ctx, iconTrash, "删除链路 "+chain.Name, true).Clicked() {
-							c.askDelete("chain", chain.ID, chain.Name)
-						}
-					})
+			} else {
+				chains := append([]control.ProxyChain(nil), c.snapshot.Catalog.Chains...)
+				sort.SliceStable(chains, func(i, j int) bool { return strings.ToLower(chains[i].Name) < strings.ToLower(chains[j].Name) })
+				cols := []ui.TableColumn{
+					{Title: "名称", Width: 190},
+					{Title: "链路顺序", MinWidth: 300},
+					{Title: "跳点", Width: 64, Align: ui.End},
+					{Title: "操作", Width: 106, Fixed: true},
 				}
-			}).Grow(1).Height(c.tableHeightForRows(ctx, len(chains)))
+				state := c.tableState("egress-chains")
+				ui.Table(ctx, state, cols, len(chains), func(row, col int) {
+					chain := chains[row]
+					switch col {
+					case 0:
+						ui.Text(ctx, chain.Name).FontSize(12.5).FontWeight(600).SingleLine().Tooltip(chain.Name)
+					case 1:
+						parts := make([]string, 0, len(chain.Hops))
+						for _, hop := range chain.Hops {
+							parts = append(parts, labelForEgress(control.EgressRef{Kind: hop.Kind, ID: hop.ID}, c.snapshot))
+						}
+						text := strings.Join(parts, "  →  ")
+						ui.Text(ctx, text).FontSize(11.5).TextColor(p.TextMuted).SingleLine().Tooltip(text)
+					case 2:
+						ui.Text(ctx, strconv.Itoa(len(chain.Hops))).FontSize(12).TextAlign(ui.End)
+					case 3:
+						ui.Row(ctx).Gap(4).Children(func() {
+							if c.iconAction(ctx, iconEdit, "编辑链路 "+chain.Name, false).Clicked() {
+								c.openEditor(editorChain, chain.ID)
+							}
+							if c.iconAction(ctx, iconTrash, "删除链路 "+chain.Name, true).Clicked() {
+								c.askDelete("chain", chain.ID, chain.Name)
+							}
+						})
+					}
+				}).Grow(1).Height(c.tableHeightForRows(ctx, len(chains)))
+			}
 		})
 	})
 }
@@ -126,8 +126,8 @@ func (c *Controller) egressPage(ctx *ui.Context) {
 func (c *Controller) routesPage(ctx *ui.Context) {
 	p := c.colors()
 	c.pageScroll(ctx, func() {
-		c.card(ctx, "routes-profile", func() {
-			c.sectionHeader(ctx, "运行模式与默认出口", "修改后立即写入控制面并重新编译内核配置", nil)
+		c.card(ctx, "routes-workspace", func() {
+			c.sectionHeader(ctx, "基础策略", "运行模式与默认出口决定未命中规则时的流量去向", nil)
 			ui.Row(ctx).FillWidth().Gap(16).AlignItems(ui.End).Children(func() {
 				ui.Column(ctx).Width(190).Gap(6).Children(func() {
 					ui.Text(ctx, "运行模式").FontSize(11).FontWeight(600).TextColor(p.TextMuted)
@@ -171,22 +171,25 @@ func (c *Controller) routesPage(ctx *ui.Context) {
 					})
 				})
 			})
-		})
-		c.card(ctx, "routes-table", func() {
-			c.sectionHeader(ctx, "自定义规则", "规则按照列出的顺序自上而下匹配", nil)
+			c.sectionDivider(ctx)
+			c.sectionHeader(ctx, "自定义规则", fmt.Sprintf("%d 条规则 · 按显示顺序自上而下匹配", len(c.snapshot.Routes.Rules)), nil)
 			if len(c.snapshot.Routes.Rules) == 0 {
 				c.emptyState(ctx, "还没有自定义规则", "预设策略会继续生效；添加规则可实现更精细的分流。", nil)
 				return
 			}
 			rules := c.snapshot.Routes.Rules
+			orderWidth, nameWidth, matchWidth, actionWidth, targetWidth, statusWidth, operationWidth := float32(72), float32(180), float32(280), float32(92), float32(160), float32(72), float32(76)
+			if c.narrow {
+				orderWidth, nameWidth, matchWidth, actionWidth, targetWidth, statusWidth, operationWidth = 56, 140, 210, 70, 110, 60, 80
+			}
 			cols := []ui.TableColumn{
-				{Title: "顺序", Width: 72, Fixed: true},
-				{Title: "名称", Width: 180},
-				{Title: "匹配条件", MinWidth: 280},
-				{Title: "动作", Width: 92},
-				{Title: "目标出口", Width: 160},
-				{Title: "状态", Width: 72},
-				{Title: "操作", Width: 76, Fixed: true},
+				{Title: "顺序", Width: orderWidth, Fixed: true},
+				{Title: "名称", Width: nameWidth},
+				{Title: "匹配条件", MinWidth: matchWidth},
+				{Title: "动作", Width: actionWidth},
+				{Title: "目标出口", Width: targetWidth},
+				{Title: "状态", Width: statusWidth},
+				{Title: "操作", Width: operationWidth, Fixed: true},
 			}
 			state := c.tableState("routes")
 			ui.Table(ctx, state, cols, len(rules), func(row, col int) {
@@ -255,10 +258,10 @@ func (c *Controller) presetSwitch(ctx *ui.Context, label string, value bool, app
 func (c *Controller) dnsPage(ctx *ui.Context) {
 	p := c.colors()
 	c.pageScroll(ctx, func() {
-		c.card(ctx, "dns-profile", func() {
-			c.sectionHeader(ctx, "全局设置", "策略与缓存属于控制面意图，不依赖当前内核状态", nil)
+		c.card(ctx, "dns-workspace", func() {
+			c.sectionHeader(ctx, "全局解析策略", "统一控制地址族偏好、本地缓存与三个解析槽位的启停", nil)
 			ui.Row(ctx).FillWidth().Gap(18).AlignItems(ui.End).Children(func() {
-				ui.Column(ctx).Width(180).Gap(6).Children(func() {
+				ui.Column(ctx).Width(200).Gap(6).Children(func() {
 					ui.Text(ctx, "解析策略").FontSize(11).FontWeight(600).TextColor(p.TextMuted)
 					labels, values := dnsStrategyChoices()
 					current := optionLabel(labels, values, c.snapshot.DNS.Strategy)
@@ -279,23 +282,20 @@ func (c *Controller) dnsPage(ctx *ui.Context) {
 						c.setDNSCache(cache)
 					}
 				})
-				ui.Text(ctx, fmt.Sprintf("%d / 3 个槽位启用", dnsEnabledCount(c.snapshot.DNS))).FontSize(11.5).
-					TextColor(p.TextMuted).Padding(0, 0, 8, 0)
+				ui.Box(ctx).Grow(1)
+				c.smallPill(ctx, fmt.Sprintf("%d / 3 个槽位启用", dnsEnabledCount(c.snapshot.DNS)), p.TextMuted, p.SurfaceAlt)
 			})
-		})
-		ui.Row(ctx).FillWidth().Gap(12).AlignItems(ui.Stretch).Children(func() {
-			ui.Column(ctx).Grow(1).Basis(0).MinWidth(0).Children(func() {
-				c.dnsSlotCard(ctx, "domestic", "国内 DNS", "处理国内域名与直连场景", c.snapshot.DNS.Domestic)
+			c.sectionDivider(ctx)
+			c.sectionHeader(ctx, "解析槽位", "每类场景独立维护协议、地址与出口策略", nil)
+			ui.Row(ctx).FillWidth().AlignItems(ui.Stretch).Gap(18).Children(func() {
+				c.dnsSlotBlock(ctx, "domestic", "国内 DNS", "国内域名与直连场景", c.snapshot.DNS.Domestic)
+				ui.Box(ctx).Width(1).Height(112).Background(p.BorderSoft)
+				c.dnsSlotBlock(ctx, "foreign", "国外 DNS", "代理场景与海外域名", c.snapshot.DNS.Foreign)
+				ui.Box(ctx).Width(1).Height(112).Background(p.BorderSoft)
+				c.dnsSlotBlock(ctx, "default", "默认 DNS", "前两个槽位未命中时使用", c.snapshot.DNS.Default)
 			})
-			ui.Column(ctx).Grow(1).Basis(0).MinWidth(0).Children(func() {
-				c.dnsSlotCard(ctx, "foreign", "国外 DNS", "处理代理场景与海外域名", c.snapshot.DNS.Foreign)
-			})
-			ui.Column(ctx).Grow(1).Basis(0).MinWidth(0).Children(func() {
-				c.dnsSlotCard(ctx, "default", "默认 DNS", "前两个槽位未命中时使用", c.snapshot.DNS.Default)
-			})
-		})
-		c.card(ctx, "dns-results", func() {
-			c.sectionHeader(ctx, "最近探测", "点击“测试解析”后显示真实请求结果", nil)
+			c.sectionDivider(ctx)
+			c.sectionHeader(ctx, "最近探测", "点击页头的“测试解析”后显示真实请求结果", nil)
 			if len(c.dnsResults) == 0 {
 				ui.Row(ctx).FillWidth().Padding(10, 0).AlignItems(ui.Center).Children(func() {
 					ui.Text(ctx, "—").FontSize(15).TextColor(p.TextFaint).Width(32)
@@ -323,12 +323,12 @@ func (c *Controller) dnsPage(ctx *ui.Context) {
 	})
 }
 
-func (c *Controller) dnsSlotCard(ctx *ui.Context, slot, title, hint string, server control.DNSServerConfig) {
+func (c *Controller) dnsSlotBlock(ctx *ui.Context, slot, title, hint string, server control.DNSServerConfig) {
 	p := c.colors()
-	c.card(ctx, "dns-"+slot, func() {
+	ui.Column(ctx).Key("dns-" + slot).Grow(1).Basis(0).MinWidth(0).Gap(9).Children(func() {
 		ui.Row(ctx).FillWidth().AlignItems(ui.Center).Gap(8).Children(func() {
 			ui.Column(ctx).Grow(1).Gap(3).Children(func() {
-				ui.Text(ctx, title).FontSize(14).FontWeight(680).SingleLine()
+				ui.Text(ctx, title).FontSize(13).FontWeight(660).SingleLine()
 				ui.Text(ctx, hint).FontSize(10.5).TextColor(p.TextFaint).SingleLine()
 			})
 			c.smallPill(ctx, boolLabel(server.Enabled, "启用", "停用"), func() ui.Color {
@@ -343,7 +343,8 @@ func (c *Controller) dnsSlotCard(ctx *ui.Context, slot, title, hint string, serv
 				return p.SurfaceAlt
 			}())
 		})
-		ui.Text(ctx, valueOrDash(server.Address)).FontSize(13).Font("monospace").SingleLine().Tooltip(server.Address)
+		ui.Text(ctx, valueOrDash(server.Address)).FontSize(12).Font("monospace").TextColor(p.TextMuted).
+			SingleLine().Tooltip(server.Address)
 		ui.Row(ctx).Gap(6).Children(func() {
 			c.smallPill(ctx, strings.ToUpper(string(server.Protocol)), p.Sky, p.SurfaceAlt)
 			c.smallPill(ctx, dnsDetourLabel(server.Detour), p.TextMuted, p.SurfaceAlt)
@@ -363,6 +364,13 @@ func (c *Controller) ruleSetsPage(ctx *ui.Context) {
 	p := c.colors()
 	c.pageScroll(ctx, func() {
 		c.card(ctx, "rulesets-table", func() {
+			enabled := 0
+			for _, ruleSet := range c.snapshot.RuleSets {
+				if ruleSet.Enabled {
+					enabled++
+				}
+			}
+			c.sectionHeader(ctx, "规则资源", fmt.Sprintf("%d 个规则集 · %d 个已启用", len(c.snapshot.RuleSets), enabled), nil)
 			if len(c.snapshot.RuleSets) == 0 {
 				c.emptyState(ctx, "还没有规则集", "添加 source 或 binary 规则集后即可在路由规则中引用。", nil)
 				return
@@ -427,14 +435,14 @@ func (c *Controller) ruleSetsPage(ctx *ui.Context) {
 
 func (c *Controller) logsPage(ctx *ui.Context) {
 	p := c.colors()
-	ui.Column(ctx).Grow(1).FillWidth().MinWidth(0).Padding(22, 24, 18).Gap(12).Children(func() {
+	ui.Column(ctx).Grow(1).FillWidth().MinWidth(0).Padding(28).Gap(12).Children(func() {
 		logs := c.snapshot.mergedLogs(c.logFilter == 1, c.logFilter == 2)
 		for i, j := 0, len(logs)-1; i < j; i, j = i+1, j-1 {
 			logs[i], logs[j] = logs[j], logs[i]
 		}
 		panel := ui.Column(ctx).Grow(1).MinWidth(0).Background(p.Surface).Border(1, p.Border).Radius(14).Clip()
 		panel.Children(func() {
-			ui.Row(ctx).FillWidth().Height(34).Padding(0, 12).Background(p.SurfaceAlt).
+			ui.Row(ctx).FillWidth().Height(40).Padding(0, 14).Background(p.SurfaceAlt).
 				BorderWidth(0, 0, 1, 0).BorderColor(p.BorderSoft).AlignItems(ui.Center).Gap(10).Children(func() {
 				ui.Text(ctx, fmt.Sprintf("%d 条记录 · 点击任意行复制", len(logs))).FontSize(10.5).
 					TextColor(p.TextMuted).Grow(1).SingleLine()
@@ -479,16 +487,17 @@ func (c *Controller) logsPage(ctx *ui.Context) {
 func (c *Controller) logsContentWidth(ctx *ui.Context) float32 {
 	const minimum = 1560
 	width, _ := ctx.Size()
-	// The page scroll and log panel each contribute 24px, and the panel has
-	// a 1px border on both sides. Below the minimum, ScrollBoth keeps the
+	// The page padding and log panel together account for 58px, and the panel
+	// has a 1px border on both sides. Below the minimum, ScrollBoth keeps the
 	// full log line available through horizontal scrolling.
-	return max(minimum, width-c.sidebarWidth()-50)
+	return max(minimum, width-c.sidebarWidth()-58)
 }
 
 func (c *Controller) connectionsPage(ctx *ui.Context) {
 	p := c.colors()
 	c.pageScroll(ctx, func() {
 		c.card(ctx, "connections-table", func() {
+			c.sectionHeader(ctx, "连接明细", "数据来自当前内核连接表，并按建立时间倒序排列", nil)
 			if c.snapshot.Kernel.State != kernel.StateRunning {
 				ui.Row(ctx).FillWidth().Padding(12, 0).AlignItems(ui.Center).Children(func() {
 					ui.Text(ctx, "—").FontSize(16).TextColor(p.TextFaint).Width(34)
@@ -502,15 +511,21 @@ func (c *Controller) connectionsPage(ctx *ui.Context) {
 			}
 			conns := append([]kernel.Connection(nil), c.snapshot.Connections...)
 			sort.Slice(conns, func(i, j int) bool { return conns[i].StartedAt.After(conns[j].StartedAt) })
+			networkWidth, sourceWidth, targetWidth, outboundWidth := float32(62), float32(180), float32(240), float32(130)
+			ruleWidth, processWidth, trafficWidth, actionWidth := float32(130), float32(140), float32(90), float32(58)
+			if c.narrow {
+				networkWidth, sourceWidth, targetWidth, outboundWidth = 64, 120, 160, 90
+				ruleWidth, processWidth, trafficWidth, actionWidth = 80, 80, 64, 50
+			}
 			cols := []ui.TableColumn{
-				{Title: "网络", Width: 62},
-				{Title: "来源", Width: 180},
-				{Title: "目标", MinWidth: 240},
-				{Title: "出口", Width: 130},
-				{Title: "规则", Width: 130},
-				{Title: "进程", Width: 140},
-				{Title: "流量", Width: 90, Align: ui.End},
-				{Title: "操作", Width: 58, Fixed: true},
+				{Title: "网络", Width: networkWidth},
+				{Title: "来源", Width: sourceWidth},
+				{Title: "目标", MinWidth: targetWidth},
+				{Title: "出口", Width: outboundWidth},
+				{Title: "规则", Width: ruleWidth},
+				{Title: "进程", Width: processWidth},
+				{Title: "流量", Width: trafficWidth, Align: ui.End},
+				{Title: "操作", Width: actionWidth, Fixed: true},
 			}
 			state := c.tableState("connections")
 			ui.Table(ctx, state, cols, len(conns), func(row, col int) {
@@ -543,87 +558,79 @@ func (c *Controller) connectionsPage(ctx *ui.Context) {
 func (c *Controller) settingsPage(ctx *ui.Context) {
 	p := c.colors()
 	c.pageScroll(ctx, func() {
-		ui.Row(ctx).FillWidth().Gap(14).AlignItems(ui.Stretch).Children(func() {
-			ui.Column(ctx).Grow(3).Basis(0).MinWidth(0).Children(func() {
-				c.card(ctx, "settings-sync", func() {
-					c.sectionHeader(ctx, "订阅同步", "这些设置会影响所有订阅的统一同步行为", func() {
-						c.smallPill(ctx, boolLabel(c.snapshot.Scheduler.Running, "调度器运行中", "调度器已停止"), func() ui.Color {
-							if c.snapshot.Scheduler.Running {
-								return p.Success
+		c.card(ctx, "settings-workspace", func() {
+			c.sectionHeader(ctx, "订阅同步", "统一管理所有订阅的后台刷新、重试与节点冲突处理", func() {
+				c.smallPill(ctx, boolLabel(c.snapshot.Scheduler.Running, "调度器运行中", "调度器已停止"), func() ui.Color {
+					if c.snapshot.Scheduler.Running {
+						return p.Success
+					}
+					return p.TextMuted
+				}(), func() ui.Color {
+					if c.snapshot.Scheduler.Running {
+						return p.SuccessSoft
+					}
+					return p.SurfaceAlt
+				}())
+				if c.labeledAction(ctx, iconPlay, "立即同步", false).Clicked() {
+					c.runSchedulerOnce()
+				}
+			})
+			autoRefresh := settingBool(c.settingsDraft, control.SettingAutoRefresh, true)
+			ui.Row(ctx).FillWidth().AlignItems(ui.Center).Children(func() {
+				ui.Column(ctx).Grow(1).Gap(2).Children(func() {
+					ui.Text(ctx, "自动同步").FontSize(12.5).FontWeight(600).SingleLine()
+					ui.Text(ctx, "按订阅各自的间隔后台刷新节点").FontSize(10.5).TextColor(p.TextFaint).SingleLine()
+				})
+				if ui.Switch(ctx, &autoRefresh).Label("自动同步").Changed() {
+					c.settingsDraft[control.SettingAutoRefresh] = strconv.FormatBool(autoRefresh)
+				}
+			})
+			ui.Row(ctx).FillWidth().Gap(18).AlignItems(ui.End).Children(func() {
+				ui.Column(ctx).Width(180).Gap(6).Children(func() {
+					ui.Text(ctx, "失败重试次数").FontSize(11).FontWeight(600).TextColor(p.TextMuted)
+					value := c.settingsDraft[control.SettingSubscriptionMaxAttempts]
+					ui.TextInput(ctx, &value).Placeholder("3").Label("失败重试次数")
+					c.settingsDraft[control.SettingSubscriptionMaxAttempts] = value
+				})
+				ui.Column(ctx).Grow(1).MinWidth(240).Gap(6).Children(func() {
+					ui.Text(ctx, "节点冲突策略").FontSize(11).FontWeight(600).TextColor(p.TextMuted)
+					labels := []string{"保留本地修改", "以远端为准"}
+					values := []string{control.SubscriptionConflictKeepLocal, control.SubscriptionConflictFollowRemote}
+					current := conflictPolicyLabel(c.settingsDraft[control.SettingSubscriptionConflictPolicy])
+					selector := ui.Select(ctx, &current, labels).Label("节点冲突策略")
+					if selector.Changed() {
+						for i, label := range labels {
+							if label == current {
+								c.settingsDraft[control.SettingSubscriptionConflictPolicy] = values[i]
+								break
 							}
-							return p.TextMuted
-						}(), func() ui.Color {
-							if c.snapshot.Scheduler.Running {
-								return p.SuccessSoft
-							}
-							return p.SurfaceAlt
-						}())
-						if c.labeledAction(ctx, iconPlay, "立即同步", false).Clicked() {
-							c.runSchedulerOnce()
 						}
-					})
-					autoRefresh := settingBool(c.settingsDraft, control.SettingAutoRefresh, true)
-					ui.Row(ctx).FillWidth().AlignItems(ui.Center).Children(func() {
-						ui.Column(ctx).Grow(1).Gap(2).Children(func() {
-							ui.Text(ctx, "自动同步").FontSize(12.5).FontWeight(600).SingleLine()
-							ui.Text(ctx, "按订阅各自的间隔后台刷新节点").FontSize(10.5).TextColor(p.TextFaint).SingleLine()
-						})
-						if ui.Switch(ctx, &autoRefresh).Label("自动同步").Changed() {
-							c.settingsDraft[control.SettingAutoRefresh] = strconv.FormatBool(autoRefresh)
-						}
-					})
-					ui.Row(ctx).FillWidth().Gap(16).AlignItems(ui.End).Children(func() {
-						ui.Column(ctx).Width(160).Gap(6).Children(func() {
-							ui.Text(ctx, "失败重试次数").FontSize(11).FontWeight(600).TextColor(p.TextMuted)
-							value := c.settingsDraft[control.SettingSubscriptionMaxAttempts]
-							ui.TextInput(ctx, &value).Placeholder("3").Label("失败重试次数")
-							c.settingsDraft[control.SettingSubscriptionMaxAttempts] = value
-						})
-						ui.Column(ctx).Grow(1).MinWidth(240).Gap(6).Children(func() {
-							ui.Text(ctx, "节点冲突策略").FontSize(11).FontWeight(600).TextColor(p.TextMuted)
-							labels := []string{"保留本地修改", "以远端为准"}
-							values := []string{control.SubscriptionConflictKeepLocal, control.SubscriptionConflictFollowRemote}
-							current := conflictPolicyLabel(c.settingsDraft[control.SettingSubscriptionConflictPolicy])
-							selector := ui.Select(ctx, &current, labels).Label("节点冲突策略")
-							if selector.Changed() {
-								for i, label := range labels {
-									if label == current {
-										c.settingsDraft[control.SettingSubscriptionConflictPolicy] = values[i]
-										break
-									}
-								}
-							}
-						})
-					})
-					ui.Row(ctx).FillWidth().Justify(ui.End).Children(func() {
-						if c.labeledAction(ctx, iconCheck, "保存同步设置", true).Clicked() {
-							c.saveSettings()
-						}
-					})
+					}
 				})
 			})
-			ui.Column(ctx).Grow(2).Basis(0).MinWidth(0).Children(func() {
-				c.card(ctx, "settings-appearance", func() {
-					c.sectionHeader(ctx, "界面", "原生 UI 跟随这里的偏好即时切换", nil)
-					ui.Row(ctx).FillWidth().AlignItems(ui.Center).Children(func() {
-						ui.Column(ctx).Grow(1).Gap(2).Children(func() {
-							ui.Text(ctx, "深色模式").FontSize(12.5).FontWeight(600).SingleLine()
-							ui.Text(ctx, "默认使用白底与克制的品牌渐变").FontSize(10.5).TextColor(p.TextFaint).SingleLine()
-						})
-						dark := c.dark
-						if ui.Switch(ctx, &dark).Label("深色模式").Changed() {
-							c.toggleTheme()
-						}
-					})
-				})
+			ui.Row(ctx).FillWidth().Justify(ui.End).Children(func() {
+				if c.labeledAction(ctx, iconCheck, "保存同步设置", true).Clicked() {
+					c.saveSettings()
+				}
 			})
-		})
-		c.inboundsSettingsCard(ctx)
-		c.card(ctx, "settings-runtime", func() {
-			c.sectionHeader(ctx, "本地环境", "", nil)
+			c.sectionDivider(ctx)
+			c.inboundsSettingsSection(ctx)
+			c.sectionDivider(ctx)
+			c.sectionHeader(ctx, "外观", "界面偏好即时生效并保存在本地", nil)
+			ui.Row(ctx).FillWidth().AlignItems(ui.Center).Children(func() {
+				ui.Column(ctx).Grow(1).Gap(2).Children(func() {
+					ui.Text(ctx, "深色模式").FontSize(12.5).FontWeight(600).SingleLine()
+					ui.Text(ctx, "默认使用白底与克制的品牌渐变").FontSize(10.5).TextColor(p.TextFaint).SingleLine()
+				})
+				dark := c.dark
+				if ui.Switch(ctx, &dark).Label("深色模式").Changed() {
+					c.toggleTheme()
+				}
+			})
+			c.sectionDivider(ctx)
+			c.sectionHeader(ctx, "本地环境", "应用数据与配置仅保存在当前设备", nil)
 			c.pathRow(ctx, "数据目录", c.runtime.DataDir)
 			c.pathRow(ctx, "数据库", c.runtime.DatabasePath)
-			c.pathRow(ctx, "控制面架构", "单进程 · SQLite · sing-box")
 		})
 	})
 }
@@ -639,101 +646,65 @@ func (c *Controller) pathRow(ctx *ui.Context, label, value string) {
 func (c *Controller) aboutPage(ctx *ui.Context) {
 	p := c.colors()
 	c.pageScroll(ctx, func() {
-		ui.Row(ctx).FillWidth().Gap(14).AlignItems(ui.Stretch).Children(func() {
-			ui.Column(ctx).Grow(2).Basis(0).MinWidth(0).Children(func() {
-				c.card(ctx, "about-product", func() {
-					ui.Row(ctx).FillWidth().AlignItems(ui.Center).Gap(14).Children(func() {
-						ui.Image(ctx, logoBitmap).Size(52, 52)
-						ui.Column(ctx).Grow(1).Gap(3).Children(func() {
-							ui.Text(ctx, "BOXD").FontSize(22).FontWeight(760).SingleLine()
-							ui.Text(ctx, "网络控制平面 · 原生桌面客户端").FontSize(12).TextColor(p.TextMuted).SingleLine()
-						})
-						c.smallPill(ctx, c.project.License, p.TextMuted, p.SurfaceAlt)
-					})
-					ui.Text(ctx, "BOXD 将订阅、节点、出口编排、路由和 DNS 收敛为可审计的本地控制面。桌面端直接调用同一控制面接口，不依赖 Web 登录或 HTTP 管理端口。").FontSize(12).TextColor(p.TextMuted).Wrap().LineHeight(1.55)
-					ui.Row(ctx).Gap(8).Children(func() {
-						c.smallPill(ctx, c.runtime.Version, p.Indigo, p.AccentSoft)
-						c.smallPill(ctx, "commit "+shortVersion(c.runtime.Commit), p.TextMuted, p.SurfaceAlt)
-						c.smallPill(ctx, "built "+shortVersion(c.runtime.BuiltAt), p.TextMuted, p.SurfaceAlt)
-					})
+		c.card(ctx, "about-product", func() {
+			ui.Row(ctx).FillWidth().AlignItems(ui.Center).Gap(16).Children(func() {
+				ui.Image(ctx, logoBitmap).Size(56, 56)
+				ui.Column(ctx).Grow(1).Gap(4).Children(func() {
+					ui.Text(ctx, "BOXD").FontSize(24).FontWeight(740).SingleLine()
+					ui.Text(ctx, "本地网络控制面 · 原生桌面客户端").FontSize(12).TextColor(p.TextMuted).SingleLine()
 				})
-				c.card(ctx, "about-capabilities", func() {
-					c.sectionHeader(ctx, "内核能力", "来自当前引擎的能力描述", nil)
-					capabilities := []struct {
-						label string
-						on    bool
-					}{
-						{"配置热重载", c.snapshot.Capabilities.Capabilities.HotReload},
-						{"Clash 模式", c.snapshot.Capabilities.Capabilities.ClashMode},
-						{"DNS 刷新", c.snapshot.Capabilities.Capabilities.DNSFlush},
-						{"连接控制", c.snapshot.Capabilities.Capabilities.ConnectionControl},
-						{"流量观测", c.snapshot.Capabilities.Capabilities.TrafficObservation},
-						{"配置诊断", c.snapshot.Capabilities.Capabilities.ConfigDiagnostics},
-					}
-					for start := 0; start < len(capabilities); start += 3 {
-						end := min(start+3, len(capabilities))
-						ui.Row(ctx).FillWidth().Gap(8).Children(func() {
-							for _, capability := range capabilities[start:end] {
-								tone, fill := p.TextMuted, p.SurfaceAlt
-								if capability.on {
-									tone, fill = p.Success, p.SuccessSoft
-								}
-								c.smallPill(ctx, boolLabel(capability.on, "✓ ", "· ")+capability.label, tone, fill)
-							}
-						})
-					}
-				})
+				c.smallPill(ctx, c.project.License, p.TextMuted, p.SurfaceAlt)
 			})
-			ui.Column(ctx).Grow(2).Basis(0).MinWidth(0).Children(func() {
-				c.aboutRepositoryCard(ctx)
-				c.card(ctx, "about-kernel", func() {
-					c.sectionHeader(ctx, "内核", "运行状态与引擎版本", nil)
-					ui.Text(ctx, kernelStateLabel(c.snapshot.Kernel.State)).FontSize(18).FontWeight(700).SingleLine()
-					ui.Row(ctx).FillWidth().Gap(12).Children(func() {
-						c.statTile(ctx, "about-engine", "引擎", valueOrDash(string(c.snapshot.Capabilities.Kind)), valueOrDash(c.snapshot.Capabilities.Version), p.Indigo)
-						c.statTile(ctx, "about-kernel-version", "内核版本", shortVersion(c.snapshot.Kernel.Version), "运行实例报告", p.Sky)
-					})
-					c.pathRow(ctx, "启动时间", fullTime(c.snapshot.Kernel.StartedAt))
-					c.pathRow(ctx, "配置版本", valueOrDash(shortVersion(c.snapshot.Kernel.Revision)))
-					if c.snapshot.Kernel.LastError != nil {
-						ui.Text(ctx, oneLine(c.snapshot.Kernel.LastError.Error())).FontSize(11.5).TextColor(p.Danger).Wrap()
-					}
-				})
+			ui.Text(ctx, "统一管理订阅、节点、出口编排、路由与 DNS，让网络配置保持清晰、可审计，并将运行状态留在当前设备。").
+				FontSize(12.5).TextColor(p.TextMuted).Wrap().LineHeight(1.6)
+			c.sectionDivider(ctx)
+			c.sectionHeader(ctx, "版本信息", "当前安装的桌面客户端构建", nil)
+			ui.Row(ctx).FillWidth().Gap(24).AlignItems(ui.Stretch).Children(func() {
+				c.aboutMeta(ctx, "版本", valueOrDash(c.runtime.Version))
+				c.aboutMeta(ctx, "提交", shortVersion(c.runtime.Commit))
+				c.aboutMeta(ctx, "构建时间", fullTimeFromText(c.runtime.BuiltAt))
 			})
+			c.sectionDivider(ctx)
+			c.aboutRepositorySection(ctx)
 		})
 	})
 }
 
-func (c *Controller) aboutRepositoryCard(ctx *ui.Context) {
+func (c *Controller) aboutMeta(ctx *ui.Context, label, value string) {
 	p := c.colors()
-	c.card(ctx, "about-repository", func() {
-		c.sectionHeader(ctx, "GitHub 仓库", "源码、问题反馈与正式版本发布", func() {
-			c.smallPill(ctx, c.project.License, p.Success, p.SuccessSoft)
+	ui.Column(ctx).Grow(1).Basis(0).MinWidth(0).Gap(5).Children(func() {
+		ui.Text(ctx, label).FontSize(10.5).FontWeight(600).TextColor(p.TextFaint).SingleLine()
+		ui.Text(ctx, value).FontSize(12.5).Font("monospace").TextColor(p.TextMuted).
+			SingleLine().Tooltip(value)
+	})
+}
+
+func (c *Controller) aboutRepositorySection(ctx *ui.Context) {
+	p := c.colors()
+	c.sectionHeader(ctx, "GitHub 仓库", "查看源码、反馈问题并获取正式版本", nil)
+	ui.Row(ctx).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
+		ui.Row(ctx).Size(36, 36).Radius(10).Background(p.SurfaceAlt).Center().Children(func() {
+			ui.Icon(ctx, iconRepository).FontSize(18).TextColor(p.Accent)
 		})
-		ui.Row(ctx).FillWidth().AlignItems(ui.Center).Gap(12).Children(func() {
-			ui.Row(ctx).Size(38, 38).Radius(11).Background(p.SurfaceAlt).Center().Children(func() {
-				ui.Icon(ctx, iconRepository).FontSize(19).TextColor(p.Accent)
-			})
-			ui.Column(ctx).Grow(1).MinWidth(0).Gap(2).Children(func() {
-				ui.Text(ctx, c.project.Slug).FontSize(14).FontWeight(680).SingleLine().Tooltip(c.project.URL)
-				ui.Text(ctx, strings.TrimPrefix(c.project.URL, "https://")).FontSize(10.5).
-					Font("monospace").TextColor(p.TextFaint).SingleLine().Tooltip(c.project.URL)
-			})
+		ui.Column(ctx).Grow(1).MinWidth(0).Gap(2).Children(func() {
+			ui.Text(ctx, c.project.Slug).FontSize(14).FontWeight(680).SingleLine().Tooltip(c.project.URL)
+			ui.Text(ctx, strings.TrimPrefix(c.project.URL, "https://")).FontSize(10.5).
+				Font("monospace").TextColor(p.TextFaint).SingleLine().Tooltip(c.project.URL)
 		})
-		c.aboutUpdateStatus(ctx)
-		ui.Row(ctx).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
-			if c.labeledAction(ctx, iconRepository, "打开仓库", false).Clicked() {
-				c.openExternal(ctx, c.project.URL, "打开仓库")
-			}
-			if c.labeledAction(ctx, iconArrowRight, "问题反馈", false).Clicked() {
-				c.openExternal(ctx, c.project.IssuesURL, "打开问题反馈")
-			}
-			ui.Box(ctx).Grow(1)
-			checking := c.update.state == updateChecking || c.options.UpdateChecker == nil
-			if c.labeledAction(ctx, iconRefresh, "检查更新", true).Disabled(checking).Clicked() {
-				c.checkForUpdates()
-			}
-		})
+	})
+	c.aboutUpdateStatus(ctx)
+	ui.Row(ctx).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
+		if c.labeledAction(ctx, iconRepository, "打开仓库", false).Clicked() {
+			c.openExternal(ctx, c.project.URL, "打开仓库")
+		}
+		if c.labeledAction(ctx, iconArrowRight, "问题反馈", false).Clicked() {
+			c.openExternal(ctx, c.project.IssuesURL, "打开问题反馈")
+		}
+		ui.Box(ctx).Grow(1)
+		checking := c.update.state == updateChecking || c.options.UpdateChecker == nil
+		if c.labeledAction(ctx, iconRefresh, "检查更新", true).Disabled(checking).Clicked() {
+			c.checkForUpdates()
+		}
 	})
 }
 
@@ -887,6 +858,18 @@ func conflictPolicyLabel(value string) string {
 		return "以远端为准"
 	}
 	return "保留本地修改"
+}
+
+func fullTimeFromText(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "—"
+	}
+	parsed, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		return value
+	}
+	return fullTime(parsed)
 }
 
 func valueOrDash(value string) string {

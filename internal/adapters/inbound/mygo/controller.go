@@ -15,7 +15,6 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/xuthus5/boxd/control"
 	"github.com/xuthus5/boxd/internal/updatecheck"
-	"github.com/xuthus5/boxd/kernel"
 )
 
 const (
@@ -33,6 +32,7 @@ const (
 
 	sidebarWidth       = 216
 	sidebarNarrowWidth = 82
+	contentMaxWidth    = 1180
 )
 
 type navItem struct {
@@ -53,8 +53,8 @@ var navigation = []navItem{
 	{pageRuleSets, "规则集", "规则集", "rulesets", "规则资源的下载、启用与刷新状态"},
 	{pageLogs, "日志", "运行日志", "logs", "应用事件与内核输出统一按时间排列，点击任意行即可复制"},
 	{pageConnections, "连接", "活动连接", "connections", "实时数据来自当前内核连接表"},
-	{pageSettings, "设置", "设置", "settings", "控制面同步行为、界面偏好与本地运行环境"},
-	{pageAbout, "关于", "关于 BOXD", "about", "版本、仓库、更新与运行环境信息"},
+	{pageSettings, "设置", "设置", "settings", "同步、入口、界面与本地数据"},
+	{pageAbout, "关于", "关于 BOXD", "about", "产品版本、开源仓库与更新信息"},
 }
 
 type Controller struct {
@@ -862,19 +862,4 @@ func labelForEgress(ref control.EgressRef, s snapshot) string {
 		}
 	}
 	return ref.ID
-}
-
-func kernelStateLabel(state kernel.State) string {
-	switch state {
-	case kernel.StateRunning:
-		return "内核运行中"
-	case kernel.StateStarting:
-		return "内核启动中"
-	case kernel.StateStopping:
-		return "内核停止中"
-	case kernel.StateFailed:
-		return "内核异常"
-	default:
-		return "内核未启动"
-	}
 }

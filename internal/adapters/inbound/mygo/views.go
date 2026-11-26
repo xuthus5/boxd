@@ -108,7 +108,7 @@ func (c *Controller) sidebar(ctx *ui.Context, narrow bool) {
 				}
 			}
 		})
-		ui.Column(ctx).Gap(7).Padding(10, 8).Radius(12).Background(p.SurfaceAlt).Children(func() {
+		ui.Column(ctx).Gap(5).Padding(0, 4).Children(func() {
 			if narrow {
 				ui.Text(ctx, compactVersion(c.version())).FontSize(9).TextColor(p.TextFaint).TextAlign(ui.Center).
 					SingleLine().Tooltip("BOXD " + c.version())
@@ -116,10 +116,13 @@ func (c *Controller) sidebar(ctx *ui.Context, narrow bool) {
 			}
 			ui.Row(ctx).FillWidth().AlignItems(ui.Center).Gap(7).Children(func() {
 				ui.Box(ctx).Size(6, 6).Radius(6).Background(p.Success)
-				ui.Text(ctx, "控制面已连接").FontSize(10.5).FontWeight(600).TextColor(p.TextMuted).SingleLine()
+				ui.Text(ctx, "本地控制面在线").FontSize(10.5).FontWeight(600).TextColor(p.TextMuted).SingleLine()
 			})
-			ui.Text(ctx, c.clock.Now().Local().Format("2006-01-02 15:04:05")).FontSize(10.5).
-				Font("monospace").TextColor(p.TextFaint).SingleLine()
+			ui.Row(ctx).FillWidth().AlignItems(ui.Center).Children(func() {
+				ui.Text(ctx, c.clock.Now().Local().Format("2006-01-02 15:04:05")).FontSize(9.5).
+					Font("monospace").TextColor(p.TextFaint).Grow(1).SingleLine()
+				ui.Text(ctx, compactVersion(c.version())).FontSize(9.5).TextColor(p.TextFaint).SingleLine()
+			})
 		})
 	})
 }
@@ -134,29 +137,36 @@ func (c *Controller) sidebarWidth() float32 {
 func (c *Controller) header(ctx *ui.Context) {
 	p := c.colors()
 	title, hint := c.pageTitle()
-	ui.Row(ctx).Height(72).FillWidth().Padding(0, 24).Background(p.Surface).
-		BorderWidth(0, 0, 1, 0).BorderColor(p.Border).AlignItems(ui.Center).Gap(16).Shrink(0).Children(func() {
-		ui.Column(ctx).Grow(1).Gap(3).Children(func() {
-			ui.Text(ctx, title).FontSize(18).FontWeight(700).SingleLine()
-			ui.Text(ctx, hint).FontSize(11.5).TextColor(p.TextMuted).SingleLine()
+	ui.Row(ctx).Height(76).FillWidth().Background(p.Surface).BorderWidth(0, 0, 1, 0).BorderColor(p.Border).
+		Shrink(0).Children(func() {
+		ui.Row(ctx).Fill().FillWidth().Padding(0, 28).Justify(ui.Center).Children(func() {
+			content := ui.Row(ctx).FillHeight().FillWidth().AlignItems(ui.Center).Gap(14)
+			if c.page != pageLogs {
+				content.MaxWidth(contentMaxWidth)
+			}
+			content.Children(func() {
+				ui.Column(ctx).Grow(1).Gap(4).Children(func() {
+					ui.Text(ctx, title).FontSize(20).FontWeight(700).SingleLine()
+					ui.Text(ctx, hint).FontSize(11.5).TextColor(p.TextMuted).SingleLine()
+				})
+				c.pageHeaderActions(ctx)
+				if c.busy {
+					ui.Spinner(ctx).Size(18, 18).TextColor(p.Accent)
+				}
+				themeIcon, themeLabel := iconMoon, "切换深色模式"
+				if c.dark {
+					themeIcon, themeLabel = iconSun, "切换浅色模式"
+				}
+				themeButton := c.iconAction(ctx, themeIcon, themeLabel, false)
+				if themeButton.Clicked() {
+					c.toggleTheme()
+				}
+				refresh := c.iconAction(ctx, iconRefresh, "刷新数据", false)
+				if refresh.Clicked() {
+					c.refresh(true)
+				}
+			})
 		})
-		c.pageHeaderActions(ctx)
-		if c.busy {
-			ui.Spinner(ctx).Size(18, 18).TextColor(p.Accent)
-		}
-		c.statusPill(ctx, string(c.snapshot.Kernel.State))
-		themeIcon, themeLabel := iconMoon, "切换深色模式"
-		if c.dark {
-			themeIcon, themeLabel = iconSun, "切换浅色模式"
-		}
-		themeButton := c.iconAction(ctx, themeIcon, themeLabel, false)
-		if themeButton.Clicked() {
-			c.toggleTheme()
-		}
-		refresh := c.iconAction(ctx, iconRefresh, "刷新数据", false)
-		if refresh.Clicked() {
-			c.refresh(true)
-		}
 	})
 }
 
@@ -290,32 +300,43 @@ func (c *Controller) pageView(ctx *ui.Context) {
 }
 
 func (c *Controller) pageScroll(ctx *ui.Context, fn func()) {
-	ui.Scroll(ctx).Key("page-"+c.page).Grow(1).FillWidth().MinWidth(0).
-		Padding(22, 24, 28).Gap(16).Children(fn)
+	ui.Scroll(ctx).Key("page-" + c.page).Grow(1).FillWidth().MinWidth(0).
+		Padding(28).Children(func() {
+		ui.Row(ctx).FillWidth().Justify(ui.Center).Children(func() {
+			ui.Column(ctx).FillWidth().MaxWidth(contentMaxWidth).Gap(18).Children(fn)
+		})
+	})
 }
 
 func (c *Controller) overviewPage(ctx *ui.Context) {
 	p := c.colors()
 	c.pageScroll(ctx, func() {
 		c.overviewHero(ctx)
-		ui.Row(ctx).FillWidth().Gap(10).AlignItems(ui.Stretch).Children(func() {
-			running := c.snapshot.Kernel.State == kernel.StateRunning
-			upload, download, rate, hint := "—", "—", "—", "内核未启动，未采集数据"
-			if running {
-				upload = humanBytes(c.snapshot.Traffic.UploadTotal)
-				download = humanBytes(c.snapshot.Traffic.DownloadTotal)
-				rate = humanRate(c.snapshot.Traffic.UploadRate + c.snapshot.Traffic.DownloadRate)
-				hint = "采样于 " + shortTime(c.snapshot.Traffic.At)
-			}
-			activeConnections, activeHint := "—", "内核未启动，未采集数据"
-			if running {
-				activeConnections = fmt.Sprintf("%d", len(c.snapshot.Connections))
-				activeHint = "当前内核会话"
-			}
-			c.statTile(ctx, "traffic-up", "累计上传", upload, hint, p.Indigo)
-			c.statTile(ctx, "traffic-down", "累计下载", download, hint, p.Sky)
-			c.statTile(ctx, "traffic-rate", "实时吞吐", rate, hint, p.Violet)
-			c.statTile(ctx, "active-connections", "活动连接", activeConnections, activeHint, p.Success)
+		running := c.snapshot.Kernel.State == kernel.StateRunning
+		upload, download, rate, hint := "—", "—", "—", "内核未启动，未采集数据"
+		if running {
+			upload = humanBytes(c.snapshot.Traffic.UploadTotal)
+			download = humanBytes(c.snapshot.Traffic.DownloadTotal)
+			rate = humanRate(c.snapshot.Traffic.UploadRate + c.snapshot.Traffic.DownloadRate)
+			hint = "采样于 " + shortTime(c.snapshot.Traffic.At)
+		}
+		activeConnections, activeHint := "—", "内核未启动，未采集数据"
+		if running {
+			activeConnections = fmt.Sprintf("%d", len(c.snapshot.Connections))
+			activeHint = "当前内核会话"
+		}
+		c.card(ctx, "overview-metrics", func() {
+			c.sectionHeader(ctx, "运行指标", "流量与连接数据来自当前内核的实时采集", nil)
+			c.sectionDivider(ctx)
+			ui.Row(ctx).FillWidth().AlignItems(ui.Stretch).Gap(18).Children(func() {
+				c.compactStat(ctx, "累计上传", upload, hint, p.Indigo)
+				c.verticalRule(ctx)
+				c.compactStat(ctx, "累计下载", download, hint, p.Sky)
+				c.verticalRule(ctx)
+				c.compactStat(ctx, "实时吞吐", rate, hint, p.Violet)
+				c.verticalRule(ctx)
+				c.compactStat(ctx, "活动连接", activeConnections, activeHint, p.Success)
+			})
 		})
 		ui.Row(ctx).FillWidth().Gap(14).AlignItems(ui.Stretch).Children(func() {
 			ui.Column(ctx).Grow(3).Basis(0).MinWidth(0).Children(func() { c.overviewComponents(ctx) })
@@ -340,7 +361,7 @@ func (c *Controller) overviewHero(ctx *ui.Context) {
 		title = "内核需要处理"
 		subtitle = "最近一次启动失败，请在下方查看状态并重试。"
 	}
-	hero := ui.Row(ctx).FillWidth().Padding(22).Radius(18).Border(1, p.Border).AlignItems(ui.Center).Gap(20)
+	hero := ui.Row(ctx).FillWidth().Padding(24).Radius(14).Border(1, p.Border).AlignItems(ui.Center).Gap(20)
 	c.heroGradient(hero)
 	hero.Children(func() {
 		ui.Column(ctx).Grow(1).Gap(7).Children(func() {
@@ -505,6 +526,13 @@ func (c *Controller) subscriptionsPage(ctx *ui.Context) {
 	p := c.colors()
 	c.pageScroll(ctx, func() {
 		c.card(ctx, "subscriptions-table", func() {
+			enabled := 0
+			for _, sub := range c.snapshot.Subscriptions {
+				if sub.Enabled {
+					enabled++
+				}
+			}
+			c.sectionHeader(ctx, "订阅来源", fmt.Sprintf("%d 个订阅 · %d 个已启用", len(c.snapshot.Subscriptions), enabled), nil)
 			if len(c.snapshot.Subscriptions) == 0 {
 				c.emptyState(ctx, "还没有订阅", "添加远程订阅地址，即可集中维护节点。", func() {
 					if c.labeledAction(ctx, iconPlus, "添加第一个订阅", true).Clicked() {
@@ -515,14 +543,18 @@ func (c *Controller) subscriptionsPage(ctx *ui.Context) {
 			}
 			counts := c.snapshot.nodeCountBySubscription()
 			subs := append([]control.Subscription(nil), c.snapshot.Subscriptions...)
+			nameWidth, nodeWidth, intervalWidth, syncWidth, statusWidth, actionWidth := float32(190), float32(70), float32(92), float32(112), float32(80), float32(140)
+			if c.narrow {
+				nameWidth, nodeWidth, intervalWidth, syncWidth, statusWidth, actionWidth = 136, 54, 84, 78, 58, 104
+			}
 			cols := []ui.TableColumn{
-				{Title: "名称", Width: 190},
+				{Title: "名称", Width: nameWidth},
 				{Title: "订阅地址", MinWidth: 260},
-				{Title: "节点", Width: 70, Align: ui.End},
-				{Title: "同步间隔", Width: 92, Align: ui.End},
-				{Title: "上次同步", Width: 112},
-				{Title: "状态", Width: 80},
-				{Title: "操作", Width: 140, Fixed: true},
+				{Title: "节点", Width: nodeWidth, Align: ui.End},
+				{Title: "同步间隔", Width: intervalWidth, Align: ui.End},
+				{Title: "上次同步", Width: syncWidth},
+				{Title: "状态", Width: statusWidth},
+				{Title: "操作", Width: actionWidth, Fixed: true},
 			}
 			state := c.tableState("subscriptions")
 			ui.Table(ctx, state, cols, len(subs), func(row, col int) {
@@ -571,8 +603,9 @@ func (c *Controller) subscriptionsPage(ctx *ui.Context) {
 func (c *Controller) nodesPage(ctx *ui.Context) {
 	p := c.colors()
 	c.pageScroll(ctx, func() {
-		c.card(ctx, "nodes-controls", func() {
-			ui.Row(ctx).FillWidth().AlignItems(ui.End).Gap(12).Children(func() {
+		c.card(ctx, "nodes-table", func() {
+			c.sectionHeader(ctx, "节点目录", fmt.Sprintf("%d 个节点 · 支持导入、编辑与连通性测试", len(c.snapshot.Catalog.Nodes)), nil)
+			ui.Row(ctx).FillWidth().Padding(12).Radius(10).Background(p.SurfaceAlt).AlignItems(ui.End).Gap(12).Children(func() {
 				kindLabels, kindValues := nodeTestOptions()
 				current := nodeTestLabel(c.nodeTestKind)
 				ui.Column(ctx).Width(170).Gap(6).Children(func() {
@@ -595,8 +628,6 @@ func (c *Controller) nodesPage(ctx *ui.Context) {
 					c.testAllNodes(c.nodeTestKind, c.nodeTestURL)
 				}
 			})
-		})
-		c.card(ctx, "nodes-table", func() {
 			if len(c.snapshot.Catalog.Nodes) == 0 {
 				c.emptyState(ctx, "还没有节点", "添加单个节点，或从分享链接批量导入。", func() {
 					if c.labeledAction(ctx, iconPlus, "导入分享链接", true).Clicked() {
@@ -607,14 +638,18 @@ func (c *Controller) nodesPage(ctx *ui.Context) {
 			}
 			nodes := append([]control.Node(nil), c.snapshot.Catalog.Nodes...)
 			sort.SliceStable(nodes, func(i, j int) bool { return strings.ToLower(nodes[i].Name) < strings.ToLower(nodes[j].Name) })
+			nameWidth, protocolWidth, portWidth, groupWidth, testsWidth, actionWidth := float32(210), float32(104), float32(64), float32(160), float32(140), float32(106)
+			if c.narrow {
+				nameWidth, protocolWidth, portWidth, groupWidth, testsWidth, actionWidth = 130, 80, 48, 100, 90, 104
+			}
 			cols := []ui.TableColumn{
-				{Title: "名称", Width: 210},
-				{Title: "协议", Width: 104},
+				{Title: "名称", Width: nameWidth},
+				{Title: "协议", Width: protocolWidth},
 				{Title: "服务器", MinWidth: 180},
-				{Title: "端口", Width: 64, Align: ui.End},
-				{Title: "策略组", Width: 160},
-				{Title: "连通性", Width: 140},
-				{Title: "操作", Width: 106, Fixed: true},
+				{Title: "端口", Width: portWidth, Align: ui.End},
+				{Title: "策略组", Width: groupWidth},
+				{Title: "连通性", Width: testsWidth},
+				{Title: "操作", Width: actionWidth, Fixed: true},
 			}
 			state := c.tableState("nodes")
 			ui.Table(ctx, state, cols, len(nodes), func(row, col int) {

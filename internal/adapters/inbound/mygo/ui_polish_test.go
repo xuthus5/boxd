@@ -69,12 +69,14 @@ func TestCompactVersionFitsNarrowSidebar(t *testing.T) {
 	}
 }
 
-func TestAboutPageDoesNotRepeatKernelStatus(t *testing.T) {
+func TestAboutPageIsDedicatedToProductInformation(t *testing.T) {
 	controller := newViewTestController(ControllerOptions{})
 	controller.page = pageAbout
 	tester := ui.NewTester(controller.View, 960, 640)
-	if count := countExactText(tester.Texts(), "内核未启动"); count != 1 {
-		t.Fatalf("kernel status rendered %d times, want 1; texts=%q", count, tester.Texts())
+	for _, forbidden := range []string{"内核未启动", "内核能力", "内核版本", "配置版本", "启动时间"} {
+		if tester.HasText(forbidden) {
+			t.Fatalf("about page rendered kernel information %q; texts=%q", forbidden, tester.Texts())
+		}
 	}
 }
 
@@ -139,6 +141,23 @@ func TestHeaderPrimaryActionStillOpensEditor(t *testing.T) {
 	}
 	if !controller.editorOpen || controller.editor.kind != editorSubscription {
 		t.Fatalf("editor state = %+v, open=%v", controller.editor, controller.editorOpen)
+	}
+}
+
+func TestWideHeaderAlignsWithPageContent(t *testing.T) {
+	controller := newViewTestController(ControllerOptions{})
+	controller.page = pageOverview
+	tester := ui.NewTester(controller.View, 1920, 1080)
+	title, ok := tester.Find("运行总览")
+	if !ok {
+		t.Fatalf("page title was not rendered; texts=%q", tester.Texts())
+	}
+	section, ok := tester.Find("运行指标")
+	if !ok {
+		t.Fatalf("overview metrics section was not rendered; texts=%q", tester.Texts())
+	}
+	if delta := section.X - title.X; delta < 16 || delta > 24 {
+		t.Fatalf("header and page content are not aligned: title x=%.1f, content x=%.1f", title.X, section.X)
 	}
 }
 

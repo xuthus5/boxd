@@ -149,6 +149,41 @@ func TestLongTableValueKeepsSingleLineHeight(t *testing.T) {
 	}
 }
 
+func TestNarrowTablesKeepRowActionsInsideViewport(t *testing.T) {
+	tests := []struct {
+		page   string
+		action string
+	}{
+		{page: pageSubscriptions, action: "编辑订阅 Primary subscription"},
+		{page: pageNodes, action: "编辑节点 Tokyo Edge"},
+		{page: pageEgress, action: "编辑策略组 Auto Select"},
+		{page: pageRoutes, action: "编辑规则 Private domains"},
+		{page: pageRuleSets, action: "编辑规则集 geoip-cn"},
+		{page: pageConnections, action: "关闭连接 api.github.com:443"},
+	}
+	for _, test := range tests {
+		t.Run(test.page, func(t *testing.T) {
+			controller := newViewTestController(ControllerOptions{})
+			controller.page = test.page
+			if test.page == pageConnections {
+				controller.snapshot.Kernel.State = kernel.StateRunning
+				controller.snapshot.Connections = []kernel.Connection{{
+					ID: 1, Network: "tcp", Source: "127.0.0.1:51622", Target: "api.github.com:443",
+					Outbound: "Auto Select", Rule: "GitHub", Process: "Code",
+				}}
+			}
+			tester := ui.NewTester(controller.View, 960, 720)
+			bounds, ok := tester.Find(test.action)
+			if !ok {
+				t.Fatalf("row action %q was not rendered; texts=%q", test.action, tester.Texts())
+			}
+			if right := bounds.X + bounds.W; right > 940 {
+				t.Fatalf("row action %q ended at %.1fpx, outside the narrow content area", test.action, right)
+			}
+		})
+	}
+}
+
 func TestThemeToggleNotifiesDesktopHost(t *testing.T) {
 	var persisted bool
 	controller := newViewTestController(ControllerOptions{OnThemeChange: func(dark bool) error {
